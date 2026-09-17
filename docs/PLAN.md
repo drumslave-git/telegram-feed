@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 1 (Android MVP). **Next task:** P1-13.
+**Current phase:** 1 (Android MVP). **Next task:** P1-14.
 
 ## Phase 0 — Spikes
 
@@ -29,7 +29,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 - [x] P1-10 Merged timeline: k-way merge, pagination, live inserts, album collapsing, edits and deletes. `FeedTimeline` in `core` (local-then-network fill, dedupe, pending "N new posts" when scrolled down) with unit tests; `TimelineScreen` + `PostCard` in the app (media shown as labels until P1-11), edit action opens the feed editor.
 - [x] P1-11 Media: inline photos, video playback, voice and audio playback, download progress. `MediaView`/`Downloaded` (progress from `fileProgress`, photo size chosen by viewport width, video and audio download on play, documents on tap), `video_player` and `just_audio` widgets. Widget tests with a scripted download gateway; playback itself needs a logged-in emulator run.
 - [x] P1-12 Read state: mark on scroll, unread counters, jump to first unread, `syncReadToTelegram` setting. `ReadMarker` (debounced, newest id per chat, `viewMessages` when the setting is on), positioned list in `TimelineScreen` (items above the viewport count as read, unread dot per card, jump loads until the marks are reached), `firstUnreadIndex`/`reachedMarks` in `FeedTimeline`. Setting UI comes with P1-14.
-- [ ] P1-13 Open in Telegram deep link.
+- [x] P1-13 Open in Telegram deep link. `telegramPostUri` in `core` (`https://t.me/<user>/<id>` for public channels, `tg://privatepost` plus `t.me/c` fallback for private ones, TDLib id → server id), `url_launcher` action on every card, manifest `<queries>` for https/tg.
 - [ ] P1-14 Settings screen: account, appearance, storage usage and cache clearing, licenses.
 - [ ] P1-15 Golden tests for main screens; integration test on emulator against the test DC.
 - [ ] P1-16 Closed beta build (signed APK via CI).

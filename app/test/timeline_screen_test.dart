@@ -82,6 +82,7 @@ void main() {
         .toList();
     expect(texts, ['one-newest', 'two-mid', 'one-old']);
     expect(find.text('One'), findsNWidgets(2)); // both posts of channel One
+    expect(find.byTooltip('Open in Telegram'), findsNWidgets(3));
     expect(find.text('End of feed'), findsOneWidget);
 
     gw.posts.add(PostAdded(post(-2, 9, 900, 'two-live')));

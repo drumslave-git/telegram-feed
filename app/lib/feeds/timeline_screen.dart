@@ -5,6 +5,7 @@ import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'feed_editor_screen.dart';
 import 'media_view.dart';
@@ -39,6 +40,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
   StreamSubscription<List<WatchedChannel>>? _sources;
   StreamSubscription<List<FeedReadMark>>? _marksSub;
   Map<int, String> _titles = const {};
+  Map<int, String?> _usernames = const {};
   Map<int, int> _marks = const {};
   bool _loading = false;
   bool _jumping = false;
@@ -58,6 +60,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
   /// (Re)builds the timeline when the feed's sources change.
   void _onSources(List<WatchedChannel> sources) {
     _titles = {for (final s in sources) s.chatId: s.title};
+    _usernames = {for (final s in sources) s.chatId: s.username};
     final ids = sources.map((s) => s.chatId).toList();
     if (_timeline != null &&
         _timeline!.chatIds.length == ids.length &&
@@ -156,6 +159,27 @@ class _TimelineScreenState extends State<TimelineScreen> {
     }
   }
 
+  /// Opens the post in the Telegram app, falling back to t.me in the browser.
+  Future<void> _openInTelegram(TimelineItem item) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final uri = telegramPostUri(
+      chatId: item.chatId,
+      messageId: item.head.messageId,
+      username: _usernames[item.chatId],
+    );
+    final web = telegramPostWebUri(
+      chatId: item.chatId,
+      messageId: item.head.messageId,
+    );
+    for (final u in [uri, web]) {
+      if (u == null) continue;
+      if (await launchUrl(u, mode: LaunchMode.externalApplication)) return;
+    }
+    messenger.showSnackBar(
+      const SnackBar(content: Text('No app can open this post.')),
+    );
+  }
+
   @override
   void dispose() {
     _positions.itemPositions.removeListener(_onPositions);
@@ -243,6 +267,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                   channelTitle: _titles[items[i].chatId] ?? '',
                   gateway: widget.gateway,
                   unread: FeedTimeline.isUnread(items[i], _marks),
+                  onOpenInTelegram: () => _openInTelegram(items[i]),
                 );
               },
             ),
@@ -275,11 +300,13 @@ class PostCard extends StatelessWidget {
     required this.channelTitle,
     required this.gateway,
     this.unread = false,
+    this.onOpenInTelegram,
   });
   final TimelineItem item;
   final String channelTitle;
   final TelegramGateway gateway;
   final bool unread;
+  final VoidCallback? onOpenInTelegram;
 
   @override
   Widget build(BuildContext context) {
@@ -317,6 +344,13 @@ class PostCard extends StatelessWidget {
                   ),
                 ),
                 Text(_formatDate(date), style: theme.textTheme.labelSmall),
+                if (onOpenInTelegram != null)
+                  IconButton(
+                    tooltip: 'Open in Telegram',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    onPressed: onOpenInTelegram,
+                  ),
               ],
             ),
             for (final m in media.take(10))

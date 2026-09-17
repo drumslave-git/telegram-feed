@@ -7,4 +7,5 @@ library;
 export 'src/core_client.dart';
 export 'src/core_server.dart';
 export 'src/feed_timeline.dart';
+export 'src/telegram_links.dart';
 export 'src/protocol.dart';
