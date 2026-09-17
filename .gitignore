@@ -30,21 +30,12 @@ android/key.properties
 Thumbs.db
 .gradle/
 
-# tdweb dist (built by tool/tdweb or fetched from npm)
-**/web/tdweb/
-spikes/tdweb/web/*.worker.js
-spikes/tdweb/web/*.wasm
-spikes/tdweb/web/*.mem
-
 # Flutter/Gradle generated files inside any Android project
 **/.kotlin/
 **/GeneratedPluginRegistrant.java
 **/android/gradlew
 **/android/gradlew.bat
 **/android/gradle/wrapper/gradle-wrapper.jar
-app/web/*.worker.js
-app/web/*.wasm
-app/web/drift_worker.js
 **/jniLibs/TDLIB_COMMIT
 
 # golden failure artifacts

@@ -21,5 +21,3 @@ jobs:
           for p in packages/*/; do (cd "$p" && dart test --reporter=compact); done
       - run: flutter test
         working-directory: app
-      - name: Web build compiles (assets are fetched separately)
-        run: bash tool/build_web.sh --no-assets

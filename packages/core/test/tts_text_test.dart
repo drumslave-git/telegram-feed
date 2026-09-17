@@ -44,13 +44,4 @@ void main() {
     expect(prepareForSpeech('Курс рубля 📉 вырос'), 'Курс рубля вырос');
     expect(prepareForSpeech('比特币涨了'), '比特币涨了');
   });
-
-  test('language guess by script', () {
-    expect(guessLanguageByScript('Курс рубля вырос'), 'ru');
-    expect(guessLanguageByScript('比特币涨了'), 'zh');
-    expect(guessLanguageByScript('ビットコインが上がった'), 'ja');
-    expect(guessLanguageByScript('שלום world'), 'he');
-    expect(guessLanguageByScript('plain latin text'), isNull);
-    expect(guessLanguageByScript(''), isNull);
-  });
 }

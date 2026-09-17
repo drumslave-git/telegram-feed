@@ -13,9 +13,9 @@ Not a replacement for the official Telegram app. Chats, calls, stories, and acco
 
 | Topic | Decision |
 |---|---|
-| Platforms | Android first, then web. iOS is not on the roadmap: without a persistent background service it cannot deliver real-time rule notifications on-device. |
+| Platforms | Android. iOS is not on the roadmap: without a persistent background service it cannot deliver real-time rule notifications on-device. A web build was completed in phase 3 and dropped on 2026-09-17 (ARCHITECTURE.md decision log). |
 | Telegram access | User account via MTProto (TDLib), session lives on-device |
-| UI framework | Flutter (one codebase for Android and web) |
+| UI framework | Flutter |
 | Audience | Public product, open source |
 | Monetization | None; open source under GPL-3.0, maybe donations later |
 | Feed sources | Only channels the user is a member of (public or private). No search-and-join of unjoined channels. |
@@ -101,7 +101,7 @@ Phase 2 adds **Rules list**, **Rule editor**, and **Read-aloud settings**.
 
 **Phase 2, rules and voice.** Foreground service, boolean rules with schedules, priority notifications, device TTS with language detection, "Listen" action.
 
-**Phase 3, interactions and web.** Reactions, comments, share. Flutter web build on tdweb.
+**Phase 3, interactions and web.** Reactions, comments, share. Flutter web build on tdweb (built, then dropped; see the decision log).
 
 **Phase 4, extras.** Optional sync backend for feeds and rules. AI semantic rules, AI-generated podcast from a feed, optional cloud voices.
 

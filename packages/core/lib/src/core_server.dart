@@ -14,8 +14,8 @@ Map<String, Object?> encodeMatch(RuleMatch m) => {
   'rules': [for (final r in m.rules) r.name],
 };
 
-/// Serves a [TelegramGateway] to any number of [CoreClient]s over ports. Runs wherever the
-/// gateway lives: the core isolate on Android, the main isolate on the web.
+/// Serves a [TelegramGateway] to any number of [CoreClient]s over ports. Runs in the core
+/// isolate.
 final class CoreServer {
   CoreServer(TelegramGateway gateway, {this.log, this.engine, this.onRefresh})
     : _gateway = gateway {

@@ -11,31 +11,6 @@ final _emoji = RegExp(
 final _markers = RegExp(r'[*_~`#>|]+');
 final _ws = RegExp(r'\s+');
 
-/// A language guess from the script of [text], for platforms without a language
-/// identifier (web). Latin script is ambiguous and yields null (the default language applies).
-String? guessLanguageByScript(String text) {
-  final counts = <String, int>{};
-  for (final rune in text.runes) {
-    final lang = switch (rune) {
-      >= 0x0400 && <= 0x04FF => 'ru',
-      >= 0x0370 && <= 0x03FF => 'el',
-      >= 0x0590 && <= 0x05FF => 'he',
-      >= 0x0600 && <= 0x06FF => 'ar',
-      >= 0x0900 && <= 0x097F => 'hi',
-      >= 0x0E00 && <= 0x0E7F => 'th',
-      >= 0x3040 && <= 0x30FF => 'ja',
-      >= 0xAC00 && <= 0xD7AF => 'ko',
-      >= 0x4E00 && <= 0x9FFF => 'zh',
-      _ => null,
-    };
-    if (lang != null) counts[lang] = (counts[lang] ?? 0) + 1;
-  }
-  if (counts.isEmpty) return null;
-  // Japanese text mixes kana with CJK ideographs; any kana decides.
-  if (counts.containsKey('ja')) return 'ja';
-  return counts.entries.reduce((a, b) => b.value > a.value ? b : a).key;
-}
-
 /// The text to hand to the TTS engine, or an empty string when nothing is worth reading.
 String prepareForSpeech(
   String text, {

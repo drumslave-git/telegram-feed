@@ -4,10 +4,10 @@ Status: draft v0.1, 2026-09-17. Companion to SPEC.md.
 
 ## 1. Summary
 
-- **Flutter** app, one codebase for Android (first) and web. iOS is out of scope (decision log).
-- **TDLib** (Telegram's official client library) accessed through its JSON interface (`td_json_client`) via `dart:ffi` on Android, and through **tdweb** (WASM) on web.
+- **Flutter** app, Android only. iOS and web are out of scope (decision log).
+- **TDLib** (Telegram's official client library) accessed through its JSON interface (`td_json_client`) via `dart:ffi`.
 - The TDLib client and all "always-on" logic live in a single **core isolate**. On Android that isolate is hosted by a foreground service so it survives the UI being killed. The UI is a thin client of the core.
-- App data that TDLib does not own (feeds, feed membership, read markers, rules, settings) lives in a local **SQLite** database via **Drift**, which also runs on web.
+- App data that TDLib does not own (feeds, feed membership, read markers, rules, settings) lives in a local **SQLite** database via **Drift**.
 - No backend. Nothing leaves the device except MTProto traffic to Telegram.
 
 ```
@@ -21,7 +21,7 @@ Status: draft v0.1, 2026-09-17. Companion to SPEC.md.
 │        │            │              │                             │
 │   TelegramGateway   AppDb (Drift/SQLite)   Notifier              │
 │        │                                                          │
-│   TDLib (td_json_client via FFI, or tdweb on web)                 │
+│   TDLib (td_json_client via FFI)                                  │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -31,9 +31,9 @@ Status: draft v0.1, 2026-09-17. Companion to SPEC.md.
 |---|---|---|
 | TDLib | GramJS / MTProto from scratch; Bot API | TDLib is Telegram's own library, handles auth, updates, media download, local cache, and has Android and web builds. Bot API cannot read arbitrary channels. |
 | On-device session | Server-side session; hybrid | The founder chose on-device. No server cost, no custody of user sessions, matches an open-source product. Cost: notifications depend on the app staying alive, which is fine on Android with a foreground service and is why iOS was dropped. |
-| Flutter | React Native, Kotlin Multiplatform | One UI codebase for Android and web, mature FFI, official web support. |
+| Flutter | React Native, Kotlin Multiplatform | Mature FFI, one codebase that could also target desktop or (dropped) web. |
 | Core isolate separate from UI | TDLib in the UI isolate; native Kotlin service owning TDLib | The UI can be destroyed while the service lives on. Keeping TDLib in a Dart isolate keeps the code cross-platform; a Kotlin-owned TDLib would need a second implementation for web. |
-| Drift (SQLite) | Hive, Isar, shared_preferences | Relational data (feeds ↔ channels, per-feed read markers), proper queries, works on web through `sqlite3` WASM. |
+| Drift (SQLite) | Hive, Isar, shared_preferences | Relational data (feeds ↔ channels, per-feed read markers), proper queries. |
 | Device TTS via `flutter_tts` | Cloud voices | Free, offline, works with the screen off. Cloud voices are a later opt-in. |
 
 ## 3. Module layout (Dart packages in one repo)
@@ -43,7 +43,7 @@ telegram-feed/
   app/                  Flutter application (UI, routing, theming, platform glue)
   packages/
     core/               Core isolate: CoreServer, services, rule engine, TTS, notifier
-    telegram_gateway/   TelegramGateway interface + TDLib FFI impl + tdweb impl
+    telegram_gateway/   TelegramGateway interface + TDLib FFI impl
     app_db/             Drift schema, DAOs, migrations
     rules/              Rule AST, parser, evaluator (pure Dart, heavily unit tested)
     tdlib_bindings/     Generated Dart types for the TDLib JSON API (td_api.tl → Dart)
@@ -86,7 +86,6 @@ Implementations:
 
 - One implementation, `TdlibGateway` (package `telegram_gateway`), over a `TdTransport` (raw JSON in, raw JSON out). `TdClient` matches responses to requests by `@extra`, decodes updates with `tdlib_bindings` and hands them to the gateway strictly in order (an edit that needs a `getMessage` round trip cannot be overtaken by the following delete).
 - `FfiTransport` (Android, and desktop for development): loads `libtdjson`, polls `td_receive` in one long-lived receive isolate and demultiplexes by `@client_id`. Imported from `package:telegram_gateway/tdlib_ffi.dart` only on native platforms.
-- `TdwebTransport` (web): wraps tdweb's `TdClient` through `dart:js_interop`, JSON strings both ways, so the generated types, codec and `TdlibGateway` are shared. tdweb stores its database and files in IndexedDB. Downloaded files are read back with tdweb's `readFile` and shown through `blob:` URLs (`TdlibGateway.localFileUrl`).
 - Post events are emitted only for chats known to be channels; `updateMessageContent`/`updateMessageEdited` are re-fetched with `getMessage` so `PostEdited` carries the full post; `updateDeleteMessages` is forwarded only when `is_permanent`.
 
 TDLib parameters: `use_message_database = true`, `use_chat_info_database = true`, `use_file_database = true`, `files_directory` under app cache. TDLib owns message and file caching; the app never duplicates message bodies into its own DB.
@@ -180,7 +179,7 @@ Android 13+ requires `POST_NOTIFICATIONS`; requested during onboarding of phase 
 ## 7. Read aloud
 
 - `TtsService` in the core isolate owns the queue and text preparation; the actual `flutter_tts` calls run in the service host isolate (see Android notes), which the core reaches over a port. A single FIFO queue; a new item never interrupts a playing one unless the user stops it (`flutter_tts.speak` flushes by default, so the queue must wait for `awaitSpeakCompletion`).
-- Language: `google_mlkit_language_id` on Android (on-device). On web, a small n-gram detector in pure Dart. Detected code selects a voice from the user's per-language preferences, falling back to the system default for that language, then to the app's default voice.
+- Language: `google_mlkit_language_id` on Android (on-device). Detected code selects a voice from the user's per-language preferences, falling back to the system default for that language, then to the app's default voice.
 - Text preparation: strip URLs (say "link"), collapse whitespace, drop emoji and formatting markers, prepend "New post in <channel>". Posts over a configurable length are truncated with "… and more".
 - Audio focus: request transient focus with ducking; release on queue drain. Never speak during a phone call (check `audio_session` / telephony state).
 - The "Listen" action and auto-read use the same path, so behaviour is identical.
@@ -197,13 +196,9 @@ Android 13+ requires `POST_NOTIFICATIONS`; requested during onboarding of phase 
 - Battery: on first run of phase 2 the app asks for an exemption from battery optimization and explains why. Without the service the OS kills TDLib within minutes.
 - TDLib binaries: prebuilt `libtdjson.so` for arm64-v8a, armeabi-v7a and x86_64, produced by a CI job from a pinned TDLib tag, published as a GitHub release asset and downloaded by `tool/fetch_tdlib.dart`. Not committed to git.
 
-### Web (phase 3)
+### Web (dropped 2026-09-17)
 
-- tdweb (TDLib compiled to WASM with Emscripten) loaded via `dart:js_interop`. Built from the pinned TDLib commit by `tool/tdweb/Dockerfile`; the npm package is abandoned at 1.8.0 and does not work (spike P0-4). Bundle: 14.4 MB wasm plus 0.5 MB JS. The worker chunks and the wasm are served from the site root; `tdweb.js` is loaded by `web/index.html`.
-- **No core isolate on the web.** `dart:isolate` ports do not exist there, so `WebHost` (`app/lib/host/app_host_web.dart`) creates the `TdlibGateway` in the page and runs the same `RuleEngine` in the page. The screens only see the `AppHost` interface, which `CoreHost` (Android) and `WebHost` both implement. A logout closes tdweb's client for good, so the page reloads on `AuthClosed`.
-- No background execution; rules and notifications run only while a tab is open. Browser `Notification` API for alerts (`BrowserNotifier`, one notification per post, no channels), Web Speech API for TTS through `flutter_tts`'s web implementation, with language guessed from the script (`guessLanguageByScript`) since ML Kit has no web build.
-- App database: drift on `sqlite3.wasm` in a worker (`web/drift_worker.dart`, compiled by `tool/build_web.sh`), persisted in OPFS or IndexedDB depending on the browser. It is named `telegram_feed_app`: tdweb owns an IndexedDB database named after its instance (`telegram_feed`) and the two must not collide. The storage is chosen explicitly (`WasmDatabase.probe`), dedicated-worker storages first (OPFS with locks, then IndexedDB): tdweb allows one live tab per instance anyway, and some embedded browsers cannot `fetch` from a SharedWorker. `sqlite3.wasm` is built from the sqlite3.dart sources by `tool/sqlite3_wasm/Dockerfile` and published with the TDLib release assets.
-- Any static host works: the build is single-threaded wasm in a Web Worker, so no COOP/COEP headers are needed (spike P0-4), but the bundle must sit at the site root. `tool/build_web.sh` produces `app/build/web`; CI only checks that it compiles. QR login (`requestQrCodeAuthentication` on web, confirmed from a logged-in phone) is the preferred web login.
+A web build on tdweb was completed in phase 3 (commit 87e10f3: tdweb transport over `dart:js_interop`, drift on a self-built `sqlite3.wasm`, browser notifications, Web Speech read-aloud) and verified up to QR login on the production DC, then dropped by the founder to keep the product Android-only. The gateway keeps its transport seam (`TdTransport`), so the target can be revived from that commit.
 
 ### iOS (not planned)
 
@@ -224,7 +219,7 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 - No analytics, no crash reporting by default. Optional opt-in crash reporting (Sentry) may come later; it must never include message content.
 - Logout wipes the TDLib database, the app database, and the media cache.
 - The app requests only: internet, notifications, foreground service, and (optional) battery-optimization exemption.
-- Third-party native and WebAssembly binaries (TDLib, tdweb, sqlite3.wasm) are built from pinned sources in Docker (`tool/`), never downloaded prebuilt from third parties.
+- Third-party native binaries (TDLib) are built from pinned sources in Docker (`tool/tdlib`), never downloaded prebuilt from third parties.
 
 ## 11. Testing strategy
 
@@ -255,7 +250,5 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-17 | Foreground service type `specialUse` | Android 15+ caps `dataSync` at 6 h/day (spike P0-2) |
 | 2026-09-17 | TTS and notification plugins live in the service host isolate, core sends commands | Background isolates cannot receive platform callbacks (spike P0-2) |
 | 2026-09-17 | Share puts the `t.me` link (public username link, else `t.me/c`) into the system share sheet via `share_plus`; copy link uses the clipboard | Private `tg://privatepost` links stay for Open in Telegram only, since other apps cannot open them |
-| 2026-09-17 | Web runs the gateway and rule engine in the page behind the `AppHost` interface; the page reloads after logout | No isolates on the web; tdweb cannot reopen a closed client |
-| 2026-09-17 | `sqlite3.wasm` built from source (`tool/sqlite3_wasm`), not downloaded from sqlite3.dart releases | Same rule as TDLib: no third-party prebuilt binaries |
-| 2026-09-17 | Web build ships as a static bundle from `tool/build_web.sh`; CI compiles it but does not deploy | Hosting must be a site root (tdweb chunk paths); no public deployment yet |
+| 2026-09-17 | Web target dropped after the phase 3 build worked | Founder decision, Android only; the build stays in history at 87e10f3 |
 | 2026-09-17 | Web stays on tdweb, built from source; no GramJS gateway | tdweb 1.8.67 self-built works end to end, npm 1.8.0 is dead (spike P0-4) |

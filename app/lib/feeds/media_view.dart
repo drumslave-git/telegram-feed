@@ -1,10 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import 'local_media.dart';
 import 'players.dart';
 
 /// Renders one post's media inline. Files are TDLib-managed: [gateway.download] returns the
@@ -101,8 +100,7 @@ class _DownloadedState extends State<Downloaded> {
   @override
   void initState() {
     super.initState();
-    // On the web TDLib's path is virtual; download() (instant when cached) maps it to a URL.
-    _path = !kIsWeb && widget.file.isDownloaded ? widget.file.localPath : null;
+    _path = widget.file.isDownloaded ? widget.file.localPath : null;
     if (_path == null && widget.autoStart) start();
   }
 
@@ -183,7 +181,7 @@ class PhotoView extends StatelessWidget {
             child: Center(child: CircularProgressIndicator()),
           ),
           builder: (context, path) =>
-              localImage(path, fit: BoxFit.cover, gaplessPlayback: true),
+              Image.file(File(path), fit: BoxFit.cover, gaplessPlayback: true),
         ),
       ),
     );
@@ -242,7 +240,7 @@ class _VideoViewState extends State<VideoView> {
                       gateway: widget.gateway,
                       placeholder: const ColoredBox(color: Colors.black26),
                       builder: (context, path) =>
-                          localImage(path, fit: BoxFit.cover),
+                          Image.file(File(path), fit: BoxFit.cover),
                     )
                   else
                     const ColoredBox(color: Colors.black26),

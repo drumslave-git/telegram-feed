@@ -22,4 +22,4 @@ Custom Telegram client (Flutter + TDLib) for combining channels into feeds, keyw
 - `api_id` / `api_hash` are never committed. They come from `--dart-define=TG_API_ID` and `--dart-define=TG_API_HASH`.
 - Spec and architecture live in `docs/SPEC.md` and `docs/ARCHITECTURE.md`. When a decision changes, update both the relevant section and the decision log in the same commit.
 - Spikes go on `spike/<name>` branches and end with `docs/spikes/<name>.md`.
-- Android and web only. iOS is dropped.
+- Android only. iOS and web are dropped (web was built in P3-4 and dropped on 2026-09-17; the code is in history at 87e10f3).

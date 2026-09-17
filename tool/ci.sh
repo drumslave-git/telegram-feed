@@ -11,5 +11,3 @@ for p in packages/*/; do
 done
 echo "== flutter test app"
 (cd app && flutter test)
-echo "== flutter build web"
-bash tool/build_web.sh --no-assets

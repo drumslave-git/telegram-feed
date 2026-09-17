@@ -2,7 +2,7 @@
 
 A custom Telegram client for *reading*, not chatting. Combine channels into feeds, get notifications from keyword rules instead of a per-chat mute switch, and have posts read aloud.
 
-Status: phase 0 spikes done (TDLib FFI on Android, foreground-service core isolate, timeline performance, tdweb on web; see `docs/spikes/`). Phase 1 (Android MVP) starts next.
+Status: phases 1 to 3 done (Android MVP, keyword rules and read-aloud, reactions, comments, share). Stabilisation next. Web was built and dropped (see `docs/ARCHITECTURE.md`).
 
 - [Product spec](docs/SPEC.md): what the app does, user stories, phases, resolved decisions.
 - [Architecture](docs/ARCHITECTURE.md): Flutter + TDLib design, data model, rule engine, platform notes, phase 0 spikes.
@@ -45,21 +45,21 @@ GPL-3.0. See [LICENSE](LICENSE).
 Dart pub workspace (run `flutter pub get` once at the root).
 
 ```
-app/                    Flutter application (Android, web)
+app/                    Flutter application (Android)
 packages/core           core isolate: services, timeline, rule engine, TTS/notifier proxies
-packages/telegram_gateway  TelegramGateway + TDLib FFI and tdweb implementations
+packages/telegram_gateway  TelegramGateway + TDLib FFI implementation
 packages/app_db         Drift schema for feeds, sources, read marks, settings
 packages/rules          rule AST, parser, evaluator (pure Dart)
 packages/tdlib_bindings generated TDLib JSON types
-tool/tdlib, tool/tdweb  Docker builds of libtdjson.so and tdweb from the pinned TDLib commit
+tool/tdlib              Docker build of libtdjson.so from the pinned TDLib commit
 tool/ci.sh              what CI runs: analyze, format check, package and app tests
 docs/                   spec, architecture, plan, spike outcomes
 ```
 
 ## Stack
 
-- Flutter (Android first, then web)
-- TDLib via `dart:ffi` on mobile, tdweb on web
+- Flutter (Android)
+- TDLib via `dart:ffi`
 - Drift (SQLite) for app data
 - Device text-to-speech via `flutter_tts`
 
@@ -69,12 +69,9 @@ Telegram API credentials are not in the repo. Obtain `api_id` and `api_hash` at 
 
 ```bash
 flutter pub get                       # once, at the repo root (pub workspace)
-dart tool/fetch_tdlib.dart            # prebuilt libtdjson.so + tdweb for the pinned TDLib commit
+dart tool/fetch_tdlib.dart            # prebuilt libtdjson.so for the pinned TDLib commit
 cd app && flutter run --dart-define=TG_API_ID=12345 --dart-define=TG_API_HASH=abcdef...
 ```
 
-Without a GitHub release yet, build the binaries locally with Docker (`tool/tdlib`, `tool/tdweb`,
-`tool/sqlite3_wasm`) and run `dart tool/fetch_tdlib.dart --local`.
-
-Web: `TG_API_ID=... TG_API_HASH=... bash tool/build_web.sh` writes a static bundle to `app/build/web`.
-Serve it from a site root (no special headers needed), e.g. `python -m http.server -d app/build/web 8090`.
+Without a GitHub release yet, build the binary locally with Docker (`tool/tdlib`) and run
+`dart tool/fetch_tdlib.dart --local`.

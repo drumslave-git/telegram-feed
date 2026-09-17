@@ -1,8 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:video_player/video_player.dart';
 
-import 'local_media.dart';
 import 'media_view.dart' show formatDuration;
 
 /// Inline video for a downloaded file. Starts playing immediately; tap toggles pause.
@@ -16,7 +17,9 @@ class VideoPlayerWidget extends StatefulWidget {
 }
 
 class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
-  late final VideoPlayerController _ctl = localVideoController(widget.path);
+  late final VideoPlayerController _ctl = VideoPlayerController.file(
+    File(widget.path),
+  );
   bool _ready = false;
 
   @override
@@ -91,7 +94,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   @override
   void initState() {
     super.initState();
-    setLocalAudio(_player, widget.path).then((_) => _player.play()).catchError((
+    _player.setFilePath(widget.path).then((_) => _player.play()).catchError((
       Object e,
     ) {
       if (mounted) setState(() => _error = '$e');

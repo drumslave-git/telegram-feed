@@ -35,15 +35,10 @@ final class TdlibConfig {
   final String systemLanguageCode;
 }
 
-/// [TelegramGateway] on top of any TDLib JSON transport: `FfiTransport` on Android,
-/// `TdwebTransport` on the web.
+/// [TelegramGateway] on top of any TDLib JSON transport (`FfiTransport` on Android).
 final class TdlibGateway implements TelegramGateway {
-  TdlibGateway(
-    TdTransport transport,
-    this.config, {
-    this.log,
-    this.localFileUrl,
-  }) : _client = TdClient(transport) {
+  TdlibGateway(TdTransport transport, this.config, {this.log})
+    : _client = TdClient(transport) {
     // asyncMap keeps update handling strictly ordered even when a handler awaits a request
     // (responses are routed through TdClient's pending map, not this stream, so no deadlock).
     _sub = _client.updates.asyncMap(_onUpdate).listen((_) {});
@@ -58,10 +53,6 @@ final class TdlibGateway implements TelegramGateway {
 
   final TdlibConfig config;
   final void Function(String)? log;
-
-  /// Turns a downloaded file into something the UI can display when TDLib's local path is
-  /// not a real filesystem path (tdweb: a `blob:` URL). [download] applies it to its result.
-  final Future<String> Function(int fileId)? localFileUrl;
   final TdClient _client;
   late final StreamSubscription<void> _sub;
 
@@ -279,7 +270,7 @@ final class TdlibGateway implements TelegramGateway {
 
   @override
   Future<FileRef> download(FileRef ref, {int priority = 16}) async {
-    if (ref.isDownloaded) return _displayable(ref);
+    if (ref.isDownloaded) return ref;
     final done = _fileCtl.stream.firstWhere(
       (p) => p.fileId == ref.id && p.isComplete,
     )..ignore(); // unused when TDLib reports the file complete right away
@@ -293,16 +284,10 @@ final class TdlibGateway implements TelegramGateway {
       ),
     );
     if (f.local?.isDownloadingCompleted ?? false) {
-      return _displayable(ref.copyWith(localPath: f.local!.path));
+      return ref.copyWith(localPath: f.local!.path);
     }
     final p = await done;
-    return _displayable(ref.copyWith(localPath: p.localPath));
-  }
-
-  Future<FileRef> _displayable(FileRef ref) async {
-    final resolve = localFileUrl;
-    if (resolve == null) return ref;
-    return ref.copyWith(localPath: await resolve(ref.id));
+    return ref.copyWith(localPath: p.localPath);
   }
 
   Future<String> _senderName(td.Message m) async {
