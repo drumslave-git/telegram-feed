@@ -29,6 +29,7 @@ final class CoreClient implements TelegramGateway {
   final _memberCtl = StreamController<ChannelMembershipEvent>.broadcast();
   final _fileCtl = StreamController<FileProgress>.broadcast();
   final _matchCtl = StreamController<MatchEvent>.broadcast();
+  final _commentCtl = StreamController<Comment>.broadcast();
   final _pausedCtl = StreamController<bool>.broadcast();
   AuthState _auth = const AuthStarting();
   int _seq = 0;
@@ -66,6 +67,8 @@ final class CoreClient implements TelegramGateway {
             _matchCtl.add(MatchEvent.decode(data));
           case 'paused':
             _pausedCtl.add(data['paused'] as bool);
+          case 'comments':
+            _commentCtl.add(decodeComment(data));
         }
     }
   }
@@ -165,6 +168,37 @@ final class CoreClient implements TelegramGateway {
   }
 
   @override
+  Future<Thread?> discussion(int chatId, int messageId) async {
+    final r = await _call('discussion', {
+      'chatId': chatId,
+      'messageId': messageId,
+    });
+    return r == null ? null : decodeThread(r as Map<Object?, Object?>);
+  }
+
+  @override
+  Future<List<Comment>> threadHistory(
+    Thread thread, {
+    int fromMessageId = 0,
+    int limit = 30,
+  }) async => ((await _call('threadHistory', {
+    'thread': encodeThread(thread),
+    'fromMessageId': fromMessageId,
+    'limit': limit,
+  })) as List).map((e) => decodeComment(e as Map<Object?, Object?>)).toList();
+
+  @override
+  Future<void> reply(Thread thread, String text) =>
+      _call('reply', {'thread': encodeThread(thread), 'text': text});
+
+  @override
+  Stream<Comment> get comments => _commentCtl.stream;
+
+  @override
+  Future<void> closeThread(Thread thread) =>
+      _call('closeThread', {'thread': encodeThread(thread)});
+
+  @override
   Future<List<String>> availableReactions(int chatId, int messageId) async =>
       ((await _call('availableReactions', {
         'chatId': chatId,
@@ -211,5 +245,6 @@ final class CoreClient implements TelegramGateway {
     await _fileCtl.close();
     await _matchCtl.close();
     await _pausedCtl.close();
+    await _commentCtl.close();
   }
 }

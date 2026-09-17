@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'feed_editor_screen.dart';
 import 'media_view.dart';
 import 'read_marker.dart';
+import 'thread_screen.dart';
 
 /// The merged timeline of one feed (ARCHITECTURE.md section 5.3).
 class TimelineScreen extends StatefulWidget {
@@ -357,6 +358,15 @@ class _TimelineScreenState extends State<TimelineScreen> {
                   onOpenInTelegram: () => _openInTelegram(items[i]),
                   onReact: (emoji, remove) => _react(items[i], emoji, remove),
                   onPickReaction: () => _pickReaction(items[i]),
+                  onOpenThread: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ThreadScreen(
+                        gateway: widget.gateway,
+                        post: items[i].head,
+                        channelTitle: _titles[items[i].chatId] ?? '',
+                      ),
+                    ),
+                  ),
                 );
               },
             ),
@@ -392,6 +402,7 @@ class PostCard extends StatelessWidget {
     this.onOpenInTelegram,
     this.onReact,
     this.onPickReaction,
+    this.onOpenThread,
   });
   final TimelineItem item;
   final String channelTitle;
@@ -402,6 +413,7 @@ class PostCard extends StatelessWidget {
   /// Tap on an existing reaction chip: adds it, or removes it when already chosen.
   final void Function(String emoji, bool remove)? onReact;
   final VoidCallback? onPickReaction;
+  final VoidCallback? onOpenThread;
 
   @override
   Widget build(BuildContext context) {
@@ -499,6 +511,17 @@ class PostCard extends StatelessWidget {
                         ),
                         visualDensity: VisualDensity.compact,
                         onPressed: onPickReaction,
+                      ),
+                    if (onOpenThread != null)
+                      ActionChip(
+                        avatar: const Icon(Icons.forum_outlined, size: 18),
+                        label: Text(
+                          item.head.replyCount > 0
+                              ? '${item.head.replyCount} comment${item.head.replyCount == 1 ? '' : 's'}'
+                              : 'Comments',
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: onOpenThread,
                       ),
                   ],
                 ),

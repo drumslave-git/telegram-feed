@@ -118,6 +118,9 @@ final class CoreServer {
       gateway.membershipEvents.listen(
         (e) => _broadcast(CoreStream.membership, encodeMembership(e)),
       ),
+      gateway.comments.listen(
+        (c) => _broadcast(CoreStream.comments, encodeComment(c)),
+      ),
     ];
   }
 
@@ -212,6 +215,28 @@ final class CoreServer {
         setPaused(a['paused'] as bool);
       case 'isPaused':
         return _paused;
+      case 'discussion':
+        final t = await gateway.discussion(
+          a['chatId'] as int,
+          a['messageId'] as int,
+        );
+        return t == null ? null : encodeThread(t);
+      case 'threadHistory':
+        final list = await gateway.threadHistory(
+          decodeThread(a['thread'] as Map<Object?, Object?>),
+          fromMessageId: a['fromMessageId'] as int,
+          limit: a['limit'] as int,
+        );
+        return list.map(encodeComment).toList();
+      case 'reply':
+        await gateway.reply(
+          decodeThread(a['thread'] as Map<Object?, Object?>),
+          a['text'] as String,
+        );
+      case 'closeThread':
+        await gateway.closeThread(
+          decodeThread(a['thread'] as Map<Object?, Object?>),
+        );
       case 'availableReactions':
         return gateway.availableReactions(
           a['chatId'] as int,

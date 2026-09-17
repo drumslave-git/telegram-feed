@@ -508,6 +508,114 @@ void main() {
     expect(await g.availableReactions(-1001, 1), ['👍', '❤']);
   });
 
+  test(
+    'discussion thread: open, history with author names, live comment, reply',
+    () async {
+      t.handlers['getMessageThread'] = (_) => {
+        '@type': 'messageThreadInfo',
+        'chat_id': -2002,
+        'message_thread_id': 900,
+        'reply_info': {
+          '@type': 'messageReplyInfo',
+          'reply_count': 2,
+          'recent_replier_ids': [],
+          'last_read_inbox_message_id': 0,
+          'last_read_outbox_message_id': 0,
+          'last_message_id': 0,
+        },
+        'unread_message_count': 0,
+        'messages': [],
+      };
+      t.handlers['getUser'] = (r) => {
+        '@type': 'user',
+        'id': r['user_id'],
+        'first_name': 'Ann',
+        'last_name': 'Lee',
+      };
+      t.handlers['getMessageThreadHistory'] = (_) => {
+        '@type': 'messages',
+        'total_count': 2,
+        'messages': [
+          {
+            ...messageJson(-2002, 902, text: 'second'),
+            'topic_id': {
+              '@type': 'messageTopicThread',
+              'message_thread_id': 900,
+            },
+            'sender_id': {'@type': 'messageSenderUser', 'user_id': 7},
+          },
+          {
+            ...messageJson(-2002, 900, text: 'root'),
+            'topic_id': {
+              '@type': 'messageTopicThread',
+              'message_thread_id': 900,
+            },
+          },
+        ],
+      };
+      t.handlers['sendMessage'] = (_) => messageJson(-2002, 903, text: 'mine');
+
+      final thread = (await g.discussion(-1001, 5))!;
+      expect(thread.chatId, -2002);
+      expect(thread.threadId, 900);
+      expect(thread.replyCount, 2);
+
+      final history = await g.threadHistory(thread);
+      expect(history.map((c) => c.messageId), [902]); // root excluded
+      expect(history.single.author, 'Ann Lee');
+
+      final live = <Comment>[];
+      final sub = g.comments.listen(live.add);
+      t.update({
+        '@type': 'updateNewMessage',
+        'message': {
+          ...messageJson(-2002, 904, text: 'new'),
+          'topic_id': {'@type': 'messageTopicThread', 'message_thread_id': 900},
+          'sender_id': {'@type': 'messageSenderUser', 'user_id': 7},
+        },
+      });
+      t.update({
+        '@type': 'updateNewMessage',
+        'message': {
+          ...messageJson(-2002, 905, text: 'other thread'),
+          'message_thread_id': 1,
+        },
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(live.map((c) => c.text), ['new']);
+      expect(live.single.author, 'Ann Lee'); // cached lookup
+
+      await g.reply(thread, 'hello');
+      final sent = t.sent.last;
+      expect(sent['@type'], 'sendMessage');
+      expect(sent['chat_id'], -2002);
+      expect((sent['reply_to'] as Map)['message_id'], 900);
+      expect(
+        ((sent['input_message_content'] as Map)['text'] as Map)['text'],
+        'hello',
+      );
+
+      await g.closeThread(thread);
+      t.update({
+        '@type': 'updateNewMessage',
+        'message': {
+          ...messageJson(-2002, 906, text: 'after close'),
+          'topic_id': {'@type': 'messageTopicThread', 'message_thread_id': 900},
+        },
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(live.length, 1);
+      await sub.cancel();
+
+      t.handlers['getMessageThread'] = (_) => {
+        '@type': 'error',
+        'code': 400,
+        'message': 'Message has no thread',
+      };
+      expect(await g.discussion(-1001, 6), isNull);
+    },
+  );
+
   test('markViewed forces read through viewMessages', () async {
     t.handlers['viewMessages'] = (_) => {'@type': 'ok'};
     await g.markViewed(-1001, [1, 2]);

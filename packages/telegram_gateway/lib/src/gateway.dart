@@ -41,6 +41,24 @@ abstract interface class TelegramGateway {
     bool remove = false,
   });
 
+  /// The post's discussion thread, or null when the channel has no discussion group.
+  /// Opening a thread makes its new comments arrive on [comments] until [closeThread].
+  Future<Thread?> discussion(int chatId, int messageId);
+
+  /// Comments older than [fromMessageId] (0 = newest), newest first.
+  Future<List<Comment>> threadHistory(
+    Thread thread, {
+    int fromMessageId = 0,
+    int limit = 30,
+  });
+
+  Future<void> reply(Thread thread, String text);
+
+  /// Live comments for open threads.
+  Stream<Comment> get comments;
+
+  Future<void> closeThread(Thread thread);
+
   /// The logged-in account (only valid in [AuthReady]).
   Future<UserInfo> me();
 

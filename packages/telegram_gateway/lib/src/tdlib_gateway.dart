@@ -62,8 +62,13 @@ final class TdlibGateway implements TelegramGateway {
   final _postCtl = StreamController<PostEvent>.broadcast();
   final _memberCtl = StreamController<ChannelMembershipEvent>.broadcast();
   final _fileCtl = StreamController<FileProgress>.broadcast();
+  final _commentCtl = StreamController<Comment>.broadcast();
   final _supergroups = <int, td.Supergroup>{};
   final _channelChatIds = <int>{};
+
+  /// (discussion chat id, thread id) of threads a screen has open.
+  final _openThreads = <(int, int)>{};
+  final _senderNames = <String, String>{};
 
   @override
   Stream<AuthState> get authState async* {
@@ -88,7 +93,10 @@ final class TdlibGateway implements TelegramGateway {
           _authCtl.add(_auth);
         }
       case td.UpdateNewMessage(:final message):
-        if (message != null && _isChannelChat(message.chatId)) {
+        if (message == null) return;
+        if (_openThreads.contains((message.chatId, map.threadIdOf(message)))) {
+          _commentCtl.add(map.comment(message, await _senderName(message)));
+        } else if (_isChannelChat(message.chatId)) {
           _postCtl.add(PostAdded(map.post(message)));
         }
       case td.UpdateMessageContent(:final chatId, :final messageId):
@@ -283,6 +291,103 @@ final class TdlibGateway implements TelegramGateway {
     return ref.copyWith(localPath: p.localPath);
   }
 
+  Future<String> _senderName(td.Message m) async {
+    switch (m.senderId) {
+      case td.MessageSenderUser(:final userId):
+        return _senderNames['u$userId'] ??= await _userName(userId);
+      case td.MessageSenderChat(:final chatId):
+        return _senderNames['c$chatId'] ??= await _chatTitle(chatId);
+      default:
+        return '';
+    }
+  }
+
+  Future<String> _userName(int userId) async {
+    try {
+      final u = await _client.call(td.GetUser(userId: userId));
+      return [u.firstName, u.lastName].where((s) => s.isNotEmpty).join(' ');
+    } on TelegramException {
+      return '';
+    }
+  }
+
+  Future<String> _chatTitle(int chatId) async {
+    try {
+      return (await _client.call(td.GetChat(chatId: chatId))).title;
+    } on TelegramException {
+      return '';
+    }
+  }
+
+  @override
+  Future<Thread?> discussion(int chatId, int messageId) async {
+    try {
+      final info = await _client.call(
+        td.GetMessageThread(chatId: chatId, messageId: messageId),
+      );
+      final t = Thread(
+        chatId: info.chatId,
+        threadId: info.messageThreadId,
+        postChatId: chatId,
+        postMessageId: messageId,
+        replyCount: info.replyInfo?.replyCount ?? 0,
+      );
+      _openThreads.add((t.chatId, t.threadId));
+      return t;
+    } on TelegramException catch (e) {
+      // 400 "Message has no thread" / channel without a discussion group.
+      if (e.code == 400 || e.code == 404) return null;
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<Comment>> threadHistory(
+    Thread thread, {
+    int fromMessageId = 0,
+    int limit = 30,
+  }) async {
+    final r = await _client.call(
+      td.GetMessageThreadHistory(
+        chatId: thread.postChatId,
+        messageId: thread.postMessageId,
+        fromMessageId: fromMessageId,
+        offset: 0,
+        limit: limit,
+      ),
+    );
+    final out = <Comment>[];
+    for (final m in r.messages) {
+      if (m.id == thread.threadId) continue; // the forwarded post itself
+      out.add(map.comment(m, await _senderName(m)));
+    }
+    return out;
+  }
+
+  @override
+  Future<void> reply(Thread thread, String text) => _client.call(
+    td.SendMessage(
+      chatId: thread.chatId,
+      replyTo: td.InputMessageReplyToMessage(
+        messageId: thread.threadId,
+        checklistTaskId: 0,
+        pollOptionId: '',
+      ),
+      inputMessageContent: td.InputMessageText(
+        text: td.FormattedText(text: text, entities: const []),
+        clearDraft: true,
+      ),
+    ),
+  );
+
+  @override
+  Stream<Comment> get comments => _commentCtl.stream;
+
+  @override
+  Future<void> closeThread(Thread thread) async {
+    _openThreads.remove((thread.chatId, thread.threadId));
+  }
+
   @override
   Future<List<String>> availableReactions(int chatId, int messageId) async =>
       map.availableEmoji(
@@ -365,5 +470,6 @@ final class TdlibGateway implements TelegramGateway {
     await _postCtl.close();
     await _memberCtl.close();
     await _fileCtl.close();
+    await _commentCtl.close();
   }
 }

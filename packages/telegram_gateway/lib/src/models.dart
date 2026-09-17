@@ -192,6 +192,46 @@ final class UnsupportedMedia extends Media {
   final String tdType;
 }
 
+/// A post's discussion thread, hosted in the channel's linked discussion group.
+final class Thread {
+  const Thread({
+    required this.chatId,
+    required this.threadId,
+    required this.postChatId,
+    required this.postMessageId,
+    required this.replyCount,
+  });
+
+  /// The discussion group chat.
+  final int chatId;
+
+  /// Root message id of the thread inside [chatId] (what replies point at).
+  final int threadId;
+  final int postChatId;
+  final int postMessageId;
+  final int replyCount;
+}
+
+/// One comment in a thread.
+final class Comment {
+  const Comment({
+    required this.chatId,
+    required this.messageId,
+    required this.threadId,
+    required this.date,
+    required this.text,
+    required this.author,
+    this.isOutgoing = false,
+  });
+  final int chatId;
+  final int messageId;
+  final int threadId;
+  final int date;
+  final String text;
+  final String author;
+  final bool isOutgoing;
+}
+
 /// An emoji reaction on a post with its count and whether this account chose it.
 final class Reaction {
   const Reaction({
@@ -217,6 +257,7 @@ final class Post {
     this.views = 0,
     this.isOutgoing = false,
     this.reactions = const [],
+    this.replyCount = 0,
   });
   final int chatId;
   final int messageId;
@@ -236,6 +277,9 @@ final class Post {
 
   /// Emoji reactions (custom-emoji and paid reactions are not shown).
   final List<Reaction> reactions;
+
+  /// Comments in the linked discussion group (0 when the channel has none).
+  final int replyCount;
 
   @override
   String toString() => 'Post($chatId/$messageId, ${text.length} chars)';

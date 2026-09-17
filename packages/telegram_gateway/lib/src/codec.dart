@@ -177,7 +177,44 @@ Map<String, Object?> encodePost(Post p) => {
     for (final r in p.reactions)
       {'emoji': r.emoji, 'count': r.count, 'chosen': r.chosen},
   ],
+  'replyCount': p.replyCount,
 };
+
+Map<String, Object?> encodeThread(Thread t) => {
+  'chatId': t.chatId,
+  'threadId': t.threadId,
+  'postChatId': t.postChatId,
+  'postMessageId': t.postMessageId,
+  'replyCount': t.replyCount,
+};
+
+Thread decodeThread(Map<Object?, Object?> m) => Thread(
+  chatId: m['chatId'] as int,
+  threadId: m['threadId'] as int,
+  postChatId: m['postChatId'] as int,
+  postMessageId: m['postMessageId'] as int,
+  replyCount: m['replyCount'] as int,
+);
+
+Map<String, Object?> encodeComment(Comment c) => {
+  'chatId': c.chatId,
+  'messageId': c.messageId,
+  'threadId': c.threadId,
+  'date': c.date,
+  'text': c.text,
+  'author': c.author,
+  'isOutgoing': c.isOutgoing,
+};
+
+Comment decodeComment(Map<Object?, Object?> m) => Comment(
+  chatId: m['chatId'] as int,
+  messageId: m['messageId'] as int,
+  threadId: m['threadId'] as int,
+  date: m['date'] as int,
+  text: m['text'] as String,
+  author: m['author'] as String,
+  isOutgoing: m['isOutgoing'] as bool,
+);
 
 Post decodePost(Map<Object?, Object?> m) => Post(
   chatId: m['chatId'] as int,
@@ -199,6 +236,7 @@ Post decodePost(Map<Object?, Object?> m) => Post(
         chosen: r['chosen'] as bool,
       ),
   ],
+  replyCount: (m['replyCount'] as int?) ?? 0,
 );
 
 Map<String, Object?> encodePostEvent(PostEvent e) => switch (e) {

@@ -59,6 +59,21 @@ final class HistoryGateway implements TelegramGateway {
   Future<void> close() async {}
 
   @override
+  Future<Thread?> discussion(int chatId, int messageId) async => null;
+  @override
+  Future<List<Comment>> threadHistory(
+    Thread thread, {
+    int fromMessageId = 0,
+    int limit = 30,
+  }) async => const [];
+  @override
+  Future<void> reply(Thread thread, String text) async {}
+  @override
+  Stream<Comment> get comments => const Stream.empty();
+  @override
+  Future<void> closeThread(Thread thread) async {}
+
+  @override
   Future<List<String>> availableReactions(int chatId, int messageId) async =>
       const ['👍', '🔥'];
   @override

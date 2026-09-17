@@ -105,8 +105,25 @@ Post post(td.Message m) {
     views: m.interactionInfo?.viewCount ?? 0,
     isOutgoing: m.isOutgoing,
     reactions: reactions(m.interactionInfo?.reactions),
+    replyCount: m.interactionInfo?.replyInfo?.replyCount ?? 0,
   );
 }
+
+/// Thread a message belongs to (discussion threads are `messageTopicThread`), else 0.
+int threadIdOf(td.Message m) => switch (m.topicId) {
+  td.MessageTopicThread(:final messageThreadId) => messageThreadId,
+  _ => 0,
+};
+
+Comment comment(td.Message m, String author) => Comment(
+  chatId: m.chatId,
+  messageId: m.id,
+  threadId: threadIdOf(m),
+  date: m.date,
+  text: content(m.content).$1,
+  author: author,
+  isOutgoing: m.isOutgoing,
+);
 
 List<Reaction> reactions(td.MessageReactions? r) => [
   for (final x in r?.reactions ?? const <td.MessageReaction>[])
