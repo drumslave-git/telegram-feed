@@ -1,0 +1,201 @@
+import 'dart:async';
+import 'dart:isolate';
+
+import 'package:core/core.dart';
+import 'package:telegram_gateway/telegram_gateway.dart';
+import 'package:test/test.dart';
+
+/// Scripted gateway: records calls, lets tests push events.
+final class FakeGateway implements TelegramGateway {
+  final calls = <String>[];
+  final authCtl = StreamController<AuthState>.broadcast();
+  final postCtl = StreamController<PostEvent>.broadcast();
+  final memberCtl = StreamController<ChannelMembershipEvent>.broadcast();
+  final fileCtl = StreamController<FileProgress>.broadcast();
+  AuthState auth = const AuthWaitPhoneNumber();
+
+  @override
+  Stream<AuthState> get authState async* {
+    yield auth;
+    yield* authCtl.stream;
+  }
+
+  @override
+  Stream<PostEvent> get postEvents => postCtl.stream;
+  @override
+  Stream<ChannelMembershipEvent> get membershipEvents => memberCtl.stream;
+  @override
+  Stream<FileProgress> fileProgress(int fileId) =>
+      fileCtl.stream.where((p) => p.fileId == fileId);
+
+  @override
+  Future<void> setPhoneNumber(String phone) async => calls.add('phone:$phone');
+  @override
+  Future<void> checkCode(String code) async {
+    if (code == 'bad') throw const TelegramException(400, 'PHONE_CODE_INVALID');
+    calls.add('code:$code');
+  }
+
+  @override
+  Future<void> checkPassword(String password) async => calls.add('pw');
+  @override
+  Future<void> registerUser({
+    required String firstName,
+    String lastName = '',
+  }) async => calls.add('register:$firstName');
+  @override
+  Future<void> requestQrCode() async => calls.add('qr');
+  @override
+  Future<void> logOut() async => calls.add('logout');
+
+  @override
+  Future<List<Channel>> myChannels() async => const [
+    Channel(chatId: -1001, title: 'News', username: 'news', memberCount: 3),
+    Channel(chatId: -1002, title: 'Left', isMember: false),
+  ];
+
+  @override
+  Future<List<Post>> history(
+    int chatId, {
+    int fromMessageId = 0,
+    int limit = 30,
+    bool onlyLocal = false,
+  }) async {
+    calls.add('history:$chatId:$fromMessageId:$limit:$onlyLocal');
+    return [
+      Post(
+        chatId: chatId,
+        messageId: 7,
+        date: 1,
+        text: 'photo',
+        media: const PhotoMedia(
+          sizes: [
+            FileRef(id: 9, remoteId: 'r', size: 10, width: 100, height: 50),
+          ],
+        ),
+      ),
+      Post(chatId: chatId, messageId: 6, date: 0, text: 'text'),
+    ];
+  }
+
+  @override
+  Future<void> markViewed(int chatId, List<int> messageIds) async =>
+      calls.add('viewed:$chatId:${messageIds.join(",")}');
+
+  @override
+  Future<FileRef> download(FileRef ref, {int priority = 16}) async {
+    calls.add('download:${ref.id}:$priority');
+    fileCtl.add(FileProgress(fileId: ref.id, downloaded: 5, total: 10));
+    fileCtl.add(
+      FileProgress(fileId: ref.id, downloaded: 10, total: 10, localPath: '/x'),
+    );
+    return ref.copyWith(localPath: '/x');
+  }
+
+  @override
+  Future<void> close() async => calls.add('close');
+}
+
+void main() {
+  group('in-process server and client', () {
+    late FakeGateway gw;
+    late CoreServer server;
+    late CoreClient client;
+
+    setUp(() async {
+      gw = FakeGateway();
+      server = CoreServer(gw);
+      client = await CoreClient.connect(server.sendPort);
+    });
+
+    tearDown(() async {
+      await client.close();
+      await server.close();
+    });
+
+    test('welcome carries the current auth state', () {
+      expect(client.currentAuthState, isA<AuthWaitPhoneNumber>());
+    });
+
+    test('calls, results and typed errors round-trip', () async {
+      await client.setPhoneNumber('+1');
+      expect(gw.calls, ['phone:+1']);
+      await expectLater(
+        client.checkCode('bad'),
+        throwsA(isA<TelegramException>().having((e) => e.code, 'code', 400)),
+      );
+      final channels = await client.myChannels();
+      expect(channels.map((c) => c.title), ['News', 'Left']);
+      expect(channels.first.username, 'news');
+      expect(channels.last.isMember, isFalse);
+
+      final posts = await client.history(
+        -1001,
+        fromMessageId: 9,
+        limit: 2,
+        onlyLocal: true,
+      );
+      expect(gw.calls.last, 'history:-1001:9:2:true');
+      expect(posts.map((p) => p.messageId), [7, 6]);
+      expect((posts.first.media as PhotoMedia).sizes.single.width, 100);
+
+      await client.markViewed(-1001, [7, 6]);
+      expect(gw.calls.last, 'viewed:-1001:7,6');
+    });
+
+    test('events are forwarded', () async {
+      final auth = <AuthState>[];
+      final posts = <PostEvent>[];
+      final members = <ChannelMembershipEvent>[];
+      final s1 = client.authState.listen(auth.add);
+      final s2 = client.postEvents.listen(posts.add);
+      final s3 = client.membershipEvents.listen(members.add);
+      gw.authCtl.add(const AuthReady());
+      gw.postCtl.add(const PostsDeleted(chatId: -1001, messageIds: [1, 2]));
+      gw.memberCtl.add(
+        const ChannelMembershipEvent(chatId: -1001, isMember: false),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await s1.cancel();
+      await s2.cancel();
+      await s3.cancel();
+      expect(auth.first, isA<AuthWaitPhoneNumber>()); // replayed
+      expect(auth.last, isA<AuthReady>());
+      expect((posts.single as PostsDeleted).messageIds, [1, 2]);
+      expect(members.single.isMember, isFalse);
+    });
+
+    test('download streams progress then completes', () async {
+      final progress = <FileProgress>[];
+      final sub = client.fileProgress(9).listen(progress.add);
+      await Future<void>.delayed(Duration.zero);
+      final ref = await client.download(
+        const FileRef(id: 9, remoteId: 'r', size: 10),
+        priority: 4,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await sub.cancel();
+      expect(ref.localPath, '/x');
+      expect(gw.calls.last, 'download:9:4');
+      expect(progress.map((p) => p.downloaded), [5, 10]);
+    });
+  });
+
+  test('server in another isolate: maps cross the port', () async {
+    final reply = ReceivePort();
+    final iso = await Isolate.spawn(_serveFake, reply.sendPort);
+    final port = await reply.first as SendPort;
+    final client = await CoreClient.connect(port);
+    expect(client.currentAuthState, isA<AuthWaitPhoneNumber>());
+    final posts = await client.history(-1001);
+    expect(posts.length, 2);
+    expect(posts.first.media, isA<PhotoMedia>());
+    await client.close();
+    iso.kill();
+  });
+}
+
+void _serveFake(SendPort reply) {
+  final server = CoreServer(FakeGateway());
+  reply.send(server.sendPort);
+}

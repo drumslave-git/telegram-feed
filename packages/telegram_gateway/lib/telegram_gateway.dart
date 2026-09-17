@@ -8,3 +8,4 @@ export 'src/gateway.dart';
 export 'src/models.dart';
 export 'src/td_transport.dart';
 export 'src/tdlib_gateway.dart';
+export 'src/codec.dart';

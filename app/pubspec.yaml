@@ -18,6 +18,7 @@ dependencies:
     path: ../packages/app_db
   rules:
     path: ../packages/rules
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:

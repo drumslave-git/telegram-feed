@@ -1,7 +1,9 @@
-/// Core isolate: CoreServer, feed timeline, rule engine, TTS queue and notifier proxies.
+/// Core: the always-on logic of the app, served to the UI over ports.
 ///
-/// Filled in by the phase 1 tasks; see docs/PLAN.md and docs/ARCHITECTURE.md section 3.
+/// Platform-neutral part. Native platforms also import
+/// `package:core/native_isolate.dart` to spawn the core isolate with TDLib over FFI.
 library;
 
-/// Package identity, used by the scaffold test until real code lands.
-const String packageName = 'core';
+export 'src/core_client.dart';
+export 'src/core_server.dart';
+export 'src/protocol.dart';
