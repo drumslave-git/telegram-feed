@@ -1,0 +1,29 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+.vscode/
+pubspec.lock.bak
+
+# Native TDLib binaries (fetched by tool/fetch_tdlib.dart)
+**/jniLibs/**/libtdjson.so
+tdlib/
+
+# Secrets
+*.env
+.env.*
+secrets/
+
+# Android
+android/local.properties
+android/key.properties
+*.jks
+*.keystore
+
+# OS
+.DS_Store
+Thumbs.db
