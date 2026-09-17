@@ -19,6 +19,8 @@ dependencies:
   rules:
     path: ../packages/rules
   path_provider: ^2.1.6
+  qr_flutter: ^4.1.0
+  drift: ^2.35.0
 
 dev_dependencies:
   flutter_test:

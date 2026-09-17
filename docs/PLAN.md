@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 1 (Android MVP). **Next task:** P1-7.
+**Current phase:** 1 (Android MVP). **Next task:** P1-8.
 
 ## Phase 0 — Spikes
 
@@ -23,7 +23,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 - [x] P1-4 `tool/fetch_tdlib.dart` + CI job (`.github/workflows/tdlib.yml`) that builds `libtdjson.so` (`tool/tdlib`) and tdweb (`tool/tdweb`) from the pinned commit and publishes them as release assets `tdlib-<sha7>`. The fetch script also has `--local` for the Docker outputs; the workflow itself runs once the repo has a GitHub remote.
 - [x] P1-5 Core isolate + `CoreClient` port protocol; spawned from the UI in this phase. `CoreServer`/`CoreClient` (the client implements `TelegramGateway`), model codec, `native_isolate.dart`; verified on the emulator: app reaches `AuthWaitPhoneNumber` through the core isolate.
 - [x] P1-6 `app_db`: Drift schema (`feeds`, `feed_sources`, `feed_read_marks`, `watched_channels`, `settings`) with DAO methods, schema validation test and behaviour tests (cascade, watched-channel pruning, monotonic read marks, wipe). Schema v1; `drift_dev schema dump` starts with v2.
-- [ ] P1-7 Login screens: phone, code, 2FA password, QR login; logout wipes all data.
+- [x] P1-7 Login screens: phone, code, 2FA password, QR login; logout wipes all data. `AuthGate` + `_StepForm` screens with inline Telegram errors, `CoreHost` (spawns/finds the core, respawns after logout, wipes `app_db`), widget tests. On the emulator the phone screen shows; real login needs the founder's own `api_id`/`api_hash` (Telegram answers `API_ID_INVALID` to TDLib's example id from the app) and the founder typing the code.
 - [ ] P1-8 Feeds list screen with unread badges; create, rename, reorder, delete.
 - [ ] P1-9 Feed editor: add joined channels from a searchable picker, remove, reorder.
 - [ ] P1-10 Merged timeline: k-way merge, pagination, live inserts, album collapsing, edits and deletes.

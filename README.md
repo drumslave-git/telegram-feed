@@ -36,7 +36,7 @@ docs/                   spec, architecture, plan, spike outcomes
 
 ## Running
 
-Telegram API credentials are not in the repo. Obtain `api_id` and `api_hash` at https://my.telegram.org and pass them at build time:
+Telegram API credentials are not in the repo. Obtain `api_id` and `api_hash` at https://my.telegram.org (TDLib's public example credentials are rejected with `API_ID_INVALID` at login) and pass them at build time:
 
 ```bash
 flutter pub get                       # once, at the repo root (pub workspace)
