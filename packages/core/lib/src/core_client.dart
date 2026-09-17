@@ -3,7 +3,7 @@ import 'dart:isolate';
 
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import 'core_server.dart' show MatchEvent;
+import 'rule_engine.dart' show MatchEvent;
 
 /// UI-side handle to a [CoreServer]. Implements [TelegramGateway] so screens do not care
 /// whether the core runs in the same isolate, a spawned isolate, or the foreground service.

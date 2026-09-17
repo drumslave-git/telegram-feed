@@ -1,6 +1,7 @@
 name: tdlib
-# Builds libtdjson.so (Android) and tdweb (web) from the pinned TDLib commit and publishes them
-# as assets of a GitHub release tagged `tdlib-<short sha>`. tool/fetch_tdlib.dart downloads them.
+# Builds libtdjson.so (Android) and tdweb (web) from the pinned TDLib commit, plus sqlite3.wasm
+# for drift on the web, and publishes them as assets of a GitHub release tagged
+# `tdlib-<short sha>`. tool/fetch_tdlib.dart downloads them.
 on:
   workflow_dispatch:
   push:
@@ -9,6 +10,7 @@ on:
       - packages/tdlib_bindings/schema/TDLIB_COMMIT
       - tool/tdlib/**
       - tool/tdweb/**
+      - tool/sqlite3_wasm/**
       - .github/workflows/tdlib.yml
 
 jobs:
@@ -55,8 +57,19 @@ jobs:
           name: web
           path: tdweb.tar.gz
 
+  sqlite3:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build sqlite3.wasm
+        run: docker build --output out -f tool/sqlite3_wasm/Dockerfile tool/sqlite3_wasm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite3
+          path: out/sqlite3.wasm
+
   release:
-    needs: [pin, android, web]
+    needs: [pin, android, web, sqlite3]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -67,16 +80,17 @@ jobs:
       - name: Checksums
         run: |
           echo "${{ needs.pin.outputs.commit }}" > TDLIB_COMMIT
-          sha256sum libtdjson-android.tar.gz libtdjson-android-debug.tar.gz tdweb.tar.gz > SHA256SUMS
+          sha256sum libtdjson-android.tar.gz libtdjson-android-debug.tar.gz tdweb.tar.gz sqlite3.wasm > SHA256SUMS
           cat SHA256SUMS
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.pin.outputs.tag }}
           name: TDLib ${{ needs.pin.outputs.tag }}
-          body: Prebuilt TDLib ${{ needs.pin.outputs.commit }} for Android (arm64-v8a, x86_64) and tdweb.
+          body: Prebuilt TDLib ${{ needs.pin.outputs.commit }} for Android (arm64-v8a, x86_64) and tdweb, plus sqlite3.wasm for the web build.
           files: |
             libtdjson-android.tar.gz
             libtdjson-android-debug.tar.gz
             tdweb.tar.gz
+            sqlite3.wasm
             SHA256SUMS
             TDLIB_COMMIT

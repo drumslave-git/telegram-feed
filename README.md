@@ -73,5 +73,8 @@ dart tool/fetch_tdlib.dart            # prebuilt libtdjson.so + tdweb for the pi
 cd app && flutter run --dart-define=TG_API_ID=12345 --dart-define=TG_API_HASH=abcdef...
 ```
 
-Without a GitHub release yet, build the binaries locally with Docker (`tool/tdlib`, `tool/tdweb`)
-and run `dart tool/fetch_tdlib.dart --local`.
+Without a GitHub release yet, build the binaries locally with Docker (`tool/tdlib`, `tool/tdweb`,
+`tool/sqlite3_wasm`) and run `dart tool/fetch_tdlib.dart --local`.
+
+Web: `TG_API_ID=... TG_API_HASH=... bash tool/build_web.sh` writes a static bundle to `app/build/web`.
+Serve it from a site root (no special headers needed), e.g. `python -m http.server -d app/build/web 8090`.

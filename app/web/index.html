@@ -18,7 +18,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Combine Telegram channels into feeds, get keyword alerts, listen to posts.">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -29,7 +29,7 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>telegram_feed</title>
+  <title>telegram-feed</title>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
@@ -41,6 +41,8 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <!-- TDLib in WebAssembly (tdweb). Its worker chunks and .wasm sit next to this file. -->
+  <script src="tdweb/tdweb.js"></script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

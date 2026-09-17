@@ -2,17 +2,20 @@
 //
 //   dart tool/fetch_tdlib.dart                 download release assets for the pinned commit
 //   dart tool/fetch_tdlib.dart --repo o/r      from another GitHub repo (default: origin remote)
-//   dart tool/fetch_tdlib.dart --local         use build/tdlib-out and build/tdweb-out from
-//                                              the Docker builds in tool/tdlib and tool/tdweb
+//   dart tool/fetch_tdlib.dart --local         use build/tdlib-out, build/tdweb-out and
+//                                              build/sqlite3-wasm-out from the Docker builds
+//                                              in tool/tdlib, tool/tdweb, tool/sqlite3_wasm
 //
 // Release layout (produced by .github/workflows/tdlib.yml, tag tdlib-<short sha>):
 //   libtdjson-android.tar.gz   libs/<abi>/libtdjson.so
 //   tdweb.tar.gz               dist/{tdweb.js, *.worker.js, *.wasm}, package.json
+//   sqlite3.wasm               SQLite for drift on the web (tool/sqlite3_wasm)
 //   SHA256SUMS, TDLIB_COMMIT
 //
 // Installs to:
 //   app/android/app/src/main/jniLibs/<abi>/libtdjson.so
 //   app/web/tdweb/tdweb.js and app/web/{*.worker.js, *.wasm}   (webpack public path is /)
+//   app/web/sqlite3.wasm
 import 'dart:io';
 
 Future<void> main(List<String> args) async {
@@ -28,6 +31,7 @@ Future<void> main(List<String> args) async {
   final tmp = Directory('$root/build/tdlib-fetch')..createSync(recursive: true);
   final androidTar = File('${tmp.path}/libtdjson-android.tar.gz');
   final webTar = File('${tmp.path}/tdweb.tar.gz');
+  final sqliteWasm = File('${tmp.path}/sqlite3.wasm');
 
   if (local) {
     stdout.writeln('local mode: packing build/tdlib-out and build/tdweb-out');
@@ -63,6 +67,7 @@ Future<void> main(List<String> args) async {
       'dist',
       'package.json',
     ], cwd: tmp.path);
+    File('$root/build/sqlite3-wasm-out/sqlite3.wasm').copySync(sqliteWasm.path);
   } else {
     if (repo == null) {
       stderr.writeln(
@@ -78,8 +83,10 @@ Future<void> main(List<String> args) async {
     );
     await _download('$base/libtdjson-android.tar.gz', androidTar);
     await _download('$base/tdweb.tar.gz', webTar);
+    await _download('$base/sqlite3.wasm', sqliteWasm);
     _verify(sums, androidTar);
     _verify(sums, webTar);
+    _verify(sums, sqliteWasm);
   }
 
   // Android
@@ -120,6 +127,8 @@ Future<void> main(List<String> args) async {
     f.copySync(dest);
     stdout.writeln('  web/${name == 'tdweb.js' ? 'tdweb/' : ''}$name');
   }
+  sqliteWasm.copySync('${webDir.path}/sqlite3.wasm');
+  stdout.writeln('  web/sqlite3.wasm');
   File('${jni.path}/TDLIB_COMMIT').writeAsStringSync('$commit\n');
   stdout.writeln('installed TDLib $tag');
 }

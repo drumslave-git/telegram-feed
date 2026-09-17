@@ -15,6 +15,7 @@ pubspec.lock.bak
 
 # Secrets
 *.env
+.claude/launch.json
 .env.*
 secrets/
 
@@ -43,6 +44,7 @@ spikes/tdweb/web/*.mem
 **/android/gradle/wrapper/gradle-wrapper.jar
 app/web/*.worker.js
 app/web/*.wasm
+app/web/drift_worker.js
 **/jniLibs/TDLIB_COMMIT
 
 # golden failure artifacts

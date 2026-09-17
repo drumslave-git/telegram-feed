@@ -86,7 +86,7 @@ Implementations:
 
 - One implementation, `TdlibGateway` (package `telegram_gateway`), over a `TdTransport` (raw JSON in, raw JSON out). `TdClient` matches responses to requests by `@extra`, decodes updates with `tdlib_bindings` and hands them to the gateway strictly in order (an edit that needs a `getMessage` round trip cannot be overtaken by the following delete).
 - `FfiTransport` (Android, and desktop for development): loads `libtdjson`, polls `td_receive` in one long-lived receive isolate and demultiplexes by `@client_id`. Imported from `package:telegram_gateway/tdlib_ffi.dart` only on native platforms.
-- `TdwebTransport` (web, phase 3): wraps tdweb's `TdClient` through `dart:js_interop`. Same JSON protocol, so the generated types and `TdlibGateway` are shared. tdweb stores its database in IndexedDB.
+- `TdwebTransport` (web): wraps tdweb's `TdClient` through `dart:js_interop`, JSON strings both ways, so the generated types, codec and `TdlibGateway` are shared. tdweb stores its database and files in IndexedDB. Downloaded files are read back with tdweb's `readFile` and shown through `blob:` URLs (`TdlibGateway.localFileUrl`).
 - Post events are emitted only for chats known to be channels; `updateMessageContent`/`updateMessageEdited` are re-fetched with `getMessage` so `PostEdited` carries the full post; `updateDeleteMessages` is forwarded only when `is_permanent`.
 
 TDLib parameters: `use_message_database = true`, `use_chat_info_database = true`, `use_file_database = true`, `files_directory` under app cache. TDLib owns message and file caching; the app never duplicates message bodies into its own DB.
@@ -199,9 +199,11 @@ Android 13+ requires `POST_NOTIFICATIONS`; requested during onboarding of phase 
 
 ### Web (phase 3)
 
-- tdweb (TDLib compiled to WASM with Emscripten) loaded via `dart:js_interop`. Built from the pinned TDLib commit by `tool/tdweb/Dockerfile`; the npm package is abandoned at 1.8.0 and does not work (spike P0-4). Bundle: 14.4 MB wasm plus 0.5 MB JS, loaded lazily after the login screen renders. The worker chunks and the wasm are served from the site root.
-- No background execution; rules and notifications run only while a tab is open. Browser `Notification` API for alerts, Web Speech API for TTS.
-- Any static host works: the build is single-threaded wasm in a Web Worker, so no COOP/COEP headers are needed (spike P0-4). QR login (`requestQrCodeAuthentication` on web, confirmed from a logged-in phone) is the preferred web login.
+- tdweb (TDLib compiled to WASM with Emscripten) loaded via `dart:js_interop`. Built from the pinned TDLib commit by `tool/tdweb/Dockerfile`; the npm package is abandoned at 1.8.0 and does not work (spike P0-4). Bundle: 14.4 MB wasm plus 0.5 MB JS. The worker chunks and the wasm are served from the site root; `tdweb.js` is loaded by `web/index.html`.
+- **No core isolate on the web.** `dart:isolate` ports do not exist there, so `WebHost` (`app/lib/host/app_host_web.dart`) creates the `TdlibGateway` in the page and runs the same `RuleEngine` in the page. The screens only see the `AppHost` interface, which `CoreHost` (Android) and `WebHost` both implement. A logout closes tdweb's client for good, so the page reloads on `AuthClosed`.
+- No background execution; rules and notifications run only while a tab is open. Browser `Notification` API for alerts (`BrowserNotifier`, one notification per post, no channels), Web Speech API for TTS through `flutter_tts`'s web implementation, with language guessed from the script (`guessLanguageByScript`) since ML Kit has no web build.
+- App database: drift on `sqlite3.wasm` in a worker (`web/drift_worker.dart`, compiled by `tool/build_web.sh`), persisted in OPFS or IndexedDB depending on the browser. It is named `telegram_feed_app`: tdweb owns an IndexedDB database named after its instance (`telegram_feed`) and the two must not collide. The storage is chosen explicitly (`WasmDatabase.probe`), dedicated-worker storages first (OPFS with locks, then IndexedDB): tdweb allows one live tab per instance anyway, and some embedded browsers cannot `fetch` from a SharedWorker. `sqlite3.wasm` is built from the sqlite3.dart sources by `tool/sqlite3_wasm/Dockerfile` and published with the TDLib release assets.
+- Any static host works: the build is single-threaded wasm in a Web Worker, so no COOP/COEP headers are needed (spike P0-4), but the bundle must sit at the site root. `tool/build_web.sh` produces `app/build/web`; CI only checks that it compiles. QR login (`requestQrCodeAuthentication` on web, confirmed from a logged-in phone) is the preferred web login.
 
 ### iOS (not planned)
 
@@ -222,6 +224,7 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 - No analytics, no crash reporting by default. Optional opt-in crash reporting (Sentry) may come later; it must never include message content.
 - Logout wipes the TDLib database, the app database, and the media cache.
 - The app requests only: internet, notifications, foreground service, and (optional) battery-optimization exemption.
+- Third-party native and WebAssembly binaries (TDLib, tdweb, sqlite3.wasm) are built from pinned sources in Docker (`tool/`), never downloaded prebuilt from third parties.
 
 ## 11. Testing strategy
 
@@ -252,4 +255,7 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-17 | Foreground service type `specialUse` | Android 15+ caps `dataSync` at 6 h/day (spike P0-2) |
 | 2026-09-17 | TTS and notification plugins live in the service host isolate, core sends commands | Background isolates cannot receive platform callbacks (spike P0-2) |
 | 2026-09-17 | Share puts the `t.me` link (public username link, else `t.me/c`) into the system share sheet via `share_plus`; copy link uses the clipboard | Private `tg://privatepost` links stay for Open in Telegram only, since other apps cannot open them |
+| 2026-09-17 | Web runs the gateway and rule engine in the page behind the `AppHost` interface; the page reloads after logout | No isolates on the web; tdweb cannot reopen a closed client |
+| 2026-09-17 | `sqlite3.wasm` built from source (`tool/sqlite3_wasm`), not downloaded from sqlite3.dart releases | Same rule as TDLib: no third-party prebuilt binaries |
+| 2026-09-17 | Web build ships as a static bundle from `tool/build_web.sh`; CI compiles it but does not deploy | Hosting must be a site root (tdweb chunk paths); no public deployment yet |
 | 2026-09-17 | Web stays on tdweb, built from source; no GramJS gateway | tdweb 1.8.67 self-built works end to end, npm 1.8.0 is dead (spike P0-4) |

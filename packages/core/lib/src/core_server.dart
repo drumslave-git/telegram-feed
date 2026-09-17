@@ -14,27 +14,6 @@ Map<String, Object?> encodeMatch(RuleMatch m) => {
   'rules': [for (final r in m.rules) r.name],
 };
 
-/// A rule match as clients receive it.
-final class MatchEvent {
-  const MatchEvent({
-    required this.post,
-    required this.priority,
-    required this.readAloud,
-    required this.ruleNames,
-  });
-  final Post post;
-  final RulePriority priority;
-  final bool readAloud;
-  final List<String> ruleNames;
-
-  static MatchEvent decode(Map<Object?, Object?> m) => MatchEvent(
-    post: decodePost(m['post'] as Map<Object?, Object?>),
-    priority: RulePriority.values.byName(m['priority'] as String),
-    readAloud: m['readAloud'] as bool,
-    ruleNames: (m['rules'] as List).cast<String>(),
-  );
-}
-
 /// Serves a [TelegramGateway] to any number of [CoreClient]s over ports. Runs wherever the
 /// gateway lives: the core isolate on Android, the main isolate on the web.
 final class CoreServer {

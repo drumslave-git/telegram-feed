@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 3 (interactions and web). **Next task:** P3-4.
+**Current phase:** 3 done (interactions and web). **Next task:** P4-1.
 
 ## Phase 0 — Spikes
 
@@ -49,7 +49,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 - [x] P3-1 Reactions. `Post.reactions` (emoji reactions with counts and own choice, refreshed on `updateMessageInteractionInfo`), gateway `availableReactions` / `react` end to end, reaction chips and a picker on the post card. (ce5fa0d)
 - [x] P3-2 Discussion thread view and reply. Gateway `discussion` / `threadHistory` / `reply` / live `comments` (TDLib message threads in the linked discussion group, sender names resolved and cached), `Post.replyCount`, `ThreadScreen` with a reply composer opened from the card's Comments chip. (4b8d9af)
 - [x] P3-3 Share / copy link. `telegramShareUri` / `shareText` in core, card overflow menu with Share (system sheet through `share_plus`) and Copy link (clipboard). (74dcba3)
-- [ ] P3-4 `TdwebGateway` and Flutter web build; browser notifications and Web Speech TTS; static hosting (no special headers, spike P0-4).
+- [x] P3-4 Web build. `TdwebTransport` (tdweb via `dart:js_interop`, JSON strings both ways, `readFile` blobs for media), `AppHost` interface with `CoreHost` (Android) and `WebHost` (gateway and rule engine in the page, drift on self-built `sqlite3.wasm`), `BrowserNotifier`, Web Speech TTS through `flutter_tts` with script-based language guessing, `tool/build_web.sh` static bundle, CI compiles the web build.
 
 ## Phase 4 — Extras
 

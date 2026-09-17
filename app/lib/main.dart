@@ -2,17 +2,16 @@ import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
 
 import 'auth/login_screens.dart';
-import 'core_host.dart';
 import 'feeds/feeds_screen.dart';
 import 'feeds/timeline_screen.dart';
-import 'notifications/notification_launch.dart';
+import 'host/app_host.dart';
+import 'notifications/open_post.dart';
 import 'rules/rules_screen.dart';
-import 'service/core_service.dart';
 import 'settings/settings_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  initCoreService();
+  platformInit();
   runApp(const TelegramFeedApp());
 }
 
@@ -20,15 +19,21 @@ class TelegramFeedApp extends StatelessWidget {
   const TelegramFeedApp({super.key, this.host});
 
   /// Injected in tests; the real app starts its own.
-  final Future<CoreHost>? host;
+  final Future<AppHost>? host;
 
   @override
   Widget build(BuildContext context) {
-    final h = (host ?? CoreHost.start()).then((h) async {
-      if (host == null) await NotificationLaunch(h).attach();
-      return h;
-    });
-    return FutureBuilder<CoreHost>(
+    final h = (host ?? startAppHost()).then(
+      (h) async {
+        if (host == null) await attachLaunchHandlers(h);
+        return h;
+      },
+      onError: (Object e, StackTrace st) {
+        debugPrint('host start failed: $e\n$st');
+        Error.throwWithStackTrace(e, st);
+      },
+    );
+    return FutureBuilder<AppHost>(
       future: h,
       builder: (context, snap) => StreamBuilder<String?>(
         stream: snap.data?.db.watchSetting(SettingKeys.themeMode),
@@ -57,11 +62,11 @@ ThemeMode themeModeFrom(String? value) => switch (value) {
 
 class _Root extends StatelessWidget {
   const _Root({required this.host});
-  final Future<CoreHost> host;
+  final Future<AppHost> host;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<CoreHost>(
+    return FutureBuilder<AppHost>(
       future: host,
       builder: (context, snap) {
         if (snap.hasError) {

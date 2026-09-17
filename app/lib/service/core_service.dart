@@ -12,7 +12,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import '../core_host.dart' show tgApiHash, tgApiId, tgTestDc;
+import '../credentials.dart';
 import 'notifier.dart';
 import 'tts_service.dart';
 

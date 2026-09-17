@@ -11,12 +11,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import 'host/app_host.dart';
 import 'service/core_service.dart';
-
-/// Telegram API credentials come from `--dart-define`; never committed (SPEC section 7).
-const int tgApiId = int.fromEnvironment('TG_API_ID');
-const String tgApiHash = String.fromEnvironment('TG_API_HASH');
-const bool tgTestDc = bool.fromEnvironment('TG_TEST_DC');
 
 /// Owns the app's connection to the core and the app database.
 ///
@@ -24,7 +20,7 @@ const bool tgTestDc = bool.fromEnvironment('TG_TEST_DC');
 /// service, waits for the core's port in `IsolateNameServer` and connects. If the service
 /// cannot start (notification permission denied, not Android), the core is spawned in-process
 /// so the app still works while it is open.
-final class CoreHost {
+final class CoreHost implements AppHost {
   CoreHost._(this.db, this._paths);
 
   static Future<CoreHost> start() async {
@@ -36,16 +32,19 @@ final class CoreHost {
     return host;
   }
 
+  @override
   final AppDatabase db;
   final ({String support, String tdlib, String db}) _paths;
   late final CoreClient _client;
   bool _inService = false;
   final _subs = <StreamSubscription<void>>[];
 
+  @override
   TelegramGateway get gateway => _client;
   CoreClient get core => _client;
 
   /// True when the core runs under the foreground service (rules keep working in background).
+  @override
   bool get runningInService => _inService;
 
   Future<void> _connect() async {
@@ -98,20 +97,24 @@ final class CoreHost {
   }
 
   /// Battery optimisation: without the exemption Android kills the service after a while.
+  @override
   Future<bool> get isBatteryExempt async =>
       !Platform.isAndroid ||
       await FlutterForegroundTask.isIgnoringBatteryOptimizations;
 
+  @override
   Future<void> requestBatteryExemption() =>
       FlutterForegroundTask.requestIgnoreBatteryOptimization();
 
   /// Logs out and wipes everything the app stored (ARCHITECTURE section 10). TDLib deletes
   /// its own database and files directory as part of `logOut`.
+  @override
   Future<void> logOutAndWipe() async {
     await db.wipe();
     await gateway.logOut();
   }
 
+  @override
   Future<void> dispose() async {
     for (final s in _subs) {
       await s.cancel();

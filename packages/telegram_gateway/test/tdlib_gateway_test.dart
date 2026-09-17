@@ -624,4 +624,38 @@ void main() {
     expect(r['force_read'], true);
     expect((r['source'] as Map)['@type'], 'messageSourceChatHistory');
   });
+
+  test(
+    'download maps the local path through localFileUrl (tdweb blobs)',
+    () async {
+      final g2 = TdlibGateway(
+        t,
+        cfg,
+        localFileUrl: (id) async => 'blob:site/$id',
+      );
+      addTearDown(g2.close);
+      t.handlers['downloadFile'] = (_) => {
+        '@type': 'file',
+        'id': 9,
+        'size': 100,
+        'expected_size': 100,
+        'local': {
+          '@type': 'localFile',
+          'path': '/db/files/9.jpg',
+          'is_downloading_completed': true,
+          'downloaded_size': 100,
+        },
+        'remote': {'@type': 'remoteFile', 'id': 'r9'},
+      };
+      final fresh = await g2.download(
+        const FileRef(id: 9, remoteId: 'r9', size: 100),
+      );
+      expect(fresh.localPath, 'blob:site/9');
+      // Already-downloaded refs (tdweb marks them) still get a displayable URL.
+      final cached = await g2.download(
+        const FileRef(id: 9, remoteId: 'r9', size: 100, localPath: '/db/x'),
+      );
+      expect(cached.localPath, 'blob:site/9');
+    },
+  );
 }

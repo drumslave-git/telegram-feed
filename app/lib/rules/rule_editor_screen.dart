@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:rules/rules.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import '../notifications/notification_launch.dart';
+import '../notifications/notification_policy.dart';
 import 'rule_builder_model.dart';
 
 /// Create or edit one rule: visual builder or text form, scope, priority, read-aloud,

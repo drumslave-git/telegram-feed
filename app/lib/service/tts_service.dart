@@ -169,12 +169,17 @@ final class TtsService {
 
 /// Real speaker: flutter_tts + ML Kit language identification + audio_session interruptions.
 final class FlutterTtsSpeaker implements Speaker {
-  FlutterTtsSpeaker({void Function(String)? log})
-    : _log = log ?? ((s) => debugPrint('tts: $s'));
+  /// [detectLanguage] replaces ML Kit where it does not exist (web: script heuristic).
+  FlutterTtsSpeaker({
+    void Function(String)? log,
+    Future<String?> Function(String text)? detectLanguage,
+  }) : _log = log ?? ((s) => debugPrint('tts: $s')),
+       _detect = detectLanguage;
 
   final void Function(String) _log;
+  final Future<String?> Function(String text)? _detect;
   final _tts = FlutterTts();
-  final _langId = LanguageIdentifier(confidenceThreshold: 0.5);
+  late final _langId = LanguageIdentifier(confidenceThreshold: 0.5);
   final _interruptions = StreamController<bool>.broadcast();
   String? _language;
   Map<String, String>? _voice;
@@ -207,6 +212,8 @@ final class FlutterTtsSpeaker implements Speaker {
 
   @override
   Future<String?> detectLanguage(String text) async {
+    final custom = _detect;
+    if (custom != null) return custom(text);
     try {
       final code = await _langId.identifyLanguage(text);
       return code == 'und' ? null : code;

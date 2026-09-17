@@ -64,6 +64,34 @@ final class RuleMatch {
   final bool readAloud;
 }
 
+/// A rule match as clients receive it.
+final class MatchEvent {
+  const MatchEvent({
+    required this.post,
+    required this.priority,
+    required this.readAloud,
+    required this.ruleNames,
+  });
+  final Post post;
+  final RulePriority priority;
+  final bool readAloud;
+  final List<String> ruleNames;
+
+  factory MatchEvent.fromMatch(RuleMatch m) => MatchEvent(
+    post: m.post,
+    priority: m.priority,
+    readAloud: m.readAloud,
+    ruleNames: [for (final r in m.rules) r.name],
+  );
+
+  static MatchEvent decode(Map<Object?, Object?> m) => MatchEvent(
+    post: decodePost(m['post'] as Map<Object?, Object?>),
+    priority: RulePriority.values.byName(m['priority'] as String),
+    readAloud: m['readAloud'] as bool,
+    ruleNames: (m['rules'] as List).cast<String>(),
+  );
+}
+
 /// Evaluates rules against new posts (ARCHITECTURE.md section 6.2).
 ///
 /// - Only [PostAdded] is evaluated; edits are ignored.
