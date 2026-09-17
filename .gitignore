@@ -11,7 +11,7 @@ pubspec.lock.bak
 
 # Native TDLib binaries (fetched by tool/fetch_tdlib.dart)
 **/jniLibs/**/libtdjson.so
-tdlib/
+/tdlib/
 
 # Secrets
 *.env
@@ -27,3 +27,4 @@ android/key.properties
 # OS
 .DS_Store
 Thumbs.db
+.gradle/

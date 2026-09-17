@@ -4,13 +4,13 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 0 (spikes). **Next task:** P0-1.
+**Current phase:** 0 (spikes). **Next task:** P0-1, finish login on the emulator once the founder has answered which spare account to use (asked 2026-09-17), then P0-2.
 
 ## Phase 0 — Spikes
 
 Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in `docs/spikes/<name>.md` and a tick here. Emulator only (x86_64).
 
-- [ ] P0-1 TDLib FFI on Android emulator: build or download `libtdjson.so` (x86_64 + arm64), load via `dart:ffi`, log in on test DC, list chats, receive `updateNewMessage`.
+- [~] P0-1 TDLib FFI on Android emulator: build or download `libtdjson.so` (x86_64 + arm64), load via `dart:ffi`, log in on test DC, list chats, receive `updateNewMessage`. Branch `spike/tdlib-ffi`, outcome in `docs/spikes/tdlib-ffi.md`. Done: Docker build (828c1c5), FFI load, receive isolate, connection to test and production DC up to `authorizationStateWaitCode`. Blocked: Telegram disabled test-DC test numbers, so login, chat list and `updateNewMessage` need a spare real account.
 - [ ] P0-2 Core isolate under `flutter_foreground_task`: spawn core isolate from the service callback, exchange ports with the UI engine via `IsolateNameServer`, kill the activity, confirm TDLib stays connected and a local notification fires. Confirm `flutter_tts` speaks from that engine with the screen off.
 - [ ] P0-3 Merged timeline performance: 50 channels, 2 000 posts, page latency < 100 ms from TDLib local database.
 - [ ] P0-4 tdweb feasibility in Flutter web: log in and fetch history. Decide web stays on tdweb or moves to a GramJS gateway.
