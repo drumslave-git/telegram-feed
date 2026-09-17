@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 1 (Android MVP). **Next task:** P1-16.
+**Current phase:** 1 (Android MVP), all tasks done. **Next task:** P2-1.
 
 ## Phase 0 — Spikes
 
@@ -32,7 +32,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 - [x] P1-13 Open in Telegram deep link. `telegramPostUri` in `core` (`https://t.me/<user>/<id>` for public channels, `tg://privatepost` plus `t.me/c` fallback for private ones, TDLib id → server id), `url_launcher` action on every card, manifest `<queries>` for https/tg.
 - [x] P1-14 Settings screen: account, appearance, storage usage and cache clearing, licenses. `SettingsScreen` (account via new `me()`, log out, `syncReadToTelegram` toggle, theme mode segmented control persisted in `settings` and applied by `MaterialApp`, storage via `getStorageStatisticsFast` and `optimizeStorage`, Flutter license page). Gateway gained `me`, `storageStats`, `clearCache` end to end.
 - [x] P1-15 Golden tests for main screens (login phone/code/QR, feeds, editor, timeline light+dark, settings; Ahem font, 0.3 % tolerance comparator in `flutter_test_config.dart`); `integration_test/app_test.dart` runs the real app on the emulator, verified: reaches the login screen and skips the feed flow until the spare account is logged in.
-- [ ] P1-16 Closed beta build (signed APK via CI).
+- [x] P1-16 Closed beta build (signed APK via CI). `release.yml` on `v*` tags: fetches TDLib, signs from secrets (`key.properties` + keystore, debug fallback locally), builds per-ABI release APKs and attaches them to a GitHub release. Needs the GitHub remote, the tdlib release and the secrets listed in the README before it can run.
 
 ## Phase 2 — Rules and voice
 

@@ -18,6 +18,24 @@ cd app && flutter test integration_test -d emulator-5554 --dart-define=TG_API_ID
 The integration test drives the real app on the emulator; the feed flow runs only when the
 emulator's account is logged in (it says so and passes otherwise).
 
+## Releases (closed beta)
+
+Pushing a tag `v*` runs `.github/workflows/release.yml`: it downloads the prebuilt TDLib for the
+pinned commit, builds signed release APKs per ABI and attaches them to a GitHub release.
+Required repository secrets: `TG_API_ID`, `TG_API_HASH`, `ANDROID_KEYSTORE_BASE64`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+
+Create the keystore once, locally, and keep it out of git:
+
+```bash
+keytool -genkey -v -keystore telegram-feed-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+base64 -w0 telegram-feed-upload.jks   # value for ANDROID_KEYSTORE_BASE64
+```
+
+For a local signed build put the keystore path and passwords in `app/android/key.properties`
+(`storeFile`, `storePassword`, `keyAlias`, `keyPassword`); without that file release builds are
+signed with the debug key.
+
 ## License
 
 GPL-3.0. See [LICENSE](LICENSE).
