@@ -1341,6 +1341,628 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   }
 }
 
+class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RulesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 100,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _enabledMeta = const VerificationMeta(
+    'enabled',
+  );
+  @override
+  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
+    'enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _scopeKindMeta = const VerificationMeta(
+    'scopeKind',
+  );
+  @override
+  late final GeneratedColumn<String> scopeKind = GeneratedColumn<String>(
+    'scope_kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _scopeChatIdMeta = const VerificationMeta(
+    'scopeChatId',
+  );
+  @override
+  late final GeneratedColumn<int> scopeChatId = GeneratedColumn<int>(
+    'scope_chat_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _conditionJsonMeta = const VerificationMeta(
+    'conditionJson',
+  );
+  @override
+  late final GeneratedColumn<String> conditionJson = GeneratedColumn<String>(
+    'condition_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _priorityMeta = const VerificationMeta(
+    'priority',
+  );
+  @override
+  late final GeneratedColumn<String> priority = GeneratedColumn<String>(
+    'priority',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _readAloudMeta = const VerificationMeta(
+    'readAloud',
+  );
+  @override
+  late final GeneratedColumn<bool> readAloud = GeneratedColumn<bool>(
+    'read_aloud',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("read_aloud" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _scheduleJsonMeta = const VerificationMeta(
+    'scheduleJson',
+  );
+  @override
+  late final GeneratedColumn<String> scheduleJson = GeneratedColumn<String>(
+    'schedule_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    enabled,
+    scopeKind,
+    scopeChatId,
+    conditionJson,
+    priority,
+    readAloud,
+    scheduleJson,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'rules';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Rule> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('enabled')) {
+      context.handle(
+        _enabledMeta,
+        enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
+      );
+    }
+    if (data.containsKey('scope_kind')) {
+      context.handle(
+        _scopeKindMeta,
+        scopeKind.isAcceptableOrUnknown(data['scope_kind']!, _scopeKindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_scopeKindMeta);
+    }
+    if (data.containsKey('scope_chat_id')) {
+      context.handle(
+        _scopeChatIdMeta,
+        scopeChatId.isAcceptableOrUnknown(
+          data['scope_chat_id']!,
+          _scopeChatIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('condition_json')) {
+      context.handle(
+        _conditionJsonMeta,
+        conditionJson.isAcceptableOrUnknown(
+          data['condition_json']!,
+          _conditionJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_conditionJsonMeta);
+    }
+    if (data.containsKey('priority')) {
+      context.handle(
+        _priorityMeta,
+        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_priorityMeta);
+    }
+    if (data.containsKey('read_aloud')) {
+      context.handle(
+        _readAloudMeta,
+        readAloud.isAcceptableOrUnknown(data['read_aloud']!, _readAloudMeta),
+      );
+    }
+    if (data.containsKey('schedule_json')) {
+      context.handle(
+        _scheduleJsonMeta,
+        scheduleJson.isAcceptableOrUnknown(
+          data['schedule_json']!,
+          _scheduleJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Rule map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Rule(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      enabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}enabled'],
+      )!,
+      scopeKind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}scope_kind'],
+      )!,
+      scopeChatId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}scope_chat_id'],
+      ),
+      conditionJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}condition_json'],
+      )!,
+      priority: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}priority'],
+      )!,
+      readAloud: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}read_aloud'],
+      )!,
+      scheduleJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}schedule_json'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $RulesTable createAlias(String alias) {
+    return $RulesTable(attachedDatabase, alias);
+  }
+}
+
+class Rule extends DataClass implements Insertable<Rule> {
+  final int id;
+  final String name;
+  final bool enabled;
+
+  /// 'global' or 'channel'.
+  final String scopeKind;
+  final int? scopeChatId;
+  final String conditionJson;
+
+  /// 'silent', 'normal' or 'urgent'.
+  final String priority;
+  final bool readAloud;
+  final String? scheduleJson;
+  final DateTime createdAt;
+  const Rule({
+    required this.id,
+    required this.name,
+    required this.enabled,
+    required this.scopeKind,
+    this.scopeChatId,
+    required this.conditionJson,
+    required this.priority,
+    required this.readAloud,
+    this.scheduleJson,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    map['enabled'] = Variable<bool>(enabled);
+    map['scope_kind'] = Variable<String>(scopeKind);
+    if (!nullToAbsent || scopeChatId != null) {
+      map['scope_chat_id'] = Variable<int>(scopeChatId);
+    }
+    map['condition_json'] = Variable<String>(conditionJson);
+    map['priority'] = Variable<String>(priority);
+    map['read_aloud'] = Variable<bool>(readAloud);
+    if (!nullToAbsent || scheduleJson != null) {
+      map['schedule_json'] = Variable<String>(scheduleJson);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  RulesCompanion toCompanion(bool nullToAbsent) {
+    return RulesCompanion(
+      id: Value(id),
+      name: Value(name),
+      enabled: Value(enabled),
+      scopeKind: Value(scopeKind),
+      scopeChatId: scopeChatId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(scopeChatId),
+      conditionJson: Value(conditionJson),
+      priority: Value(priority),
+      readAloud: Value(readAloud),
+      scheduleJson: scheduleJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(scheduleJson),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory Rule.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Rule(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      enabled: serializer.fromJson<bool>(json['enabled']),
+      scopeKind: serializer.fromJson<String>(json['scopeKind']),
+      scopeChatId: serializer.fromJson<int?>(json['scopeChatId']),
+      conditionJson: serializer.fromJson<String>(json['conditionJson']),
+      priority: serializer.fromJson<String>(json['priority']),
+      readAloud: serializer.fromJson<bool>(json['readAloud']),
+      scheduleJson: serializer.fromJson<String?>(json['scheduleJson']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'enabled': serializer.toJson<bool>(enabled),
+      'scopeKind': serializer.toJson<String>(scopeKind),
+      'scopeChatId': serializer.toJson<int?>(scopeChatId),
+      'conditionJson': serializer.toJson<String>(conditionJson),
+      'priority': serializer.toJson<String>(priority),
+      'readAloud': serializer.toJson<bool>(readAloud),
+      'scheduleJson': serializer.toJson<String?>(scheduleJson),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  Rule copyWith({
+    int? id,
+    String? name,
+    bool? enabled,
+    String? scopeKind,
+    Value<int?> scopeChatId = const Value.absent(),
+    String? conditionJson,
+    String? priority,
+    bool? readAloud,
+    Value<String?> scheduleJson = const Value.absent(),
+    DateTime? createdAt,
+  }) => Rule(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    enabled: enabled ?? this.enabled,
+    scopeKind: scopeKind ?? this.scopeKind,
+    scopeChatId: scopeChatId.present ? scopeChatId.value : this.scopeChatId,
+    conditionJson: conditionJson ?? this.conditionJson,
+    priority: priority ?? this.priority,
+    readAloud: readAloud ?? this.readAloud,
+    scheduleJson: scheduleJson.present ? scheduleJson.value : this.scheduleJson,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  Rule copyWithCompanion(RulesCompanion data) {
+    return Rule(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      enabled: data.enabled.present ? data.enabled.value : this.enabled,
+      scopeKind: data.scopeKind.present ? data.scopeKind.value : this.scopeKind,
+      scopeChatId: data.scopeChatId.present
+          ? data.scopeChatId.value
+          : this.scopeChatId,
+      conditionJson: data.conditionJson.present
+          ? data.conditionJson.value
+          : this.conditionJson,
+      priority: data.priority.present ? data.priority.value : this.priority,
+      readAloud: data.readAloud.present ? data.readAloud.value : this.readAloud,
+      scheduleJson: data.scheduleJson.present
+          ? data.scheduleJson.value
+          : this.scheduleJson,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Rule(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('enabled: $enabled, ')
+          ..write('scopeKind: $scopeKind, ')
+          ..write('scopeChatId: $scopeChatId, ')
+          ..write('conditionJson: $conditionJson, ')
+          ..write('priority: $priority, ')
+          ..write('readAloud: $readAloud, ')
+          ..write('scheduleJson: $scheduleJson, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    enabled,
+    scopeKind,
+    scopeChatId,
+    conditionJson,
+    priority,
+    readAloud,
+    scheduleJson,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Rule &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.enabled == this.enabled &&
+          other.scopeKind == this.scopeKind &&
+          other.scopeChatId == this.scopeChatId &&
+          other.conditionJson == this.conditionJson &&
+          other.priority == this.priority &&
+          other.readAloud == this.readAloud &&
+          other.scheduleJson == this.scheduleJson &&
+          other.createdAt == this.createdAt);
+}
+
+class RulesCompanion extends UpdateCompanion<Rule> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<bool> enabled;
+  final Value<String> scopeKind;
+  final Value<int?> scopeChatId;
+  final Value<String> conditionJson;
+  final Value<String> priority;
+  final Value<bool> readAloud;
+  final Value<String?> scheduleJson;
+  final Value<DateTime> createdAt;
+  const RulesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.scopeKind = const Value.absent(),
+    this.scopeChatId = const Value.absent(),
+    this.conditionJson = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.readAloud = const Value.absent(),
+    this.scheduleJson = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  RulesCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.enabled = const Value.absent(),
+    required String scopeKind,
+    this.scopeChatId = const Value.absent(),
+    required String conditionJson,
+    required String priority,
+    this.readAloud = const Value.absent(),
+    this.scheduleJson = const Value.absent(),
+    required DateTime createdAt,
+  }) : name = Value(name),
+       scopeKind = Value(scopeKind),
+       conditionJson = Value(conditionJson),
+       priority = Value(priority),
+       createdAt = Value(createdAt);
+  static Insertable<Rule> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<bool>? enabled,
+    Expression<String>? scopeKind,
+    Expression<int>? scopeChatId,
+    Expression<String>? conditionJson,
+    Expression<String>? priority,
+    Expression<bool>? readAloud,
+    Expression<String>? scheduleJson,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (enabled != null) 'enabled': enabled,
+      if (scopeKind != null) 'scope_kind': scopeKind,
+      if (scopeChatId != null) 'scope_chat_id': scopeChatId,
+      if (conditionJson != null) 'condition_json': conditionJson,
+      if (priority != null) 'priority': priority,
+      if (readAloud != null) 'read_aloud': readAloud,
+      if (scheduleJson != null) 'schedule_json': scheduleJson,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  RulesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<bool>? enabled,
+    Value<String>? scopeKind,
+    Value<int?>? scopeChatId,
+    Value<String>? conditionJson,
+    Value<String>? priority,
+    Value<bool>? readAloud,
+    Value<String?>? scheduleJson,
+    Value<DateTime>? createdAt,
+  }) {
+    return RulesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      enabled: enabled ?? this.enabled,
+      scopeKind: scopeKind ?? this.scopeKind,
+      scopeChatId: scopeChatId ?? this.scopeChatId,
+      conditionJson: conditionJson ?? this.conditionJson,
+      priority: priority ?? this.priority,
+      readAloud: readAloud ?? this.readAloud,
+      scheduleJson: scheduleJson ?? this.scheduleJson,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (enabled.present) {
+      map['enabled'] = Variable<bool>(enabled.value);
+    }
+    if (scopeKind.present) {
+      map['scope_kind'] = Variable<String>(scopeKind.value);
+    }
+    if (scopeChatId.present) {
+      map['scope_chat_id'] = Variable<int>(scopeChatId.value);
+    }
+    if (conditionJson.present) {
+      map['condition_json'] = Variable<String>(conditionJson.value);
+    }
+    if (priority.present) {
+      map['priority'] = Variable<String>(priority.value);
+    }
+    if (readAloud.present) {
+      map['read_aloud'] = Variable<bool>(readAloud.value);
+    }
+    if (scheduleJson.present) {
+      map['schedule_json'] = Variable<String>(scheduleJson.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RulesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('enabled: $enabled, ')
+          ..write('scopeKind: $scopeKind, ')
+          ..write('scopeChatId: $scopeChatId, ')
+          ..write('conditionJson: $conditionJson, ')
+          ..write('priority: $priority, ')
+          ..write('readAloud: $readAloud, ')
+          ..write('scheduleJson: $scheduleJson, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1351,6 +1973,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $SettingsTable settings = $SettingsTable(this);
+  late final $RulesTable rules = $RulesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1361,6 +1984,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     feedReadMarks,
     watchedChannels,
     settings,
+    rules,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -2633,6 +3257,301 @@ typedef $$SettingsTableProcessedTableManager =
       Setting,
       PrefetchHooks Function()
     >;
+typedef $$RulesTableCreateCompanionBuilder = RulesCompanion Function({
+  Value<int> id,
+  required String name,
+  Value<bool> enabled,
+  required String scopeKind,
+  Value<int?> scopeChatId,
+  required String conditionJson,
+  required String priority,
+  Value<bool> readAloud,
+  Value<String?> scheduleJson,
+  required DateTime createdAt,
+});
+typedef $$RulesTableUpdateCompanionBuilder = RulesCompanion Function({
+  Value<int> id,
+  Value<String> name,
+  Value<bool> enabled,
+  Value<String> scopeKind,
+  Value<int?> scopeChatId,
+  Value<String> conditionJson,
+  Value<String> priority,
+  Value<bool> readAloud,
+  Value<String?> scheduleJson,
+  Value<DateTime> createdAt,
+});
+
+class $$RulesTableFilterComposer extends Composer<_$AppDatabase, $RulesTable> {
+  $$RulesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scopeKind => $composableBuilder(
+    column: $table.scopeKind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get scopeChatId => $composableBuilder(
+    column: $table.scopeChatId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get conditionJson => $composableBuilder(
+    column: $table.conditionJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get readAloud => $composableBuilder(
+    column: $table.readAloud,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scheduleJson => $composableBuilder(
+    column: $table.scheduleJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RulesTableOrderingComposer
+    extends Composer<_$AppDatabase, $RulesTable> {
+  $$RulesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get scopeKind => $composableBuilder(
+    column: $table.scopeKind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get scopeChatId => $composableBuilder(
+    column: $table.scopeChatId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get conditionJson => $composableBuilder(
+    column: $table.conditionJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get readAloud => $composableBuilder(
+    column: $table.readAloud,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get scheduleJson => $composableBuilder(
+    column: $table.scheduleJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RulesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RulesTable> {
+  $$RulesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<bool> get enabled =>
+      $composableBuilder(column: $table.enabled, builder: (column) => column);
+
+  GeneratedColumn<String> get scopeKind =>
+      $composableBuilder(column: $table.scopeKind, builder: (column) => column);
+
+  GeneratedColumn<int> get scopeChatId => $composableBuilder(
+    column: $table.scopeChatId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get conditionJson => $composableBuilder(
+    column: $table.conditionJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
+
+  GeneratedColumn<bool> get readAloud =>
+      $composableBuilder(column: $table.readAloud, builder: (column) => column);
+
+  GeneratedColumn<String> get scheduleJson => $composableBuilder(
+    column: $table.scheduleJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$RulesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RulesTable,
+          Rule,
+          $$RulesTableFilterComposer,
+          $$RulesTableOrderingComposer,
+          $$RulesTableAnnotationComposer,
+          $$RulesTableCreateCompanionBuilder,
+          $$RulesTableUpdateCompanionBuilder,
+          (Rule, BaseReferences<_$AppDatabase, $RulesTable, Rule>),
+          Rule,
+          PrefetchHooks Function()
+        > {
+  $$RulesTableTableManager(_$AppDatabase db, $RulesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RulesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RulesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RulesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<bool> enabled = const Value.absent(),
+                Value<String> scopeKind = const Value.absent(),
+                Value<int?> scopeChatId = const Value.absent(),
+                Value<String> conditionJson = const Value.absent(),
+                Value<String> priority = const Value.absent(),
+                Value<bool> readAloud = const Value.absent(),
+                Value<String?> scheduleJson = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => RulesCompanion(
+                id: id,
+                name: name,
+                enabled: enabled,
+                scopeKind: scopeKind,
+                scopeChatId: scopeChatId,
+                conditionJson: conditionJson,
+                priority: priority,
+                readAloud: readAloud,
+                scheduleJson: scheduleJson,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                Value<bool> enabled = const Value.absent(),
+                required String scopeKind,
+                Value<int?> scopeChatId = const Value.absent(),
+                required String conditionJson,
+                required String priority,
+                Value<bool> readAloud = const Value.absent(),
+                Value<String?> scheduleJson = const Value.absent(),
+                required DateTime createdAt,
+              }) => RulesCompanion.insert(
+                id: id,
+                name: name,
+                enabled: enabled,
+                scopeKind: scopeKind,
+                scopeChatId: scopeChatId,
+                conditionJson: conditionJson,
+                priority: priority,
+                readAloud: readAloud,
+                scheduleJson: scheduleJson,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$RulesTable, Rule>(table),
+                  BaseReferences<_$AppDatabase, $RulesTable, Rule>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RulesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RulesTable,
+      Rule,
+      $$RulesTableFilterComposer,
+      $$RulesTableOrderingComposer,
+      $$RulesTableAnnotationComposer,
+      $$RulesTableCreateCompanionBuilder,
+      $$RulesTableUpdateCompanionBuilder,
+      (Rule, BaseReferences<_$AppDatabase, $RulesTable, Rule>),
+      Rule,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2647,4 +3566,6 @@ class $AppDatabaseManager {
       $$WatchedChannelsTableTableManager(_db, _db.watchedChannels);
   $$SettingsTableTableManager get settings =>
       $$SettingsTableTableManager(_db, _db.settings);
+  $$RulesTableTableManager get rules =>
+      $$RulesTableTableManager(_db, _db.rules);
 }

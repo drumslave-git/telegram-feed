@@ -7,6 +7,9 @@ Drift/SQLite database for everything TDLib does not own (ARCHITECTURE.md section
 dart run build_runner build --delete-conflicting-outputs   # after editing lib/src/database.dart
 ```
 
+Schema v2 adds `rules`. `drift_schemas/` holds one dump per version and `test/migration_test.dart`
+migrates from each old version and validates the result.
+
 `AppDatabase` exposes the operations screens need (create/rename/reorder/delete feeds, add/remove/
 reorder sources, monotonic read marks, settings, `wipe` on logout) and keeps `watched_channels` equal
 to the union of all sources. Schema changes bump `schemaVersion`, add an `onUpgrade` step, and get a

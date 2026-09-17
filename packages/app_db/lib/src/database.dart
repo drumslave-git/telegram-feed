@@ -44,6 +44,25 @@ class WatchedChannels extends Table {
   Set<Column> get primaryKey => {chatId};
 }
 
+/// Keyword rules (ARCHITECTURE.md section 6.1). `condition_json` and `schedule_json` are the
+/// JSON forms of `rules.Expr` and `rules.Schedule`; `app_db` does not parse them.
+class Rules extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text().withLength(min: 1, max: 100)();
+  BoolColumn get enabled => boolean().withDefault(const Constant(true))();
+
+  /// 'global' or 'channel'.
+  TextColumn get scopeKind => text()();
+  IntColumn get scopeChatId => integer().nullable()();
+  TextColumn get conditionJson => text()();
+
+  /// 'silent', 'normal' or 'urgent'.
+  TextColumn get priority => text()();
+  BoolColumn get readAloud => boolean().withDefault(const Constant(false))();
+  TextColumn get scheduleJson => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+}
+
 class Settings extends Table {
   TextColumn get key => text()();
   TextColumn get value => text()();
@@ -67,21 +86,45 @@ abstract final class SettingKeys {
 }
 
 @DriftDatabase(
-  tables: [Feeds, FeedSources, FeedReadMarks, WatchedChannels, Settings],
+  tables: [Feeds, FeedSources, FeedReadMarks, WatchedChannels, Settings, Rules],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) await m.createTable(rules);
+    },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  // ---- rules ----
+
+  Future<List<Rule>> allRules() =>
+      (select(rules)..orderBy([(r) => OrderingTerm.asc(r.createdAt)])).get();
+
+  Stream<List<Rule>> watchRules() =>
+      (select(rules)..orderBy([(r) => OrderingTerm.asc(r.createdAt)])).watch();
+
+  Future<Rule> insertRule(RulesCompanion rule) =>
+      into(rules).insertReturning(rule);
+
+  Future<void> updateRule(Rule rule) => update(rules).replace(rule);
+
+  Future<void> setRuleEnabled(int id, bool enabled) =>
+      (update(rules)..where((r) => r.id.equals(id))).write(
+        RulesCompanion(enabled: Value(enabled)),
+      );
+
+  Future<void> deleteRule(int id) =>
+      (delete(rules)..where((r) => r.id.equals(id))).go();
 
   // ---- feeds ----
 
@@ -296,6 +339,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// Logout: everything goes (ARCHITECTURE.md section 10).
   Future<void> wipe() => transaction(() async {
+    await delete(rules).go();
     await delete(feedReadMarks).go();
     await delete(feedSources).go();
     await delete(feeds).go();
