@@ -149,7 +149,7 @@ Term = { text, wholeWord: bool, caseSensitive: bool }     // multi-word text = p
 Schedule = { weekdays: Set<1..7>, from: "HH:mm", to: "HH:mm" }   // local time, may wrap midnight
 ```
 
-The editor is a visual builder (groups of terms with AND/OR toggles, NOT per term), plus a text form `("bitcoin" OR "btc") AND NOT "airdrop"` that parses to the same AST. Whole-word matching is Unicode-aware (`\b` with `unicode: true`). Case-insensitive matching lower-cases both sides with locale-independent folding.
+The editor is a visual builder (groups of terms with AND/OR toggles, NOT per term), plus a text form `("bitcoin" OR btc) AND NOT airdrop` that parses to the same AST (`RuleParser`, package `rules`): terms are bare words or quoted phrases, default whole-word and case-insensitive; prefix `~` for substring match, `=` for case-sensitive; `AND` binds tighter than `OR`, `NOT` tightest; `RuleParser.format` renders the AST back. Whole-word matching is Unicode-aware: Dart's `\b` is ASCII-only, so boundaries are `(?<![\p{L}\p{N}_])…(?![\p{L}\p{N}_])` with `unicode: true` (CJK text has no inner boundaries, so users pick `~` there). Case-insensitive matching uses the regex engine's Unicode case folding, which covers Cyrillic.
 
 ### 6.2 Evaluation
 
