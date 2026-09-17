@@ -1,7 +1,10 @@
-/// Rule AST, text-form parser, evaluator and schedule matcher. Pure Dart, no I/O.
+/// Rule conditions: AST, text-form parser, evaluator and schedule matcher. Pure Dart, no I/O.
 ///
-/// Filled in by the phase 1 tasks; see docs/PLAN.md and docs/ARCHITECTURE.md section 3.
+/// See ARCHITECTURE.md section 6.1. The text form is
+/// `("bitcoin" OR btc) AND NOT airdrop`; see [RuleParser] for the modifiers.
 library;
 
-/// Package identity, used by the scaffold test until real code lands.
-const String packageName = 'rules';
+export 'src/ast.dart';
+export 'src/evaluator.dart';
+export 'src/parser.dart';
+export 'src/schedule.dart';
