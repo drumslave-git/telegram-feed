@@ -39,5 +39,10 @@ docs/                   spec, architecture, plan, spike outcomes
 Telegram API credentials are not in the repo. Obtain `api_id` and `api_hash` at https://my.telegram.org and pass them at build time:
 
 ```bash
-flutter run --dart-define=TG_API_ID=12345 --dart-define=TG_API_HASH=abcdef...
+flutter pub get                       # once, at the repo root (pub workspace)
+dart tool/fetch_tdlib.dart            # prebuilt libtdjson.so + tdweb for the pinned TDLib commit
+cd app && flutter run --dart-define=TG_API_ID=12345 --dart-define=TG_API_HASH=abcdef...
 ```
+
+Without a GitHub release yet, build the binaries locally with Docker (`tool/tdlib`, `tool/tdweb`)
+and run `dart tool/fetch_tdlib.dart --local`.

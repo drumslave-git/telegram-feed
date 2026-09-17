@@ -41,3 +41,6 @@ spikes/tdweb/web/*.mem
 **/android/gradlew
 **/android/gradlew.bat
 **/android/gradle/wrapper/gradle-wrapper.jar
+app/web/*.worker.js
+app/web/*.wasm
+**/jniLibs/TDLIB_COMMIT

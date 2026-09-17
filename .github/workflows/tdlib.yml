@@ -1,0 +1,82 @@
+name: tdlib
+# Builds libtdjson.so (Android) and tdweb (web) from the pinned TDLib commit and publishes them
+# as assets of a GitHub release tagged `tdlib-<short sha>`. tool/fetch_tdlib.dart downloads them.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - packages/tdlib_bindings/schema/TDLIB_COMMIT
+      - tool/tdlib/**
+      - tool/tdweb/**
+      - .github/workflows/tdlib.yml
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.pin.outputs.commit }}
+      tag: ${{ steps.pin.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: pin
+        run: |
+          c=$(tr -d '[:space:]' < packages/tdlib_bindings/schema/TDLIB_COMMIT)
+          echo "commit=$c" >> "$GITHUB_OUTPUT"
+          echo "tag=tdlib-${c:0:7}" >> "$GITHUB_OUTPUT"
+
+  android:
+    needs: pin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build libtdjson.so (arm64-v8a, x86_64)
+        run: docker build --build-arg COMMIT_HASH=${{ needs.pin.outputs.commit }} --output out -f tool/tdlib/Dockerfile tool/tdlib
+      - name: Repack as tar.gz (libs/<abi>/libtdjson.so)
+        run: |
+          mkdir -p pack && cd pack && unzip -q ../out/tdlib.zip && tar -czf ../libtdjson-android.tar.gz -C tdlib libs
+          cd .. && tar -czf libtdjson-android-debug.tar.gz -C out tdlib-debug.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: libtdjson-android*.tar.gz
+
+  web:
+    needs: pin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build tdweb
+        run: docker build --build-arg COMMIT_HASH=${{ needs.pin.outputs.commit }} --output out -f tool/tdweb/Dockerfile tool/tdweb
+      - name: Pack dist
+        run: tar -czf tdweb.tar.gz -C out/tdweb dist package.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: tdweb.tar.gz
+
+  release:
+    needs: [pin, android, web]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Checksums
+        run: |
+          echo "${{ needs.pin.outputs.commit }}" > TDLIB_COMMIT
+          sha256sum libtdjson-android.tar.gz libtdjson-android-debug.tar.gz tdweb.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.pin.outputs.tag }}
+          name: TDLib ${{ needs.pin.outputs.tag }}
+          body: Prebuilt TDLib ${{ needs.pin.outputs.commit }} for Android (arm64-v8a, x86_64) and tdweb.
+          files: |
+            libtdjson-android.tar.gz
+            libtdjson-android-debug.tar.gz
+            tdweb.tar.gz
+            SHA256SUMS
+            TDLIB_COMMIT
