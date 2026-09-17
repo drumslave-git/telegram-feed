@@ -29,6 +29,9 @@ abstract final class NotificationPolicy {
 
   static Future<void> openSettings() =>
       _channel.invokeMethod<void>('openPolicyAccessSettings');
+
+  /// Function form for injection into widgets.
+  static Future<bool> isGrantedFn() => isGranted;
 }
 
 /// UI-side handling of notification taps: opens the post in the first feed that contains

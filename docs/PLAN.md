@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 2 (rules and voice). **Next task:** P2-6.
+**Current phase:** 2 (rules and voice). **Next task:** P2-7.
 
 ## Phase 0 — Spikes
 
@@ -41,7 +41,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 - [x] P2-3 Foreground service hosting the core isolate; battery-optimization exemption prompt; "Watching N channels" notification with Pause. `service/core_service.dart` (specialUse service, task handler spawns the core and registers its port, notification counts watched channels, Pause/Resume buttons drive `setPaused`), `CoreHost` starts the service and falls back to an in-process core, forwards rule/source changes with `refresh`; battery exemption helpers exposed (prompt UI lands with the rules screens in P2-6). Verified on the emulator: service foreground with the notification, UI reconnects to the running core after the activity is destroyed.
 - [x] P2-4 Notifications: three channels (silent, normal, urgent with DND bypass), grouping, Listen and Open in Telegram actions, tap opens post in feed. `service/notifier.dart` (channels `posts_silent|normal|urgent`, `bypassDnd` on urgent, per-channel group summaries, cancel on delete, actions routed to the service host over `telegram_feed.notifier`), `notifications/notification_launch.dart` (tap → first feed containing the channel, timeline focused on the post; Open in Telegram; policy-access helpers via a small Kotlin method channel). Listen action logs until P2-5.
 - [x] P2-5 TTS service: queue, language detection, voice selection, text preparation, audio focus, call detection. `prepareForSpeech` in `core` (URLs → "link", emoji/markers dropped, channel prefix, sentence-aware truncation); `TtsService` FIFO queue over a `Speaker` interface (ML Kit language id, per-language voice and rate/pitch from settings, `flutter_tts` with audio focus, `audio_session` interruptions pause and re-speak, so no telephony permission); Listen action and auto-read share one path. Settings UI is P2-7.
-- [ ] P2-6 Rules list and rule editor screens (visual builder + text form), test-against-recent-posts.
+- [x] P2-6 Rules list and rule editor screens (visual builder + text form), test-against-recent-posts. `RulesScreen` (enable switches, battery-exemption banner), `RuleEditorScreen` (OR-of-AND builder ⇄ text form via `BuilderModel`, scope picker, priority, read-aloud, enabled, weekday/time schedule, DND policy prompt on urgent, dry run over recent posts). Reached from the feeds list's Rules action.
 - [ ] P2-7 Read-aloud settings screen.
 
 ## Phase 3 — Interactions and web

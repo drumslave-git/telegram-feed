@@ -6,6 +6,7 @@ import 'core_host.dart';
 import 'feeds/feeds_screen.dart';
 import 'feeds/timeline_screen.dart';
 import 'notifications/notification_launch.dart';
+import 'rules/rules_screen.dart';
 import 'service/core_service.dart';
 import 'settings/settings_screen.dart';
 
@@ -88,6 +89,20 @@ class _Root extends StatelessWidget {
               ),
             ),
             actions: [
+              IconButton(
+                tooltip: 'Rules',
+                icon: const Icon(Icons.rule),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => RulesScreen(
+                      db: h.db,
+                      gateway: h.gateway,
+                      batteryExempt: () => h.isBatteryExempt,
+                      onRequestBatteryExemption: h.requestBatteryExemption,
+                    ),
+                  ),
+                ),
+              ),
               IconButton(
                 tooltip: 'Settings',
                 icon: const Icon(Icons.settings_outlined),
