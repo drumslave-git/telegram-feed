@@ -152,13 +152,13 @@ void main() {
         _post(
           -1,
           300,
-          1789650000,
+          1700010000, // fixed past dates: the header shows time only for today
           'A longer post with two lines of text so the card wraps and shows its shape.',
         ),
         _post(
           -1,
           100,
-          1789640000,
+          1700000000,
           'Older post',
           media: const UnsupportedMedia('messagePoll'),
         ),
@@ -167,7 +167,7 @@ void main() {
         _post(
           -2,
           200,
-          1789645000,
+          1700005000,
           'Video post',
           media: const VideoMedia(
             file: FileRef(
