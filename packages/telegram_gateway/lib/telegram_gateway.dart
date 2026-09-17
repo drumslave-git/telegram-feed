@@ -1,7 +1,10 @@
-/// TelegramGateway interface with the TDLib FFI (Android) and tdweb (web) implementations.
+/// `TelegramGateway`: the only layer that knows about TDLib. Platform-neutral part.
 ///
-/// Filled in by the phase 1 tasks; see docs/PLAN.md and docs/ARCHITECTURE.md section 3.
+/// Native platforms add `package:telegram_gateway/tdlib_ffi.dart` for the FFI transport;
+/// the web will add a tdweb transport in phase 3.
 library;
 
-/// Package identity, used by the scaffold test until real code lands.
-const String packageName = 'telegram_gateway';
+export 'src/gateway.dart';
+export 'src/models.dart';
+export 'src/td_transport.dart';
+export 'src/tdlib_gateway.dart';

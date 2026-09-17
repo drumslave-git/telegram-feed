@@ -58,32 +58,36 @@ Pure-Dart packages (`rules`, `app_db`, `core`) get the bulk of the tests. `app/`
 `TelegramGateway` is the only thing that knows about TDLib. Everything above it works with app-level types (`Channel`, `Post`, `Media`).
 
 ```dart
-abstract class TelegramGateway {
-  Stream<AuthState> get authState;
+abstract interface class TelegramGateway {
+  Stream<AuthState> get authState;                         // current state replayed, then changes
   Future<void> setPhoneNumber(String phone);
   Future<void> checkCode(String code);
   Future<void> checkPassword(String password);
+  Future<void> registerUser({required String firstName, String lastName});
+  Future<void> requestQrCode();                            // AuthWaitOtherDeviceConfirmation carries the link
   Future<void> logOut();
 
   Future<List<Channel>> myChannels();                      // joined supergroups with isChannel = true
   Stream<ChannelMembershipEvent> get membershipEvents;     // user joined / left a channel in Telegram
 
-  Future<List<Post>> history(int chatId, {int fromMessageId, int limit});
-  Stream<PostEvent> get postEvents;                        // new / edited / deleted
+  Future<List<Post>> history(int chatId, {int fromMessageId, int limit, bool onlyLocal});
+  Stream<PostEvent> get postEvents;                        // PostAdded / PostEdited / PostsDeleted
   Future<void> markViewed(int chatId, List<int> messageIds);
 
-  Future<File> download(FileRef ref, {int priority});
-  Stream<FileProgress> fileProgress(FileRef ref);
+  Future<FileRef> download(FileRef ref, {int priority});   // completes with localPath set
+  Stream<FileProgress> fileProgress(int fileId);
+  Future<void> close();
 
-  Future<void> react(int chatId, int messageId, Reaction r);   // phase 3
-  Future<Thread> discussion(int chatId, int messageId);         // phase 3
+  // phase 3: react, discussion
 }
 ```
 
 Implementations:
 
-- `TdlibFfiGateway` (Android, and desktop for development): loads `libtdjson`, runs `td_json_client_receive` on a dedicated native-blocking thread via `Isolate.run` or a long-lived receive isolate, parses JSON into generated types, routes `updateNewMessage`, `updateMessageContent`, `updateDeleteMessages`, `updateFile`, `updateAuthorizationState`.
-- `TdwebGateway` (web): wraps tdweb's `TdClient` through `dart:js_interop`. Same JSON protocol, so the generated types are shared. tdweb stores its database in IndexedDB.
+- One implementation, `TdlibGateway` (package `telegram_gateway`), over a `TdTransport` (raw JSON in, raw JSON out). `TdClient` matches responses to requests by `@extra`, decodes updates with `tdlib_bindings` and hands them to the gateway strictly in order (an edit that needs a `getMessage` round trip cannot be overtaken by the following delete).
+- `FfiTransport` (Android, and desktop for development): loads `libtdjson`, polls `td_receive` in one long-lived receive isolate and demultiplexes by `@client_id`. Imported from `package:telegram_gateway/tdlib_ffi.dart` only on native platforms.
+- `TdwebTransport` (web, phase 3): wraps tdweb's `TdClient` through `dart:js_interop`. Same JSON protocol, so the generated types and `TdlibGateway` are shared. tdweb stores its database in IndexedDB.
+- Post events are emitted only for chats known to be channels; `updateMessageContent`/`updateMessageEdited` are re-fetched with `getMessage` so `PostEdited` carries the full post; `updateDeleteMessages` is forwarded only when `is_permanent`.
 
 TDLib parameters: `use_message_database = true`, `use_chat_info_database = true`, `use_file_database = true`, `files_directory` under app cache. TDLib owns message and file caching; the app never duplicates message bodies into its own DB.
 
