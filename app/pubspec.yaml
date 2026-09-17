@@ -1,0 +1,28 @@
+name: telegram_feed
+description: Telegram client for reading channels as feeds, with keyword rules and read-aloud.
+publish_to: none
+resolution: workspace
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+  core:
+    path: ../packages/core
+  telegram_gateway:
+    path: ../packages/telegram_gateway
+  app_db:
+    path: ../packages/app_db
+  rules:
+    path: ../packages/rules
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

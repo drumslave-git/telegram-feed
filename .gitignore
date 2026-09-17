@@ -19,7 +19,7 @@ pubspec.lock.bak
 secrets/
 
 # Android
-android/local.properties
+**/android/local.properties
 android/key.properties
 *.jks
 *.keystore
@@ -34,3 +34,10 @@ Thumbs.db
 spikes/tdweb/web/*.worker.js
 spikes/tdweb/web/*.wasm
 spikes/tdweb/web/*.mem
+
+# Flutter/Gradle generated files inside any Android project
+**/.kotlin/
+**/GeneratedPluginRegistrant.java
+**/android/gradlew
+**/android/gradlew.bat
+**/android/gradle/wrapper/gradle-wrapper.jar

@@ -1,0 +1,17 @@
+name: telegram_gateway
+description: "TelegramGateway interface with the TDLib FFI (Android) and tdweb (web) implementations."
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  tdlib_bindings:
+    path: ../tdlib_bindings
+  ffi: ^2.2.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6

@@ -1,0 +1,12 @@
+# Dart pub workspace root. Run `flutter pub get` here once; it resolves every package below.
+name: telegram_feed_workspace
+publish_to: none
+environment:
+  sdk: ^3.13.0
+workspace:
+  - app
+  - packages/core
+  - packages/telegram_gateway
+  - packages/app_db
+  - packages/rules
+  - packages/tdlib_bindings

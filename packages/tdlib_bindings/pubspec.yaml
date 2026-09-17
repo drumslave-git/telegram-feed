@@ -1,0 +1,15 @@
+name: tdlib_bindings
+description: "Dart types for the TDLib JSON API, generated from td_api.tl of the pinned TDLib commit."
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  # none yet
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6

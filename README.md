@@ -11,14 +11,30 @@ Status: phase 0 spikes done (TDLib FFI on Android, foreground-service core isola
 
 GPL-3.0. See [LICENSE](LICENSE).
 
-## Planned stack
+## Repository layout
+
+Dart pub workspace (run `flutter pub get` once at the root).
+
+```
+app/                    Flutter application (Android, web)
+packages/core           core isolate: services, timeline, rule engine, TTS/notifier proxies
+packages/telegram_gateway  TelegramGateway + TDLib FFI and tdweb implementations
+packages/app_db         Drift schema for feeds, sources, read marks, settings
+packages/rules          rule AST, parser, evaluator (pure Dart)
+packages/tdlib_bindings generated TDLib JSON types
+tool/tdlib, tool/tdweb  Docker builds of libtdjson.so and tdweb from the pinned TDLib commit
+tool/ci.sh              what CI runs: analyze, format check, package and app tests
+docs/                   spec, architecture, plan, spike outcomes
+```
+
+## Stack
 
 - Flutter (Android first, then web)
 - TDLib via `dart:ffi` on mobile, tdweb on web
 - Drift (SQLite) for app data
 - Device text-to-speech via `flutter_tts`
 
-## Running (future)
+## Running
 
 Telegram API credentials are not in the repo. Obtain `api_id` and `api_hash` at https://my.telegram.org and pass them at build time:
 

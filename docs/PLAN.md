@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 1 (Android MVP). **Next task:** P1-1.
+**Current phase:** 1 (Android MVP). **Next task:** P1-2.
 
 ## Phase 0 — Spikes
 
@@ -17,7 +17,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 
 ## Phase 1 — Android MVP
 
-- [ ] P1-1 Repo scaffold: Flutter app + packages (`core`, `telegram_gateway`, `app_db`, `rules`, `tdlib_bindings`), melos or workspace config, CI running `dart analyze` and tests.
+- [x] P1-1 Repo scaffold: Flutter app + packages (`core`, `telegram_gateway`, `app_db`, `rules`, `tdlib_bindings`), Dart pub workspace (no melos), CI (`.github/workflows/ci.yml`, same steps in `tool/ci.sh`) running analyze, format check and tests.
 - [ ] P1-2 `tdlib_bindings`: generate Dart types from `td_api.tl` for the pinned TDLib tag.
 - [ ] P1-3 `telegram_gateway`: `TelegramGateway` interface + `TdlibFfiGateway` (auth flow, myChannels, history, postEvents, markViewed, download, membershipEvents).
 - [ ] P1-4 `tool/fetch_tdlib.dart` + CI job that builds `libtdjson.so` (`tool/tdlib`) and tdweb (`tool/tdweb`) from the pinned commit and publishes them as release assets.

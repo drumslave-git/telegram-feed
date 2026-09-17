@@ -1,0 +1,20 @@
+name: core
+description: "Core isolate - CoreServer, feed timeline, rule engine, TTS queue and notifier proxies."
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  telegram_gateway:
+    path: ../telegram_gateway
+  app_db:
+    path: ../app_db
+  rules:
+    path: ../rules
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6

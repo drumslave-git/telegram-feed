@@ -1,0 +1,15 @@
+name: rules
+description: "Rule AST, text-form parser, evaluator and schedule matcher. Pure Dart, no I/O."
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  # none yet
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6
