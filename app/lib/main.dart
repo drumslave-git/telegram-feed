@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'auth/login_screens.dart';
 import 'core_host.dart';
+import 'feeds/feeds_screen.dart';
 import 'home/home_placeholder.dart';
 
 void main() {
@@ -49,7 +50,13 @@ class _Root extends StatelessWidget {
         }
         return AuthGate(
           gateway: h.gateway,
-          child: HomePlaceholder(onLogOut: h.logOutAndWipe),
+          child: FeedsScreen(
+            db: h.db,
+            gateway: h.gateway,
+            // P1-9/P1-10 open the editor and the timeline from here.
+            onOpenFeed: (_) {},
+            actions: [LogOutAction(onLogOut: h.logOutAndWipe)],
+          ),
         );
       },
     );

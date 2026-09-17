@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 1 (Android MVP). **Next task:** P1-8.
+**Current phase:** 1 (Android MVP). **Next task:** P1-9.
 
 ## Phase 0 — Spikes
 
@@ -24,7 +24,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 - [x] P1-5 Core isolate + `CoreClient` port protocol; spawned from the UI in this phase. `CoreServer`/`CoreClient` (the client implements `TelegramGateway`), model codec, `native_isolate.dart`; verified on the emulator: app reaches `AuthWaitPhoneNumber` through the core isolate.
 - [x] P1-6 `app_db`: Drift schema (`feeds`, `feed_sources`, `feed_read_marks`, `watched_channels`, `settings`) with DAO methods, schema validation test and behaviour tests (cascade, watched-channel pruning, monotonic read marks, wipe). Schema v1; `drift_dev schema dump` starts with v2.
 - [x] P1-7 Login screens: phone, code, 2FA password, QR login; logout wipes all data. `AuthGate` + `_StepForm` screens with inline Telegram errors, `CoreHost` (spawns/finds the core, respawns after logout, wipes `app_db`), widget tests. On the emulator the phone screen shows; real login needs the founder's own `api_id`/`api_hash` (Telegram answers `API_ID_INVALID` to TDLib's example id from the app) and the founder typing the code.
-- [ ] P1-8 Feeds list screen with unread badges; create, rename, reorder, delete.
+- [x] P1-8 Feeds list screen with unread badges; create, rename, reorder, delete. `FeedsScreen` + `FeedsController` (badge = sources whose `lastMessageId` is newer than the feed's read mark, refreshed on new posts and mark changes); `Channel.lastMessageId` added to the gateway. Widget tests run drift under `runAsync`.
 - [ ] P1-9 Feed editor: add joined channels from a searchable picker, remove, reorder.
 - [ ] P1-10 Merged timeline: k-way merge, pagination, live inserts, album collapsing, edits and deletes.
 - [ ] P1-11 Media: inline photos, video playback, voice and audio playback, download progress.

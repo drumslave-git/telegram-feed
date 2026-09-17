@@ -64,12 +64,16 @@ final class Channel {
     this.memberCount = 0,
     this.photo,
     this.isMember = true,
+    this.lastMessageId = 0,
   });
   final int chatId;
   final String title;
   final String? username;
   final int memberCount;
   final FileRef? photo;
+
+  /// Id of the newest post TDLib knows about (0 if none); cheap unread upper bound.
+  final int lastMessageId;
 
   /// False once the account has left the channel (history may still be readable).
   final bool isMember;

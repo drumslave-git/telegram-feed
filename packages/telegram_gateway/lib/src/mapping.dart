@@ -69,6 +69,7 @@ Channel channel(td.Chat chat, td.Supergroup sg) => Channel(
   memberCount: sg.memberCount,
   photo: chat.photo?.small == null ? null : fileRef(chat.photo!.small!),
   isMember: isMemberStatus(sg.status),
+  lastMessageId: chat.lastMessage?.id ?? 0,
 );
 
 Post post(td.Message m) {

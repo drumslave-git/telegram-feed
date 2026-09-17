@@ -224,6 +224,10 @@ class AppDatabase extends _$AppDatabase {
         );
       });
 
+  /// Emits whenever any read mark changes (badge recomputation).
+  Stream<List<FeedReadMark>> watchAllReadMarks() =>
+      select(feedReadMarks).watch();
+
   /// chat id → last read message id for one feed (0 for sources never read).
   Future<Map<int, int>> readMarks(int feedId) async {
     final sources = await sourcesOf(feedId);

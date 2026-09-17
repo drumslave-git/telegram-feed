@@ -50,7 +50,13 @@ final class FakeGateway implements TelegramGateway {
 
   @override
   Future<List<Channel>> myChannels() async => const [
-    Channel(chatId: -1001, title: 'News', username: 'news', memberCount: 3),
+    Channel(
+      chatId: -1001,
+      title: 'News',
+      username: 'news',
+      memberCount: 3,
+      lastMessageId: 42,
+    ),
     Channel(chatId: -1002, title: 'Left', isMember: false),
   ];
 
@@ -127,6 +133,7 @@ void main() {
       final channels = await client.myChannels();
       expect(channels.map((c) => c.title), ['News', 'Left']);
       expect(channels.first.username, 'news');
+      expect(channels.first.lastMessageId, 42);
       expect(channels.last.isMember, isFalse);
 
       final posts = await client.history(
