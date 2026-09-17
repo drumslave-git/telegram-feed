@@ -100,6 +100,30 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('focus on a post from a notification loads and marks it', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Mix');
+      await db.addSource(feed.id, -1, title: 'One');
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(
+          db: db,
+          gateway: gw,
+          feed: feed,
+          focusChatId: -1,
+          focusMessageId: 1,
+        ),
+      ),
+    );
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('one-old'), findsOneWidget);
+    await unmount(tester);
+  });
+
   testWidgets('feed without channels explains what to do', (tester) async {
     await tester.runAsync(() async => feed = await db.createFeed('Empty'));
     await tester.pumpWidget(

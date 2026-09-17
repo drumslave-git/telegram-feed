@@ -10,8 +10,10 @@ import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../core_host.dart' show tgApiHash, tgApiId, tgTestDc;
+import 'notifier.dart';
 
 /// Paths shared by the UI host and the service host.
 Future<({String support, String tdlib, String db})> appPaths() async {
@@ -91,6 +93,9 @@ class CoreServiceHandler extends TaskHandler {
   AppDatabase? _db;
   StreamSubscription<bool>? _pausedSub;
   bool _paused = false;
+  final _notifier = Notifier();
+  final _actions = ReceivePort();
+  Map<int, String> _titles = const {};
 
   static void _log(String s) => debugPrint('service: $s');
 
@@ -124,16 +129,48 @@ class CoreServiceHandler extends TaskHandler {
       _paused = p;
       unawaited(_updateNotification());
     });
-    _client!.matches.listen(
-      (m) =>
-          _log('match ${m.ruleNames} on ${m.post.chatId}/${m.post.messageId}'),
-    );
+    await _notifier.init();
+    IsolateNameServer.removePortNameMapping(notifierPortName);
+    IsolateNameServer.registerPortWithName(_actions.sendPort, notifierPortName);
+    _actions.listen(_onNotificationAction);
+    _client!.matches.listen(_onMatch);
+    _client!.postEvents.listen((e) {
+      if (e is PostsDeleted) {
+        unawaited(_notifier.cancel(e.chatId, e.messageIds));
+      }
+    });
     await _updateNotification();
     _log('core up, port registered');
   }
 
+  Future<void> _onMatch(MatchEvent m) async {
+    _log('match ${m.ruleNames} on ${m.post.chatId}/${m.post.messageId}');
+    if (!_titles.containsKey(m.post.chatId)) await _reloadTitles();
+    final plan = NotificationPlan.forMatch(
+      m,
+      channelTitle: _titles[m.post.chatId] ?? '',
+    );
+    await _notifier.show(plan);
+    if (m.readAloud) _log('read aloud requested (P2-5)');
+  }
+
+  Future<void> _reloadTitles() async {
+    final watched = await _db?.allWatched() ?? const <WatchedChannel>[];
+    _titles = {for (final w in watched) w.chatId: w.title};
+  }
+
+  void _onNotificationAction(Object? msg) {
+    final m = msg as Map<Object?, Object?>;
+    final ref = PostRef.decode(m['payload'] as String?);
+    _log(
+      'notification action ${m['actionId']} on ${ref?.chatId}/${ref?.messageId}',
+    );
+    // 'listen' is wired to TTS in P2-5; taps and "Open in Telegram" are handled by the app.
+  }
+
   Future<void> _updateNotification() async {
-    final n = (await _db?.allWatched())?.length ?? 0;
+    await _reloadTitles();
+    final n = _titles.length;
     await FlutterForegroundTask.updateService(
       notificationTitle: 'telegram-feed',
       notificationText: _paused
@@ -173,6 +210,8 @@ class CoreServiceHandler extends TaskHandler {
     _log('onDestroy timeout=$isTimeout');
     await _pausedSub?.cancel();
     await _client?.close();
+    IsolateNameServer.removePortNameMapping(notifierPortName);
+    _actions.close();
     IsolateNameServer.removePortNameMapping(corePortName);
     _core?.kill(priority: Isolate.immediate);
     await _db?.close();

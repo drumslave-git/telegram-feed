@@ -18,10 +18,16 @@ class TimelineScreen extends StatefulWidget {
     required this.db,
     required this.gateway,
     required this.feed,
+    this.focusChatId,
+    this.focusMessageId,
   });
   final AppDatabase db;
   final TelegramGateway gateway;
   final Feed feed;
+
+  /// Post to scroll to after loading (notification tap). Loads up to a few pages to find it.
+  final int? focusChatId;
+  final int? focusMessageId;
 
   @override
   State<TimelineScreen> createState() => _TimelineScreenState();
@@ -76,7 +82,35 @@ class _TimelineScreenState extends State<TimelineScreen> {
       if (changed || e is PostAdded) setState(() {});
     });
     setState(() {});
-    unawaited(_loadMore());
+    unawaited(_loadMore().then((_) => _focusIfRequested()));
+  }
+
+  bool _focused = false;
+
+  /// Scrolls to the requested post once it is loaded (bounded search).
+  Future<void> _focusIfRequested() async {
+    final chat = widget.focusChatId;
+    final msg = widget.focusMessageId;
+    final t = _timeline;
+    if (chat == null || msg == null || t == null || _focused) return;
+    _focused = true;
+    int indexOf() => t.items.indexWhere(
+      (i) => i.chatId == chat && i.allPosts.any((p) => p.messageId == msg),
+    );
+    var index = indexOf();
+    for (var pages = 0; index < 0 && pages < 8 && !t.exhausted; pages++) {
+      await t.loadMore();
+      index = indexOf();
+    }
+    if (!mounted) return;
+    setState(() {});
+    if (index >= 0 && _scrollCtl.isAttached) {
+      await _scrollCtl.scrollTo(
+        index: index,
+        alignment: 0.1,
+        duration: const Duration(milliseconds: 300),
+      );
+    }
   }
 
   /// Visible item indices drive read marking, the "at top" flag and infinite scroll.

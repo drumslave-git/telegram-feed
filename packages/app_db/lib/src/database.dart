@@ -168,6 +168,17 @@ class AppDatabase extends _$AppDatabase {
     await _pruneWatched();
   });
 
+  /// Feeds that contain [chatId] as a source, in feed order (notification tap target).
+  Future<List<Feed>> feedsContaining(int chatId) async {
+    final q =
+        select(feeds).join([
+            innerJoin(feedSources, feedSources.feedId.equalsExp(feeds.id)),
+          ])
+          ..where(feedSources.chatId.equals(chatId))
+          ..orderBy([OrderingTerm.asc(feeds.position)]);
+    return (await q.get()).map((r) => r.readTable(feeds)).toList();
+  }
+
   Future<FeedWithSources?> feedWithSources(int feedId) async {
     final feed = await (select(
       feeds,

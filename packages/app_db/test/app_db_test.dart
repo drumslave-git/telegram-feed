@@ -64,6 +64,17 @@ void main() {
     },
   );
 
+  test('feedsContaining lists feeds with a source, in feed order', () async {
+    final a = await db.createFeed('A');
+    final b = await db.createFeed('B');
+    await db.addSource(b.id, -1, title: 'One');
+    await db.addSource(a.id, -1, title: 'One');
+    await db.addSource(a.id, -2, title: 'Two');
+    expect((await db.feedsContaining(-1)).map((f) => f.name), ['A', 'B']);
+    expect((await db.feedsContaining(-2)).map((f) => f.name), ['A']);
+    expect(await db.feedsContaining(-9), isEmpty);
+  });
+
   test('watchSourceChannels joins titles in position order', () async {
     final a = await db.createFeed('A');
     await db.addSource(a.id, -1, title: 'One');

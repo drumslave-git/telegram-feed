@@ -5,6 +5,7 @@ import 'auth/login_screens.dart';
 import 'core_host.dart';
 import 'feeds/feeds_screen.dart';
 import 'feeds/timeline_screen.dart';
+import 'notifications/notification_launch.dart';
 import 'service/core_service.dart';
 import 'settings/settings_screen.dart';
 
@@ -22,12 +23,16 @@ class TelegramFeedApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final h = host ?? CoreHost.start();
+    final h = (host ?? CoreHost.start()).then((h) async {
+      if (host == null) await NotificationLaunch(h).attach();
+      return h;
+    });
     return FutureBuilder<CoreHost>(
       future: h,
       builder: (context, snap) => StreamBuilder<String?>(
         stream: snap.data?.db.watchSetting(SettingKeys.themeMode),
         builder: (context, mode) => MaterialApp(
+          navigatorKey: navigatorKey,
           title: 'telegram-feed',
           theme: ThemeData(colorSchemeSeed: Colors.blue, useMaterial3: true),
           darkTheme: ThemeData(
