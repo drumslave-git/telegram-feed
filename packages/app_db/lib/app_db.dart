@@ -1,7 +1,9 @@
 /// Drift/SQLite schema for feeds, feed sources, read marks, watched channels and settings.
 ///
-/// Filled in by the phase 1 tasks; see docs/PLAN.md and docs/ARCHITECTURE.md section 3.
+/// Open with a platform executor: `NativeDatabase` (Android, desktop, tests) or the
+/// `sqlite3` WASM executor on the web. See ARCHITECTURE.md section 5.1.
 library;
 
-/// Package identity, used by the scaffold test until real code lands.
-const String packageName = 'app_db';
+export 'package:drift/drift.dart' show Value;
+
+export 'src/database.dart';

@@ -8,8 +8,13 @@ environment:
   sdk: ^3.13.0
 
 dependencies:
+  drift: ^2.35.0
+  path: ^1.9.1
+  sqlite3: ^3.6.0
   # none yet
 
 dev_dependencies:
+  build_runner: ^2.16.1
+  drift_dev: ^2.35.0
   lints: ^6.0.0
   test: ^1.25.6
