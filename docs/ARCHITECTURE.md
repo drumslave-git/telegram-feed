@@ -194,9 +194,9 @@ Android 13+ requires `POST_NOTIFICATIONS`; requested during onboarding of phase 
 
 ### Web (phase 3)
 
-- tdweb (TDLib compiled to WASM with Emscripten) loaded via `dart:js_interop`. Bundle is roughly 10 MB; loaded lazily after the login screen renders.
+- tdweb (TDLib compiled to WASM with Emscripten) loaded via `dart:js_interop`. Built from the pinned TDLib commit by `tool/tdweb/Dockerfile`; the npm package is abandoned at 1.8.0 and does not work (spike P0-4). Bundle: 14.4 MB wasm plus 0.5 MB JS, loaded lazily after the login screen renders. The worker chunks and the wasm are served from the site root.
 - No background execution; rules and notifications run only while a tab is open. Browser `Notification` API for alerts, Web Speech API for TTS.
-- COOP/COEP headers are needed for tdweb's shared-memory build; the static host must set them.
+- Any static host works: the build is single-threaded wasm in a Web Worker, so no COOP/COEP headers are needed (spike P0-4). QR login (`requestQrCodeAuthentication` on web, confirmed from a logged-in phone) is the preferred web login.
 
 ### iOS (not planned)
 
@@ -246,3 +246,4 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-17 | Emulator login uses a spare real account on the production DC | Telegram disabled test-DC test numbers; the founder's main account is never used (spike P0-1) |
 | 2026-09-17 | Foreground service type `specialUse` | Android 15+ caps `dataSync` at 6 h/day (spike P0-2) |
 | 2026-09-17 | TTS and notification plugins live in the service host isolate, core sends commands | Background isolates cannot receive platform callbacks (spike P0-2) |
+| 2026-09-17 | Web stays on tdweb, built from source; no GramJS gateway | tdweb 1.8.67 self-built works end to end, npm 1.8.0 is dead (spike P0-4) |

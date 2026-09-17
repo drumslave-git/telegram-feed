@@ -28,3 +28,9 @@ android/key.properties
 .DS_Store
 Thumbs.db
 .gradle/
+
+# tdweb dist (built by tool/tdweb or fetched from npm)
+**/web/tdweb/
+spikes/tdweb/web/*.worker.js
+spikes/tdweb/web/*.wasm
+spikes/tdweb/web/*.mem

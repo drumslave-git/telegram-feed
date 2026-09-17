@@ -2,7 +2,7 @@
 
 A custom Telegram client for *reading*, not chatting. Combine channels into feeds, get notifications from keyword rules instead of a per-chat mute switch, and have posts read aloud.
 
-Status: specification stage. No code yet.
+Status: phase 0 spikes done (TDLib FFI on Android, foreground-service core isolate, timeline performance, tdweb on web; see `docs/spikes/`). Phase 1 (Android MVP) starts next.
 
 - [Product spec](docs/SPEC.md): what the app does, user stories, phases, resolved decisions.
 - [Architecture](docs/ARCHITECTURE.md): Flutter + TDLib design, data model, rule engine, platform notes, phase 0 spikes.
