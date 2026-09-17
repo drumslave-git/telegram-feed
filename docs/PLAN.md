@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 0 (spikes). **Next task:** P0-3.
+**Current phase:** 0 (spikes). **Next task:** P0-4.
 
 ## Phase 0 — Spikes
 
@@ -12,7 +12,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 
 - [x] P0-1 TDLib FFI on Android emulator: build `libtdjson.so` (x86_64 + arm64) in Docker, load via `dart:ffi`, log in, list chats, receive `updateNewMessage`. (828c1c5 on `spike/tdlib-ffi`; outcome `docs/spikes/tdlib-ffi.md`). Test-DC login replaced by the spare production account, since Telegram disabled test numbers.
 - [x] P0-2 Core isolate under `flutter_foreground_task`: spawn core isolate from the service callback, exchange ports with the UI engine via `IsolateNameServer`, kill the activity, confirm TDLib stays connected and a local notification fires. Confirm `flutter_tts` speaks from that engine with the screen off. (95e9e50 on `spike/core-isolate-service`; outcome `docs/spikes/core-isolate-service.md`). Findings: service type must be `specialUse`; TTS/notification plugins run in the service host isolate, not the core isolate.
-- [ ] P0-3 Merged timeline performance: 50 channels, 2 000 posts, page latency < 100 ms from TDLib local database.
+- [x] P0-3 Merged timeline performance: 50 channels, 2 000 posts, page latency < 100 ms from TDLib local database. (8e27371 on `spike/timeline-perf`; outcome `docs/spikes/timeline-perf.md`). p50 2.7 ms, p95 16 ms; first page 110 to 150 ms, to be seeded from `chat.last_message` in P1-10.
 - [ ] P0-4 tdweb feasibility in Flutter web: log in and fetch history. Decide web stays on tdweb or moves to a GramJS gateway.
 
 ## Phase 1 — Android MVP
