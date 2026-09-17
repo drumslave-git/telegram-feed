@@ -64,6 +64,16 @@ void main() {
     },
   );
 
+  test('watchSourceChannels joins titles in position order', () async {
+    final a = await db.createFeed('A');
+    await db.addSource(a.id, -1, title: 'One');
+    await db.addSource(a.id, -2, title: 'Two', username: 'two');
+    await db.reorderSources(a.id, [-2, -1]);
+    final rows = await db.watchSourceChannels(a.id).first;
+    expect(rows.map((w) => w.title), ['Two', 'One']);
+    expect(rows.first.username, 'two');
+  });
+
   test('foreign keys are enforced', () async {
     await expectLater(
       db.addSource(999, -1, title: 'x'),

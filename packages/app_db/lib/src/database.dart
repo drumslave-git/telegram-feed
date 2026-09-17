@@ -146,6 +146,22 @@ class AppDatabase extends _$AppDatabase {
             ..orderBy([(s) => OrderingTerm.asc(s.position)]))
           .watch();
 
+  /// Sources of a feed with their channel titles, ordered by position.
+  Stream<List<WatchedChannel>> watchSourceChannels(int feedId) {
+    final q =
+        select(feedSources).join([
+            innerJoin(
+              watchedChannels,
+              watchedChannels.chatId.equalsExp(feedSources.chatId),
+            ),
+          ])
+          ..where(feedSources.feedId.equals(feedId))
+          ..orderBy([OrderingTerm.asc(feedSources.position)]);
+    return q.watch().map(
+      (rows) => rows.map((r) => r.readTable(watchedChannels)).toList(),
+    );
+  }
+
   /// Adds a joined channel to a feed (no-op if already present) and records it as watched.
   Future<void> addSource(
     int feedId,
