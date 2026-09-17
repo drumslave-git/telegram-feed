@@ -4,11 +4,11 @@ Date: 2026-09-17. Branch: `spike/tdlib-ffi` (app under `spikes/tdlib_ffi`, build
 
 ## Outcome
 
-**Partially met.** Everything up to the network login works from a Flutter app on the x86_64 emulator:
-the library builds, loads through `dart:ffi`, the receive loop runs in its own isolate, and the client
-connects to both the test and the production datacenters and reaches `authorizationStateWaitCode`.
-Logging in, listing chats and receiving `updateNewMessage` are blocked because Telegram has disabled
-the test-phone-number shortcut (see "Blocker"). Those three steps need a real account and were not run.
+**Met.** From a Flutter app on the x86_64 emulator: the library builds and loads through `dart:ffi`,
+the receive loop runs in its own isolate, the client logs in (phone, SMS code), lists the account's
+chats, and receives `updateNewMessage` for both an outgoing message and incoming channel posts.
+The login used the founder's spare account on the production DC, because Telegram has disabled the
+test-phone-number shortcut (see "Blocker"). Exit criterion of ARCHITECTURE.md section 9.1 satisfied.
 
 ## What was built
 
@@ -33,6 +33,8 @@ the test-phone-number shortcut (see "Blocker"). Those three steps need a real ac
 | Cold start to `connectionStateReady` | about 3 s on test DC and on production DC |
 | ELF LOAD alignment | 0x4000 on both ABIs (16 KB page size compatible) |
 | Shared deps | only `libc`, `libm`, `libdl`, `libz`, `liblog` |
+| `authorizationStateReady` to 77 chats listed (`loadChats` + `getChats` + 77 × `getChat`) | 6.2 s (first run, cold TDLib database) |
+| `updateNewMessage` | 1 outgoing (Saved Messages), 4 incoming channel posts within 20 s, no polling |
 
 ## Blocker: test accounts no longer exist
 
