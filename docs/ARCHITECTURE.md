@@ -175,7 +175,7 @@ Android 13+ requires `POST_NOTIFICATIONS`; requested during onboarding of phase 
 
 ## 7. Read aloud
 
-- `TtsService` in the core isolate wraps `flutter_tts`. A single FIFO queue; a new item never interrupts a playing one unless the user stops it.
+- `TtsService` in the core isolate owns the queue and text preparation; the actual `flutter_tts` calls run in the service host isolate (see Android notes), which the core reaches over a port. A single FIFO queue; a new item never interrupts a playing one unless the user stops it (`flutter_tts.speak` flushes by default, so the queue must wait for `awaitSpeakCompletion`).
 - Language: `google_mlkit_language_id` on Android (on-device). On web, a small n-gram detector in pure Dart. Detected code selects a voice from the user's per-language preferences, falling back to the system default for that language, then to the app's default voice.
 - Text preparation: strip URLs (say "link"), collapse whitespace, drop emoji and formatting markers, prepend "New post in <channel>". Posts over a configurable length are truncated with "… and more".
 - Audio focus: request transient focus with ducking; release on queue drain. Never speak during a phone call (check `audio_session` / telephony state).
@@ -185,8 +185,9 @@ Android 13+ requires `POST_NOTIFICATIONS`; requested during onboarding of phase 
 
 ### Android (phase 1 and 2)
 
-- **Foreground service** via `flutter_foreground_task`, service type `dataSync` (Android 14 requires declaring a type; `specialUse` is the fallback if Play review rejects `dataSync`). Persistent notification "Watching N channels" with a Pause action.
-- The foreground task runs a Dart callback in its own Flutter engine. The **core isolate is spawned from that callback**, and it registers its `SendPort` with `IsolateNameServer` under a fixed name. The UI engine looks the port up on start and talks over it. Both engines are in the same process, so ports work across them.
+- **Foreground service** via `flutter_foreground_task`, service type `specialUse` with `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` explaining the persistent Telegram connection. `dataSync` is not usable: Android 15+ caps it at 6 hours per day (spike P0-2). The app manifest declares the plugin's service itself. Persistent notification "Watching N channels" with a Pause action.
+- The foreground task runs a Dart callback in its own Flutter engine. The **core isolate is spawned from that callback**, and it registers its `SendPort` with `IsolateNameServer` under a fixed name. The UI engine looks the port up on start and talks over it. Both engines are in the same process, so ports work across them (verified in spike P0-2).
+- **Plugins with platform-to-Dart callbacks (`flutter_tts`, `flutter_local_notifications`) cannot run in the core isolate**: Flutter routes platform messages to the root isolate only. The service engine's root isolate (the task handler, "service host") owns those plugins; `Notifier` and `TtsService` in `core` send it `notify` / `speak` commands over a port. Callback-free method-channel calls (e.g. `path_provider`) work from the core isolate via `BackgroundIsolateBinaryMessenger`.
 - In phase 1 (no notifications yet) the service is not needed. The core isolate is still used from day one, spawned by the UI, so moving it into the service in phase 2 is a change of host, not of code.
 - Battery: on first run of phase 2 the app asks for an exemption from battery optimization and explains why. Without the service the OS kills TDLib within minutes.
 - TDLib binaries: prebuilt `libtdjson.so` for arm64-v8a, armeabi-v7a and x86_64, produced by a CI job from a pinned TDLib tag, published as a GitHub release asset and downloaded by `tool/fetch_tdlib.dart`. Not committed to git.
@@ -243,3 +244,5 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-17 | Reading syncs read state to Telegram | Default on, setting to disable |
 | 2026-09-17 | Name stays telegram-feed | Rename before public release |
 | 2026-09-17 | Emulator login uses a spare real account on the production DC | Telegram disabled test-DC test numbers; the founder's main account is never used (spike P0-1) |
+| 2026-09-17 | Foreground service type `specialUse` | Android 15+ caps `dataSync` at 6 h/day (spike P0-2) |
+| 2026-09-17 | TTS and notification plugins live in the service host isolate, core sends commands | Background isolates cannot receive platform callbacks (spike P0-2) |
