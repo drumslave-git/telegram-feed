@@ -23,6 +23,7 @@ dependencies:
   drift: ^2.35.0
   video_player: ^2.14.0
   just_audio: ^0.10.6
+  scrollable_positioned_list: ^0.3.8
 
 dev_dependencies:
   flutter_test:

@@ -178,6 +178,34 @@ final class FeedTimeline {
     }
   }
 
+  /// Whether [item] is newer than the read mark of its chat (0 = never read).
+  static bool isUnread(TimelineItem item, Map<int, int> marks) =>
+      item.head.messageId > (marks[item.chatId] ?? 0);
+
+  /// Index of the oldest loaded unread item, or -1 when nothing loaded is unread.
+  int firstUnreadIndex(Map<int, int> marks) {
+    for (var i = _items.length - 1; i >= 0; i--) {
+      if (isUnread(_items[i], marks)) return i;
+    }
+    return -1;
+  }
+
+  /// True when every source has either been loaded down to its read mark or is exhausted,
+  /// i.e. loading more cannot reveal additional unread posts.
+  bool reachedMarks(Map<int, int> marks) {
+    for (final s in _sources) {
+      if (s.exhausted && s.buffer.isEmpty) continue;
+      final mark = marks[s.chatId] ?? 0;
+      if (s.buffer.isNotEmpty) {
+        if (s.buffer.first.messageId > mark) return false;
+        continue;
+      }
+      // Nothing buffered: the last emitted post decides.
+      if (s.fromMessageId == 0 || s.fromMessageId > mark) return false;
+    }
+    return true;
+  }
+
   /// Moves pending new posts to the head (user tapped "N new posts").
   void releasePending() {
     final posts = [..._pending]..sort(_compare);

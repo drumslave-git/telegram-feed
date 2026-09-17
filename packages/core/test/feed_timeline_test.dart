@@ -156,6 +156,26 @@ void main() {
     },
   );
 
+  test('unread helpers: first unread index and reached marks', () async {
+    final g = HistoryGateway({-1: series(-1, 6), -2: series(-2, 6)});
+    final t = FeedTimeline(g, [-1, -2], pageSize: 4, historyLimit: 2);
+    await t.loadMore(); // 4 newest: ids 6,5 of each chat
+    final marks = {-1: 4, -2: 5};
+    expect(t.items.where((i) => FeedTimeline.isUnread(i, marks)).length, 3);
+    // Ids 6 and 5 of both chats are out; nothing newer than the marks is left.
+    expect(t.reachedMarks(marks), isTrue);
+    final idx = t.firstUnreadIndex(marks);
+    expect(idx, greaterThanOrEqualTo(0));
+    expect(t.items[idx].head.messageId, 5);
+    expect(t.items[idx].chatId, -1);
+    // Everything after idx is read.
+    expect(
+      t.items.skip(idx + 1).any((i) => FeedTimeline.isUnread(i, marks)),
+      isFalse,
+    );
+    expect(t.firstUnreadIndex({-1: 99, -2: 99}), -1);
+  });
+
   test('live: album parts arriving one by one join the same item', () async {
     final t = FeedTimeline(HistoryGateway({-1: const []}), [-1]);
     await t.loadMore();

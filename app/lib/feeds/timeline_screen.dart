@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'feed_editor_screen.dart';
 import 'media_view.dart';
+import 'read_marker.dart';
 
 /// The merged timeline of one feed (ARCHITECTURE.md section 5.3).
 class TimelineScreen extends StatefulWidget {
@@ -25,19 +27,32 @@ class TimelineScreen extends StatefulWidget {
 }
 
 class _TimelineScreenState extends State<TimelineScreen> {
-  final _scroll = ScrollController();
+  final _scrollCtl = ItemScrollController();
+  final _positions = ItemPositionsListener.create();
+  late final ReadMarker _marker = ReadMarker(
+    db: widget.db,
+    gateway: widget.gateway,
+    feedId: widget.feed.id,
+  );
   FeedTimeline? _timeline;
   StreamSubscription<PostEvent>? _events;
   StreamSubscription<List<WatchedChannel>>? _sources;
+  StreamSubscription<List<FeedReadMark>>? _marksSub;
   Map<int, String> _titles = const {};
+  Map<int, int> _marks = const {};
   bool _loading = false;
+  bool _jumping = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _scroll.addListener(_onScroll);
+    _positions.itemPositions.addListener(_onPositions);
     _sources = widget.db.watchSourceChannels(widget.feed.id).listen(_onSources);
+    _marksSub = widget.db.watchAllReadMarks().listen((_) async {
+      _marks = await widget.db.readMarks(widget.feed.id);
+      if (mounted) setState(() {});
+    });
   }
 
   /// (Re)builds the timeline when the feed's sources change.
@@ -61,15 +76,29 @@ class _TimelineScreenState extends State<TimelineScreen> {
     unawaited(_loadMore());
   }
 
-  void _onScroll() {
+  /// Visible item indices drive read marking, the "at top" flag and infinite scroll.
+  void _onPositions() {
     final t = _timeline;
-    if (t == null) return;
-    final atTop = _scroll.offset < 48;
+    final positions = _positions.itemPositions.value;
+    if (t == null || positions.isEmpty) return;
+    var minIndex = positions.first.index;
+    var maxIndex = positions.first.index;
+    double topEdge = 0;
+    for (final p in positions) {
+      if (p.index < minIndex) {
+        minIndex = p.index;
+        topEdge = p.itemLeadingEdge;
+      }
+      if (p.index > maxIndex) maxIndex = p.index;
+    }
+    final items = t.items;
+    if (minIndex > 0) _marker.scrolledPast(items.take(minIndex));
+    final atTop = minIndex == 0 && topEdge >= -0.05;
     if (atTop != t.atTop) {
       t.atTop = atTop;
       if (atTop && t.pendingNew > 0) _release();
     }
-    if (_scroll.position.extentAfter < 600) unawaited(_loadMore());
+    if (maxIndex >= items.length - 5) unawaited(_loadMore());
   }
 
   Future<void> _loadMore() async {
@@ -89,20 +118,51 @@ class _TimelineScreenState extends State<TimelineScreen> {
   void _release() {
     _timeline?.releasePending();
     setState(() {});
-    if (_scroll.hasClients) {
-      _scroll.animateTo(
-        0,
+    if (_scrollCtl.isAttached) {
+      _scrollCtl.scrollTo(
+        index: 0,
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
       );
     }
   }
 
+  /// Loads until the read marks are reached, then scrolls to the oldest unread post.
+  Future<void> _jumpToFirstUnread() async {
+    final t = _timeline;
+    if (t == null || _jumping) return;
+    setState(() => _jumping = true);
+    try {
+      while (!t.reachedMarks(_marks) && !t.exhausted) {
+        await t.loadMore();
+      }
+      final index = t.firstUnreadIndex(_marks);
+      if (!mounted) return;
+      setState(() {});
+      if (index < 0) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Everything is read.')));
+      } else if (_scrollCtl.isAttached) {
+        await _scrollCtl.scrollTo(
+          index: index,
+          alignment: 0.1,
+          duration: const Duration(milliseconds: 400),
+        );
+      }
+    } on TelegramException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _jumping = false);
+    }
+  }
+
   @override
   void dispose() {
+    _positions.itemPositions.removeListener(_onPositions);
     _events?.cancel();
     _sources?.cancel();
-    _scroll.dispose();
+    _marksSub?.cancel();
+    unawaited(_marker.dispose());
     super.dispose();
   }
 
@@ -114,6 +174,17 @@ class _TimelineScreenState extends State<TimelineScreen> {
       appBar: AppBar(
         title: Text(widget.feed.name),
         actions: [
+          IconButton(
+            tooltip: 'Jump to first unread',
+            icon: _jumping
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.mark_chat_unread_outlined),
+            onPressed: _jumpToFirstUnread,
+          ),
           IconButton(
             tooltip: 'Edit feed',
             icon: const Icon(Icons.tune),
@@ -148,8 +219,9 @@ class _TimelineScreenState extends State<TimelineScreen> {
               child: Text(_error == null ? 'No posts.' : 'Telegram: $_error'),
             )
           else
-            ListView.builder(
-              controller: _scroll,
+            ScrollablePositionedList.builder(
+              itemScrollController: _scrollCtl,
+              itemPositionsListener: _positions,
               itemCount: items.length + 1,
               itemBuilder: (context, i) {
                 if (i == items.length) {
@@ -170,6 +242,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                   item: items[i],
                   channelTitle: _titles[items[i].chatId] ?? '',
                   gateway: widget.gateway,
+                  unread: FeedTimeline.isUnread(items[i], _marks),
                 );
               },
             ),
@@ -201,10 +274,12 @@ class PostCard extends StatelessWidget {
     required this.item,
     required this.channelTitle,
     required this.gateway,
+    this.unread = false,
   });
   final TimelineItem item;
   final String channelTitle;
   final TelegramGateway gateway;
+  final bool unread;
 
   @override
   Widget build(BuildContext context) {
@@ -224,6 +299,16 @@ class PostCard extends StatelessWidget {
           children: [
             Row(
               children: [
+                if (unread)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Icon(
+                      Icons.circle,
+                      size: 8,
+                      color: theme.colorScheme.primary,
+                      semanticLabel: 'unread',
+                    ),
+                  ),
                 Expanded(
                   child: Text(
                     channelTitle,
