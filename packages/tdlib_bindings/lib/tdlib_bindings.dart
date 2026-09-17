@@ -1,7 +1,8 @@
-/// Dart types for the TDLib JSON API, generated from td_api.tl of the pinned TDLib commit.
+/// Dart types for the TDLib JSON API, generated from `schema/td_api.tl` at the
+/// commit in `schema/TDLIB_COMMIT`. Regenerate with `dart run tool/generate.dart`.
 ///
-/// Filled in by the phase 1 tasks; see docs/PLAN.md and docs/ARCHITECTURE.md section 3.
+/// Import with a prefix (`import '... as td;`) because the API defines several
+/// hundred class names such as `Message`, `Chat` and `File`.
 library;
 
-/// Package identity, used by the scaffold test until real code lands.
-const String packageName = 'tdlib_bindings';
+export 'src/td_api.dart';
