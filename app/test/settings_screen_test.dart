@@ -82,6 +82,11 @@ void main() {
     await settle(tester);
     expect(find.text('Ann Lee'), findsOneWidget);
     expect(find.text('@ann · +1555'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('3.5 MB'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('3.5 MB'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Clear cache'));

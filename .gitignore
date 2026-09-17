@@ -44,3 +44,6 @@ spikes/tdweb/web/*.mem
 app/web/*.worker.js
 app/web/*.wasm
 **/jniLibs/TDLIB_COMMIT
+
+# golden failure artifacts
+**/test/failures/

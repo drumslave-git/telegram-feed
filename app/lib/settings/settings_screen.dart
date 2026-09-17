@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../home/home_placeholder.dart';
+import 'read_aloud_screen.dart';
 
 /// Account, reading, appearance, storage and licenses (SPEC screen list).
 class SettingsScreen extends StatefulWidget {
@@ -100,6 +101,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onChanged: (v) => widget.db.setSetting(
                 SettingKeys.syncReadToTelegram,
                 v ? 'true' : 'false',
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.record_voice_over_outlined),
+            title: const Text('Read aloud'),
+            subtitle: const Text('Speed, voices per language, length'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => ReadAloudScreen(db: widget.db),
               ),
             ),
           ),
