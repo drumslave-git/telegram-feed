@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'auth/login_screens.dart';
 import 'core_host.dart';
-import 'feeds/feed_editor_screen.dart';
 import 'feeds/feeds_screen.dart';
+import 'feeds/timeline_screen.dart';
 import 'home/home_placeholder.dart';
 
 void main() {
@@ -54,14 +54,10 @@ class _Root extends StatelessWidget {
           child: FeedsScreen(
             db: h.db,
             gateway: h.gateway,
-            // P1-10 opens the timeline here; the editor moves to its app bar.
             onOpenFeed: (feed) => Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => FeedEditorScreen(
-                  db: h.db,
-                  gateway: h.gateway,
-                  feedId: feed.id,
-                ),
+                builder: (_) =>
+                    TimelineScreen(db: h.db, gateway: h.gateway, feed: feed),
               ),
             ),
             actions: [LogOutAction(onLogOut: h.logOutAndWipe)],

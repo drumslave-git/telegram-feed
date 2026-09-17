@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 1 (Android MVP). **Next task:** P1-10.
+**Current phase:** 1 (Android MVP). **Next task:** P1-11.
 
 ## Phase 0 — Spikes
 
@@ -26,7 +26,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 - [x] P1-7 Login screens: phone, code, 2FA password, QR login; logout wipes all data. `AuthGate` + `_StepForm` screens with inline Telegram errors, `CoreHost` (spawns/finds the core, respawns after logout, wipes `app_db`), widget tests. On the emulator the phone screen shows; real login needs the founder's own `api_id`/`api_hash` (Telegram answers `API_ID_INVALID` to TDLib's example id from the app) and the founder typing the code.
 - [x] P1-8 Feeds list screen with unread badges; create, rename, reorder, delete. `FeedsScreen` + `FeedsController` (badge = sources whose `lastMessageId` is newer than the feed's read mark, refreshed on new posts and mark changes); `Channel.lastMessageId` added to the gateway. Widget tests run drift under `runAsync`.
 - [x] P1-9 Feed editor: add joined channels from a searchable picker, remove, reorder. `FeedEditorScreen` + `ChannelPicker` (bottom sheet, filters by title/username, hides already-added channels, flags channels the account left). Reached from the feeds list until the timeline exists.
-- [ ] P1-10 Merged timeline: k-way merge, pagination, live inserts, album collapsing, edits and deletes.
+- [x] P1-10 Merged timeline: k-way merge, pagination, live inserts, album collapsing, edits and deletes. `FeedTimeline` in `core` (local-then-network fill, dedupe, pending "N new posts" when scrolled down) with unit tests; `TimelineScreen` + `PostCard` in the app (media shown as labels until P1-11), edit action opens the feed editor.
 - [ ] P1-11 Media: inline photos, video playback, voice and audio playback, download progress.
 - [ ] P1-12 Read state: mark on scroll, unread counters, jump to first unread, `syncReadToTelegram` setting.
 - [ ] P1-13 Open in Telegram deep link.
