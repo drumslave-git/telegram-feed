@@ -7,6 +7,17 @@ Status: phase 0 spikes done (TDLib FFI on Android, foreground-service core isola
 - [Product spec](docs/SPEC.md): what the app does, user stories, phases, resolved decisions.
 - [Architecture](docs/ARCHITECTURE.md): Flutter + TDLib design, data model, rule engine, platform notes, phase 0 spikes.
 
+## Tests
+
+```bash
+tool/ci.sh                                              # analyze, format check, unit and widget tests (incl. goldens)
+cd app && flutter test --update-goldens test/goldens_test.dart   # after intentional UI changes
+cd app && flutter test integration_test -d emulator-5554 --dart-define=TG_API_ID=... --dart-define=TG_API_HASH=...
+```
+
+The integration test drives the real app on the emulator; the feed flow runs only when the
+emulator's account is logged in (it says so and passes otherwise).
+
 ## License
 
 GPL-3.0. See [LICENSE](LICENSE).

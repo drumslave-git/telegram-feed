@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 1 (Android MVP). **Next task:** P1-15.
+**Current phase:** 1 (Android MVP). **Next task:** P1-16.
 
 ## Phase 0 — Spikes
 
@@ -31,7 +31,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 - [x] P1-12 Read state: mark on scroll, unread counters, jump to first unread, `syncReadToTelegram` setting. `ReadMarker` (debounced, newest id per chat, `viewMessages` when the setting is on), positioned list in `TimelineScreen` (items above the viewport count as read, unread dot per card, jump loads until the marks are reached), `firstUnreadIndex`/`reachedMarks` in `FeedTimeline`. Setting UI comes with P1-14.
 - [x] P1-13 Open in Telegram deep link. `telegramPostUri` in `core` (`https://t.me/<user>/<id>` for public channels, `tg://privatepost` plus `t.me/c` fallback for private ones, TDLib id → server id), `url_launcher` action on every card, manifest `<queries>` for https/tg.
 - [x] P1-14 Settings screen: account, appearance, storage usage and cache clearing, licenses. `SettingsScreen` (account via new `me()`, log out, `syncReadToTelegram` toggle, theme mode segmented control persisted in `settings` and applied by `MaterialApp`, storage via `getStorageStatisticsFast` and `optimizeStorage`, Flutter license page). Gateway gained `me`, `storageStats`, `clearCache` end to end.
-- [ ] P1-15 Golden tests for main screens; integration test on emulator against the test DC.
+- [x] P1-15 Golden tests for main screens (login phone/code/QR, feeds, editor, timeline light+dark, settings; Ahem font, 0.3 % tolerance comparator in `flutter_test_config.dart`); `integration_test/app_test.dart` runs the real app on the emulator, verified: reaches the login screen and skips the feed flow until the spare account is logged in.
 - [ ] P1-16 Closed beta build (signed APK via CI).
 
 ## Phase 2 — Rules and voice
