@@ -220,6 +220,34 @@ ChannelMembershipEvent decodeMembership(Map<Object?, Object?> m) =>
       isMember: m['isMember'] as bool,
     );
 
+Map<String, Object?> encodeUser(UserInfo u) => {
+  'id': u.id,
+  'firstName': u.firstName,
+  'lastName': u.lastName,
+  'username': u.username,
+  'phoneNumber': u.phoneNumber,
+};
+
+UserInfo decodeUser(Map<Object?, Object?> m) => UserInfo(
+  id: m['id'] as int,
+  firstName: m['firstName'] as String,
+  lastName: m['lastName'] as String,
+  username: m['username'] as String?,
+  phoneNumber: m['phoneNumber'] as String,
+);
+
+Map<String, Object?> encodeStorage(StorageStats s) => {
+  'filesBytes': s.filesBytes,
+  'fileCount': s.fileCount,
+  'databaseBytes': s.databaseBytes,
+};
+
+StorageStats decodeStorage(Map<Object?, Object?> m) => StorageStats(
+  filesBytes: m['filesBytes'] as int,
+  fileCount: m['fileCount'] as int,
+  databaseBytes: m['databaseBytes'] as int,
+);
+
 Map<String, Object?> encodeFileProgress(FileProgress p) => {
   'fileId': p.fileId,
   'downloaded': p.downloaded,

@@ -43,6 +43,26 @@ AuthState authState(td.AuthorizationState s) => switch (s) {
   _ => const AuthStarting(),
 };
 
+UserInfo user(td.User u) => UserInfo(
+  id: u.id,
+  firstName: u.firstName,
+  lastName: u.lastName,
+  username: switch (u.usernames) {
+    td.Usernames(:final editableUsername) when editableUsername.isNotEmpty =>
+      editableUsername,
+    td.Usernames(:final activeUsernames) when activeUsernames.isNotEmpty =>
+      activeUsernames.first,
+    _ => null,
+  },
+  phoneNumber: u.phoneNumber,
+);
+
+StorageStats storageStats(td.StorageStatisticsFast s) => StorageStats(
+  filesBytes: s.filesSize,
+  fileCount: s.fileCount,
+  databaseBytes: s.databaseSize,
+);
+
 /// Chat id of a supergroup / channel as TDLib derives it.
 int chatIdOfSupergroup(int supergroupId) => -1000000000000 - supergroupId;
 

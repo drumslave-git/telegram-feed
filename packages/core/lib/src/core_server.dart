@@ -141,6 +141,12 @@ final class CoreServer {
         return encodeFileRef(done);
       case 'watchFile':
         _watchFile(a['fileId'] as int);
+      case 'me':
+        return encodeUser(await gateway.me());
+      case 'storageStats':
+        return encodeStorage(await gateway.storageStats());
+      case 'clearCache':
+        return encodeStorage(await gateway.clearCache());
       default:
         throw TelegramException(-1, 'unknown method $method');
     }

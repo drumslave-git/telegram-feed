@@ -30,5 +30,14 @@ abstract interface class TelegramGateway {
   Future<FileRef> download(FileRef ref, {int priority = 16});
   Stream<FileProgress> fileProgress(int fileId);
 
+  /// The logged-in account (only valid in [AuthReady]).
+  Future<UserInfo> me();
+
+  /// Size of TDLib's file cache and database.
+  Future<StorageStats> storageStats();
+
+  /// Deletes cached files not currently in use; returns the stats afterwards.
+  Future<StorageStats> clearCache();
+
   Future<void> close();
 }

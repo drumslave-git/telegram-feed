@@ -61,6 +61,7 @@ final class FeedWithSources {
 
 /// Setting keys used by the app (values are strings; parse at the call site).
 abstract final class SettingKeys {
+  static const themeMode = 'themeMode'; // 'system' | 'light' | 'dark'
   static const syncReadToTelegram =
       'syncReadToTelegram'; // 'true' | 'false', default true
 }
@@ -282,6 +283,10 @@ class AppDatabase extends _$AppDatabase {
   Future<String?> setting(String key) async => (await (select(
     settings,
   )..where((s) => s.key.equals(key))).getSingleOrNull())?.value;
+
+  Stream<String?> watchSetting(String key) => (select(
+    settings,
+  )..where((s) => s.key.equals(key))).watchSingleOrNull().map((r) => r?.value);
 
   Future<void> setSetting(String key, String value) => into(settings)
       .insertOnConflictUpdate(SettingsCompanion.insert(key: key, value: value));

@@ -1,10 +1,11 @@
+import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
 
 import 'auth/login_screens.dart';
 import 'core_host.dart';
 import 'feeds/feeds_screen.dart';
 import 'feeds/timeline_screen.dart';
-import 'home/home_placeholder.dart';
+import 'settings/settings_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,13 +20,32 @@ class TelegramFeedApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'telegram-feed',
-      theme: ThemeData(colorSchemeSeed: Colors.blue, useMaterial3: true),
-      home: _Root(host: host ?? CoreHost.start()),
+    final h = host ?? CoreHost.start();
+    return FutureBuilder<CoreHost>(
+      future: h,
+      builder: (context, snap) => StreamBuilder<String?>(
+        stream: snap.data?.db.watchSetting(SettingKeys.themeMode),
+        builder: (context, mode) => MaterialApp(
+          title: 'telegram-feed',
+          theme: ThemeData(colorSchemeSeed: Colors.blue, useMaterial3: true),
+          darkTheme: ThemeData(
+            colorSchemeSeed: Colors.blue,
+            brightness: Brightness.dark,
+            useMaterial3: true,
+          ),
+          themeMode: themeModeFrom(mode.data),
+          home: _Root(host: h),
+        ),
+      ),
     );
   }
 }
+
+ThemeMode themeModeFrom(String? value) => switch (value) {
+  'light' => ThemeMode.light,
+  'dark' => ThemeMode.dark,
+  _ => ThemeMode.system,
+};
 
 class _Root extends StatelessWidget {
   const _Root({required this.host});
@@ -60,7 +80,21 @@ class _Root extends StatelessWidget {
                     TimelineScreen(db: h.db, gateway: h.gateway, feed: feed),
               ),
             ),
-            actions: [LogOutAction(onLogOut: h.logOutAndWipe)],
+            actions: [
+              IconButton(
+                tooltip: 'Settings',
+                icon: const Icon(Icons.settings_outlined),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => SettingsScreen(
+                      db: h.db,
+                      gateway: h.gateway,
+                      onLogOut: h.logOutAndWipe,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },

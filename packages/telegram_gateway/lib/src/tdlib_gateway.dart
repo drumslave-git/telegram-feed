@@ -281,6 +281,31 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
+  Future<UserInfo> me() async => map.user(await _client.call(const td.GetMe()));
+
+  @override
+  Future<StorageStats> storageStats() async =>
+      map.storageStats(await _client.call(const td.GetStorageStatisticsFast()));
+
+  @override
+  Future<StorageStats> clearCache() async {
+    await _client.call(
+      const td.OptimizeStorage(
+        size: -1,
+        ttl: -1,
+        count: -1,
+        immunityDelay: -1,
+        fileTypes: [],
+        chatIds: [],
+        excludeChatIds: [],
+        returnDeletedFileStatistics: false,
+        chatLimit: 0,
+      ),
+    );
+    return storageStats();
+  }
+
+  @override
   Stream<FileProgress> fileProgress(int fileId) =>
       _fileCtl.stream.where((p) => p.fileId == fileId);
 

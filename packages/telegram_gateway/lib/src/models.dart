@@ -245,6 +245,38 @@ final class PostsDeleted extends PostEvent {
   final List<int> messageIds;
 }
 
+/// The logged-in account.
+final class UserInfo {
+  const UserInfo({
+    required this.id,
+    required this.firstName,
+    this.lastName = '',
+    this.username,
+    this.phoneNumber = '',
+  });
+  final int id;
+  final String firstName;
+  final String lastName;
+  final String? username;
+  final String phoneNumber;
+
+  String get displayName =>
+      [firstName, lastName].where((s) => s.isNotEmpty).join(' ');
+}
+
+/// TDLib storage use in bytes.
+final class StorageStats {
+  const StorageStats({
+    required this.filesBytes,
+    required this.fileCount,
+    required this.databaseBytes,
+  });
+  final int filesBytes;
+  final int fileCount;
+  final int databaseBytes;
+  int get totalBytes => filesBytes + databaseBytes;
+}
+
 /// Error returned by Telegram / TDLib for a request.
 final class TelegramException implements Exception {
   const TelegramException(this.code, this.message);

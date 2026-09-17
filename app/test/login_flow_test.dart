@@ -69,6 +69,14 @@ final class ScriptedGateway implements TelegramGateway {
   Future<FileRef> download(FileRef ref, {int priority = 16}) async => ref;
   @override
   Future<void> close() async {}
+  @override
+  Future<UserInfo> me() async =>
+      const UserInfo(id: 1, firstName: 'Test', phoneNumber: '+1');
+  @override
+  Future<StorageStats> storageStats() async =>
+      const StorageStats(filesBytes: 0, fileCount: 0, databaseBytes: 0);
+  @override
+  Future<StorageStats> clearCache() => storageStats();
 }
 
 Widget app(TelegramGateway g) => MaterialApp(

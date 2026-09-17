@@ -100,6 +100,14 @@ final class FakeGateway implements TelegramGateway {
 
   @override
   Future<void> close() async => calls.add('close');
+  @override
+  Future<UserInfo> me() async =>
+      const UserInfo(id: 1, firstName: 'Test', phoneNumber: '+1');
+  @override
+  Future<StorageStats> storageStats() async =>
+      const StorageStats(filesBytes: 0, fileCount: 0, databaseBytes: 0);
+  @override
+  Future<StorageStats> clearCache() => storageStats();
 }
 
 void main() {

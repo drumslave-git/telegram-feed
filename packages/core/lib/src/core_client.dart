@@ -143,6 +143,18 @@ final class CoreClient implements TelegramGateway {
     return _fileCtl.stream.where((p) => p.fileId == fileId);
   }
 
+  @override
+  Future<UserInfo> me() async =>
+      decodeUser((await _call('me')) as Map<Object?, Object?>);
+
+  @override
+  Future<StorageStats> storageStats() async =>
+      decodeStorage((await _call('storageStats')) as Map<Object?, Object?>);
+
+  @override
+  Future<StorageStats> clearCache() async =>
+      decodeStorage((await _call('clearCache')) as Map<Object?, Object?>);
+
   /// Detaches from the server; the core keeps running for other clients.
   @override
   Future<void> close() async {
