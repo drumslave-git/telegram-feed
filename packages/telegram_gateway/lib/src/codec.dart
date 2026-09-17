@@ -173,6 +173,10 @@ Map<String, Object?> encodePost(Post p) => {
   'media': p.media == null ? null : encodeMedia(p.media!),
   'views': p.views,
   'isOutgoing': p.isOutgoing,
+  'reactions': [
+    for (final r in p.reactions)
+      {'emoji': r.emoji, 'count': r.count, 'chosen': r.chosen},
+  ],
 };
 
 Post decodePost(Map<Object?, Object?> m) => Post(
@@ -187,6 +191,14 @@ Post decodePost(Map<Object?, Object?> m) => Post(
       : decodeMedia(m['media'] as Map<Object?, Object?>),
   views: m['views'] as int,
   isOutgoing: m['isOutgoing'] as bool,
+  reactions: [
+    for (final r in (m['reactions'] as List?) ?? const [])
+      Reaction(
+        emoji: (r as Map)['emoji'] as String,
+        count: r['count'] as int,
+        chosen: r['chosen'] as bool,
+      ),
+  ],
 );
 
 Map<String, Object?> encodePostEvent(PostEvent e) => switch (e) {

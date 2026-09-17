@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 2 (rules and voice), all tasks done. **Next task:** P3-1.
+**Current phase:** 3 (interactions and web). **Next task:** P3-2.
 
 ## Phase 0 — Spikes
 
@@ -46,7 +46,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 
 ## Phase 3 — Interactions and web
 
-- [ ] P3-1 Reactions.
+- [x] P3-1 Reactions. `Post.reactions` (emoji reactions with counts and own choice, refreshed on `updateMessageInteractionInfo`), gateway `availableReactions` / `react` end to end, reaction chips and a picker on the post card.
 - [ ] P3-2 Discussion thread view and reply.
 - [ ] P3-3 Share / copy link.
 - [ ] P3-4 `TdwebGateway` and Flutter web build; browser notifications and Web Speech TTS; static hosting (no special headers, spike P0-4).

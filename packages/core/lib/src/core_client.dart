@@ -165,6 +165,26 @@ final class CoreClient implements TelegramGateway {
   }
 
   @override
+  Future<List<String>> availableReactions(int chatId, int messageId) async =>
+      ((await _call('availableReactions', {
+        'chatId': chatId,
+        'messageId': messageId,
+      })) as List).cast<String>();
+
+  @override
+  Future<void> react(
+    int chatId,
+    int messageId,
+    String emoji, {
+    bool remove = false,
+  }) => _call('react', {
+    'chatId': chatId,
+    'messageId': messageId,
+    'emoji': emoji,
+    'remove': remove,
+  });
+
+  @override
   Future<UserInfo> me() async =>
       decodeUser((await _call('me')) as Map<Object?, Object?>);
 

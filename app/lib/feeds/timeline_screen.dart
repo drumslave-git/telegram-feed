@@ -214,6 +214,59 @@ class _TimelineScreenState extends State<TimelineScreen> {
     );
   }
 
+  Future<void> _react(TimelineItem item, String emoji, bool remove) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await widget.gateway.react(
+        item.chatId,
+        item.head.messageId,
+        emoji,
+        remove: remove,
+      );
+    } on TelegramException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
+    }
+  }
+
+  Future<void> _pickReaction(TimelineItem item) async {
+    final messenger = ScaffoldMessenger.of(context);
+    List<String> emoji;
+    try {
+      emoji = await widget.gateway.availableReactions(
+        item.chatId,
+        item.head.messageId,
+      );
+    } on TelegramException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
+      return;
+    }
+    if (!mounted) return;
+    if (emoji.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('This channel does not allow reactions.')),
+      );
+      return;
+    }
+    final chosen = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final e in emoji)
+              ActionChip(
+                label: Text(e, style: const TextStyle(fontSize: 22)),
+                onPressed: () => Navigator.pop(context, e),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (chosen != null) await _react(item, chosen, false);
+  }
+
   @override
   void dispose() {
     _positions.itemPositions.removeListener(_onPositions);
@@ -302,6 +355,8 @@ class _TimelineScreenState extends State<TimelineScreen> {
                   gateway: widget.gateway,
                   unread: FeedTimeline.isUnread(items[i], _marks),
                   onOpenInTelegram: () => _openInTelegram(items[i]),
+                  onReact: (emoji, remove) => _react(items[i], emoji, remove),
+                  onPickReaction: () => _pickReaction(items[i]),
                 );
               },
             ),
@@ -335,12 +390,18 @@ class PostCard extends StatelessWidget {
     required this.gateway,
     this.unread = false,
     this.onOpenInTelegram,
+    this.onReact,
+    this.onPickReaction,
   });
   final TimelineItem item;
   final String channelTitle;
   final TelegramGateway gateway;
   final bool unread;
   final VoidCallback? onOpenInTelegram;
+
+  /// Tap on an existing reaction chip: adds it, or removes it when already chosen.
+  final void Function(String emoji, bool remove)? onReact;
+  final VoidCallback? onPickReaction;
 
   @override
   Widget build(BuildContext context) {
@@ -413,6 +474,34 @@ class PostCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text('edited', style: theme.textTheme.labelSmall),
+              ),
+            if (onReact != null || item.head.reactions.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    for (final r in item.head.reactions)
+                      FilterChip(
+                        label: Text('${r.emoji} ${r.count}'),
+                        selected: r.chosen,
+                        visualDensity: VisualDensity.compact,
+                        onSelected: onReact == null
+                            ? null
+                            : (_) => onReact!(r.emoji, r.chosen),
+                      ),
+                    if (onPickReaction != null)
+                      ActionChip(
+                        label: const Icon(
+                          Icons.add_reaction_outlined,
+                          size: 18,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: onPickReaction,
+                      ),
+                  ],
+                ),
               ),
           ],
         ),

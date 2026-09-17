@@ -30,6 +30,17 @@ abstract interface class TelegramGateway {
   Future<FileRef> download(FileRef ref, {int priority = 16});
   Stream<FileProgress> fileProgress(int fileId);
 
+  /// Emoji this account may react with on the post (phase 3).
+  Future<List<String>> availableReactions(int chatId, int messageId);
+
+  /// Adds (or with [remove], removes) an emoji reaction.
+  Future<void> react(
+    int chatId,
+    int messageId,
+    String emoji, {
+    bool remove = false,
+  });
+
   /// The logged-in account (only valid in [AuthReady]).
   Future<UserInfo> me();
 

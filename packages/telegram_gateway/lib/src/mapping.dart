@@ -104,8 +104,21 @@ Post post(td.Message m) {
     media: media,
     views: m.interactionInfo?.viewCount ?? 0,
     isOutgoing: m.isOutgoing,
+    reactions: reactions(m.interactionInfo?.reactions),
   );
 }
+
+List<Reaction> reactions(td.MessageReactions? r) => [
+  for (final x in r?.reactions ?? const <td.MessageReaction>[])
+    if (x.type case td.ReactionTypeEmoji(:final emoji))
+      Reaction(emoji: emoji, count: x.totalCount, chosen: x.isChosen),
+];
+
+/// Emoji of the reactions a chat allows on a message (custom emoji skipped).
+List<String> availableEmoji(td.AvailableReactions a) => [
+  for (final r in [...a.topReactions, ...a.popularReactions])
+    if (r.type case td.ReactionTypeEmoji(:final emoji)) emoji,
+];
 
 /// Plain text plus media for a message content. Only text and captions are exposed, per SPEC.
 (String, Media?) content(td.MessageContent? c) => switch (c) {

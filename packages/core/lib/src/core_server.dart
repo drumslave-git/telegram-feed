@@ -212,6 +212,18 @@ final class CoreServer {
         setPaused(a['paused'] as bool);
       case 'isPaused':
         return _paused;
+      case 'availableReactions':
+        return gateway.availableReactions(
+          a['chatId'] as int,
+          a['messageId'] as int,
+        );
+      case 'react':
+        await gateway.react(
+          a['chatId'] as int,
+          a['messageId'] as int,
+          a['emoji'] as String,
+          remove: a['remove'] as bool,
+        );
       case 'me':
         return encodeUser(await gateway.me());
       case 'storageStats':

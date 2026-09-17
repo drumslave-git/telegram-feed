@@ -95,6 +95,9 @@ final class TdlibGateway implements TelegramGateway {
         if (_isChannelChat(chatId)) await _emitEdited(chatId, messageId);
       case td.UpdateMessageEdited(:final chatId, :final messageId):
         if (_isChannelChat(chatId)) await _emitEdited(chatId, messageId);
+      case td.UpdateMessageInteractionInfo(:final chatId, :final messageId):
+        // Reactions and view counts change often; a re-fetch keeps Post complete.
+        if (_isChannelChat(chatId)) await _emitEdited(chatId, messageId);
       case td.UpdateDeleteMessages(
         :final chatId,
         :final messageIds,
@@ -279,6 +282,42 @@ final class TdlibGateway implements TelegramGateway {
     final p = await done;
     return ref.copyWith(localPath: p.localPath);
   }
+
+  @override
+  Future<List<String>> availableReactions(int chatId, int messageId) async =>
+      map.availableEmoji(
+        await _client.call(
+          td.GetMessageAvailableReactions(
+            chatId: chatId,
+            messageId: messageId,
+            rowSize: 8,
+          ),
+        ),
+      );
+
+  @override
+  Future<void> react(
+    int chatId,
+    int messageId,
+    String emoji, {
+    bool remove = false,
+  }) => remove
+      ? _client.call(
+          td.RemoveMessageReaction(
+            chatId: chatId,
+            messageId: messageId,
+            reactionType: td.ReactionTypeEmoji(emoji: emoji),
+          ),
+        )
+      : _client.call(
+          td.AddMessageReaction(
+            chatId: chatId,
+            messageId: messageId,
+            reactionType: td.ReactionTypeEmoji(emoji: emoji),
+            isBig: false,
+            updateRecentReactions: true,
+          ),
+        );
 
   @override
   Future<UserInfo> me() async => map.user(await _client.call(const td.GetMe()));

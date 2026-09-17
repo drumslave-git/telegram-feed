@@ -434,6 +434,80 @@ void main() {
     expect(t.sent.last['priority'], 16);
   });
 
+  test('reactions map from interaction info; react sends add/remove', () async {
+    t.handlers['getChatHistory'] = (r) => {
+      '@type': 'messages',
+      'total_count': 1,
+      'messages': [
+        {
+          ...messageJson(-1001, 1),
+          'interaction_info': {
+            '@type': 'messageInteractionInfo',
+            'view_count': 5,
+            'forward_count': 0,
+            'reactions': {
+              '@type': 'messageReactions',
+              'reactions': [
+                {
+                  '@type': 'messageReaction',
+                  'type': {'@type': 'reactionTypeEmoji', 'emoji': '🔥'},
+                  'total_count': 3,
+                  'is_chosen': true,
+                },
+                {
+                  '@type': 'messageReaction',
+                  'type': {
+                    '@type': 'reactionTypeCustomEmoji',
+                    'custom_emoji_id': '5',
+                  },
+                  'total_count': 1,
+                  'is_chosen': false,
+                },
+              ],
+              'are_tags': false,
+              'can_get_added_reactions': false,
+            },
+          },
+        },
+      ],
+    };
+    final p = (await g.history(-1001)).single;
+    expect(p.views, 5);
+    expect(p.reactions.length, 1);
+    expect(p.reactions.single.emoji, '🔥');
+    expect(p.reactions.single.chosen, isTrue);
+
+    t.handlers['addMessageReaction'] = (_) => {'@type': 'ok'};
+    t.handlers['removeMessageReaction'] = (_) => {'@type': 'ok'};
+    await g.react(-1001, 1, '👍');
+    expect(t.sent.last['@type'], 'addMessageReaction');
+    expect((t.sent.last['reaction_type'] as Map)['emoji'], '👍');
+    await g.react(-1001, 1, '👍', remove: true);
+    expect(t.sent.last['@type'], 'removeMessageReaction');
+
+    t.handlers['getMessageAvailableReactions'] = (_) => {
+      '@type': 'availableReactions',
+      'top_reactions': [
+        {
+          '@type': 'availableReaction',
+          'type': {'@type': 'reactionTypeEmoji', 'emoji': '👍'},
+          'needs_premium': false,
+        },
+      ],
+      'recent_reactions': [],
+      'popular_reactions': [
+        {
+          '@type': 'availableReaction',
+          'type': {'@type': 'reactionTypeEmoji', 'emoji': '❤'},
+          'needs_premium': false,
+        },
+      ],
+      'allow_custom_emoji': false,
+      'are_tags': false,
+    };
+    expect(await g.availableReactions(-1001, 1), ['👍', '❤']);
+  });
+
   test('markViewed forces read through viewMessages', () async {
     t.handlers['viewMessages'] = (_) => {'@type': 'ok'};
     await g.markViewed(-1001, [1, 2]);

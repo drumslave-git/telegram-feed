@@ -69,6 +69,17 @@ final class ScriptedGateway implements TelegramGateway {
   Future<FileRef> download(FileRef ref, {int priority = 16}) async => ref;
   @override
   Future<void> close() async {}
+
+  @override
+  Future<List<String>> availableReactions(int chatId, int messageId) async =>
+      const ['👍', '🔥'];
+  @override
+  Future<void> react(
+    int chatId,
+    int messageId,
+    String emoji, {
+    bool remove = false,
+  }) async {}
   @override
   Future<UserInfo> me() async =>
       const UserInfo(id: 1, firstName: 'Test', phoneNumber: '+1');

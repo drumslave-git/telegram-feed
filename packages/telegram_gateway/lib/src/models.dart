@@ -192,6 +192,18 @@ final class UnsupportedMedia extends Media {
   final String tdType;
 }
 
+/// An emoji reaction on a post with its count and whether this account chose it.
+final class Reaction {
+  const Reaction({
+    required this.emoji,
+    required this.count,
+    this.chosen = false,
+  });
+  final String emoji;
+  final int count;
+  final bool chosen;
+}
+
 /// One channel post.
 final class Post {
   const Post({
@@ -204,6 +216,7 @@ final class Post {
     this.media,
     this.views = 0,
     this.isOutgoing = false,
+    this.reactions = const [],
   });
   final int chatId;
   final int messageId;
@@ -220,6 +233,9 @@ final class Post {
   final Media? media;
   final int views;
   final bool isOutgoing;
+
+  /// Emoji reactions (custom-emoji and paid reactions are not shown).
+  final List<Reaction> reactions;
 
   @override
   String toString() => 'Post($chatId/$messageId, ${text.length} chars)';

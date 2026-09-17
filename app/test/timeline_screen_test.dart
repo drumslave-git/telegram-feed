@@ -11,6 +11,15 @@ final class TimelineGateway extends ChannelsGateway {
   TimelineGateway(this.histories, {List<Channel> channels = const []})
     : super(channels);
   final Map<int, List<Post>> histories;
+  final reactions = <String>[];
+
+  @override
+  Future<void> react(
+    int chatId,
+    int messageId,
+    String emoji, {
+    bool remove = false,
+  }) async => reactions.add('$chatId/$messageId ${remove ? '-' : '+'}$emoji');
 
   @override
   Future<List<Post>> history(
@@ -121,6 +130,49 @@ void main() {
     await settle(tester);
     await tester.pumpAndSettle();
     expect(find.text('one-old'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('reactions: chips show counts, tap toggles, picker adds', (
+    tester,
+  ) async {
+    gw.histories[-1] = [
+      Post(
+        chatId: -1,
+        messageId: 3,
+        date: 300,
+        text: 'hot take',
+        reactions: const [
+          Reaction(emoji: '🔥', count: 4, chosen: true),
+          Reaction(emoji: '👍', count: 1),
+        ],
+      ),
+    ];
+    await tester.runAsync(() async {
+      feed = await db.createFeed('R');
+      await db.addSource(feed.id, -1, title: 'One');
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+    expect(find.text('🔥 4'), findsOneWidget);
+    await tester.tap(find.text('🔥 4'));
+    await settle(tester);
+    expect(gw.reactions, ['-1/3 -🔥']);
+    await tester.tap(find.text('👍 1'));
+    await settle(tester);
+    expect(gw.reactions.last, '-1/3 +👍');
+
+    await tester.tap(find.byIcon(Icons.add_reaction_outlined));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('🔥').last);
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(gw.reactions.last, '-1/3 +🔥');
     await unmount(tester);
   });
 
