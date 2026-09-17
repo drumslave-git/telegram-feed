@@ -48,7 +48,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 
 - [x] P3-1 Reactions. `Post.reactions` (emoji reactions with counts and own choice, refreshed on `updateMessageInteractionInfo`), gateway `availableReactions` / `react` end to end, reaction chips and a picker on the post card. (ce5fa0d)
 - [x] P3-2 Discussion thread view and reply. Gateway `discussion` / `threadHistory` / `reply` / live `comments` (TDLib message threads in the linked discussion group, sender names resolved and cached), `Post.replyCount`, `ThreadScreen` with a reply composer opened from the card's Comments chip. (4b8d9af)
-- [x] P3-3 Share / copy link. `telegramShareUri` / `shareText` in core, card overflow menu with Share (system sheet through `share_plus`) and Copy link (clipboard).
+- [x] P3-3 Share / copy link. `telegramShareUri` / `shareText` in core, card overflow menu with Share (system sheet through `share_plus`) and Copy link (clipboard). (74dcba3)
 - [ ] P3-4 `TdwebGateway` and Flutter web build; browser notifications and Web Speech TTS; static hosting (no special headers, spike P0-4).
 
 ## Phase 4 — Extras
