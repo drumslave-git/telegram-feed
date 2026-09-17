@@ -47,14 +47,9 @@ class _Root extends StatelessWidget {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        // Rebuild with the new gateway after a logout restarts the core.
-        return ListenableBuilder(
-          listenable: h,
-          builder: (context, _) => AuthGate(
-            key: ValueKey(h.generation),
-            gateway: h.gateway,
-            child: HomePlaceholder(onLogOut: h.logOutAndWipe),
-          ),
+        return AuthGate(
+          gateway: h.gateway,
+          child: HomePlaceholder(onLogOut: h.logOutAndWipe),
         );
       },
     );

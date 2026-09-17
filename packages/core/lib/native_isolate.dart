@@ -48,13 +48,26 @@ final class CoreBootstrap {
 }
 
 /// Isolate entry point. Sends the server port to [CoreBootstrap.replyTo].
+///
+/// The isolate lives for the whole process: `td_receive` may only ever be polled by one
+/// thread, so a logout does not respawn anything. When TDLib closes its client
+/// ([AuthClosed]) a new client and gateway are created here and swapped into the server.
 @pragma('vm:entry-point')
 Future<void> coreIsolateMain(CoreBootstrap b) async {
+  final server = CoreServer(
+    await _newGateway(b),
+    log: (s) => print(s), // ignore: avoid_print
+  );
+  _watchForClose(server, b);
+  b.replyTo?.send(server.sendPort);
+}
+
+Future<TdlibGateway> _newGateway(CoreBootstrap b) async {
   final transport = await FfiTransport.create(
     libraryPath: b.libraryPath,
     logVerbosity: b.logVerbosity,
   );
-  final gateway = TdlibGateway(
+  return TdlibGateway(
     transport,
     TdlibConfig(
       apiId: b.apiId,
@@ -68,11 +81,16 @@ Future<void> coreIsolateMain(CoreBootstrap b) async {
     ),
     log: (s) => print('core: $s'), // ignore: avoid_print
   );
-  final server = CoreServer(
-    gateway,
-    log: (s) => print(s),
-  ); // ignore: avoid_print
-  b.replyTo?.send(server.sendPort);
+}
+
+void _watchForClose(CoreServer server, CoreBootstrap b) {
+  late StreamSubscription<AuthState> sub;
+  sub = server.gateway.authState.listen((s) async {
+    if (s is! AuthClosed) return;
+    await sub.cancel();
+    await server.replaceGateway(await _newGateway(b));
+    _watchForClose(server, b);
+  });
 }
 
 /// Spawns the core isolate and returns its server port.

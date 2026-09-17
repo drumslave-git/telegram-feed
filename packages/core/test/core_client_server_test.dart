@@ -165,6 +165,25 @@ void main() {
       expect(members.single.isMember, isFalse);
     });
 
+    test('replaceGateway keeps clients and switches event sources', () async {
+      final auth = <AuthState>[];
+      final sub = client.authState.listen(auth.add);
+      final next = FakeGateway()..auth = const AuthWaitPhoneNumber();
+      await server.replaceGateway(next);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(gw.calls, contains('close'));
+      // Replayed current state, then the reset, then the new gateway's state.
+      expect(auth.map((s) => s.runtimeType).toList(), [
+        AuthWaitPhoneNumber,
+        AuthStarting,
+        AuthWaitPhoneNumber,
+      ]);
+      await client.setPhoneNumber('+2');
+      expect(next.calls, ['phone:+2']);
+      expect(gw.calls, isNot(contains('phone:+2')));
+      await sub.cancel();
+    });
+
     test('download streams progress then completes', () async {
       final progress = <FileProgress>[];
       final sub = client.fileProgress(9).listen(progress.add);

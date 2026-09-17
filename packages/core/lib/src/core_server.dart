@@ -8,8 +8,40 @@ import 'protocol.dart';
 /// Serves a [TelegramGateway] to any number of [CoreClient]s over ports. Runs wherever the
 /// gateway lives: the core isolate on Android, the main isolate on the web.
 final class CoreServer {
-  CoreServer(this.gateway, {this.log}) {
+  CoreServer(TelegramGateway gateway, {this.log}) : _gateway = gateway {
     _port.listen(_onMessage);
+    _subscribe();
+  }
+
+  TelegramGateway _gateway;
+  final void Function(String)? log;
+  final _port = ReceivePort();
+  final _clients = <SendPort>{};
+  final _fileSubs = <int, StreamSubscription<FileProgress>>{};
+  var _subs = <StreamSubscription<void>>[];
+  AuthState _auth = const AuthStarting();
+
+  TelegramGateway get gateway => _gateway;
+
+  /// Swaps in a fresh gateway (after TDLib closed its client on logout). Clients keep their
+  /// port and simply see the new gateway's auth states; the old gateway is closed.
+  Future<void> replaceGateway(TelegramGateway next) async {
+    for (final s in _subs) {
+      await s.cancel();
+    }
+    for (final s in _fileSubs.values) {
+      await s.cancel();
+    }
+    _fileSubs.clear();
+    final old = _gateway;
+    _gateway = next;
+    _auth = const AuthStarting();
+    _broadcast(CoreStream.auth, encodeAuthState(_auth));
+    _subscribe();
+    await old.close();
+  }
+
+  void _subscribe() {
     _subs = [
       gateway.authState.listen((s) {
         _auth = s;
@@ -23,14 +55,6 @@ final class CoreServer {
       ),
     ];
   }
-
-  final TelegramGateway gateway;
-  final void Function(String)? log;
-  final _port = ReceivePort();
-  final _clients = <SendPort>{};
-  final _fileSubs = <int, StreamSubscription<FileProgress>>{};
-  late final List<StreamSubscription<void>> _subs;
-  AuthState _auth = const AuthStarting();
 
   /// Hand this to clients (directly, or through `IsolateNameServer`).
   SendPort get sendPort => _port.sendPort;

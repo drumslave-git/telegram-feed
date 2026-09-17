@@ -6,7 +6,6 @@ import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:core/native_isolate.dart';
 import 'package:drift/native.dart';
-import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -18,9 +17,9 @@ const bool tgTestDc = bool.fromEnvironment('TG_TEST_DC');
 /// Owns the app's connection to the core and the app database.
 ///
 /// Phase 1: spawns the core isolate itself. Phase 2: finds the one the foreground service
-/// started. After a logout TDLib closes its client (`AuthClosed`), so the host respawns the
-/// core and re-exposes a fresh gateway through [gateway].
-final class CoreHost extends ChangeNotifier {
+/// started. The core isolate is never respawned: after a logout it recreates its TDLib client
+/// itself and the same [gateway] simply reports the new auth states.
+final class CoreHost {
   CoreHost._(this.db, this._supportDir);
 
   static Future<CoreHost> start() async {
@@ -35,13 +34,9 @@ final class CoreHost extends ChangeNotifier {
 
   final AppDatabase db;
   final String _supportDir;
-  CoreClient? _client;
-  StreamSubscription<AuthState>? _authSub;
-  int _generation = 0;
+  late final CoreClient _client;
 
-  /// The gateway to use; identity changes after a restart (listeners are notified).
-  TelegramGateway get gateway => _client!;
-  int get generation => _generation;
+  TelegramGateway get gateway => _client;
 
   Future<void> _connect() async {
     var port = IsolateNameServer.lookupPortByName(corePortName);
@@ -63,20 +58,6 @@ final class CoreHost extends ChangeNotifier {
       IsolateNameServer.registerPortWithName(port, corePortName);
     }
     _client = await CoreClient.connect(port);
-    _authSub = _client!.authState.listen((s) {
-      if (s is AuthClosed) unawaited(_restart());
-    });
-    _generation++;
-    notifyListeners();
-  }
-
-  /// TDLib destroyed its database; start a fresh core so the user can log in again.
-  Future<void> _restart() async {
-    await _authSub?.cancel();
-    await _client?.close();
-    _client = null;
-    IsolateNameServer.removePortNameMapping(corePortName);
-    await _connect();
   }
 
   /// Logs out and wipes everything the app stored (ARCHITECTURE section 10). TDLib deletes
@@ -86,11 +67,8 @@ final class CoreHost extends ChangeNotifier {
     await gateway.logOut();
   }
 
-  @override
   Future<void> dispose() async {
-    await _authSub?.cancel();
-    await _client?.close();
+    await _client.close();
     await db.close();
-    super.dispose();
   }
 }
