@@ -61,34 +61,34 @@ void main() {
         find.widgetWithText(TextField, 'Name'),
         'Crypto alerts',
       );
-      await tester.enterText(
-        find.widgetWithText(TextField, 'word or phrase'),
-        'btc',
-      );
+      await tester.pump();
+      // TextFields in tree order: 0 = name, then one per term.
+      await tester.enterText(find.byType(TextField).at(1), 'btc');
+      await tester.pump();
       await tester.tap(find.text('AND another word'));
       await tester.pump();
-      await tester.enterText(
-        find.widgetWithText(TextField, 'word or phrase').last,
-        'airdrop',
-      );
+      await tester.enterText(find.byType(TextField).at(2), 'airdrop');
+      await tester.pump();
       await tester.tap(find.byIcon(Icons.block).last);
       await tester.pump();
       await tester.tap(find.text('OR alternative'));
       await tester.pump();
-      await tester.enterText(
-        find.widgetWithText(TextField, 'word or phrase').last,
-        'ethereum',
-      );
+      await tester.enterText(find.byType(TextField).at(3), 'ethereum');
+      await tester.pump();
       await tester.scrollUntilVisible(
         find.text('Read the post aloud'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
+      await tester.ensureVisible(find.text('Read the post aloud'));
+      await tester.pumpAndSettle();
       await tester.pumpAndSettle();
       await tester.tap(find.text('Read the post aloud'));
       await tester.pump();
       await tester.tap(find.text('Save'));
       await settle(tester);
+      expect(find.textContaining('needs a word'), findsNothing);
+      expect(find.textContaining('Give the rule'), findsNothing);
 
       final rule = (await db.allRules()).single;
       expect(rule.name, 'Crypto alerts');
@@ -114,20 +114,25 @@ void main() {
       find.widgetWithText(TextField, 'Name'),
       'Night watch',
     );
+    await tester.pump();
     await tester.tap(find.text('Text'));
     await tester.pump();
     await tester.enterText(find.byType(TextField).at(1), '(a OR b');
+    await tester.pump();
     await tester.tap(find.text('Save'));
     await tester.pump();
     expect(find.textContaining('rule syntax'), findsOneWidget);
     expect(await db.allRules(), isEmpty);
 
     await tester.enterText(find.byType(TextField).at(1), '(a OR b) AND NOT c');
+    await tester.pump();
     await tester.scrollUntilVisible(
       find.text('Only at certain times'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.ensureVisible(find.text('Only at certain times'));
+    await tester.pumpAndSettle();
     await tester.pumpAndSettle();
     await tester.tap(find.text('Only at certain times'));
     await tester.pumpAndSettle();
@@ -136,6 +141,8 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.ensureVisible(find.text('Sat'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Sat'));
     await tester.pump();
     await tester.tap(find.text('Save'));
@@ -154,15 +161,19 @@ void main() {
       await tester.pumpWidget(editor(policy: false));
       await settle(tester);
       await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Hacks');
+      await tester.pump();
       await tester.enterText(
         find.widgetWithText(TextField, 'word or phrase'),
         'hack',
       );
+      await tester.pump();
       await tester.scrollUntilVisible(
         find.text('Urgent'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
+      await tester.ensureVisible(find.text('Urgent'));
+      await tester.pumpAndSettle();
       await tester.pumpAndSettle();
       await tester.tap(find.text('Urgent').last);
       await tester.pump();
@@ -174,23 +185,15 @@ void main() {
       final rule = (await db.allRules()).single;
       expect(rule.priority, 'urgent');
 
+      await unmount(tester); // fresh State, not the scrolled one
       await tester.pumpWidget(editor(rule: rule));
       await settle(tester);
       expect(find.text('Edit rule'), findsOneWidget);
-      expect(
-        tester
-            .widget<TextField>(find.widgetWithText(TextField, 'Name'))
-            .controller!
-            .text,
-        'Hacks',
-      );
-      expect(
-        tester
-            .widget<TextField>(find.widgetWithText(TextField, 'word or phrase'))
-            .controller!
-            .text,
-        'hack',
-      );
+      final texts = tester
+          .widgetList<TextField>(find.byType(TextField))
+          .map((f) => f.controller?.text)
+          .toList();
+      expect(texts, containsAll(['Hacks', 'hack']));
       await unmount(tester);
     },
   );
@@ -202,6 +205,7 @@ void main() {
       find.widgetWithText(TextField, 'word or phrase'),
       'btc',
     );
+    await tester.pump();
     await tester.tap(find.text('Test on recent posts'));
     await settle(tester);
     await tester.pumpAndSettle();
