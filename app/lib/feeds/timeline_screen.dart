@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'feed_editor_screen.dart';
+import 'media_view.dart';
 
 /// The merged timeline of one feed (ARCHITECTURE.md section 5.3).
 class TimelineScreen extends StatefulWidget {
@@ -168,6 +169,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                 return PostCard(
                   item: items[i],
                   channelTitle: _titles[items[i].chatId] ?? '',
+                  gateway: widget.gateway,
                 );
               },
             ),
@@ -192,34 +194,33 @@ class _TimelineScreenState extends State<TimelineScreen> {
   }
 }
 
-String _mediaLabel(Media m) => switch (m) {
-  PhotoMedia() => 'Photo',
-  VideoMedia(:final isAnimation) => isAnimation ? 'GIF' : 'Video',
-  AudioMedia(:final isVoice) => isVoice ? 'Voice message' : 'Audio',
-  DocumentMedia(:final fileName) => fileName.isEmpty ? 'File' : fileName,
-  UnsupportedMedia(:final tdType) => tdType.replaceFirst('message', ''),
-};
-
-/// One timeline row. Media rendering arrives in P1-11; for now a label.
+/// One timeline row: channel, date, inline media, text.
 class PostCard extends StatelessWidget {
-  const PostCard({super.key, required this.item, required this.channelTitle});
+  const PostCard({
+    super.key,
+    required this.item,
+    required this.channelTitle,
+    required this.gateway,
+  });
   final TimelineItem item;
   final String channelTitle;
+  final TelegramGateway gateway;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final date = DateTime.fromMillisecondsSinceEpoch(item.head.date * 1000);
+    // Albums: parts in message order (oldest first) so the layout matches Telegram.
     final media = [
-      for (final p in item.allPosts)
-        if (p.media != null) _mediaLabel(p.media!),
+      for (final p in item.allPosts.reversed)
+        if (p.media != null) p.media!,
     ];
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
@@ -233,28 +234,22 @@ class PostCard extends StatelessWidget {
                 Text(_formatDate(date), style: theme.textTheme.labelSmall),
               ],
             ),
-            if (media.isNotEmpty)
+            for (final m in media.take(10))
               Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Wrap(
-                  spacing: 6,
-                  children: [
-                    for (final m in media.take(4))
-                      Chip(
-                        label: Text(m),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    if (media.length > 4)
-                      Chip(
-                        label: Text('+${media.length - 4}'),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                  ],
+                padding: const EdgeInsets.only(top: 8),
+                child: MediaView(media: m, gateway: gateway),
+              ),
+            if (media.length > 10)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '+${media.length - 10} more',
+                  style: theme.textTheme.labelSmall,
                 ),
               ),
             if (item.text.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 6),
+                padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   item.text,
                   maxLines: 12,
