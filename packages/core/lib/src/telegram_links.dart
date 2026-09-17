@@ -26,6 +26,38 @@ Uri? telegramPostUri({
   return Uri.parse('tg://privatepost?channel=$sg&post=$serverId');
 }
 
+/// Link to put on the share sheet or the clipboard: the public `t.me` link when
+/// the channel has a username, otherwise the `t.me/c` link (opens only for
+/// members). Null for chats that are not channels.
+Uri? telegramShareUri({
+  required int chatId,
+  required int messageId,
+  String? username,
+}) {
+  if (username != null && username.isNotEmpty) {
+    return Uri.https('t.me', '/$username/${messageId >> 20}');
+  }
+  return telegramPostWebUri(chatId: chatId, messageId: messageId);
+}
+
+/// Text for the share sheet: channel title, the start of the post, the link.
+String shareText({
+  required String channelTitle,
+  required String text,
+  required Uri link,
+  int maxChars = 280,
+}) {
+  var body = text.trim().replaceAll(RegExp(r'\s*\n\s*'), '\n');
+  if (body.length > maxChars) {
+    body = '${body.substring(0, maxChars).trimRight()}…';
+  }
+  return [
+    if (channelTitle.isNotEmpty) channelTitle,
+    if (body.isNotEmpty) body,
+    link.toString(),
+  ].join('\n\n');
+}
+
 /// Web fallback for private channels when no Telegram app handles `tg://`.
 Uri? telegramPostWebUri({required int chatId, required int messageId}) {
   final sg = supergroupIdOf(chatId);

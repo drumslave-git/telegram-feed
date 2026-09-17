@@ -31,4 +31,39 @@ void main() {
     );
     expect(telegramPostUri(chatId: 7, messageId: 5 << 20), isNull);
   });
+
+  test('share link is the public link, else t.me/c, else nothing', () {
+    expect(
+      telegramShareUri(
+        chatId: -1001446168251,
+        messageId: 5 << 20,
+        username: 'news',
+      ).toString(),
+      'https://t.me/news/5',
+    );
+    expect(
+      telegramShareUri(chatId: -1001446168251, messageId: 5 << 20).toString(),
+      'https://t.me/c/1446168251/5',
+    );
+    expect(telegramShareUri(chatId: 7, messageId: 5 << 20), isNull);
+  });
+
+  test('share text: title, trimmed and truncated body, link', () {
+    final link = Uri.parse('https://t.me/news/5');
+    expect(
+      shareText(channelTitle: 'News', text: '  hello \n  world ', link: link),
+      'News\n\nhello\nworld\n\nhttps://t.me/news/5',
+    );
+    expect(
+      shareText(channelTitle: '', text: '', link: link),
+      'https://t.me/news/5',
+    );
+    final long = shareText(
+      channelTitle: 'News',
+      text: 'a' * 300,
+      link: link,
+      maxChars: 10,
+    );
+    expect(long, 'News\n\n${'a' * 10}…\n\nhttps://t.me/news/5');
+  });
 }

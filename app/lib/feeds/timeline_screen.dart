@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -21,10 +23,21 @@ class TimelineScreen extends StatefulWidget {
     required this.feed,
     this.focusChatId,
     this.focusMessageId,
+    this.share = shareWithSystemSheet,
   });
   final AppDatabase db;
   final TelegramGateway gateway;
   final Feed feed;
+
+  /// Opens the system share sheet with [text] (tests inject a recorder).
+  final Future<void> Function(String text, {required String subject}) share;
+
+  static Future<void> shareWithSystemSheet(
+    String text, {
+    required String subject,
+  }) async {
+    await SharePlus.instance.share(ShareParams(text: text, subject: subject));
+  }
 
   /// Post to scroll to after loading (notification tap). Loads up to a few pages to find it.
   final int? focusChatId;
@@ -215,6 +228,40 @@ class _TimelineScreenState extends State<TimelineScreen> {
     );
   }
 
+  Uri? _shareLink(TimelineItem item) => telegramShareUri(
+    chatId: item.chatId,
+    messageId: item.head.messageId,
+    username: _usernames[item.chatId],
+  );
+
+  Future<void> _share(TimelineItem item) async {
+    final link = _shareLink(item);
+    if (link == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This post has no link to share.')),
+      );
+      return;
+    }
+    final title = _titles[item.chatId] ?? '';
+    await widget.share(
+      shareText(channelTitle: title, text: item.head.text, link: link),
+      subject: title,
+    );
+  }
+
+  Future<void> _copyLink(TimelineItem item) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final link = _shareLink(item);
+    if (link == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('This post has no link to copy.')),
+      );
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: link.toString()));
+    messenger.showSnackBar(SnackBar(content: Text('Link copied: $link')));
+  }
+
   Future<void> _react(TimelineItem item, String emoji, bool remove) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -356,6 +403,8 @@ class _TimelineScreenState extends State<TimelineScreen> {
                   gateway: widget.gateway,
                   unread: FeedTimeline.isUnread(items[i], _marks),
                   onOpenInTelegram: () => _openInTelegram(items[i]),
+                  onShare: () => _share(items[i]),
+                  onCopyLink: () => _copyLink(items[i]),
                   onReact: (emoji, remove) => _react(items[i], emoji, remove),
                   onPickReaction: () => _pickReaction(items[i]),
                   onOpenThread: () => Navigator.of(context).push(
@@ -400,6 +449,8 @@ class PostCard extends StatelessWidget {
     required this.gateway,
     this.unread = false,
     this.onOpenInTelegram,
+    this.onShare,
+    this.onCopyLink,
     this.onReact,
     this.onPickReaction,
     this.onOpenThread,
@@ -409,6 +460,8 @@ class PostCard extends StatelessWidget {
   final TelegramGateway gateway;
   final bool unread;
   final VoidCallback? onOpenInTelegram;
+  final VoidCallback? onShare;
+  final VoidCallback? onCopyLink;
 
   /// Tap on an existing reaction chip: adds it, or removes it when already chosen.
   final void Function(String emoji, bool remove)? onReact;
@@ -457,6 +510,35 @@ class PostCard extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                     icon: const Icon(Icons.open_in_new, size: 18),
                     onPressed: onOpenInTelegram,
+                  ),
+                if (onShare != null || onCopyLink != null)
+                  PopupMenuButton<VoidCallback>(
+                    tooltip: 'More',
+                    icon: const Icon(Icons.more_vert, size: 18),
+                    padding: EdgeInsets.zero,
+                    onSelected: (action) => action(),
+                    itemBuilder: (context) => [
+                      if (onShare != null)
+                        PopupMenuItem(
+                          value: onShare,
+                          child: const ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.share_outlined),
+                            title: Text('Share'),
+                          ),
+                        ),
+                      if (onCopyLink != null)
+                        PopupMenuItem(
+                          value: onCopyLink,
+                          child: const ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.link),
+                            title: Text('Copy link'),
+                          ),
+                        ),
+                    ],
                   ),
               ],
             ),

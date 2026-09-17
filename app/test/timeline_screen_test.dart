@@ -1,6 +1,7 @@
 import 'package:app_db/app_db.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
@@ -173,6 +174,71 @@ void main() {
     await settle(tester);
     await tester.pumpAndSettle();
     expect(gw.reactions.last, '-1/3 +🔥');
+    await unmount(tester);
+  });
+
+  testWidgets('share sends text with the link; copy link fills the clipboard', (
+    tester,
+  ) async {
+    gw.histories[-1001446168251] = [
+      Post(
+        chatId: -1001446168251,
+        messageId: 5 << 20,
+        date: 300,
+        text: 'shareable',
+      ),
+    ];
+    await tester.runAsync(() async {
+      feed = await db.createFeed('S');
+      await db.addSource(
+        feed.id,
+        -1001446168251,
+        title: 'News',
+        username: 'news',
+      );
+    });
+    final shared = <String>[];
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(
+          db: db,
+          gateway: gw,
+          feed: feed,
+          share: (text, {required subject}) async =>
+              shared.add('$subject|$text'),
+        ),
+      ),
+    );
+    await settle(tester);
+
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Share'));
+    await tester.pumpAndSettle();
+    expect(shared, ['News|News\n\nshareable\n\nhttps://t.me/news/5']);
+
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Copy link'));
+    await tester.pumpAndSettle();
+    expect(copied, 'https://t.me/news/5');
+    expect(find.textContaining('Link copied'), findsOneWidget);
     await unmount(tester);
   });
 
