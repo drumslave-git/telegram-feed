@@ -222,7 +222,7 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 - `rules`: exhaustive unit tests for the parser and evaluator, including Unicode word boundaries, Cyrillic case folding, schedule wrap-around at midnight.
 - `core`: timeline merge tested against a fake `TelegramGateway` with scripted histories and update streams.
 - `app_db`: migration tests on every schema change.
-- `app`: golden tests for the main screens; one integration test on an emulator that logs in with a Telegram test DC account (TDLib supports `use_test_dc`).
+- `app`: golden tests for the main screens; one integration test on an emulator that logs in with the project's spare Telegram account on the production DC (Telegram disabled test-DC test numbers in 2024; see `docs/spikes/tdlib-ffi.md`). The session is created once and its TDLib database is reused between runs so the SMS code is not needed on every run.
 - All manual testing runs on Android emulators (x86_64 system images, so the `libtdjson.so` x86_64 build is required from day one). No personal devices.
 
 ## 12. Decision log
@@ -242,3 +242,4 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-17 | Only joined channels as sources | App never joins, leaves, or searches public channels |
 | 2026-09-17 | Reading syncs read state to Telegram | Default on, setting to disable |
 | 2026-09-17 | Name stays telegram-feed | Rename before public release |
+| 2026-09-17 | Emulator login uses a spare real account on the production DC | Telegram disabled test-DC test numbers; the founder's main account is never used (spike P0-1) |

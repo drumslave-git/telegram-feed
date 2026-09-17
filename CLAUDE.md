@@ -18,7 +18,7 @@ Custom Telegram client (Flutter + TDLib) for combining channels into feeds, keyw
 
 - Decisions are asked, never deferred. If something is undecided, ask the user with the question tool right away. Do not write "open question", "TBD", or "decide later" anywhere.
 - Emulator only. Never propose or attempt running on the user's personal phone. Android emulator with an x86_64 image; TDLib binaries must include x86_64.
-- Telegram login on the emulator uses the TDLib test datacenter or a spare account, never the user's main account.
+- Telegram login on the emulator uses a spare real account on the production DC, never the user's main account. Telegram's test-DC test numbers are dead (see `docs/spikes/tdlib-ffi.md`). The user types the phone number and SMS code into the emulator; Claude never enters them.
 - `api_id` / `api_hash` are never committed. They come from `--dart-define=TG_API_ID` and `--dart-define=TG_API_HASH`.
 - Spec and architecture live in `docs/SPEC.md` and `docs/ARCHITECTURE.md`. When a decision changes, update both the relevant section and the decision log in the same commit.
 - Spikes go on `spike/<name>` branches and end with `docs/spikes/<name>.md`.

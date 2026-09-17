@@ -111,4 +111,5 @@ Phase 2 adds **Rules list**, **Rule editor**, and **Read-aloud settings**.
 - Reading a post in the app marks it read in the official Telegram app. On by default, toggle in settings.
 - Name stays `telegram-feed` until a public release.
 - License: GPL-3.0.
+- Development and testing log in with a spare real Telegram account on the production DC, never the founder's main account. Telegram's test-DC test numbers no longer work (spike P0-1).
 - Telegram `api_id` / `api_hash` are never committed. Each build supplies its own via `--dart-define`; the README explains how to obtain them at my.telegram.org.

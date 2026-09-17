@@ -53,7 +53,7 @@ The two viable routes, both needing a real phone number that is not the founder'
    Realistic data for P0-3 and later phases; small risk of the account being limited if it behaves
    like a bot.
 
-The choice was put to the founder on 2026-09-17 (see PLAN.md).
+Decision (founder, 2026-09-17): route 1 is dropped; a spare real number on the **production DC** is used for all emulator work. The founder types the phone number and code into the app on the emulator; the resulting TDLib session directory is reused between runs.
 
 ## How to run
 
