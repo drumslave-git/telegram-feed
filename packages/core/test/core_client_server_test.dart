@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:isolate';
 
 import 'package:core/core.dart';
+import 'package:rules/rules.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:test/test.dart';
 
@@ -213,6 +214,67 @@ void main() {
       expect(gw.calls.last, 'download:9:4');
       expect(progress.map((p) => p.downloaded), [5, 10]);
     });
+  });
+
+  test('rule matches are broadcast; pause detaches; refresh reloads', () async {
+    final gw = FakeGateway();
+    final engine = RuleEngine()
+      ..update(
+        rules: [
+          RuleSpec(
+            id: 1,
+            name: 'hi',
+            condition: RuleParser.parse('hello'),
+            priority: RulePriority.urgent,
+            readAloud: true,
+          ),
+        ],
+        watched: {-1},
+      );
+    var refreshed = 0;
+    final server = CoreServer(
+      gw,
+      engine: engine,
+      onRefresh: () async => refreshed++,
+    );
+    final client = await CoreClient.connect(server.sendPort);
+    final got = <MatchEvent>[];
+    final paused = <bool>[];
+    final s1 = client.matches.listen(got.add);
+    final s2 = client.pausedChanges.listen(paused.add);
+
+    gw.postCtl.add(
+      PostAdded(Post(chatId: -1, messageId: 1, date: 1, text: 'hello there')),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(got.single.ruleNames, ['hi']);
+    expect(got.single.priority, RulePriority.urgent);
+    expect(got.single.readAloud, isTrue);
+    expect(got.single.post.messageId, 1);
+
+    await client.setPaused(true);
+    expect(await client.isPaused(), isTrue);
+    gw.postCtl.add(
+      PostAdded(Post(chatId: -1, messageId: 2, date: 1, text: 'hello again')),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(got.length, 1); // paused: not evaluated
+    await client.setPaused(false);
+    gw.postCtl.add(
+      PostAdded(Post(chatId: -1, messageId: 3, date: 1, text: 'hello 3')),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(got.length, 2);
+    expect(paused, [true, false]);
+
+    await client.refresh();
+    expect(refreshed, 1);
+
+    await s1.cancel();
+    await s2.cancel();
+    await client.close();
+    await server.close();
+    await engine.close();
   });
 
   test('server in another isolate: maps cross the port', () async {

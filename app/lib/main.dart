@@ -5,10 +5,12 @@ import 'auth/login_screens.dart';
 import 'core_host.dart';
 import 'feeds/feeds_screen.dart';
 import 'feeds/timeline_screen.dart';
+import 'service/core_service.dart';
 import 'settings/settings_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  initCoreService();
   runApp(const TelegramFeedApp());
 }
 

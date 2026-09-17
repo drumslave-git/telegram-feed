@@ -9,11 +9,14 @@
 ///   {'type': 'welcome', 'auth': Map}                         current auth state
 ///   {'type': 'result', 'id': int, 'value': Object?}
 ///   {'type': 'error', 'id': int, 'code': int, 'message': String}
-///   {'type': 'event', 'stream': 'auth'|'posts'|'membership'|'files', 'data': Map}
+///   {'type': 'event', 'stream': 'auth'|'posts'|'membership'|'files'|'matches'|'paused', 'data': Map}
+///
+/// Calls beyond the gateway: 'refresh' (re-read rules and watched channels from the database),
+/// 'setPaused' {paused: bool} (stop/resume rule evaluation), 'isPaused'.
 library;
 
 /// Name under which the core registers its port with `IsolateNameServer`.
 const corePortName = 'telegram_feed.core';
 
 /// Named streams pushed to every subscribed client.
-enum CoreStream { auth, posts, membership, files }
+enum CoreStream { auth, posts, membership, files, matches, paused }

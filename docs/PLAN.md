@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 2 (rules and voice). **Next task:** P2-3.
+**Current phase:** 2 (rules and voice). **Next task:** P2-4.
 
 ## Phase 0 — Spikes
 
@@ -38,7 +38,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 
 - [x] P2-1 `rules` package: AST, text-form parser, evaluator, schedule matcher. Unit tests incl. Unicode word boundaries and Cyrillic case folding. Text form `(a OR b) AND NOT c` with `~` (substring) and `=` (case-sensitive) modifiers, round-trips via `RuleParser.format`; JSON form for `condition_json`.
 - [x] P2-2 Rule engine in core: evaluate on `postEvents`, priority merge, read-aloud flag, ignore edits, cancel on delete. `RuleEngine` + `RuleSpec.fromRow`; `rules` table (schema v2) with DAO, schema dumps and a v1→v2 migration test.
-- [ ] P2-3 Foreground service hosting the core isolate; battery-optimization exemption prompt; "Watching N channels" notification with Pause.
+- [x] P2-3 Foreground service hosting the core isolate; battery-optimization exemption prompt; "Watching N channels" notification with Pause. `service/core_service.dart` (specialUse service, task handler spawns the core and registers its port, notification counts watched channels, Pause/Resume buttons drive `setPaused`), `CoreHost` starts the service and falls back to an in-process core, forwards rule/source changes with `refresh`; battery exemption helpers exposed (prompt UI lands with the rules screens in P2-6). Verified on the emulator: service foreground with the notification, UI reconnects to the running core after the activity is destroyed.
 - [ ] P2-4 Notifications: three channels (silent, normal, urgent with DND bypass), grouping, Listen and Open in Telegram actions, tap opens post in feed.
 - [ ] P2-5 TTS service: queue, language detection, voice selection, text preparation, audio focus, call detection.
 - [ ] P2-6 Rules list and rule editor screens (visual builder + text form), test-against-recent-posts.

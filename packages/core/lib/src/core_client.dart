@@ -3,6 +3,8 @@ import 'dart:isolate';
 
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import 'core_server.dart' show MatchEvent;
+
 /// UI-side handle to a [CoreServer]. Implements [TelegramGateway] so screens do not care
 /// whether the core runs in the same isolate, a spawned isolate, or the foreground service.
 final class CoreClient implements TelegramGateway {
@@ -26,6 +28,8 @@ final class CoreClient implements TelegramGateway {
   final _postCtl = StreamController<PostEvent>.broadcast();
   final _memberCtl = StreamController<ChannelMembershipEvent>.broadcast();
   final _fileCtl = StreamController<FileProgress>.broadcast();
+  final _matchCtl = StreamController<MatchEvent>.broadcast();
+  final _pausedCtl = StreamController<bool>.broadcast();
   AuthState _auth = const AuthStarting();
   int _seq = 0;
 
@@ -58,6 +62,10 @@ final class CoreClient implements TelegramGateway {
             _memberCtl.add(decodeMembership(data));
           case 'files':
             _fileCtl.add(decodeFileProgress(data));
+          case 'matches':
+            _matchCtl.add(MatchEvent.decode(data));
+          case 'paused':
+            _pausedCtl.add(data['paused'] as bool);
         }
     }
   }
@@ -81,6 +89,19 @@ final class CoreClient implements TelegramGateway {
     yield _auth;
     yield* _authCtl.stream;
   }
+
+  /// Rule matches evaluated by the core (phase 2).
+  Stream<MatchEvent> get matches => _matchCtl.stream;
+
+  /// Pause state changes of rule evaluation.
+  Stream<bool> get pausedChanges => _pausedCtl.stream;
+
+  /// Asks the core to re-read rules and watched channels from the database.
+  Future<void> refresh() => _call('refresh');
+
+  Future<void> setPaused(bool paused) => _call('setPaused', {'paused': paused});
+
+  Future<bool> isPaused() async => (await _call('isPaused')) as bool;
 
   @override
   Stream<PostEvent> get postEvents => _postCtl.stream;
@@ -168,5 +189,7 @@ final class CoreClient implements TelegramGateway {
     await _postCtl.close();
     await _memberCtl.close();
     await _fileCtl.close();
+    await _matchCtl.close();
+    await _pausedCtl.close();
   }
 }

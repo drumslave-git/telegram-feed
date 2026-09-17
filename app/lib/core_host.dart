@@ -1,13 +1,17 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:ui';
 
 import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:core/native_isolate.dart';
 import 'package:drift/native.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
+
+import 'service/core_service.dart';
 
 /// Telegram API credentials come from `--dart-define`; never committed (SPEC section 7).
 const int tgApiId = int.fromEnvironment('TG_API_ID');
@@ -16,49 +20,90 @@ const bool tgTestDc = bool.fromEnvironment('TG_TEST_DC');
 
 /// Owns the app's connection to the core and the app database.
 ///
-/// Phase 1: spawns the core isolate itself. Phase 2: finds the one the foreground service
-/// started. The core isolate is never respawned: after a logout it recreates its TDLib client
-/// itself and the same [gateway] simply reports the new auth states.
+/// The core runs in the foreground service (ARCHITECTURE section 8): the host starts the
+/// service, waits for the core's port in `IsolateNameServer` and connects. If the service
+/// cannot start (notification permission denied, not Android), the core is spawned in-process
+/// so the app still works while it is open.
 final class CoreHost {
-  CoreHost._(this.db, this._supportDir);
+  CoreHost._(this.db, this._paths);
 
   static Future<CoreHost> start() async {
-    final support = await getApplicationSupportDirectory();
-    final db = AppDatabase(
-      NativeDatabase.createInBackground(File('${support.path}/app.sqlite')),
-    );
-    final host = CoreHost._(db, support.path);
+    final paths = await appPaths();
+    final db = AppDatabase(NativeDatabase.createInBackground(File(paths.db)));
+    final host = CoreHost._(db, paths);
     await host._connect();
+    host._forwardChanges();
     return host;
   }
 
   final AppDatabase db;
-  final String _supportDir;
+  final ({String support, String tdlib, String db}) _paths;
   late final CoreClient _client;
+  bool _inService = false;
+  final _subs = <StreamSubscription<void>>[];
 
   TelegramGateway get gateway => _client;
+  CoreClient get core => _client;
+
+  /// True when the core runs under the foreground service (rules keep working in background).
+  bool get runningInService => _inService;
 
   Future<void> _connect() async {
     var port = IsolateNameServer.lookupPortByName(corePortName);
-    if (port == null) {
-      port = await spawnCoreIsolate(
-        CoreBootstrap(
-          apiId: tgApiId,
-          apiHash: tgApiHash,
-          databaseDirectory: '$_supportDir/tdlib',
-          filesDirectory: '$_supportDir/tdlib/files',
-          useTestDc: tgTestDc,
-          deviceModel: Platform.isAndroid
-              ? 'Android'
-              : Platform.operatingSystem,
-          systemVersion: Platform.operatingSystemVersion,
-        ),
-      );
-      IsolateNameServer.removePortNameMapping(corePortName);
-      IsolateNameServer.registerPortWithName(port, corePortName);
+    if (port == null && Platform.isAndroid) {
+      if (await FlutterForegroundTask.checkNotificationPermission() !=
+          NotificationPermission.granted) {
+        await FlutterForegroundTask.requestNotificationPermission();
+      }
+      if (await startCoreService()) {
+        port = await _waitForPort(const Duration(seconds: 15));
+        _inService = port != null;
+        if (port == null) {
+          debugPrint('core: service started but no port; in-process fallback');
+        }
+      }
+    } else if (port != null) {
+      _inService = await FlutterForegroundTask.isRunningService;
     }
+    port ??= await _spawnInProcess();
     _client = await CoreClient.connect(port);
   }
+
+  Future<SendPort?> _waitForPort(Duration timeout) async {
+    final end = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(end)) {
+      final p = IsolateNameServer.lookupPortByName(corePortName);
+      if (p != null) return p;
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    return null;
+  }
+
+  Future<SendPort> _spawnInProcess() async {
+    final port = await spawnCoreIsolate(coreBootstrap(_paths));
+    IsolateNameServer.removePortNameMapping(corePortName);
+    IsolateNameServer.registerPortWithName(port, corePortName);
+    return port;
+  }
+
+  /// Rules and watched channels are written by the UI; the core re-reads them on request.
+  void _forwardChanges() {
+    void refresh() {
+      unawaited(_client.refresh());
+      if (_inService) FlutterForegroundTask.sendDataToTask('refresh');
+    }
+
+    _subs.add(db.watchRules().listen((_) => refresh()));
+    _subs.add(db.watchSourceChanges().listen((_) => refresh()));
+  }
+
+  /// Battery optimisation: without the exemption Android kills the service after a while.
+  Future<bool> get isBatteryExempt async =>
+      !Platform.isAndroid ||
+      await FlutterForegroundTask.isIgnoringBatteryOptimizations;
+
+  Future<void> requestBatteryExemption() =>
+      FlutterForegroundTask.requestIgnoreBatteryOptimization();
 
   /// Logs out and wipes everything the app stored (ARCHITECTURE section 10). TDLib deletes
   /// its own database and files directory as part of `logOut`.
@@ -68,6 +113,9 @@ final class CoreHost {
   }
 
   Future<void> dispose() async {
+    for (final s in _subs) {
+      await s.cancel();
+    }
     await _client.close();
     await db.close();
   }

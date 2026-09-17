@@ -190,6 +190,9 @@ class AppDatabase extends _$AppDatabase {
             ..orderBy([(s) => OrderingTerm.asc(s.position)]))
           .watch();
 
+  /// Emits whenever any feed's sources change (the core re-reads watched channels).
+  Stream<List<FeedSource>> watchSourceChanges() => select(feedSources).watch();
+
   /// Sources of a feed with their channel titles, ordered by position.
   Stream<List<WatchedChannel>> watchSourceChannels(int feedId) {
     final q =

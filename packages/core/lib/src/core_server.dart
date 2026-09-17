@@ -4,17 +4,81 @@ import 'dart:isolate';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'protocol.dart';
+import 'rule_engine.dart';
+
+/// Wire form of a [RuleMatch] (post plus what to do with it).
+Map<String, Object?> encodeMatch(RuleMatch m) => {
+  'post': encodePost(m.post),
+  'priority': m.priority.name,
+  'readAloud': m.readAloud,
+  'rules': [for (final r in m.rules) r.name],
+};
+
+/// A rule match as clients receive it.
+final class MatchEvent {
+  const MatchEvent({
+    required this.post,
+    required this.priority,
+    required this.readAloud,
+    required this.ruleNames,
+  });
+  final Post post;
+  final RulePriority priority;
+  final bool readAloud;
+  final List<String> ruleNames;
+
+  static MatchEvent decode(Map<Object?, Object?> m) => MatchEvent(
+    post: decodePost(m['post'] as Map<Object?, Object?>),
+    priority: RulePriority.values.byName(m['priority'] as String),
+    readAloud: m['readAloud'] as bool,
+    ruleNames: (m['rules'] as List).cast<String>(),
+  );
+}
 
 /// Serves a [TelegramGateway] to any number of [CoreClient]s over ports. Runs wherever the
 /// gateway lives: the core isolate on Android, the main isolate on the web.
 final class CoreServer {
-  CoreServer(TelegramGateway gateway, {this.log}) : _gateway = gateway {
+  CoreServer(TelegramGateway gateway, {this.log, this.engine, this.onRefresh})
+    : _gateway = gateway {
     _port.listen(_onMessage);
     _subscribe();
+    final e = engine;
+    if (e != null) {
+      _matchSub = e.matches.listen(
+        (m) => _broadcast(CoreStream.matches, encodeMatch(m)),
+      );
+    }
   }
 
   TelegramGateway _gateway;
   final void Function(String)? log;
+
+  /// Rule engine fed from the gateway's post events while not paused.
+  final RuleEngine? engine;
+
+  /// Re-reads rules and watched channels (the host owns the database).
+  final Future<void> Function()? onRefresh;
+  StreamSubscription<RuleMatch>? _matchSub;
+  StreamSubscription<PostEvent>? _engineSub;
+  bool _paused = false;
+
+  bool get paused => _paused;
+
+  /// Attaches the engine to the current gateway unless paused.
+  void _attachEngine() {
+    _engineSub?.cancel();
+    _engineSub = null;
+    final e = engine;
+    if (e != null && !_paused) _engineSub = e.attach(_gateway.postEvents);
+  }
+
+  void setPaused(bool value) {
+    if (_paused == value) return;
+    _paused = value;
+    _attachEngine();
+    _broadcast(CoreStream.paused, {'paused': value});
+  }
+
   final _port = ReceivePort();
   final _clients = <SendPort>{};
   final _fileSubs = <int, StreamSubscription<FileProgress>>{};
@@ -42,6 +106,7 @@ final class CoreServer {
   }
 
   void _subscribe() {
+    _attachEngine();
     _subs = [
       gateway.authState.listen((s) {
         _auth = s;
@@ -141,6 +206,12 @@ final class CoreServer {
         return encodeFileRef(done);
       case 'watchFile':
         _watchFile(a['fileId'] as int);
+      case 'refresh':
+        await onRefresh?.call();
+      case 'setPaused':
+        setPaused(a['paused'] as bool);
+      case 'isPaused':
+        return _paused;
       case 'me':
         return encodeUser(await gateway.me());
       case 'storageStats':
@@ -165,6 +236,8 @@ final class CoreServer {
   }
 
   Future<void> close() async {
+    await _matchSub?.cancel();
+    await _engineSub?.cancel();
     for (final s in _subs) {
       await s.cancel();
     }
