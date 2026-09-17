@@ -14,6 +14,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../core_host.dart' show tgApiHash, tgApiId, tgTestDc;
 import 'notifier.dart';
+import 'tts_service.dart';
 
 /// Paths shared by the UI host and the service host.
 Future<({String support, String tdlib, String db})> appPaths() async {
@@ -96,6 +97,10 @@ class CoreServiceHandler extends TaskHandler {
   final _notifier = Notifier();
   final _actions = ReceivePort();
   Map<int, String> _titles = const {};
+  TtsService? _tts;
+
+  /// Recent matched posts so the Listen action can find their text.
+  final _recentTexts = <(int, int), String>{};
 
   static void _log(String s) => debugPrint('service: $s');
 
@@ -130,6 +135,13 @@ class CoreServiceHandler extends TaskHandler {
       unawaited(_updateNotification());
     });
     await _notifier.init();
+    final tts = TtsService(db: _db!, speaker: FlutterTtsSpeaker());
+    try {
+      await tts.init();
+      _tts = tts;
+    } catch (e) {
+      _log('tts unavailable: $e');
+    }
     IsolateNameServer.removePortNameMapping(notifierPortName);
     IsolateNameServer.registerPortWithName(_actions.sendPort, notifierPortName);
     _actions.listen(_onNotificationAction);
@@ -151,7 +163,29 @@ class CoreServiceHandler extends TaskHandler {
       channelTitle: _titles[m.post.chatId] ?? '',
     );
     await _notifier.show(plan);
-    if (m.readAloud) _log('read aloud requested (P2-5)');
+    _remember(m.post.chatId, m.post.messageId, m.post.text);
+    if (m.readAloud) _speakPost(m.post.chatId, m.post.messageId);
+  }
+
+  void _remember(int chatId, int messageId, String text) {
+    _recentTexts[(chatId, messageId)] = text;
+    if (_recentTexts.length > 200) _recentTexts.remove(_recentTexts.keys.first);
+  }
+
+  /// The "Listen" action and auto-read share this path (ARCHITECTURE 7).
+  void _speakPost(int chatId, int messageId) {
+    final text = _recentTexts[(chatId, messageId)];
+    if (text == null) {
+      _log('no text remembered for $chatId/$messageId');
+      return;
+    }
+    _tts?.enqueue(
+      TtsItem(
+        text: text,
+        channelTitle: _titles[chatId],
+        key: (chatId, messageId),
+      ),
+    );
   }
 
   Future<void> _reloadTitles() async {
@@ -165,7 +199,10 @@ class CoreServiceHandler extends TaskHandler {
     _log(
       'notification action ${m['actionId']} on ${ref?.chatId}/${ref?.messageId}',
     );
-    // 'listen' is wired to TTS in P2-5; taps and "Open in Telegram" are handled by the app.
+    if (m['actionId'] == actionListen && ref != null) {
+      _speakPost(ref.chatId, ref.messageId);
+    }
+    // Taps and \"Open in Telegram\" are handled by the app (notification_launch.dart).
   }
 
   Future<void> _updateNotification() async {
@@ -209,6 +246,7 @@ class CoreServiceHandler extends TaskHandler {
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
     _log('onDestroy timeout=$isTimeout');
     await _pausedSub?.cancel();
+    await _tts?.dispose();
     await _client?.close();
     IsolateNameServer.removePortNameMapping(notifierPortName);
     _actions.close();
