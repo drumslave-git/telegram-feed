@@ -7,12 +7,8 @@ import 'protocol.dart';
 import 'rule_engine.dart';
 
 /// Wire form of a [RuleMatch] (post plus what to do with it).
-Map<String, Object?> encodeMatch(RuleMatch m) => {
-  'post': encodePost(m.post),
-  'priority': m.priority.name,
-  'readAloud': m.readAloud,
-  'rules': [for (final r in m.rules) r.name],
-};
+Map<String, Object?> encodeMatch(RuleMatch m) =>
+    MatchEvent.fromMatch(m).encode();
 
 /// Serves a [TelegramGateway] to any number of [CoreClient]s over ports. Runs in the core
 /// isolate.

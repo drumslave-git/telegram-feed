@@ -61,6 +61,10 @@ class Rules extends Table {
   BoolColumn get readAloud => boolean().withDefault(const Constant(false))();
   TextColumn get scheduleJson => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
+
+  /// AI semantic rule (section 6.4): what the post should be about, in the user's words.
+  /// Null for plain keyword rules. `condition_json` is then the optional keyword pre-filter.
+  TextColumn get semanticPrompt => text().nullable()();
 }
 
 class Settings extends Table {
@@ -92,13 +96,17 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
     onUpgrade: (m, from, to) async {
-      if (from < 2) await m.createTable(rules);
+      if (from < 2) {
+        await m.createTable(rules); // already has every later column
+      } else if (from < 3) {
+        await m.addColumn(rules, rules.semanticPrompt);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -344,6 +352,9 @@ class AppDatabase extends _$AppDatabase {
   Stream<String?> watchSetting(String key) => (select(
     settings,
   )..where((s) => s.key.equals(key))).watchSingleOrNull().map((r) => r?.value);
+
+  Future<void> deleteSetting(String key) =>
+      (delete(settings)..where((s) => s.key.equals(key))).go();
 
   Future<void> setSetting(String key, String value) => into(settings)
       .insertOnConflictUpdate(SettingsCompanion.insert(key: key, value: value));

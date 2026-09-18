@@ -23,7 +23,7 @@ Not a replacement for the official Telegram app. Chats, calls, stories, and acco
 | Read state | Per feed with unread counter, mark on scroll, "jump to first unread", badge. Reading here marks the post read in official Telegram too; setting to turn off. |
 | Media | Full in-app playback: photos, video, voice and audio |
 | Interactions | Open in Telegram, share / copy link, react, comment (later phase) |
-| Rule expressiveness | Boolean (AND / OR / NOT, phrase, whole word, case sensitivity); AI semantic matching in a later phase |
+| Rule expressiveness | Boolean (AND / OR / NOT, phrase, whole word, case sensitivity). AI semantic rules: a description in the user's words, checked by a model behind an OpenAI-compatible endpoint the user configures, with an optional keyword pre-filter |
 | Rule scope | Per channel, global, with optional schedules. Not per feed. |
 | Rule actions | Priority level (silent / normal / urgent) and read aloud |
 | Rule text source | Post text and media captions only. Forward origin, edits, and link domains are not matched. |

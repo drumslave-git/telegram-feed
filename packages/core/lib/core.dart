@@ -11,3 +11,4 @@ export 'src/telegram_links.dart';
 export 'src/tts_text.dart';
 export 'src/protocol.dart';
 export 'src/rule_engine.dart';
+export 'src/semantic_client.dart';

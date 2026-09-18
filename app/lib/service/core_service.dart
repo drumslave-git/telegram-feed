@@ -12,6 +12,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../ai/semantic_gate.dart';
 import '../credentials.dart';
 import 'notifier.dart';
 import 'tts_service.dart';
@@ -98,6 +99,7 @@ class CoreServiceHandler extends TaskHandler {
   final _actions = ReceivePort();
   Map<int, String> _titles = const {};
   TtsService? _tts;
+  SemanticGate? _gate;
 
   /// Recent matched posts so the Listen action can find their text.
   final _recentTexts = <(int, int), String>{};
@@ -155,7 +157,20 @@ class CoreServiceHandler extends TaskHandler {
     _log('core up, port registered');
   }
 
-  Future<void> _onMatch(MatchEvent m) async {
+  Future<void> _onMatch(MatchEvent candidate) async {
+    // AI semantic rules: the model decides before anything is shown. A check that cannot
+    // be done skips those rules for this post; keyword rules on it still fire.
+    final gate = _gate ??= SemanticGate(
+      db: _db!,
+      secrets: const SecureSecretStore(),
+    );
+    final m = await gate.resolve(candidate);
+    if (m == null) {
+      _log(
+        'no rule left for ${candidate.post.chatId}/${candidate.post.messageId}',
+      );
+      return;
+    }
     _log('match ${m.ruleNames} on ${m.post.chatId}/${m.post.messageId}');
     if (!_titles.containsKey(m.post.chatId)) await _reloadTitles();
     final plan = NotificationPlan.forMatch(

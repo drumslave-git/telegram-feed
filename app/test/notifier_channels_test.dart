@@ -51,11 +51,15 @@ void main() {
       expect(created, contains('posts_urgent:false'));
 
       final plan = NotificationPlan.forMatch(
-        MatchEvent(
-          post: Post(chatId: -1001, messageId: 5 << 20, date: 1, text: 'now'),
-          priority: RulePriority.urgent,
-          readAloud: false,
-          ruleNames: const ['r'],
+        MatchEvent.of(
+          Post(chatId: -1001, messageId: 5 << 20, date: 1, text: 'now'),
+          const [
+            MatchedRule(
+              name: 'r',
+              priority: RulePriority.urgent,
+              readAloud: false,
+            ),
+          ],
         ),
         channelTitle: 'News',
       );

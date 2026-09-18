@@ -137,7 +137,7 @@ Nothing is persisted by the timeline itself; TDLib's message database makes re-f
 ```
 rules (id, name, enabled, scope_kind {global, channel}, scope_chat_id?,
        condition_json, priority {silent, normal, urgent}, read_aloud bool,
-       schedule_json?, created_at)
+       schedule_json?, created_at, semantic_prompt?)
 ```
 
 Condition AST (package `rules`):
@@ -161,6 +161,16 @@ On every `PostEvent.newMessage` for a watched channel:
 5. Emit a notification (section 6.3) and, if readAloud, enqueue for TTS (section 7).
 
 Edited messages are ignored by the engine. Deleted messages cancel a pending notification if it has not been shown yet.
+
+### 6.4 AI semantic rules (phase 4)
+
+A rule may carry a description of what the post should be about (`rules.semantic_prompt`, schema v3). Its keyword condition then is an optional pre-filter; an empty one (`And([])`) lets every post of the rule's channels through, and the editor warns that all of them are sent out.
+
+- The rule engine stays synchronous and offline: it applies scope, schedule and keywords only, and the `MatchEvent` lists every matched rule with its prompt (`MatchedRule`).
+- The service host finishes the decision (`SemanticGate`): one request per post to an OpenAI-compatible `chat/completions` endpoint (`SemanticClient`) with all pending descriptions numbered; the model answers with the matching numbers or `NONE`. `MatchEvent.withSemanticVerdicts` keeps keyword rules and the confirmed semantic ones, and priority and read-aloud are recomputed from what is left.
+- When the check cannot be done (no endpoint, offline, bad key, rate limit, odd answer) the semantic rules are skipped for that post. Keyword rules on the same post still fire, nothing is retried, and the reason is stored in the `ai.lastError` setting, which the rules screen shows as a quiet note until a check succeeds again.
+- Endpoint and model are settings (`ai.baseUrl`, `ai.model`); the API key is in the Android keystore through `flutter_secure_storage`, never in the database, and is deleted on logout. Plain `http://` endpoints are allowed for models on the user's own network, with a warning.
+- The rule editor's dry run sends the newest 8 posts that pass the keywords to the model.
 
 ### 6.3 Notifications
 
@@ -216,6 +226,7 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 ## 10. Privacy and security
 
 - The TDLib database is stored in the app's private storage, encrypted with a key held in the platform keystore (`flutter_secure_storage`), passed to TDLib as `database_encryption_key`.
+- Nothing leaves the device except Telegram traffic, with one opt-in exception: AI semantic rules (section 6.4) send the text of the posts they check to the endpoint the user configured. No rule of that kind, no request.
 - No analytics, no crash reporting by default. Optional opt-in crash reporting (Sentry) may come later; it must never include message content.
 - Logout wipes the TDLib database, the app database, and the media cache.
 - The app requests only: internet, notifications, foreground service, and (optional) battery-optimization exemption.
@@ -250,6 +261,9 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-17 | Foreground service type `specialUse` | Android 15+ caps `dataSync` at 6 h/day (spike P0-2) |
 | 2026-09-17 | TTS and notification plugins live in the service host isolate, core sends commands | Background isolates cannot receive platform callbacks (spike P0-2) |
 | 2026-09-17 | Share puts the `t.me` link (public username link, else `t.me/c`) into the system share sheet via `share_plus`; copy link uses the clipboard | Private `tg://privatepost` links stay for Open in Telegram only, since other apps cannot open them |
+| 2026-09-18 | AI semantic rules use any OpenAI-compatible endpoint; the user enters endpoint, model and key in Settings | Founder decision; no provider lock-in, works with local models |
+| 2026-09-18 | Keyword pre-filter of an AI rule is optional per rule, with a warning when empty | Founder decision; the user trades coverage against cost and privacy |
+| 2026-09-18 | A semantic check that fails skips that rule for that post, quietly | Founder decision; no retries, no fallback alerts, other rules still fire |
 | 2026-09-18 | Read-aloud queue never drops items; Listen requests go next | Found while dogfooding with busy channels; founder chose completeness over freshness |
 | 2026-09-18 | A channel added to a feed starts at Telegram's read position | Founder decision while dogfooding: the whole history used to count as unread |
 | 2026-09-17 | Web target dropped after the phase 3 build worked | Founder decision, Android only; the build stays in history at 87e10f3 |

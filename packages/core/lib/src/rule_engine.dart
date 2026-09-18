@@ -19,9 +19,13 @@ final class RuleSpec {
     this.priority = RulePriority.normal,
     this.readAloud = false,
     this.schedule,
+    this.semanticPrompt,
   });
   final int id;
   final String name;
+
+  /// Keyword condition. For a semantic rule it is the optional pre-filter: `And([])`
+  /// matches every post, which then all go to the model.
   final Expr condition;
   final bool enabled;
 
@@ -30,6 +34,13 @@ final class RuleSpec {
   final RulePriority priority;
   final bool readAloud;
   final Schedule? schedule;
+
+  /// AI semantic rule (ARCHITECTURE 6.4): what the post should be about. The engine only
+  /// applies [condition]; the host asks the model before anything is shown.
+  final String? semanticPrompt;
+
+  bool get isSemantic =>
+      semanticPrompt != null && semanticPrompt!.trim().isNotEmpty;
 
   /// Parses a `rules` row. Throws [FormatException] on corrupt JSON.
   factory RuleSpec.fromRow(Rule row) => RuleSpec(
@@ -47,6 +58,7 @@ final class RuleSpec {
         : Schedule.fromJson(
             jsonDecode(row.scheduleJson!) as Map<Object?, Object?>,
           ),
+    semanticPrompt: row.semanticPrompt,
   );
 }
 
@@ -64,32 +76,111 @@ final class RuleMatch {
   final bool readAloud;
 }
 
-/// A rule match as clients receive it.
+/// One rule of a [MatchEvent], with what the host needs to finish the decision.
+final class MatchedRule {
+  const MatchedRule({
+    required this.name,
+    required this.priority,
+    required this.readAloud,
+    this.semanticPrompt,
+  });
+  final String name;
+  final RulePriority priority;
+  final bool readAloud;
+
+  /// Set for AI semantic rules: the keyword part matched, the model has not been asked yet.
+  final String? semanticPrompt;
+
+  bool get isSemantic => semanticPrompt != null;
+
+  factory MatchedRule.of(RuleSpec r) => MatchedRule(
+    name: r.name,
+    priority: r.priority,
+    readAloud: r.readAloud,
+    semanticPrompt: r.isSemantic ? r.semanticPrompt!.trim() : null,
+  );
+
+  Map<String, Object?> encode() => {
+    'name': name,
+    'priority': priority.name,
+    'readAloud': readAloud,
+    'prompt': semanticPrompt,
+  };
+
+  static MatchedRule decode(Map<Object?, Object?> m) => MatchedRule(
+    name: m['name'] as String,
+    priority: RulePriority.values.byName(m['priority'] as String),
+    readAloud: m['readAloud'] as bool,
+    semanticPrompt: m['prompt'] as String?,
+  );
+}
+
+/// A rule match as clients receive it. [priority] and [readAloud] cover all of [rules];
+/// when some are semantic the host narrows them with [withSemanticVerdicts] first.
 final class MatchEvent {
   const MatchEvent({
     required this.post,
     required this.priority,
     required this.readAloud,
-    required this.ruleNames,
+    required this.rules,
   });
   final Post post;
   final RulePriority priority;
   final bool readAloud;
-  final List<String> ruleNames;
+  final List<MatchedRule> rules;
 
-  factory MatchEvent.fromMatch(RuleMatch m) => MatchEvent(
-    post: m.post,
-    priority: m.priority,
-    readAloud: m.readAloud,
-    ruleNames: [for (final r in m.rules) r.name],
-  );
+  List<String> get ruleNames => [for (final r in rules) r.name];
 
-  static MatchEvent decode(Map<Object?, Object?> m) => MatchEvent(
-    post: decodePost(m['post'] as Map<Object?, Object?>),
-    priority: RulePriority.values.byName(m['priority'] as String),
-    readAloud: m['readAloud'] as bool,
-    ruleNames: (m['rules'] as List).cast<String>(),
-  );
+  /// Positions in [rules] and prompts of the semantic rules still to be checked.
+  List<(int, String)> get pendingSemantic => [
+    for (var i = 0; i < rules.length; i++)
+      if (rules[i].isSemantic) (i, rules[i].semanticPrompt!),
+  ];
+
+  factory MatchEvent.of(Post post, List<MatchedRule> rules) {
+    var priority = RulePriority.silent;
+    var readAloud = false;
+    for (final r in rules) {
+      if (r.priority.index > priority.index) priority = r.priority;
+      readAloud |= r.readAloud;
+    }
+    return MatchEvent(
+      post: post,
+      priority: priority,
+      readAloud: readAloud,
+      rules: rules,
+    );
+  }
+
+  factory MatchEvent.fromMatch(RuleMatch m) =>
+      MatchEvent.of(m.post, [for (final r in m.rules) MatchedRule.of(r)]);
+
+  /// The event after the model's answer: keyword rules stay, semantic rules stay only when
+  /// their position is in [confirmed]. Null when nothing is left. A failed check passes an
+  /// empty set, so those rules are skipped and the others still fire.
+  MatchEvent? withSemanticVerdicts(Set<int> confirmed) {
+    final kept = [
+      for (var i = 0; i < rules.length; i++)
+        if (!rules[i].isSemantic || confirmed.contains(i))
+          MatchedRule(
+            name: rules[i].name,
+            priority: rules[i].priority,
+            readAloud: rules[i].readAloud,
+          ),
+    ];
+    return kept.isEmpty ? null : MatchEvent.of(post, kept);
+  }
+
+  Map<String, Object?> encode() => {
+    'post': encodePost(post),
+    'rules': [for (final r in rules) r.encode()],
+  };
+
+  static MatchEvent decode(Map<Object?, Object?> m) =>
+      MatchEvent.of(decodePost(m['post'] as Map<Object?, Object?>), [
+        for (final r in m['rules'] as List)
+          MatchedRule.decode(r as Map<Object?, Object?>),
+      ]);
 }
 
 /// Evaluates rules against new posts (ARCHITECTURE.md section 6.2).

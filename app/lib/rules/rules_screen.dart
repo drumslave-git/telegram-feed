@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:rules/rules.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../ai/semantic_gate.dart';
 import 'rule_editor_screen.dart';
 
 /// All keyword rules with enable switches (SPEC: rules are global or per channel).
@@ -14,6 +15,7 @@ class RulesScreen extends StatelessWidget {
     required this.gateway,
     this.batteryExempt,
     this.onRequestBatteryExemption,
+    this.semanticCheck,
   });
   final AppDatabase db;
   final TelegramGateway gateway;
@@ -22,10 +24,20 @@ class RulesScreen extends StatelessWidget {
   final Future<bool> Function()? batteryExempt;
   final Future<void> Function()? onRequestBatteryExemption;
 
+  /// Asks the AI endpoint (rule editor dry run); defaults to the configured endpoint.
+  final SemanticCheck? semanticCheck;
+
   void _edit(BuildContext context, Rule? rule) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => RuleEditorScreen(db: db, gateway: gateway, rule: rule),
+        builder: (_) => RuleEditorScreen(
+          db: db,
+          gateway: gateway,
+          rule: rule,
+          semanticCheck:
+              semanticCheck ??
+              SemanticGate(db: db, secrets: const SecureSecretStore()).check,
+        ),
       ),
     );
   }
@@ -58,6 +70,23 @@ class RulesScreen extends StatelessWidget {
                     )
                   : const SizedBox.shrink(),
             ),
+          StreamBuilder<String?>(
+            stream: db.watchSetting(AiKeys.lastError),
+            builder: (context, snap) {
+              final failure = AiFailure.decode(snap.data);
+              if (failure == null) return const SizedBox.shrink();
+              final t = TimeOfDay.fromDateTime(failure.at).format(context);
+              return ListTile(
+                dense: true,
+                leading: Icon(
+                  Icons.info_outline,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: const Text('AI rules are being skipped'),
+                subtitle: Text('${failure.message} (last tried $t)'),
+              );
+            },
+          ),
           Expanded(
             child: StreamBuilder<List<Rule>>(
               stream: db.watchRules(),
@@ -97,7 +126,7 @@ class RulesScreen extends StatelessWidget {
                           }),
                           title: Text(r.name),
                           subtitle: Text(
-                            '$scope · ${_conditionPreview(r)}${r.readAloud ? ' · read aloud' : ''}',
+                            '$scope · ${_preview(r)}${r.readAloud ? ' · read aloud' : ''}',
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -117,6 +146,14 @@ class RulesScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Keyword condition, and for AI rules the description they check.
+  static String _preview(Rule r) {
+    final prompt = r.semanticPrompt?.trim() ?? '';
+    if (prompt.isEmpty) return _conditionPreview(r);
+    final keywords = _conditionPreview(r);
+    return keywords.isEmpty ? 'AI: $prompt' : 'AI: $prompt · only if $keywords';
   }
 
   static String _conditionPreview(Rule r) {

@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import 'ai/semantic_gate.dart';
 import 'host/app_host.dart';
 import 'service/core_service.dart';
 
@@ -110,6 +111,7 @@ final class CoreHost implements AppHost {
   /// its own database and files directory as part of `logOut`.
   @override
   Future<void> logOutAndWipe() async {
+    await const SecureSecretStore().write(AiKeys.apiKeySecret, null);
     await db.wipe();
     await gateway.logOut();
   }

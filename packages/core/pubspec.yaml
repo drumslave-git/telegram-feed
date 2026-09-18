@@ -15,6 +15,7 @@ dependencies:
   rules:
     path: ../rules
   drift: ^2.35.0
+  http: ^1.6.0
 
 dev_dependencies:
   lints: ^6.0.0

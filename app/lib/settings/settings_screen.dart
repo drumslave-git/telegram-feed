@@ -2,7 +2,9 @@ import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../ai/semantic_gate.dart';
 import '../home/home_placeholder.dart';
+import 'ai_settings_screen.dart';
 import 'read_aloud_screen.dart';
 
 /// Account, reading, appearance, storage and licenses (SPEC screen list).
@@ -12,10 +14,14 @@ class SettingsScreen extends StatefulWidget {
     required this.db,
     required this.gateway,
     required this.onLogOut,
+    this.secrets = const SecureSecretStore(),
   });
   final AppDatabase db;
   final TelegramGateway gateway;
   final Future<void> Function() onLogOut;
+
+  /// Where the AI endpoint's API key is kept; injected in tests.
+  final SecretStore secrets;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -116,6 +122,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const Divider(),
+          const _Header('Rules'),
+          StreamBuilder<String?>(
+            stream: widget.db.watchSetting(AiKeys.baseUrl),
+            builder: (context, snap) => ListTile(
+              leading: const Icon(Icons.auto_awesome_outlined),
+              title: const Text('AI rules'),
+              subtitle: Text(
+                (snap.data ?? '').isEmpty
+                    ? 'Not set up. Rules that describe a topic in your own words'
+                    : 'Endpoint: ${snap.data}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      AiSettingsScreen(db: widget.db, secrets: widget.secrets),
+                ),
+              ),
+            ),
+          ),
+          const Divider(),
           const _Header('Appearance'),
           StreamBuilder<String?>(
             stream: widget.db.watchSetting(SettingKeys.themeMode),
@@ -182,7 +211,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: Icon(Icons.info_outline),
             title: Text('telegram-feed'),
             subtitle: Text(
-              'Free software under the GNU GPL v3. Reads your joined channels; nothing leaves the device except Telegram traffic.',
+              'Free software under the GNU GPL v3. Reads your joined channels; nothing leaves the device except Telegram traffic and, if you create AI rules, the posts those rules check, sent to the endpoint you chose.',
             ),
           ),
           ListTile(

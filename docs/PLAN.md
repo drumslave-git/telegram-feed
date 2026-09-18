@@ -65,7 +65,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 ## Phase 4 — Extras
 
 - [ ] P4-1 Optional sync backend for feeds and rules.
-- [ ] P4-2 AI semantic rules.
+- [x] P4-2 AI semantic rules. `rules.semantic_prompt` (schema v3), `MatchedRule` details on match events, `SemanticClient` for OpenAI-compatible endpoints, `SemanticGate` in the service host (one request per post, failures skip the rule and leave a quiet note), AI settings screen with the key in the keystore, rule editor field with the send-everything warning and a model-backed dry run.
 - [ ] P4-3 AI-generated podcast from a feed.
 - [ ] P4-4 Optional cloud voices.
 

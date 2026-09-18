@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:app_db/app_db.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:core/core.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telegram_feed/ai/semantic_gate.dart';
 import 'package:telegram_feed/rules/rule_editor_screen.dart';
 import 'package:telegram_feed/rules/rules_screen.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
@@ -33,6 +35,13 @@ void main() {
     await tester.pump();
   });
 
+  /// The editor is a long lazy list; a tall window keeps every field built and tappable.
+  void tall(WidgetTester tester) {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+  }
+
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(
@@ -42,19 +51,25 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   }
 
-  Widget editor({Rule? rule, bool policy = true}) => MaterialApp(
+  Widget editor({
+    Rule? rule,
+    bool policy = true,
+    SemanticCheck? semanticCheck,
+  }) => MaterialApp(
     home: RuleEditorScreen(
       db: db,
       gateway: gw,
       rule: rule,
       policyGranted: () async => policy,
       openPolicySettings: () async {},
+      semanticCheck: semanticCheck,
     ),
   );
 
   testWidgets(
     'builder: terms, NOT, OR group; saves JSON, scope and read-aloud',
     (tester) async {
+      tall(tester);
       await tester.pumpWidget(editor());
       await settle(tester);
       await tester.enterText(
@@ -62,18 +77,18 @@ void main() {
         'Crypto alerts',
       );
       await tester.pump();
-      // TextFields in tree order: 0 = name, then one per term.
-      await tester.enterText(find.byType(TextField).at(1), 'btc');
+      // TextFields in tree order: 0 = name, 1 = AI description, then one per term.
+      await tester.enterText(find.byType(TextField).at(2), 'btc');
       await tester.pump();
       await tester.tap(find.text('AND another word'));
       await tester.pump();
-      await tester.enterText(find.byType(TextField).at(2), 'airdrop');
+      await tester.enterText(find.byType(TextField).at(3), 'airdrop');
       await tester.pump();
       await tester.tap(find.byIcon(Icons.block).last);
       await tester.pump();
       await tester.tap(find.text('OR alternative'));
       await tester.pump();
-      await tester.enterText(find.byType(TextField).at(3), 'ethereum');
+      await tester.enterText(find.byType(TextField).at(4), 'ethereum');
       await tester.pump();
       await tester.scrollUntilVisible(
         find.text('Read the post aloud'),
@@ -108,6 +123,7 @@ void main() {
   testWidgets('text mode: parse errors shown, valid text saved with schedule', (
     tester,
   ) async {
+    tall(tester);
     await tester.pumpWidget(editor());
     await settle(tester);
     await tester.enterText(
@@ -117,14 +133,14 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Text'));
     await tester.pump();
-    await tester.enterText(find.byType(TextField).at(1), '(a OR b');
+    await tester.enterText(find.byType(TextField).at(2), '(a OR b');
     await tester.pump();
     await tester.tap(find.text('Save'));
     await tester.pump();
     expect(find.textContaining('rule syntax'), findsOneWidget);
     expect(await db.allRules(), isEmpty);
 
-    await tester.enterText(find.byType(TextField).at(1), '(a OR b) AND NOT c');
+    await tester.enterText(find.byType(TextField).at(2), '(a OR b) AND NOT c');
     await tester.pump();
     await tester.scrollUntilVisible(
       find.text('Only at certain times'),
@@ -158,6 +174,7 @@ void main() {
   testWidgets(
     'urgent without policy access asks to open settings; edit loads existing',
     (tester) async {
+      tall(tester);
       await tester.pumpWidget(editor(policy: false));
       await settle(tester);
       await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Hacks');
@@ -186,6 +203,7 @@ void main() {
       expect(rule.priority, 'urgent');
 
       await unmount(tester); // fresh State, not the scrolled one
+      tall(tester);
       await tester.pumpWidget(editor(rule: rule));
       await settle(tester);
       expect(find.text('Edit rule'), findsOneWidget);
@@ -199,6 +217,7 @@ void main() {
   );
 
   testWidgets('test on recent posts lists matches', (tester) async {
+    tall(tester);
     await tester.pumpWidget(editor());
     await settle(tester);
     await tester.enterText(
@@ -238,4 +257,99 @@ void main() {
     expect((await db.allRules()).single.enabled, isFalse);
     await unmount(tester);
   });
+
+  testWidgets(
+    'AI rule without keywords: warns, saves the description, dry run asks the model',
+    (tester) async {
+      final asked = <String>[];
+      tall(tester);
+      await tester.pumpWidget(
+        editor(
+          semanticCheck: (text, criteria) async {
+            asked.add('$text|${criteria.single}');
+            return text.contains('BTC') ? {0} : <int>{};
+          },
+        ),
+      );
+      await settle(tester);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Name'),
+        'Breakouts',
+      );
+      await tester.enterText(find.byType(TextField).at(1), ' price breakouts ');
+      await tester.pump();
+      expect(find.textContaining('every new post'), findsOneWidget);
+      expect(find.textContaining('not set up yet'), findsOneWidget);
+      expect(find.text('Keywords (pre-filter)'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Test on recent posts'));
+      await tester.tap(find.text('Test on recent posts'));
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(asked, [
+        'BTC breaks out|price breakouts',
+        'quiet day|price breakouts',
+      ]);
+      expect(find.textContaining('The AI matched 1 of the 2'), findsOneWidget);
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Save'));
+      await settle(tester);
+      final rule = (await tester.runAsync(db.allRules))!.single;
+      expect(rule.semanticPrompt, 'price breakouts');
+      expect(jsonDecode(rule.conditionJson), {'and': <Object?>[]});
+      expect(RuleSpec.fromRow(rule).isSemantic, isTrue);
+
+      // Reopening shows the description, empty keywords and no parse error.
+      await unmount(tester);
+      tall(tester);
+      await tester.pumpWidget(editor(rule: rule));
+      await settle(tester);
+      expect(find.text('price breakouts'), findsOneWidget);
+      expect(find.textContaining('every new post'), findsOneWidget);
+      await unmount(tester);
+    },
+  );
+
+  testWidgets(
+    'rules list: AI rules show their description; failures show a quiet warning',
+    (tester) async {
+      await db.insertRule(
+        RulesCompanion.insert(
+          name: 'Rates',
+          scopeKind: 'global',
+          conditionJson: '{"term":"rate"}',
+          priority: 'normal',
+          semanticPrompt: const Value('central bank decisions'),
+          createdAt: DateTime(2026),
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RulesScreen(db: db, gateway: gw),
+        ),
+      );
+      await settle(tester);
+      expect(
+        find.textContaining('AI: central bank decisions · only if rate'),
+        findsOneWidget,
+      );
+      expect(find.text('AI rules are being skipped'), findsNothing);
+
+      await tester.runAsync(
+        () => db.setSetting(
+          AiKeys.lastError,
+          jsonEncode({
+            'message': 'The AI endpoint answered 401: bad key',
+            'at': 0,
+          }),
+        ),
+      );
+      await settle(tester);
+      expect(find.text('AI rules are being skipped'), findsOneWidget);
+      expect(find.textContaining('401: bad key'), findsOneWidget);
+      await unmount(tester);
+    },
+  );
 }

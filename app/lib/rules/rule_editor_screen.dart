@@ -7,6 +7,7 @@ import 'package:rules/rules.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../notifications/notification_policy.dart';
+import '../ai/semantic_gate.dart';
 import 'rule_builder_model.dart';
 
 /// Create or edit one rule: visual builder or text form, scope, priority, read-aloud,
@@ -19,6 +20,7 @@ class RuleEditorScreen extends StatefulWidget {
     this.rule,
     this.policyGranted = NotificationPolicy.isGrantedFn,
     this.openPolicySettings = NotificationPolicy.openSettings,
+    this.semanticCheck,
   });
   final AppDatabase db;
   final TelegramGateway gateway;
@@ -28,6 +30,9 @@ class RuleEditorScreen extends StatefulWidget {
   final Future<bool> Function() policyGranted;
   final Future<void> Function() openPolicySettings;
 
+  /// Asks the AI endpoint which descriptions a post matches (dry run of AI rules).
+  final SemanticCheck? semanticCheck;
+
   @override
   State<RuleEditorScreen> createState() => _RuleEditorScreenState();
 }
@@ -35,6 +40,10 @@ class RuleEditorScreen extends StatefulWidget {
 class _RuleEditorScreenState extends State<RuleEditorScreen> {
   late final _name = TextEditingController(text: widget.rule?.name ?? '');
   late final _text = TextEditingController();
+  late final _prompt = TextEditingController(
+    text: widget.rule?.semanticPrompt ?? '',
+  );
+  bool _aiConfigured = true;
   int? _scopeChatId;
   String _priority = 'normal';
   bool _readAloud = false;
@@ -60,13 +69,17 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
       _enabled = r.enabled;
       try {
         final spec = RuleSpec.fromRow(r);
-        final m = BuilderModel.fromExpr(spec.condition);
-        if (m != null) {
-          _model = m;
+        if (_isMatchAll(spec.condition)) {
+          // AI rule without keywords: both editors start empty.
         } else {
-          _textMode = true;
+          final m = BuilderModel.fromExpr(spec.condition);
+          if (m != null) {
+            _model = m;
+          } else {
+            _textMode = true;
+          }
+          _text.text = RuleParser.format(spec.condition);
         }
-        _text.text = RuleParser.format(spec.condition);
         final s = spec.schedule;
         if (s != null) {
           _scheduled = true;
@@ -83,17 +96,36 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     widget.db.allWatched().then((c) {
       if (mounted) setState(() => _channels = c);
     });
+    widget.db.setting(AiKeys.baseUrl).then((url) {
+      if (mounted) setState(() => _aiConfigured = (url ?? '').isNotEmpty);
+    });
   }
+
+  static bool _isMatchAll(Expr e) => e is And && e.items.isEmpty;
+
+  /// How many posts a dry run of an AI rule sends to the model.
+  static const _aiDryRunPosts = 8;
+
+  /// AI rule: the description is filled in.
+  bool get _isSemantic => _prompt.text.trim().isNotEmpty;
+
+  /// No keyword typed in the active editor.
+  bool get _keywordsBlank => _textMode
+      ? _text.text.trim().isEmpty
+      : _model.groups.every((g) => g.every((t) => t.text.trim().isEmpty));
 
   @override
   void dispose() {
     _name.dispose();
     _text.dispose();
+    _prompt.dispose();
     super.dispose();
   }
 
   /// The condition from whichever editor is active, or null with an error shown.
   Expr? _condition() {
+    // An AI rule may have no keywords: every post in scope then goes to the model.
+    if (_isSemantic && _keywordsBlank) return const And([]);
     if (_textMode) {
       try {
         final e = RuleParser.parse(_text.text);
@@ -187,6 +219,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
       priority: Value(_priority),
       readAloud: Value(_readAloud),
       scheduleJson: Value(schedule),
+      semanticPrompt: Value(_isSemantic ? _prompt.text.trim() : null),
     );
     final r = widget.rule;
     if (r == null) {
@@ -200,6 +233,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
           priority: _priority,
           readAloud: Value(_readAloud),
           scheduleJson: Value(schedule),
+          semanticPrompt: Value(_isSemantic ? _prompt.text.trim() : null),
           createdAt: DateTime.now(),
         ),
       );
@@ -258,6 +292,31 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
         // skip channels that fail; the dry run is best effort
       }
     }
+    // AI rule: the newest few posts that pass the keywords go to the model, like live.
+    String? headline;
+    final check = widget.semanticCheck;
+    if (_isSemantic && check != null) {
+      hits.sort((a, b) => b.date.compareTo(a.date));
+      final sample = hits.take(_aiDryRunPosts).toList();
+      final confirmed = <Post>[];
+      try {
+        for (final p in sample) {
+          if ((await check(p.text, [_prompt.text.trim()])).isNotEmpty) {
+            confirmed.add(p);
+          }
+        }
+        headline = confirmed.isEmpty
+            ? 'The AI matched none of the ${sample.length} newest posts it checked '
+                  '(${hits.length} of the last $scanned passed the keywords).'
+            : 'The AI matched ${confirmed.length} of the ${sample.length} newest posts it checked:';
+      } on SemanticException catch (e) {
+        headline = 'The AI check failed: ${e.message}';
+        confirmed.clear();
+      }
+      hits
+        ..clear()
+        ..addAll(confirmed);
+    }
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
@@ -265,9 +324,10 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            hits.isEmpty
-                ? 'No match in the last $scanned posts.'
-                : '${hits.length} of the last $scanned posts match:',
+            headline ??
+                (hits.isEmpty
+                    ? 'No match in the last $scanned posts.'
+                    : '${hits.length} of the last $scanned posts match:'),
             style: Theme.of(context).textTheme.titleMedium,
           ),
           for (final p in hits.take(30))
@@ -345,9 +405,43 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
             onChanged: (v) => setState(() => _scopeChatId = v),
           ),
           const SizedBox(height: 16),
+          Text('Meaning (AI, optional)', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _prompt,
+            minLines: 1,
+            maxLines: 4,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              hintText: 'Central bank interest rate decisions',
+              helperText: 'Describe what the post should be about. A model you configure in Settings decides; leave empty for a plain keyword rule.',
+              helperMaxLines: 3,
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          if (_isSemantic && !_aiConfigured)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'The AI endpoint is not set up yet (Settings, AI rules). Until then this rule is skipped.',
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            ),
+          if (_isSemantic && _keywordsBlank)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'No keywords below: every new post from this rule\'s channels is sent to your AI endpoint. Add keywords to send only posts that contain them.',
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            ),
+          const SizedBox(height: 16),
           Row(
             children: [
-              Text('Condition', style: theme.textTheme.titleMedium),
+              Text(
+                _isSemantic ? 'Keywords (pre-filter)' : 'Condition',
+                style: theme.textTheme.titleMedium,
+              ),
               const Spacer(),
               SegmentedButton<bool>(
                 segments: const [
@@ -371,9 +465,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                 helperMaxLines: 3,
                 errorText: _textError,
               ),
-              onChanged: (_) {
-                if (_textError != null) setState(() => _textError = null);
-              },
+              onChanged: (_) => setState(() => _textError = null),
             )
           else
             _Builder(

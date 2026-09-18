@@ -13,10 +13,10 @@ void main() {
 
   setUpAll(() => verifier = SchemaVerifier(GeneratedHelper()));
 
-  test('v1 to v2 adds the rules table and keeps data', () async {
+  test('v1 to v3 adds the rules table and keeps data', () async {
     final connection = await verifier.startAt(1);
     final db = AppDatabase(connection);
-    await verifier.migrateAndValidate(db, 2);
+    await verifier.migrateAndValidate(db, 3);
     // The upgraded database is usable.
     final feed = await db.createFeed('kept');
     await db.insertRule(
@@ -33,10 +33,29 @@ void main() {
     await db.close();
   });
 
-  test('fresh v2 database matches the dump', () async {
-    final connection = await verifier.startAt(2);
+  test('v2 to v3 adds semantic_prompt and keeps rules', () async {
+    final schema = await verifier.schemaAt(2);
+    schema.rawDatabase.execute(
+      "INSERT INTO rules (name, enabled, scope_kind, condition_json, priority, "
+      "read_aloud, created_at) VALUES ('old', 1, 'global', '{\"term\":\"x\"}', "
+      "'normal', 0, 0)",
+    );
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 3);
+    final rule = (await db.allRules()).single;
+    expect(rule.name, 'old');
+    expect(rule.semanticPrompt, isNull);
+    await db.updateRule(
+      rule.copyWith(semanticPrompt: const Value('about rates')),
+    );
+    expect((await db.allRules()).single.semanticPrompt, 'about rates');
+    await db.close();
+  });
+
+  test('fresh v3 database matches the dump', () async {
+    final connection = await verifier.startAt(3);
     final db = AppDatabase(connection);
-    await verifier.migrateAndValidate(db, 2);
+    await verifier.migrateAndValidate(db, 3);
     await db.close();
   });
 }

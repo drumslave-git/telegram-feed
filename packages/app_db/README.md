@@ -1,13 +1,13 @@
 # app_db
 
 Drift/SQLite database for everything TDLib does not own (ARCHITECTURE.md section 5.1):
-`feeds`, `feed_sources`, `feed_read_marks`, `watched_channels`, `settings`.
+`feeds`, `feed_sources`, `feed_read_marks`, `watched_channels`, `settings`, `rules`.
 
 ```bash
 dart run build_runner build --delete-conflicting-outputs   # after editing lib/src/database.dart
 ```
 
-Schema v2 adds `rules`. `drift_schemas/` holds one dump per version and `test/migration_test.dart`
+Schema v2 adds `rules`, v3 adds `rules.semantic_prompt` (AI rules). `drift_schemas/` holds one dump per version and `test/migration_test.dart`
 migrates from each old version and validates the result.
 
 `AppDatabase` exposes the operations screens need (create/rename/reorder/delete feeds, add/remove/

@@ -78,6 +78,9 @@ void main() {
   });
 
   testWidgets('account, storage, cache clearing, toggles', (tester) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(app());
     await settle(tester);
     expect(find.text('Ann Lee'), findsOneWidget);

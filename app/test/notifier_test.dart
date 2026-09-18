@@ -5,11 +5,9 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 void main() {
   MatchEvent match(RulePriority p, {String text = 'Breaking: rate cut'}) =>
-      MatchEvent(
-        post: Post(chatId: -1001, messageId: 5 << 20, date: 1, text: text),
-        priority: p,
-        readAloud: false,
-        ruleNames: const ['macro'],
+      MatchEvent.of(
+        Post(chatId: -1001, messageId: 5 << 20, date: 1, text: text),
+        [MatchedRule(name: 'macro', priority: p, readAloud: false)],
       );
 
   test('channel follows priority; ids are stable; payload round-trips', () {

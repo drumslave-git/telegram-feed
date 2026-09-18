@@ -1468,6 +1468,17 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _semanticPromptMeta = const VerificationMeta(
+    'semanticPrompt',
+  );
+  @override
+  late final GeneratedColumn<String> semanticPrompt = GeneratedColumn<String>(
+    'semantic_prompt',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1480,6 +1491,7 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
     readAloud,
     scheduleJson,
     createdAt,
+    semanticPrompt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1569,6 +1581,15 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('semantic_prompt')) {
+      context.handle(
+        _semanticPromptMeta,
+        semanticPrompt.isAcceptableOrUnknown(
+          data['semantic_prompt']!,
+          _semanticPromptMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1618,6 +1639,10 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      semanticPrompt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}semantic_prompt'],
+      ),
     );
   }
 
@@ -1642,6 +1667,10 @@ class Rule extends DataClass implements Insertable<Rule> {
   final bool readAloud;
   final String? scheduleJson;
   final DateTime createdAt;
+
+  /// AI semantic rule (section 6.4): what the post should be about, in the user's words.
+  /// Null for plain keyword rules. `condition_json` is then the optional keyword pre-filter.
+  final String? semanticPrompt;
   const Rule({
     required this.id,
     required this.name,
@@ -1653,6 +1682,7 @@ class Rule extends DataClass implements Insertable<Rule> {
     required this.readAloud,
     this.scheduleJson,
     required this.createdAt,
+    this.semanticPrompt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1671,6 +1701,9 @@ class Rule extends DataClass implements Insertable<Rule> {
       map['schedule_json'] = Variable<String>(scheduleJson);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || semanticPrompt != null) {
+      map['semantic_prompt'] = Variable<String>(semanticPrompt);
+    }
     return map;
   }
 
@@ -1690,6 +1723,9 @@ class Rule extends DataClass implements Insertable<Rule> {
           ? const Value.absent()
           : Value(scheduleJson),
       createdAt: Value(createdAt),
+      semanticPrompt: semanticPrompt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(semanticPrompt),
     );
   }
 
@@ -1709,6 +1745,7 @@ class Rule extends DataClass implements Insertable<Rule> {
       readAloud: serializer.fromJson<bool>(json['readAloud']),
       scheduleJson: serializer.fromJson<String?>(json['scheduleJson']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      semanticPrompt: serializer.fromJson<String?>(json['semanticPrompt']),
     );
   }
   @override
@@ -1725,6 +1762,7 @@ class Rule extends DataClass implements Insertable<Rule> {
       'readAloud': serializer.toJson<bool>(readAloud),
       'scheduleJson': serializer.toJson<String?>(scheduleJson),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'semanticPrompt': serializer.toJson<String?>(semanticPrompt),
     };
   }
 
@@ -1739,6 +1777,7 @@ class Rule extends DataClass implements Insertable<Rule> {
     bool? readAloud,
     Value<String?> scheduleJson = const Value.absent(),
     DateTime? createdAt,
+    Value<String?> semanticPrompt = const Value.absent(),
   }) => Rule(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -1750,6 +1789,9 @@ class Rule extends DataClass implements Insertable<Rule> {
     readAloud: readAloud ?? this.readAloud,
     scheduleJson: scheduleJson.present ? scheduleJson.value : this.scheduleJson,
     createdAt: createdAt ?? this.createdAt,
+    semanticPrompt: semanticPrompt.present
+        ? semanticPrompt.value
+        : this.semanticPrompt,
   );
   Rule copyWithCompanion(RulesCompanion data) {
     return Rule(
@@ -1769,6 +1811,9 @@ class Rule extends DataClass implements Insertable<Rule> {
           ? data.scheduleJson.value
           : this.scheduleJson,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      semanticPrompt: data.semanticPrompt.present
+          ? data.semanticPrompt.value
+          : this.semanticPrompt,
     );
   }
 
@@ -1784,7 +1829,8 @@ class Rule extends DataClass implements Insertable<Rule> {
           ..write('priority: $priority, ')
           ..write('readAloud: $readAloud, ')
           ..write('scheduleJson: $scheduleJson, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('semanticPrompt: $semanticPrompt')
           ..write(')'))
         .toString();
   }
@@ -1801,6 +1847,7 @@ class Rule extends DataClass implements Insertable<Rule> {
     readAloud,
     scheduleJson,
     createdAt,
+    semanticPrompt,
   );
   @override
   bool operator ==(Object other) =>
@@ -1815,7 +1862,8 @@ class Rule extends DataClass implements Insertable<Rule> {
           other.priority == this.priority &&
           other.readAloud == this.readAloud &&
           other.scheduleJson == this.scheduleJson &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.semanticPrompt == this.semanticPrompt);
 }
 
 class RulesCompanion extends UpdateCompanion<Rule> {
@@ -1829,6 +1877,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
   final Value<bool> readAloud;
   final Value<String?> scheduleJson;
   final Value<DateTime> createdAt;
+  final Value<String?> semanticPrompt;
   const RulesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -1840,6 +1889,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     this.readAloud = const Value.absent(),
     this.scheduleJson = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.semanticPrompt = const Value.absent(),
   });
   RulesCompanion.insert({
     this.id = const Value.absent(),
@@ -1852,6 +1902,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     this.readAloud = const Value.absent(),
     this.scheduleJson = const Value.absent(),
     required DateTime createdAt,
+    this.semanticPrompt = const Value.absent(),
   }) : name = Value(name),
        scopeKind = Value(scopeKind),
        conditionJson = Value(conditionJson),
@@ -1868,6 +1919,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     Expression<bool>? readAloud,
     Expression<String>? scheduleJson,
     Expression<DateTime>? createdAt,
+    Expression<String>? semanticPrompt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1880,6 +1932,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
       if (readAloud != null) 'read_aloud': readAloud,
       if (scheduleJson != null) 'schedule_json': scheduleJson,
       if (createdAt != null) 'created_at': createdAt,
+      if (semanticPrompt != null) 'semantic_prompt': semanticPrompt,
     });
   }
 
@@ -1894,6 +1947,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     Value<bool>? readAloud,
     Value<String?>? scheduleJson,
     Value<DateTime>? createdAt,
+    Value<String?>? semanticPrompt,
   }) {
     return RulesCompanion(
       id: id ?? this.id,
@@ -1906,6 +1960,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
       readAloud: readAloud ?? this.readAloud,
       scheduleJson: scheduleJson ?? this.scheduleJson,
       createdAt: createdAt ?? this.createdAt,
+      semanticPrompt: semanticPrompt ?? this.semanticPrompt,
     );
   }
 
@@ -1942,6 +1997,9 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (semanticPrompt.present) {
+      map['semantic_prompt'] = Variable<String>(semanticPrompt.value);
+    }
     return map;
   }
 
@@ -1957,7 +2015,8 @@ class RulesCompanion extends UpdateCompanion<Rule> {
           ..write('priority: $priority, ')
           ..write('readAloud: $readAloud, ')
           ..write('scheduleJson: $scheduleJson, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('semanticPrompt: $semanticPrompt')
           ..write(')'))
         .toString();
   }
@@ -3268,6 +3327,7 @@ typedef $$RulesTableCreateCompanionBuilder = RulesCompanion Function({
   Value<bool> readAloud,
   Value<String?> scheduleJson,
   required DateTime createdAt,
+  Value<String?> semanticPrompt,
 });
 typedef $$RulesTableUpdateCompanionBuilder = RulesCompanion Function({
   Value<int> id,
@@ -3280,6 +3340,7 @@ typedef $$RulesTableUpdateCompanionBuilder = RulesCompanion Function({
   Value<bool> readAloud,
   Value<String?> scheduleJson,
   Value<DateTime> createdAt,
+  Value<String?> semanticPrompt,
 });
 
 class $$RulesTableFilterComposer extends Composer<_$AppDatabase, $RulesTable> {
@@ -3337,6 +3398,11 @@ class $$RulesTableFilterComposer extends Composer<_$AppDatabase, $RulesTable> {
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get semanticPrompt => $composableBuilder(
+    column: $table.semanticPrompt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3399,6 +3465,11 @@ class $$RulesTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get semanticPrompt => $composableBuilder(
+    column: $table.semanticPrompt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$RulesTableAnnotationComposer
@@ -3445,6 +3516,11 @@ class $$RulesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get semanticPrompt => $composableBuilder(
+    column: $table.semanticPrompt,
+    builder: (column) => column,
+  );
 }
 
 class $$RulesTableTableManager
@@ -3485,6 +3561,7 @@ class $$RulesTableTableManager
                 Value<bool> readAloud = const Value.absent(),
                 Value<String?> scheduleJson = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String?> semanticPrompt = const Value.absent(),
               }) => RulesCompanion(
                 id: id,
                 name: name,
@@ -3496,6 +3573,7 @@ class $$RulesTableTableManager
                 readAloud: readAloud,
                 scheduleJson: scheduleJson,
                 createdAt: createdAt,
+                semanticPrompt: semanticPrompt,
               ),
           createCompanionCallback:
               ({
@@ -3509,6 +3587,7 @@ class $$RulesTableTableManager
                 Value<bool> readAloud = const Value.absent(),
                 Value<String?> scheduleJson = const Value.absent(),
                 required DateTime createdAt,
+                Value<String?> semanticPrompt = const Value.absent(),
               }) => RulesCompanion.insert(
                 id: id,
                 name: name,
@@ -3520,6 +3599,7 @@ class $$RulesTableTableManager
                 readAloud: readAloud,
                 scheduleJson: scheduleJson,
                 createdAt: createdAt,
+                semanticPrompt: semanticPrompt,
               ),
           withReferenceMapper: (p0) => p0
               .map(
