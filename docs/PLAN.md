@@ -54,8 +54,8 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 ## Stabilisation (before phase 4, decided 2026-09-17)
 
 - [ ] S-1 Dogfood on the emulator: Claude builds and installs the debug APK, drives the app end to end (login screen, feeds, timeline, media, rules, notifications, read-aloud, reactions, comments, share) and turns every bug or rough edge into an `S-n` fix task below. The only founder input is typing the spare account's phone number and code into the emulator's login screen. Phase 4 starts when the `S-n` list is empty.
-- [x] S-2 Rule dry run scanned only 3 posts: TDLib answers `getChatHistory` with short pages (often the single cached message). `TdlibGateway.history` now pages until the limit or the end; local reads stay a single probe.
-- [x] S-3 Comments chip appeared on channels without a discussion group and opened a dead end. `Post.canComment` (from `reply_info`) gates the chip.
+- [x] S-2 Rule dry run scanned only 3 posts: TDLib answers `getChatHistory` with short pages (often the single cached message). `TdlibGateway.history` now pages until the limit or the end; local reads stay a single probe. (287f028)
+- [x] S-3 Comments chip appeared on channels without a discussion group and opened a dead end. `Post.canComment` (from `reply_info`) gates the chip. (287f028)
 
 ## Phase 4 — Extras
 
