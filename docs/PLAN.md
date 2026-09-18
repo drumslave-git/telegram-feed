@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 1 (before P4-3). **Next task:** F-6.
+**Current phase:** feedback round 1 (before P4-3). **Next task:** F-7.
 
 ## Phase 0 — Spikes
 
@@ -75,7 +75,7 @@ Founder feedback after using the debug release. Decisions taken the same day are
 - [x] F-3 Tapping a photo does nothing: full-screen viewer with zoom and album paging. `PhotoViewerScreen`: full-size file, pinch and double-tap zoom, swipe between the photos of an album.
 - [x] F-4 Video player: controls, full screen, double-tap seek at the edges; fix sound with an endless spinner. `VideoSessions` (playback lives outside the widget tree, one player per file shared by the inline and the full-screen view, one video with sound at a time), `VideoStage` (scrubber with buffered range, speed, mute, replay, 10 s double-tap seek with a hint, double tap in the middle for full screen), `FullscreenVideoScreen` (immersive, landscape for wide videos). Timeline rows are keyed by post: without keys a new post shifted player state under another post, the likely cause of sound with a spinner. Verified on the emulator.
 - [x] F-5 Videos start much slower than in the official app: play while TDLib downloads instead of after. `MediaServer` (loopback HTTP with a secret path, byte ranges served from TDLib's partial file, a range that is not there yet re-aims the download; headers go out at once through a detached socket), gateway `downloadFrom` / `downloadedPrefix` / `cancelDownload`. On the emulator videos of 8, 105 and 46 MB were ready after 1.1, 0.7 and 1.8 s, the last one with its index at the end of the file. The HTTP 416 of the first run did not come back; a file without a known size is now downloaded whole instead of streamed, and the server logs a range outside the file.
-- [ ] F-6 Autoplay of short videos, with settings.
+- [x] F-6 Autoplay of short videos, with settings. `AutoplayPolicy` and `AutoplayScope` (settings `media.autoplay*`, synced; defaults 60 s and 20 MB), start at 60 % visible, pause below 20 %, first tap turns the sound on; Media section in Settings. Verified on the emulator; settings golden regenerated on Linux.
 - [ ] F-7 Timeline runs oldest to newest like a Telegram chat and opens at the remembered position or at the first unread post.
 - [ ] F-8 Tabbed main screen: `+`, one tab per feed, one tab per Telegram folder (its channels), All channels.
 - [ ] F-9 Account section in Settings shows photo, name, username, phone, bio.

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 /// Golden comparison with a tolerance. The golden images are rendered on Linux, the
 /// platform CI runs on (`tool/update_goldens.sh` regenerates them in Docker). Other
@@ -37,5 +38,7 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
       Uri.parse('${current.basedir}dummy_test.dart'),
     );
   }
+  // Its default 500 ms debounce leaves a timer pending at the end of widget tests.
+  VisibilityDetectorController.instance.updateInterval = Duration.zero;
   await testMain();
 }

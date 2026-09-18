@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
+import '../media/autoplay.dart';
 import '../media/video_sessions.dart';
 import '../media/video_stage.dart';
 import 'players.dart';
@@ -42,6 +44,7 @@ class MediaView extends StatelessWidget {
         durationSeconds: durationSeconds,
         isAnimation: isAnimation,
         gateway: gateway,
+        autoplay: AutoplayScope.of(context).allows(media as VideoMedia),
       ),
     AudioMedia(
       :final file,
@@ -240,12 +243,16 @@ class VideoView extends StatefulWidget {
     required this.durationSeconds,
     required this.isAnimation,
     required this.gateway,
+    this.autoplay = false,
   });
   final FileRef file;
   final FileRef? thumbnail;
   final int durationSeconds;
   final bool isAnimation;
   final TelegramGateway gateway;
+
+  /// Starts muted once most of it is visible ([AutoplayPolicy]).
+  final bool autoplay;
 
   @override
   State<VideoView> createState() => _VideoViewState();
@@ -282,6 +289,32 @@ class _VideoViewState extends State<VideoView> {
     () => _adopt(_sessions.open(widget.file, loop: widget.isAnimation)),
   );
 
+  /// Autoplay starts when most of the video is on screen. Anything playing pauses once it
+  /// has left the screen, unless the full-screen view is showing it.
+  void _onVisibility(VisibilityInfo info) {
+    if (!mounted) return;
+    final visible = info.visibleFraction;
+    final s = _session;
+    if (s == null) {
+      if (widget.autoplay && visible >= 0.6) {
+        setState(
+          () => _adopt(_sessions.open(widget.file, loop: true, autoplay: true)),
+        );
+      }
+      return;
+    }
+    if (s.isShared) return;
+    if (s.autoplay && s.muted) {
+      if (visible >= 0.6) {
+        unawaited(s.play());
+      } else if (visible < 0.2) {
+        unawaited(s.pause());
+      }
+    } else if (visible == 0) {
+      unawaited(s.pause());
+    }
+  }
+
   @override
   void dispose() {
     _session?.release();
@@ -304,6 +337,14 @@ class _VideoViewState extends State<VideoView> {
         ? widget.file.width / widget.file.height
         : 16 / 9;
     final session = _session;
+    return VisibilityDetector(
+      key: ValueKey(('video', widget.file.id, identityHashCode(this))),
+      onVisibilityChanged: _onVisibility,
+      child: _frame(aspect, session),
+    );
+  }
+
+  Widget _frame(double aspect, VideoSession? session) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: AspectRatio(

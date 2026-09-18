@@ -121,6 +121,15 @@ abstract final class SettingKeys {
   static const themeMode = 'themeMode'; // 'system' | 'light' | 'dark'
   static const syncReadToTelegram =
       'syncReadToTelegram'; // 'true' | 'false', default true
+
+  /// Short videos start muted when they scroll into view; 'true' | 'false', default true.
+  static const autoplay = 'media.autoplay';
+
+  /// Longest video that autoplays, in seconds (default 60).
+  static const autoplayMaxSeconds = 'media.autoplayMaxSeconds';
+
+  /// Largest video that autoplays, in megabytes (default 20).
+  static const autoplayMaxMegabytes = 'media.autoplayMaxMegabytes';
 }
 
 @DriftDatabase(

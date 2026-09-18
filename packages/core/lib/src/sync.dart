@@ -30,6 +30,7 @@ bool isSyncedSetting(String key) =>
     key == SettingKeys.themeMode ||
     key == SettingKeys.syncReadToTelegram ||
     key.startsWith('tts.') ||
+    key.startsWith('media.') ||
     key == 'ai.baseUrl' ||
     key == 'ai.model';
 

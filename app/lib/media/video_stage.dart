@@ -32,7 +32,7 @@ class VideoStage extends StatefulWidget {
 }
 
 class _VideoStageState extends State<VideoStage> {
-  bool _controls = true;
+  late bool _controls = !_s.autoplay;
   Timer? _hide;
 
   /// Slider position while the user drags it; the player is asked once on release.
@@ -82,6 +82,13 @@ class _VideoStageState extends State<VideoStage> {
   }
 
   void _toggleControls() {
+    // A video that started by itself is silent; the first tap is "I want to watch this".
+    if (_s.autoplay && _s.muted) {
+      unawaited(_s.setMuted(false));
+      setState(() => _controls = true);
+      _scheduleHide();
+      return;
+    }
     setState(() => _controls = !_controls);
     if (_controls) _scheduleHide();
   }
@@ -148,6 +155,20 @@ class _VideoStageState extends State<VideoStage> {
             const IgnorePointer(
               child: Center(
                 child: CircularProgressIndicator(color: Colors.white70),
+              ),
+            ),
+          if (ready && _s.muted && !_controls)
+            const IgnorePointer(
+              child: Align(
+                alignment: Alignment.bottomRight,
+                child: Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(
+                    Icons.volume_off,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
+                ),
               ),
             ),
           if (_seekHint != 0)

@@ -17,11 +17,15 @@ final class VideoSession extends ChangeNotifier {
     this.file, {
     required this.loop,
     required this._muted,
+    required this.autoplay,
   });
 
   final VideoSessions _owner;
   final FileRef file;
   final bool loop;
+
+  /// Started by scrolling into view, not by a tap: muted, and paused again when out of view.
+  final bool autoplay;
 
   VideoPlayerController? _controller;
   String? _error;
@@ -36,6 +40,9 @@ final class VideoSession extends ChangeNotifier {
   String? get error => _error;
   bool get muted => _muted;
   bool get isReady => _controller?.value.isInitialized ?? false;
+
+  /// More than one widget shows the session: the full-screen view is open over the row.
+  bool get isShared => _holders > 1;
 
   Future<void> _start() async {
     _error = null;
@@ -156,10 +163,16 @@ final class VideoSessions {
   VideoSession? find(int fileId) => _sessions[fileId];
 
   /// The running session for [file], or a new one that starts playing right away.
-  VideoSession open(FileRef file, {bool loop = false, bool muted = false}) {
+  VideoSession open(FileRef file, {bool loop = false, bool autoplay = false}) {
     final existing = _sessions[file.id];
     if (existing != null) return existing;
-    final s = VideoSession._(this, file, loop: loop, muted: muted);
+    final s = VideoSession._(
+      this,
+      file,
+      loop: loop,
+      muted: autoplay,
+      autoplay: autoplay,
+    );
     _sessions[file.id] = s;
     unawaited(s._start());
     return s;

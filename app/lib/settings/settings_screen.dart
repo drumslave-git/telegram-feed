@@ -4,6 +4,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../ai/semantic_gate.dart';
 import '../home/home_placeholder.dart';
+import '../media/autoplay.dart';
 import 'ai_settings_screen.dart';
 import '../sync/sync_controller.dart';
 import '../sync/sync_settings_screen.dart';
@@ -127,6 +128,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
+          const Divider(),
+          const _Header('Media'),
+          _AutoplaySettings(db: widget.db),
           const Divider(),
           const _Header('Rules'),
           StreamBuilder<String?>(
@@ -255,6 +259,82 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+}
+
+/// Autoplay switch with its two limits (SettingKeys.autoplay*).
+class _AutoplaySettings extends StatelessWidget {
+  const _AutoplaySettings({required this.db});
+  final AppDatabase db;
+
+  static const _seconds = [15, 30, 60, 120, 300];
+  static const _megabytes = [5, 10, 20, 50, 100];
+
+  Widget _limit({
+    required String settingKey,
+    required String title,
+    required List<int> choices,
+    required int fallback,
+    required String Function(int) label,
+    required bool enabled,
+  }) => StreamBuilder<String?>(
+    stream: db.watchSetting(settingKey),
+    builder: (context, snap) {
+      final value = int.tryParse(snap.data ?? '') ?? fallback;
+      return ListTile(
+        enabled: enabled,
+        contentPadding: const EdgeInsets.only(left: 72, right: 16),
+        title: Text(title),
+        trailing: DropdownButton<int>(
+          value: choices.contains(value) ? value : fallback,
+          onChanged: enabled
+              ? (v) => db.setSetting(settingKey, '${v ?? fallback}')
+              : null,
+          items: [
+            for (final c in choices)
+              DropdownMenuItem(value: c, child: Text(label(c))),
+          ],
+        ),
+      );
+    },
+  );
+
+  @override
+  Widget build(BuildContext context) => StreamBuilder<String?>(
+    stream: db.watchSetting(SettingKeys.autoplay),
+    builder: (context, snap) {
+      final on = snap.data != 'false';
+      return Column(
+        children: [
+          SwitchListTile(
+            secondary: const Icon(Icons.play_circle_outline),
+            title: const Text('Autoplay short videos'),
+            subtitle: const Text(
+              'Muted, when they scroll into view; tap one for sound',
+            ),
+            value: on,
+            onChanged: (v) =>
+                db.setSetting(SettingKeys.autoplay, v ? 'true' : 'false'),
+          ),
+          _limit(
+            settingKey: SettingKeys.autoplayMaxSeconds,
+            title: 'No longer than',
+            choices: _seconds,
+            fallback: AutoplayPolicy.defaultMaxSeconds,
+            label: (s) => s < 60 ? '$s s' : '${s ~/ 60} min',
+            enabled: on,
+          ),
+          _limit(
+            settingKey: SettingKeys.autoplayMaxMegabytes,
+            title: 'No larger than',
+            choices: _megabytes,
+            fallback: AutoplayPolicy.defaultMaxMegabytes,
+            label: (m) => '$m MB',
+            enabled: on,
+          ),
+        ],
+      );
+    },
+  );
 }
 
 class _Header extends StatelessWidget {

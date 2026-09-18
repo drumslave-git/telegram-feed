@@ -100,21 +100,38 @@ void main() {
     expect(find.textContaining('0 cached files'), findsOneWidget);
 
     // Reading toggle writes the setting.
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      isTrue,
+    final readSync = find.widgetWithText(
+      SwitchListTile,
+      'Mark posts read in Telegram',
     );
-    await tester.ensureVisible(find.byType(SwitchListTile));
+    expect(tester.widget<SwitchListTile>(readSync).value, isTrue);
+    await tester.ensureVisible(readSync);
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(SwitchListTile));
+    await tester.tap(readSync);
     await settle(tester);
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      isFalse,
-    );
+    expect(tester.widget<SwitchListTile>(readSync).value, isFalse);
     await tester.runAsync(
       () async => expect(await db.syncReadToTelegram(), isFalse),
     );
+
+    // Autoplay: on by default, the switch and a limit write their settings.
+    final autoplay = find.widgetWithText(
+      SwitchListTile,
+      'Autoplay short videos',
+    );
+    await tester.ensureVisible(autoplay);
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(autoplay).value, isTrue);
+    await tester.tap(find.text('1 min'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('30 s').last);
+    await settle(tester);
+    await tester.tap(autoplay);
+    await settle(tester);
+    await tester.runAsync(() async {
+      expect(await db.setting(SettingKeys.autoplayMaxSeconds), '30');
+      expect(await db.setting(SettingKeys.autoplay), 'false');
+    });
 
     // Appearance.
     await tester.ensureVisible(find.text('Dark'));
