@@ -258,6 +258,7 @@ final class Post {
     this.isOutgoing = false,
     this.reactions = const [],
     this.replyCount = 0,
+    this.canComment = false,
   });
   final int chatId;
   final int messageId;
@@ -280,6 +281,9 @@ final class Post {
 
   /// Comments in the linked discussion group (0 when the channel has none).
   final int replyCount;
+
+  /// True when the post has a comment thread (the channel has a discussion group).
+  final bool canComment;
 
   @override
   String toString() => 'Post($chatId/$messageId, ${text.length} chars)';

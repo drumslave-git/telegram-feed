@@ -246,16 +246,31 @@ final class TdlibGateway implements TelegramGateway {
     int limit = 30,
     bool onlyLocal = false,
   }) async {
-    final r = await _client.call(
-      td.GetChatHistory(
-        chatId: chatId,
-        fromMessageId: fromMessageId,
-        offset: 0,
-        limit: limit,
-        onlyLocal: onlyLocal,
-      ),
-    );
-    return [for (final m in r.messages) map.post(m)];
+    // TDLib picks the page size itself and often answers the first request with the single
+    // cached message, so keep asking until [limit] posts or the end of the history.
+    final out = <Post>[];
+    var from = fromMessageId;
+    while (out.length < limit) {
+      final r = await _client.call(
+        td.GetChatHistory(
+          chatId: chatId,
+          fromMessageId: from,
+          offset: 0,
+          limit: limit - out.length,
+          onlyLocal: onlyLocal,
+        ),
+      );
+      final older = [
+        for (final m in r.messages)
+          if (from == 0 || m.id < from) m,
+      ];
+      if (older.isEmpty) break;
+      out.addAll(older.map(map.post));
+      from = older.last.id;
+      // Local reads are one cheap probe before the network.
+      if (onlyLocal) break;
+    }
+    return out;
   }
 
   @override

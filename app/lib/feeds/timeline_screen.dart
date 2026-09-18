@@ -407,15 +407,18 @@ class _TimelineScreenState extends State<TimelineScreen> {
                   onCopyLink: () => _copyLink(items[i]),
                   onReact: (emoji, remove) => _react(items[i], emoji, remove),
                   onPickReaction: () => _pickReaction(items[i]),
-                  onOpenThread: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => ThreadScreen(
-                        gateway: widget.gateway,
-                        post: items[i].head,
-                        channelTitle: _titles[items[i].chatId] ?? '',
-                      ),
-                    ),
-                  ),
+                  // Only posts of channels with a discussion group have a thread.
+                  onOpenThread: !items[i].head.canComment
+                      ? null
+                      : () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => ThreadScreen(
+                              gateway: widget.gateway,
+                              post: items[i].head,
+                              channelTitle: _titles[items[i].chatId] ?? '',
+                            ),
+                          ),
+                        ),
                 );
               },
             ),

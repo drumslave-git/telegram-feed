@@ -648,4 +648,64 @@ void main() {
       // The unused completion future must not surface an error when the gateway closes.
     },
   );
+
+  test(
+    'history keeps paging until the limit: TDLib answers with short pages',
+    () async {
+      final asked = <int>[];
+      t.handlers['getChatHistory'] = (r) {
+        final from = r['from_message_id'] as int;
+        asked.add(from);
+        final ids = switch (from) {
+          0 => [50], // the single cached message
+          50 => [40, 30],
+          30 => [20],
+          _ => <int>[],
+        };
+        return {
+          '@type': 'messages',
+          'total_count': ids.length,
+          'messages': [for (final id in ids) messageJson(-1001, id)],
+        };
+      };
+      final posts = await g.history(-1001, limit: 10);
+      expect(posts.map((p) => p.messageId), [50, 40, 30, 20]);
+      expect(asked, [0, 50, 30, 20]);
+
+      asked.clear();
+      final local = await g.history(-1001, limit: 10, onlyLocal: true);
+      expect(local.map((p) => p.messageId), [50]);
+      expect(asked, [0]);
+    },
+  );
+
+  test('canComment follows reply_info', () async {
+    t.handlers['getChatHistory'] = (r) => {
+      '@type': 'messages',
+      'total_count': 2,
+      'messages': r['from_message_id'] != 0
+          ? <Object?>[]
+          : [
+              {
+                ...messageJson(-1001, 2),
+                'interaction_info': {
+                  '@type': 'messageInteractionInfo',
+                  'view_count': 1,
+                  'forward_count': 0,
+                  'reply_info': {
+                    '@type': 'messageReplyInfo',
+                    'reply_count': 0,
+                    'recent_replier_ids': <Object?>[],
+                    'last_read_inbox_message_id': 0,
+                    'last_read_outbox_message_id': 0,
+                    'last_message_id': 0,
+                  },
+                },
+              },
+              messageJson(-1001, 1),
+            ],
+    };
+    final posts = await g.history(-1001);
+    expect(posts.map((p) => p.canComment), [true, false]);
+  });
 }

@@ -178,6 +178,7 @@ Map<String, Object?> encodePost(Post p) => {
       {'emoji': r.emoji, 'count': r.count, 'chosen': r.chosen},
   ],
   'replyCount': p.replyCount,
+  'canComment': p.canComment,
 };
 
 Map<String, Object?> encodeThread(Thread t) => {
@@ -237,6 +238,7 @@ Post decodePost(Map<Object?, Object?> m) => Post(
       ),
   ],
   replyCount: (m['replyCount'] as int?) ?? 0,
+  canComment: (m['canComment'] as bool?) ?? false,
 );
 
 Map<String, Object?> encodePostEvent(PostEvent e) => switch (e) {

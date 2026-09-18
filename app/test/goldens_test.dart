@@ -45,8 +45,22 @@ Future<void> _unmount(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 1));
 }
 
-Post _post(int chat, int id, int date, String text, {Media? media}) =>
-    Post(chatId: chat, messageId: id, date: date, text: text, media: media);
+Post _post(
+  int chat,
+  int id,
+  int date,
+  String text, {
+  Media? media,
+  int replyCount = 0,
+}) => Post(
+  chatId: chat,
+  messageId: id,
+  date: date,
+  text: text,
+  media: media,
+  replyCount: replyCount,
+  canComment: replyCount > 0,
+);
 
 void main() {
   testWidgets('login: phone and code', (tester) async {
@@ -154,6 +168,7 @@ void main() {
           300,
           1700010000, // fixed past dates: the header shows time only for today
           'A longer post with two lines of text so the card wraps and shows its shape.',
+          replyCount: 12,
         ),
         _post(
           -1,

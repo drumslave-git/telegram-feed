@@ -106,6 +106,7 @@ Post post(td.Message m) {
     isOutgoing: m.isOutgoing,
     reactions: reactions(m.interactionInfo?.reactions),
     replyCount: m.interactionInfo?.replyInfo?.replyCount ?? 0,
+    canComment: m.interactionInfo?.replyInfo != null,
   );
 }
 
