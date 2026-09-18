@@ -141,9 +141,8 @@ Future<String> _download(String url, File to) async {
       throw HttpException('HTTP ${res.statusCode} for $url');
     final sink = to.openWrite();
     await res.pipe(sink);
-    return to.readAsStringSync().length < 4096 && url.endsWith('SHA256SUMS')
-        ? to.readAsStringSync()
-        : '';
+    // Only the checksum list is text; the archives are binary and must not be decoded.
+    return url.endsWith('SHA256SUMS') ? to.readAsStringSync() : '';
   } finally {
     client.close();
   }

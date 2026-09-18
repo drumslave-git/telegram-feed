@@ -75,10 +75,12 @@ jobs:
       - name: Prebuilt TDLib for the pinned commit
         if: steps.v.outputs.release == 'true'
         run: |
-          dart tool/fetch_tdlib.dart --repo ${{ github.repository }} || {
-            echo "::error::No TDLib release for the pinned commit yet. Run the tdlib workflow; this workflow starts again when it finishes."
+          tag="tdlib-$(cut -c1-7 packages/tdlib_bindings/schema/TDLIB_COMMIT)"
+          if ! git ls-remote --exit-code --tags origin "$tag" >/dev/null; then
+            echo "::error::No $tag release yet. Run the tdlib workflow; this workflow starts again when it finishes."
             exit 1
-          }
+          fi
+          dart tool/fetch_tdlib.dart --repo ${{ github.repository }}
 
       - name: Fixed debug signing key
         if: steps.v.outputs.release == 'true'
