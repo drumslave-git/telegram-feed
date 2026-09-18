@@ -29,6 +29,7 @@ class _FeedEditorScreenState extends State<FeedEditorScreen> {
     final picked = await showModalBottomSheet<Channel>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (_) => ChannelPicker(
         channels: channels.where((c) => !taken.contains(c.chatId)).toList(),
       ),
@@ -148,6 +149,14 @@ class _ChannelPickerState extends State<ChannelPicker> {
               (c.username?.toLowerCase().contains(q) ?? false),
         )
         .toList();
+    // The sheet ends above the keyboard, otherwise the last channels hide behind it.
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: _sheet(shown),
+    );
+  }
+
+  Widget _sheet(List<Channel> shown) {
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.8,

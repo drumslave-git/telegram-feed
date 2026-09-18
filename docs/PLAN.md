@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 1 (before P4-3). **Next task:** F-2.
+**Current phase:** feedback round 1 (before P4-3). **Next task:** F-3.
 
 ## Phase 0 — Spikes
 
@@ -71,7 +71,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 Founder feedback after using the debug release. Decisions taken the same day are in the ARCHITECTURE decision log. Phase 4 continues afterwards.
 
 - [x] F-1 The battery-optimisation banner stays after the exemption is granted until the screen is reopened. `BatteryBanner` re-checks when the app resumes and after the system dialog closes.
-- [ ] F-2 The channel picker's list is covered by the keyboard; the last channels cannot be reached.
+- [x] F-2 The channel picker's list is covered by the keyboard; the last channels cannot be reached. The picker sheet is padded by the keyboard inset (`viewInsets`) and respects the safe area; widget test with a simulated keyboard.
 - [ ] F-3 Tapping a photo does nothing: full-screen viewer with zoom and album paging.
 - [ ] F-4 Video player: controls, full screen, double-tap seek at the edges; fix sound with an endless spinner.
 - [ ] F-5 Videos start much slower than in the official app: play while TDLib downloads instead of after.

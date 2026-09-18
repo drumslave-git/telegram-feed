@@ -101,6 +101,32 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('the picker ends above the keyboard', (tester) async {
+    final many = [
+      for (var i = 1; i <= 40; i++) Channel(chatId: -i, title: 'Channel $i'),
+    ];
+    // A keyboard of 300 px on an 800x600 window.
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ChannelPicker(channels: many)),
+      ),
+    );
+    await tester.pump();
+    await tester.dragUntilVisible(
+      find.text('Channel 40'),
+      find.byType(ListView),
+      const Offset(0, -400),
+    );
+    await tester.pumpAndSettle();
+    final keyboardTop = 600 - 300 / tester.view.devicePixelRatio;
+    expect(
+      tester.getBottomLeft(find.text('Channel 40')).dy,
+      lessThanOrEqualTo(keyboardTop),
+    );
+  });
+
   testWidgets('channels the account left are flagged', (tester) async {
     await tester.runAsync(() async {
       feedId = (await db.createFeed('Tech')).id;
