@@ -39,7 +39,8 @@ jobs:
           flutter build apk --release --split-per-abi \
             --target-platform android-arm64,android-x64 \
             --dart-define=TG_API_ID=${{ secrets.TG_API_ID }} \
-            --dart-define=TG_API_HASH=${{ secrets.TG_API_HASH }}
+            --dart-define=TG_API_HASH=${{ secrets.TG_API_HASH }} \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID=${{ secrets.GOOGLE_SERVER_CLIENT_ID }}
           ls -la build/app/outputs/flutter-apk/
       - name: Remove signing material
         if: always()
