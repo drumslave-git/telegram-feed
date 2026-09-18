@@ -125,7 +125,7 @@ Nothing is persisted by the timeline itself; TDLib's message database makes re-f
 
 ### 5.4 Read state
 
-- `feed_read_marks` stores, per feed and per channel, the newest message id the user has scrolled past.
+- `feed_read_marks` stores, per feed and per channel, the newest message id the user has scrolled past. When a channel is added to a feed the mark starts at Telegram's own read position for it (`chat.last_read_inbox_message_id`), so the backlog is not unread.
 - Unread count for a feed = Σ over its sources of messages with id > mark. Computed from TDLib (`getChatHistory` with `only_local`, or `chat.lastMessage.id` compared to the mark for a cheap upper bound) and refreshed on `postEvents`.
 - Marking read happens on viewport exit with a debounce, and calls `markViewed` on TDLib so the official Telegram app agrees. Setting `syncReadToTelegram`, default on; when off, only `feed_read_marks` is updated.
 - "Jump to first unread" opens the timeline at the oldest mark across sources and loads forward.
@@ -250,5 +250,6 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-17 | Foreground service type `specialUse` | Android 15+ caps `dataSync` at 6 h/day (spike P0-2) |
 | 2026-09-17 | TTS and notification plugins live in the service host isolate, core sends commands | Background isolates cannot receive platform callbacks (spike P0-2) |
 | 2026-09-17 | Share puts the `t.me` link (public username link, else `t.me/c`) into the system share sheet via `share_plus`; copy link uses the clipboard | Private `tg://privatepost` links stay for Open in Telegram only, since other apps cannot open them |
+| 2026-09-18 | A channel added to a feed starts at Telegram's read position | Founder decision while dogfooding: the whole history used to count as unread |
 | 2026-09-17 | Web target dropped after the phase 3 build worked | Founder decision, Android only; the build stays in history at 87e10f3 |
 | 2026-09-17 | Web stays on tdweb, built from source; no GramJS gateway | tdweb 1.8.67 self-built works end to end, npm 1.8.0 is dead (spike P0-4) |

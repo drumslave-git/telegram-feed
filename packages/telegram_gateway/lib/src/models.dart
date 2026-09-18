@@ -65,6 +65,7 @@ final class Channel {
     this.photo,
     this.isMember = true,
     this.lastMessageId = 0,
+    this.lastReadMessageId = 0,
   });
   final int chatId;
   final String title;
@@ -74,6 +75,10 @@ final class Channel {
 
   /// Id of the newest post TDLib knows about (0 if none); cheap unread upper bound.
   final int lastMessageId;
+
+  /// Telegram's own read position for the channel (`last_read_inbox_message_id`); a feed
+  /// starts from it when the channel is added.
+  final int lastReadMessageId;
 
   /// False once the account has left the channel (history may still be readable).
   final bool isMember;

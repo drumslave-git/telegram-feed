@@ -26,6 +26,7 @@ void main() {
         title: 'Beta Daily',
         username: 'beta',
         memberCount: 20,
+        lastReadMessageId: 700,
       ),
       Channel(chatId: -3, title: 'Gone', isMember: false),
     ]);
@@ -73,6 +74,9 @@ void main() {
     await settle(tester);
     expect(find.text('Beta Daily'), findsOneWidget);
     expect(find.text('@beta'), findsOneWidget);
+    // The feed starts at Telegram's own read position for the channel.
+    final marks = await tester.runAsync(() => db.readMarks(feedId));
+    expect(marks, {-2: 700});
 
     // Already-added channels are not offered again.
     await tester.tap(find.text('Add channel'));

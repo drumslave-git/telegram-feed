@@ -52,6 +52,7 @@ Map<String, Object?> chatJson(
   'id': id,
   'title': title,
   'last_message': messageJson(id, 77),
+  'last_read_inbox_message_id': 55,
   'type': supergroupId == 0
       ? {'@type': 'chatTypePrivate', 'user_id': 5}
       : {
@@ -215,6 +216,7 @@ void main() {
       expect(channels.single.memberCount, 42);
       expect(channels.single.isMember, isFalse);
       expect(channels.single.lastMessageId, 77);
+      expect(channels.single.lastReadMessageId, 55);
       expect(loads, 2);
     },
   );

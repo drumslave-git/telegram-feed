@@ -73,6 +73,7 @@ Map<String, Object?> encodeChannel(Channel c) => {
   'photo': _fileOrNull(c.photo),
   'isMember': c.isMember,
   'lastMessageId': c.lastMessageId,
+  'lastReadMessageId': c.lastReadMessageId,
 };
 
 Channel decodeChannel(Map<Object?, Object?> m) => Channel(
@@ -83,6 +84,7 @@ Channel decodeChannel(Map<Object?, Object?> m) => Channel(
   photo: _decodeFileOrNull(m['photo']),
   isMember: m['isMember'] as bool,
   lastMessageId: (m['lastMessageId'] as int?) ?? 0,
+  lastReadMessageId: (m['lastReadMessageId'] as int?) ?? 0,
 );
 
 Map<String, Object?> encodeMedia(Media m) => switch (m) {
