@@ -130,6 +130,16 @@ Nothing is persisted by the timeline itself; TDLib's message database makes re-f
 - Marking read happens on viewport exit with a debounce, and calls `markViewed` on TDLib so the official Telegram app agrees. Setting `syncReadToTelegram`, default on; when off, only `feed_read_marks` is updated.
 - "Jump to first unread" opens the timeline at the oldest mark across sources and loads forward.
 
+### 5.5 Sync through Google Drive (phase 4)
+
+Feeds with their sources, rules and a whitelist of settings (theme, read-aloud preferences, read sync, AI endpoint and model) stay the same on all of a user's devices through one JSON file in the hidden app data folder of their own Google Drive. There is no server of ours. Read positions, the AI API key, the Telegram session and device state never sync.
+
+- **Identity of items.** Feeds and rules carry a random `sync_id` (local row ids differ per device) and an `updated_at` stamp, settings an `updated_at` (schema v4). A feed's list of sources is part of the feed: adding, removing or reordering sources stamps the feed. Deleting a feed or rule leaves a row in `sync_tombstones`; a logout wipe leaves none, and sync is turned off before the wipe, so an emptied database is never merged into the file.
+- **Merge** (`SyncSnapshot.merge`, package `core`): item by item, the newer edit wins; a deletion beats edits made before it, and an edit made after the deletion brings the item back; tombstones expire after 180 days. The file is canonical JSON with a format version; a file from a newer version is refused.
+- **Run** (`SyncEngine`): export the database, read the file, merge, apply what changed locally (`applySynced*` in `app_db`), write the file only if it differs. Two devices writing at once can hide each other's edits in the file, but never lose them: every run merges the device's whole local state back in, so the next sync heals it.
+- **When** (`SyncController`, UI isolate): at start, 15 seconds after a local edit, every 15 minutes while the app is open, and on demand from Settings. Pulled rule changes reach the core the same way local edits do, through the database watchers.
+- **Drive access** (`DriveSyncStore`, `GoogleDriveAuth`): `google_sign_in` for the account and an access token with the single scope `drive.appdata`, then plain REST calls (`files.list` in `appDataFolder`, media download, multipart create, media update). A 401 gets one retry with a fresh token. Needs an Android OAuth client (package name + signing SHA-1) in a Google Cloud project and that project's web client id at build time: `--dart-define=GOOGLE_SERVER_CLIENT_ID=...`. Without it the Sync screen says the build cannot sync.
+
 ## 6. Rules and notifications (phase 2)
 
 ### 6.1 Rule model
@@ -226,7 +236,7 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 ## 10. Privacy and security
 
 - The TDLib database is stored in the app's private storage, encrypted with a key held in the platform keystore (`flutter_secure_storage`), passed to TDLib as `database_encryption_key`.
-- Nothing leaves the device except Telegram traffic, with one opt-in exception: AI semantic rules (section 6.4) send the text of the posts they check to the endpoint the user configured. No rule of that kind, no request.
+- Nothing leaves the device except Telegram traffic, with two opt-in exceptions. Google Drive sync (section 5.5) stores feeds, rules and some settings in the user's own Drive, in a folder only this app can read. And: AI semantic rules (section 6.4) send the text of the posts they check to the endpoint the user configured. No rule of that kind, no request.
 - No analytics, no crash reporting by default. Optional opt-in crash reporting (Sentry) may come later; it must never include message content.
 - Logout wipes the TDLib database, the app database, and the media cache.
 - The app requests only: internet, notifications, foreground service, and (optional) battery-optimization exemption.
@@ -262,6 +272,8 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-17 | TTS and notification plugins live in the service host isolate, core sends commands | Background isolates cannot receive platform callbacks (spike P0-2) |
 | 2026-09-17 | Share puts the `t.me` link (public username link, else `t.me/c`) into the system share sheet via `share_plus`; copy link uses the clipboard | Private `tg://privatepost` links stay for Open in Telegram only, since other apps cannot open them |
 | 2026-09-18 | Sync goes through the user's Google Drive; no sync backend | Founder decision; keeps the project backend-free |
+| 2026-09-18 | Drive access through the Drive API with Google sign-in (app data folder), not the system file picker | Founder decision; works without the Drive app, needs an OAuth client of the founder's Google Cloud project |
+| 2026-09-18 | Sync covers feeds with sources, rules and settings; read positions stay per device; merge per item, newest edit wins | Founder decision |
 | 2026-09-18 | AI semantic rules use any OpenAI-compatible endpoint; the user enters endpoint, model and key in Settings | Founder decision; no provider lock-in, works with local models |
 | 2026-09-18 | Keyword pre-filter of an AI rule is optional per rule, with a warning when empty | Founder decision; the user trades coverage against cost and privacy |
 | 2026-09-18 | A semantic check that fails skips that rule for that post, quietly | Founder decision; no retries, no fallback alerts, other rules still fire |

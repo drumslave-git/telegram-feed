@@ -14,6 +14,8 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import 'ai/semantic_gate.dart';
 import 'host/app_host.dart';
 import 'service/core_service.dart';
+import 'sync/drive_auth.dart';
+import 'sync/sync_controller.dart';
 
 /// Owns the app's connection to the core and the app database.
 ///
@@ -30,6 +32,7 @@ final class CoreHost implements AppHost {
     final host = CoreHost._(db, paths);
     await host._connect();
     host._forwardChanges();
+    unawaited(host.sync.start());
     return host;
   }
 
@@ -38,6 +41,12 @@ final class CoreHost implements AppHost {
   final ({String support, String tdlib, String db}) _paths;
   late final CoreClient _client;
   bool _inService = false;
+
+  @override
+  late final SyncController sync = SyncController(
+    db: db,
+    auth: GoogleDriveAuth(),
+  );
   final _subs = <StreamSubscription<void>>[];
 
   @override
@@ -111,6 +120,8 @@ final class CoreHost implements AppHost {
   /// its own database and files directory as part of `logOut`.
   @override
   Future<void> logOutAndWipe() async {
+    // Sync goes off first: an emptied database must never be merged into the Drive file.
+    await sync.turnOff();
     await const SecureSecretStore().write(AiKeys.apiKeySecret, null);
     await db.wipe();
     await gateway.logOut();
@@ -121,6 +132,7 @@ final class CoreHost implements AppHost {
     for (final s in _subs) {
       await s.cancel();
     }
+    await sync.dispose();
     await _client.close();
     await db.close();
   }

@@ -4,6 +4,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import '../core_host.dart';
 import '../notifications/notification_launch.dart';
 import '../service/core_service.dart';
+import '../sync/sync_controller.dart';
 
 /// What the screens need from the platform: the app database, a gateway to Telegram and
 /// a few facts about where the core runs. [CoreHost] implements it on Android; tests
@@ -14,6 +15,9 @@ abstract interface class AppHost {
 
   /// True when rules keep running while the app is not open (foreground service).
   bool get runningInService;
+
+  /// Google Drive sync of feeds, rules and settings (ARCHITECTURE.md section 5.5).
+  SyncController get sync;
 
   Future<bool> get isBatteryExempt;
   Future<void> requestBatteryExemption();

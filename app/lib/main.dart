@@ -117,6 +117,7 @@ class _Root extends StatelessWidget {
                       db: h.db,
                       gateway: h.gateway,
                       onLogOut: h.logOutAndWipe,
+                      sync: h.sync,
                     ),
                   ),
                 ),

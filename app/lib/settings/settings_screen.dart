@@ -5,6 +5,8 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import '../ai/semantic_gate.dart';
 import '../home/home_placeholder.dart';
 import 'ai_settings_screen.dart';
+import '../sync/sync_controller.dart';
+import '../sync/sync_settings_screen.dart';
 import 'read_aloud_screen.dart';
 
 /// Account, reading, appearance, storage and licenses (SPEC screen list).
@@ -15,6 +17,7 @@ class SettingsScreen extends StatefulWidget {
     required this.gateway,
     required this.onLogOut,
     this.secrets = const SecureSecretStore(),
+    this.sync,
   });
   final AppDatabase db;
   final TelegramGateway gateway;
@@ -22,6 +25,9 @@ class SettingsScreen extends StatefulWidget {
 
   /// Where the AI endpoint's API key is kept; injected in tests.
   final SecretStore secrets;
+
+  /// Drive sync; the entry is hidden when the host has none (tests).
+  final SyncController? sync;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -144,6 +150,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
+          if (widget.sync case final sync?) ...[
+            const Divider(),
+            const _Header('Sync'),
+            ValueListenableBuilder<SyncStatus>(
+              valueListenable: sync.status,
+              builder: (context, status, _) => ListTile(
+                leading: const Icon(Icons.cloud_sync_outlined),
+                title: const Text('Google Drive sync'),
+                subtitle: Text(
+                  SyncSettingsScreen.describe(status, context),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => SyncSettingsScreen(controller: sync),
+                  ),
+                ),
+              ),
+            ),
+          ],
           const Divider(),
           const _Header('Appearance'),
           StreamBuilder<String?>(
