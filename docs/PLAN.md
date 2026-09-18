@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 4 (extras). **Next task:** P4-1.
+**Current phase:** 4 (extras). **Next task:** P4-3.
 
 ## Phase 0 — Spikes
 
@@ -64,7 +64,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 
 ## Phase 4 — Extras
 
-- [~] P4-1 Sync of feeds, rules and settings between devices through the user's Google Drive, no backend of ours (founder decisions 2026-09-18). Done: schema v4 (sync ids, edit times, tombstones), `SyncSnapshot` merge and `SyncEngine` in core, `DriveSyncStore` (REST, `drive.appdata`), `GoogleDriveAuth`, `SyncController`, Sync screen in Settings, all under test with a fake Drive. Left: verification on the emulator with a real Google account, which needs the founder's web client id (`GOOGLE_SERVER_CLIENT_ID`) and an Android OAuth client for `dev.telegramfeed.telegram_feed`.
+- [x] P4-1 Sync of feeds, rules and settings between devices through the user's Google Drive, no backend of ours (founder decisions 2026-09-18). Schema v4 (sync ids, edit times, tombstones), `SyncSnapshot` merge and `SyncEngine` in core, `DriveSyncStore` (REST, `drive.appdata`), `GoogleDriveAuth`, `SyncController`, Sync screen in Settings. Verified on the emulator with the founder's Google account: first run pushed the file, and a database made stale by hand (old feed name, rule removed) was restored from Drive (`pulled 2`). (5da876c, 2d95ccc)
 - [x] P4-2 AI semantic rules. `rules.semantic_prompt` (schema v3), `MatchedRule` details on match events, `SemanticClient` for OpenAI-compatible endpoints, `SemanticGate` in the service host (one request per post, failures skip the rule and leave a quiet note), AI settings screen with the key in the keystore, rule editor field with the send-everything warning and a model-backed dry run. (a372673)
 - [ ] P4-3 AI-generated podcast from a feed.
 - [ ] P4-4 Optional cloud voices.
