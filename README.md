@@ -18,14 +18,29 @@ cd app && flutter test integration_test -d emulator-5554 --dart-define=TG_API_ID
 The integration test drives the real app on the emulator; the feed flow runs only when the
 emulator's account is logged in (it says so and passes otherwise).
 
-## Releases (closed beta)
+## Releases
 
-Pushing a tag `v*` runs `.github/workflows/release.yml`: it downloads the prebuilt TDLib for the
-pinned commit, builds signed release APKs per ABI and attaches them to a GitHub release.
-Required repository secrets: `TG_API_ID`, `TG_API_HASH`, `ANDROID_KEYSTORE_BASE64`,
-`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. Optional:
-`GOOGLE_SERVER_CLIENT_ID` for Google Drive sync; the release key's SHA-1 needs its own Android
-OAuth client (see "Google Drive sync" above).
+**Versions are automatic.** After CI passes on `main`, `.github/workflows/debug-release.yml`
+reads the conventional commits since the last `vX.Y.Z` tag (`packages/versioning`): `feat`
+raises the minor version, `fix` and `perf` the patch, a breaking change (`feat!:` or a
+`BREAKING CHANGE:` footer) the major (the minor while the version is 0.x). Pushes with only
+`docs`, `chore`, `test` or `ci` commits release nothing. The workflow tags the commit, builds
+debug APKs for `arm64-v8a` and `x86_64`, and publishes them as a prerelease with a changelog.
+The first release takes the version from `app/pubspec.yaml`.
+
+Debug APKs are signed with one fixed debug key, so each build installs over the previous one
+and Google sign-in keeps working. Repository secrets: `TG_API_ID`, `TG_API_HASH`,
+`DEBUG_KEYSTORE_BASE64` (`base64 -w0 ~/.android/debug.keystore`), optional
+`GOOGLE_SERVER_CLIENT_ID`. The TDLib binaries come from the release that
+`.github/workflows/tdlib.yml` publishes; until it has run once, debug releases fail with a
+message saying so.
+
+**Signed release APKs** are made by hand for a version that already exists: run
+`.github/workflows/release.yml` with the tag (for example `v0.3.0`). It builds that tag with
+the release key and adds the APKs to the same GitHub release, which then stops being a
+prerelease. Additional secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`; the release key's SHA-1 needs its own Android
+OAuth client for Google Drive sync (see "Google Drive sync" above).
 
 Create the keystore once, locally, and keep it out of git:
 

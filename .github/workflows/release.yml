@@ -1,9 +1,14 @@
 name: release
-# Signed closed-beta APKs. Trigger: push a tag like v0.1.0 (or run manually).
+# Signed release APKs for a version that debug-release.yml already tagged. Versions and
+# tags are made automatically from the commits; this workflow is started by hand ("Run
+# workflow", input: the tag, e.g. v0.3.0), builds that tag with the release key and adds the
+# APKs to the same GitHub release, which then stops being a prerelease.
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build, e.g. v0.3.0
+        required: true
 
 jobs:
   apk:
@@ -12,6 +17,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.47.4
@@ -36,8 +43,11 @@ jobs:
       - name: Build release APKs (arm64-v8a, x86_64)
         working-directory: app
         run: |
+          tag='${{ inputs.tag }}'
           flutter build apk --release --split-per-abi \
             --target-platform android-arm64,android-x64 \
+            --build-name="${tag#v}" \
+            --build-number=${{ github.run_number }} \
             --dart-define=TG_API_ID=${{ secrets.TG_API_ID }} \
             --dart-define=TG_API_HASH=${{ secrets.TG_API_HASH }} \
             --dart-define=GOOGLE_SERVER_CLIENT_ID=${{ secrets.GOOGLE_SERVER_CLIENT_ID }}
@@ -50,7 +60,7 @@ jobs:
           name: apk
           path: app/build/app/outputs/flutter-apk/*-release.apk
       - uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/v')
         with:
+          tag_name: ${{ inputs.tag }}
+          prerelease: false
           files: app/build/app/outputs/flutter-apk/*-release.apk
-          generate_release_notes: true

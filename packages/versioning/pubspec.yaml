@@ -1,0 +1,12 @@
+name: versioning
+description: "Next semantic version and changelog from conventional commits, for the release workflows."
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.13.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6

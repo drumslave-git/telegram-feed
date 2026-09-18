@@ -1,6 +1,7 @@
 name: tdlib
 # Builds libtdjson.so (Android) from the pinned TDLib commit and publishes it as an asset of a
-# GitHub release tagged `tdlib-<short sha>`. tool/fetch_tdlib.dart downloads it.
+# GitHub release tagged `tdlib-<short sha>`. tool/fetch_tdlib.dart downloads it, locally and
+# in release.yml and debug-release.yml (which starts again when this workflow finishes).
 on:
   workflow_dispatch:
   push:

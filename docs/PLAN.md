@@ -62,6 +62,10 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 - [x] S-7 The notification's Listen action was swallowed when the post already waited in a backed-up read-aloud queue. Explicit requests are now spoken right after the current utterance. The queue itself never drops items (founder decision 2026-09-18). (ad122c9)
 - [x] S-8 Launcher and notification shade showed the app as `telegram_feed`; the label is now `telegram-feed`. (ad122c9)
 
+## Tooling
+
+- [x] T-1 Automatic versioned debug releases: `packages/versioning` (next semantic version and changelog from conventional commits), `debug-release.yml` (after green CI on main: tag, debug APKs signed with a fixed key, prerelease), `release.yml` now promotes an existing tag to signed APKs by hand.
+
 ## Phase 4 — Extras
 
 - [x] P4-1 Sync of feeds, rules and settings between devices through the user's Google Drive, no backend of ours (founder decisions 2026-09-18). Schema v4 (sync ids, edit times, tombstones), `SyncSnapshot` merge and `SyncEngine` in core, `DriveSyncStore` (REST, `drive.appdata`), `GoogleDriveAuth`, `SyncController`, Sync screen in Settings. Verified on the emulator with the founder's Google account: first run pushed the file, and a database made stale by hand (old feed name, rule removed) was restored from Drive (`pulled 2`). (5da876c, 2d95ccc)

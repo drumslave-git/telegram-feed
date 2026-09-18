@@ -10,3 +10,4 @@ workspace:
   - packages/app_db
   - packages/rules
   - packages/tdlib_bindings
+  - packages/versioning
