@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** stabilisation. **Next task:** S-1.
+**Current phase:** 4 (extras). **Next task:** P4-2.
 
 ## Phase 0 — Spikes
 
