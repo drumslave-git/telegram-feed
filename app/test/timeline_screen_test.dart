@@ -70,7 +70,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   }
 
-  testWidgets('merges sources newest first and shows live posts', (
+  testWidgets('merges sources, oldest on top, and shows live posts', (
     tester,
   ) async {
     await tester.runAsync(() async {
@@ -85,20 +85,16 @@ void main() {
     );
     await settle(tester);
 
-    final texts = tester
-        .widgetList<Text>(find.byType(Text))
-        .map((t) => t.data)
-        .whereType<String>()
-        .where((s) => s.startsWith('one') || s.startsWith('two'))
-        .toList();
-    expect(texts, ['one-newest', 'two-mid', 'one-old']);
+    double y(String text) => tester.getTopLeft(find.text(text)).dy;
+    expect(y('one-old'), lessThan(y('two-mid')));
+    expect(y('two-mid'), lessThan(y('one-newest')));
     expect(find.text('One'), findsNWidgets(2)); // both posts of channel One
     expect(find.byTooltip('Open in Telegram'), findsNWidgets(3));
-    expect(find.text('End of feed'), findsOneWidget);
+    expect(find.text('Beginning of the feed'), findsOneWidget);
 
     gw.posts.add(PostAdded(post(-2, 9, 900, 'two-live')));
     await settle(tester);
-    expect(find.text('two-live'), findsOneWidget);
+    expect(y('one-newest'), lessThan(y('two-live')));
 
     gw.posts.add(PostEdited(post(-2, 9, 900, 'two-live-edited')));
     await settle(tester);
@@ -107,6 +103,177 @@ void main() {
     gw.posts.add(const PostsDeleted(chatId: -1, messageIds: [3]));
     await settle(tester);
     expect(find.text('one-newest'), findsNothing);
+    await unmount(tester);
+  });
+
+  /// 40 posts of one channel, ids 1..40, newest first as the gateway returns them.
+  List<Post> forty() => [
+    for (var id = 40; id >= 1; id--) post(-1, id, id * 100, 'post-$id'),
+  ];
+
+  testWidgets('opens at the first unread post, under the divider', (
+    tester,
+  ) async {
+    gw.histories[-1] = forty();
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Unread');
+      await db.addSource(feed.id, -1, title: 'One');
+      await db.markRead(feed.id, -1, 20);
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unread posts'), findsOneWidget);
+    expect(find.text('post-21'), findsOneWidget);
+    expect(find.text('post-40'), findsNothing); // the newest is far below
+    final divider = tester.getTopLeft(find.text('Unread posts')).dy;
+    expect(divider, lessThan(200)); // near the top of the 600 px window
+    expect(divider, lessThan(tester.getTopLeft(find.text('post-21')).dy));
+    expect(find.byTooltip('Newest posts'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('everything read: opens at the newest post, no divider', (
+    tester,
+  ) async {
+    gw.histories[-1] = forty();
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Read');
+      await db.addSource(feed.id, -1, title: 'One');
+      await db.markRead(feed.id, -1, 40);
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Unread posts'), findsNothing);
+    expect(find.text('post-40'), findsOneWidget);
+    expect(find.byTooltip('Newest posts'), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('a few unread posts: the newest sits at the bottom, no gap', (
+    tester,
+  ) async {
+    gw.histories[-1] = forty();
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Few');
+      await db.addSource(feed.id, -1, title: 'One');
+      await db.markRead(feed.id, -1, 39);
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Unread posts'), findsOneWidget);
+    final card = find.ancestor(
+      of: find.text('post-40'),
+      matching: find.byType(PostCard),
+    );
+    expect(tester.getBottomLeft(card).dy, greaterThan(580));
+    await unmount(tester);
+  });
+
+  testWidgets('posts seen to their end are marked read', (tester) async {
+    gw.histories[-1] = forty();
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Marks');
+      await db.addSource(feed.id, -1, title: 'One');
+      await db.markRead(feed.id, -1, 20);
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+    await tester.pumpAndSettle();
+    await unmount(tester); // closing the screen flushes the marks
+    final marks = await tester.runAsync(() => db.readMarks(feed.id));
+    // The rows that fit under the divider were on screen; the newest posts were not.
+    expect(marks![-1], greaterThan(21));
+    expect(marks[-1], lessThan(40));
+  });
+
+  testWidgets('reopening within the session lands on the same post', (
+    tester,
+  ) async {
+    gw.histories[-1] = forty();
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Back');
+      await db.addSource(feed.id, -1, title: 'One');
+      await db.markRead(feed.id, -1, 40);
+    });
+    Widget app() => MaterialApp(
+      home: TimelineScreen(db: db, gateway: gw, feed: feed),
+    );
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.pumpAndSettle();
+    // Towards older posts: in a chat-like list that is a drag downwards.
+    await tester.drag(
+      find.byType(PostCard).first,
+      const Offset(0, 1500),
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('post-40'), findsNothing);
+    final visible = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((t) => t.data ?? '')
+        .where((t) => t.startsWith('post-'))
+        .toSet();
+    await unmount(tester);
+
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.pumpAndSettle();
+    final again = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((t) => t.data ?? '')
+        .where((t) => t.startsWith('post-'))
+        .toSet();
+    expect(again.intersection(visible), isNotEmpty);
+    expect(find.text('post-40'), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('new posts while reading older ones wait behind the button', (
+    tester,
+  ) async {
+    gw.histories[-1] = forty();
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Live');
+      await db.addSource(feed.id, -1, title: 'One');
+      await db.markRead(feed.id, -1, 20);
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+    await tester.pumpAndSettle();
+
+    gw.posts.add(PostAdded(post(-1, 41, 4100, 'post-41')));
+    await settle(tester);
+    expect(find.text('post-41'), findsNothing);
+    expect(find.byTooltip('1 new post'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('1 new post'));
+    await tester.pumpAndSettle();
+    expect(find.text('post-41'), findsOneWidget);
     await unmount(tester);
   });
 

@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 1 (before P4-3). **Next task:** F-7.
+**Current phase:** feedback round 1 (before P4-3). **Next task:** F-8.
 
 ## Phase 0 — Spikes
 
@@ -76,7 +76,7 @@ Founder feedback after using the debug release. Decisions taken the same day are
 - [x] F-4 Video player: controls, full screen, double-tap seek at the edges; fix sound with an endless spinner. `VideoSessions` (playback lives outside the widget tree, one player per file shared by the inline and the full-screen view, one video with sound at a time), `VideoStage` (scrubber with buffered range, speed, mute, replay, 10 s double-tap seek with a hint, double tap in the middle for full screen), `FullscreenVideoScreen` (immersive, landscape for wide videos). Timeline rows are keyed by post: without keys a new post shifted player state under another post, the likely cause of sound with a spinner. Verified on the emulator.
 - [x] F-5 Videos start much slower than in the official app: play while TDLib downloads instead of after. `MediaServer` (loopback HTTP with a secret path, byte ranges served from TDLib's partial file, a range that is not there yet re-aims the download; headers go out at once through a detached socket), gateway `downloadFrom` / `downloadedPrefix` / `cancelDownload`. On the emulator videos of 8, 105 and 46 MB were ready after 1.1, 0.7 and 1.8 s, the last one with its index at the end of the file. The HTTP 416 of the first run did not come back; a file without a known size is now downloaded whole instead of streamed, and the server logs a range outside the file.
 - [x] F-6 Autoplay of short videos, with settings. `AutoplayPolicy` and `AutoplayScope` (settings `media.autoplay*`, synced; defaults 60 s and 20 MB), start at 60 % visible, pause below 20 %, first tap turns the sound on; Media section in Settings. Verified on the emulator; settings golden regenerated on Linux.
-- [ ] F-7 Timeline runs oldest to newest like a Telegram chat and opens at the remembered position or at the first unread post.
+- [x] F-7 Timeline runs oldest to newest like a Telegram chat and opens at the remembered position or at the first unread post. Reversed positioned list (index 0 = newest at the bottom), opening position decided before the list is built (notification post, remembered row, first unread under an `Unread posts` divider, newest), a post is read once its end was on screen, new posts wait on a badge button while the user reads older ones; the app-bar jump action is gone. Widget tests for each case, verified on the emulator, timeline goldens regenerated.
 - [ ] F-8 Tabbed main screen: `+`, one tab per feed, one tab per Telegram folder (its channels), All channels.
 - [ ] F-9 Account section in Settings shows photo, name, username, phone, bio.
 - [ ] F-10 Per-feed content filters (media presence, media type, minimum video length, text length); they apply to the timeline and to rules.

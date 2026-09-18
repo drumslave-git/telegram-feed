@@ -19,8 +19,8 @@ Not a replacement for the official Telegram app. Chats, calls, stories, and acco
 | Audience | Public product, open source |
 | Monetization | None; open source under GPL-3.0, maybe donations later |
 | Feed sources | Only channels the user is a member of (public or private). No search-and-join of unjoined channels. |
-| Feed view | Single chronological timeline, newest first |
-| Read state | Per feed with unread counter, mark on scroll, "jump to first unread", badge. Reading here marks the post read in official Telegram too; setting to turn off. |
+| Feed view | Single chronological timeline laid out like a Telegram chat: oldest on top, newest at the bottom. Opens where the user left it earlier in the session, else at the first unread post, else at the newest |
+| Read state | Per feed with unread counter and badge; a post is read once it has been on screen down to its end; the feed opens at the first unread post under an "Unread posts" divider. Reading here marks the post read in official Telegram too; setting to turn off. |
 | Media | Full in-app playback: photos, video, voice and audio |
 | Interactions | Open in Telegram, share / copy link, react, comment (later phase) |
 | Rule expressiveness | Boolean (AND / OR / NOT, phrase, whole word, case sensitivity). AI semantic rules: a description in the user's words, checked by a model behind an OpenAI-compatible endpoint the user configures, with an optional keyword pre-filter |
@@ -43,10 +43,11 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - I can add channels to a feed by picking from the channels I am a member of, with a search box over that list. Channels I have not joined cannot be added; joining happens in the official Telegram app.
 - I can add the same channel to several feeds.
 - I can remove a channel from a feed without leaving the channel in Telegram.
-- I can open a feed and see posts from all its channels in one chronological list, newest first, with the channel name and avatar on every post.
-- I can scroll back indefinitely; older posts load as I scroll.
+- I can open a feed and see posts from all its channels in one chronological list, oldest on top and newest at the bottom as in a Telegram chat, with the channel name on every post.
+- The feed opens where I left it earlier in the session; otherwise at the first unread post, and at the newest post when everything is read.
+- I can scroll up indefinitely; older posts load as I scroll. Posts that arrive while I read older ones wait behind a button with their count.
 - I can view photos inline, play video, voice, and audio without leaving the app.
-- Each feed shows an unread count. Posts are marked read as I scroll past them. I can jump to the first unread post.
+- Each feed shows an unread count. Posts are marked read once I have seen them down to their end.
 - Reading a post here also marks it read in the official Telegram app. A setting turns this off.
 - I can open the original post in the official Telegram app.
 
@@ -79,7 +80,7 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 1. **Onboarding / Login**: phone number, code, 2FA password, QR-code login as an alternative. Explains what the app can and cannot see.
 2. **Feeds list**: cards with feed name, channel avatars, unread badge. Floating action to create a feed.
 3. **Feed editor**: name, ordered list of channels, add-channel sheet listing my joined channels with a search box.
-4. **Feed timeline**: infinite list of posts, "jump to unread" pill, pull to refresh.
+4. **Feed timeline**: infinite list of posts in chat order, "Unread posts" divider, button to the newest posts with the count of new ones.
 5. **Post view**: full post with media viewer, open in Telegram, share.
 6. **Settings**: account, logout, appearance, storage usage and cache clearing, about and licenses.
 

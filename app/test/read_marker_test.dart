@@ -43,7 +43,7 @@ void main() {
         feedId: feedId,
         debounce: const Duration(milliseconds: 20),
       );
-      m.scrolledPast([
+      m.seen([
         item(-1, 30),
         item(-2, 5, parts: [4, 3]),
         item(-1, 20),
@@ -54,7 +54,7 @@ void main() {
       expect(gw.viewed, unorderedEquals(['-1:20,30', '-2:3,4,5']));
 
       // Older items scrolled past later do not move marks back or re-report.
-      m.scrolledPast([item(-1, 10)]);
+      m.seen([item(-1, 10)]);
       await m.flush();
       expect(await db.readMarks(feedId), {-1: 30, -2: 5});
       expect(gw.viewed.length, 2);
@@ -64,7 +64,7 @@ void main() {
   test('setting off: local marks only', () async {
     await db.setSetting(SettingKeys.syncReadToTelegram, 'false');
     final m = ReadMarker(db: db, gateway: gw, feedId: feedId);
-    m.scrolledPast([item(-1, 7)]);
+    m.seen([item(-1, 7)]);
     await m.flush();
     expect(await db.readMarks(feedId), {-1: 7, -2: 0});
     expect(gw.viewed, isEmpty);

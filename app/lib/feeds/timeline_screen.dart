@@ -48,7 +48,25 @@ class TimelineScreen extends StatefulWidget {
   State<TimelineScreen> createState() => _TimelineScreenState();
 }
 
+/// Where the user was in a feed; kept in memory so coming back within the session lands on
+/// the same post, like reopening a chat in Telegram.
+class _Anchor {
+  const _Anchor(this.chatId, this.rowId, this.edge);
+  final int chatId;
+  final int rowId;
+
+  /// `itemLeadingEdge` of the row: its bottom, as a fraction of the viewport from the bottom.
+  final double edge;
+}
+
 class _TimelineScreenState extends State<TimelineScreen> {
+  /// Remembered positions per feed id. They hang off the database object, which goes away
+  /// with the session.
+  static final _memory = Expando<Map<int, _Anchor>>();
+
+  /// Opening loads down to the read marks, but never more than this many rows.
+  static const _openCap = 300;
+
   final _scrollCtl = ItemScrollController();
   final _positions = ItemPositionsListener.create();
   late final ReadMarker _marker = ReadMarker(
@@ -64,8 +82,18 @@ class _TimelineScreenState extends State<TimelineScreen> {
   Map<int, String?> _usernames = const {};
   Map<int, int> _marks = const {};
   bool _loading = false;
-  bool _jumping = false;
   String? _error;
+
+  /// True until the first rows are loaded and the opening position is known; the list is
+  /// only built afterwards because its initial index cannot be changed later.
+  bool _opening = true;
+  int _initialIndex = 0;
+  double _initialAlignment = 0;
+
+  /// Row that gets the "Unread posts" divider above it; fixed when the feed opens.
+  (int, int)? _firstUnread;
+
+  Map<int, _Anchor> get _remembered => _memory[widget.db] ??= {};
 
   @override
   void initState() {
@@ -93,64 +121,150 @@ class _TimelineScreenState extends State<TimelineScreen> {
     final t = FeedTimeline(widget.gateway, ids);
     _timeline = t;
     _events = widget.gateway.postEvents.listen((e) {
+      final before = t.items.length;
       final changed = t.apply(e);
       if (changed || e is PostAdded) setState(() {});
+      // A row added at the newest end shifts every index; stay glued to the newest post.
+      if (t.atTop && t.items.length > before) _jumpToNewest();
     });
-    setState(() {});
-    unawaited(_loadMore().then((_) => _focusIfRequested()));
+    setState(() => _opening = true);
+    unawaited(_open(t));
   }
 
-  bool _focused = false;
+  int _indexOf(FeedTimeline t, int chatId, bool Function(TimelineItem) test) =>
+      t.items.indexWhere((i) => i.chatId == chatId && test(i));
 
-  /// Scrolls to the requested post once it is loaded (bounded search).
-  Future<void> _focusIfRequested() async {
-    final chat = widget.focusChatId;
-    final msg = widget.focusMessageId;
-    final t = _timeline;
-    if (chat == null || msg == null || t == null || _focused) return;
-    _focused = true;
-    int indexOf() => t.items.indexWhere(
-      (i) => i.chatId == chat && i.allPosts.any((p) => p.messageId == msg),
-    );
-    var index = indexOf();
-    for (var pages = 0; index < 0 && pages < 8 && !t.exhausted; pages++) {
+  /// Loads the first rows and decides where the list opens: the post a notification asked
+  /// for, else where the user left this feed earlier in the session, else the first unread
+  /// post, else the newest post.
+  Future<void> _open(FeedTimeline t) async {
+    setState(() => _loading = true);
+    try {
+      _marks = await widget.db.readMarks(widget.feed.id);
       await t.loadMore();
-      index = indexOf();
-    }
-    if (!mounted) return;
-    setState(() {});
-    if (index >= 0 && _scrollCtl.isAttached) {
-      await _scrollCtl.scrollTo(
-        index: index,
-        alignment: 0.1,
-        duration: const Duration(milliseconds: 300),
-      );
+      Future<int> search(int Function() find) async {
+        var index = find();
+        for (var pages = 0; index < 0 && pages < 8 && !t.exhausted; pages++) {
+          await t.loadMore();
+          index = find();
+        }
+        return index;
+      }
+
+      final focusChat = widget.focusChatId;
+      final focusMessage = widget.focusMessageId;
+      final left = _remembered[widget.feed.id];
+      var index = -1;
+      if (focusChat != null && focusMessage != null) {
+        index = await search(
+          () => _indexOf(
+            t,
+            focusChat,
+            (i) => i.allPosts.any((p) => p.messageId == focusMessage),
+          ),
+        );
+        _initialAlignment = 0.3;
+      } else if (left != null) {
+        index = await search(
+          () => _indexOf(t, left.chatId, (i) => i.rowId == left.rowId),
+        );
+        _initialAlignment = left.edge;
+      }
+      if (index < 0) {
+        while (!t.reachedMarks(_marks) &&
+            !t.exhausted &&
+            t.items.length < _openCap) {
+          await t.loadMore();
+        }
+        final unread = t.firstUnreadIndex(_marks);
+        if (unread < 0) {
+          index = 0;
+          _initialAlignment = 0;
+        } else {
+          final row = t.items[unread];
+          _firstUnread = (row.chatId, row.rowId);
+          // The divider sits on top of the first unread row. The list can only be aligned
+          // by a row's bottom edge, so the row above it (older, or the footer) is put
+          // just below the top of the screen.
+          index = unread + 1;
+          _initialAlignment = 0.92;
+        }
+      }
+      _initialIndex = index;
+      _error = null;
+    } on TelegramException catch (e) {
+      _error = e.message;
+    } finally {
+      if (mounted && identical(t, _timeline)) {
+        setState(() {
+          _loading = false;
+          _opening = false;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) => _settleAtNewest());
+      }
     }
   }
 
-  /// Visible item indices drive read marking, the "at top" flag and infinite scroll.
+  /// A few short unread posts do not fill the screen below the divider; the list would show
+  /// empty space under the newest post. Then the newest post goes to the bottom instead.
+  void _settleAtNewest() {
+    if (!mounted) return;
+    for (final p in _positions.itemPositions.value) {
+      if (p.index == 0 && p.itemLeadingEdge > 0.001) {
+        _jumpToNewest();
+        return;
+      }
+    }
+  }
+
+  void _jumpToNewest() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scrollCtl.isAttached) {
+        _scrollCtl.jumpTo(index: 0, alignment: 0);
+      }
+    });
+  }
+
+  /// Visible rows drive read marking, the "at the newest post" flag, the remembered position
+  /// and loading of older posts. The list is reversed: index 0 is the newest post at the
+  /// bottom, and a row's leading edge is its bottom, measured from the viewport's bottom.
   void _onPositions() {
     final t = _timeline;
     final positions = _positions.itemPositions.value;
-    if (t == null || positions.isEmpty) return;
-    var minIndex = positions.first.index;
-    var maxIndex = positions.first.index;
-    double topEdge = 0;
-    for (final p in positions) {
-      if (p.index < minIndex) {
-        minIndex = p.index;
-        topEdge = p.itemLeadingEdge;
-      }
-      if (p.index > maxIndex) maxIndex = p.index;
-    }
+    if (t == null || positions.isEmpty || _opening) return;
     final items = t.items;
-    if (minIndex > 0) _marker.scrolledPast(items.take(minIndex));
-    final atTop = minIndex == 0 && topEdge >= -0.05;
-    if (atTop != t.atTop) {
-      t.atTop = atTop;
-      if (atTop && t.pendingNew > 0) _release();
+    var newest = positions.first;
+    var oldestIndex = positions.first.index;
+    final seen = <TimelineItem>[];
+    for (final p in positions) {
+      if (p.index < newest.index) newest = p;
+      if (p.index > oldestIndex) oldestIndex = p.index;
+      // Read like in Telegram: the post has been on screen down to its end.
+      if (p.index < items.length &&
+          p.itemLeadingEdge >= 0 &&
+          p.itemLeadingEdge < 1) {
+        seen.add(items[p.index]);
+      }
     }
-    if (maxIndex >= items.length - 5) unawaited(_loadMore());
+    if (seen.isNotEmpty) _marker.seen(seen);
+    if (newest.index < items.length) {
+      final row = items[newest.index];
+      _remembered[widget.feed.id] = _Anchor(
+        row.chatId,
+        row.rowId,
+        newest.itemLeadingEdge,
+      );
+    }
+    final atNewest = newest.index == 0 && newest.itemLeadingEdge >= -0.05;
+    if (atNewest != t.atTop) {
+      t.atTop = atNewest;
+      if (atNewest && t.pendingNew > 0) {
+        _release();
+      } else {
+        setState(() {}); // the "to newest" button comes and goes
+      }
+    }
+    if (oldestIndex >= items.length - 5) unawaited(_loadMore());
   }
 
   Future<void> _loadMore() async {
@@ -167,45 +281,21 @@ class _TimelineScreenState extends State<TimelineScreen> {
     }
   }
 
+  /// Shows the posts that arrived while the user was reading older ones, scrolled so the
+  /// oldest of them is in view; without any, goes to the newest post.
   void _release() {
-    _timeline?.releasePending();
-    setState(() {});
-    if (_scrollCtl.isAttached) {
-      _scrollCtl.scrollTo(
-        index: 0,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
-      );
-    }
-  }
-
-  /// Loads until the read marks are reached, then scrolls to the oldest unread post.
-  Future<void> _jumpToFirstUnread() async {
     final t = _timeline;
-    if (t == null || _jumping) return;
-    setState(() => _jumping = true);
-    try {
-      while (!t.reachedMarks(_marks) && !t.exhausted) {
-        await t.loadMore();
-      }
-      final index = t.firstUnreadIndex(_marks);
-      if (!mounted) return;
-      setState(() {});
-      if (index < 0) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Everything is read.')));
-      } else if (_scrollCtl.isAttached) {
-        await _scrollCtl.scrollTo(
-          index: index,
-          alignment: 0.1,
-          duration: const Duration(milliseconds: 400),
-        );
-      }
-    } on TelegramException catch (e) {
-      if (mounted) setState(() => _error = e.message);
-    } finally {
-      if (mounted) setState(() => _jumping = false);
-    }
+    if (t == null) return;
+    final arrived = t.pendingNew;
+    t.releasePending();
+    setState(() {});
+    if (!_scrollCtl.isAttached) return;
+    _scrollCtl.scrollTo(
+      index: arrived > 1 ? arrived - 1 : 0,
+      alignment: arrived > 1 ? 0.5 : 0,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
   }
 
   /// Opens the post in the Telegram app, falling back to t.me in the browser.
@@ -332,17 +422,6 @@ class _TimelineScreenState extends State<TimelineScreen> {
         title: Text(widget.feed.name),
         actions: [
           IconButton(
-            tooltip: 'Jump to first unread',
-            icon: _jumping
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.mark_chat_unread_outlined),
-            onPressed: _jumpToFirstUnread,
-          ),
-          IconButton(
             tooltip: 'Edit feed',
             icon: const Icon(Icons.tune),
             onPressed: () => Navigator.of(context).push(
@@ -357,12 +436,23 @@ class _TimelineScreenState extends State<TimelineScreen> {
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          if (t == null || (items.isEmpty && _loading))
-            const Center(child: CircularProgressIndicator())
-          else if (items.isEmpty && t.chatIds.isEmpty)
-            const Center(
+      floatingActionButton: t == null || _opening || t.atTop
+          ? null
+          : Badge.count(
+              count: t.pendingNew,
+              isLabelVisible: t.pendingNew > 0,
+              child: FloatingActionButton.small(
+                tooltip: t.pendingNew > 0
+                    ? '${t.pendingNew} new post${t.pendingNew == 1 ? '' : 's'}'
+                    : 'Newest posts',
+                onPressed: _release,
+                child: const Icon(Icons.keyboard_arrow_down),
+              ),
+            ),
+      body: t == null || _opening
+          ? const Center(child: CircularProgressIndicator())
+          : items.isEmpty && t.chatIds.isEmpty
+          ? const Center(
               child: Padding(
                 padding: EdgeInsets.all(32),
                 child: Text(
@@ -371,12 +461,15 @@ class _TimelineScreenState extends State<TimelineScreen> {
                 ),
               ),
             )
-          else if (items.isEmpty)
-            Center(
+          : items.isEmpty
+          ? Center(
               child: Text(_error == null ? 'No posts.' : 'Telegram: $_error'),
             )
-          else
-            ScrollablePositionedList.builder(
+          // Oldest at the top, newest at the bottom, like a chat in Telegram.
+          : ScrollablePositionedList.builder(
+              reverse: true,
+              initialScrollIndex: _initialIndex.clamp(0, items.length),
+              initialAlignment: _initialAlignment,
               itemScrollController: _scrollCtl,
               itemPositionsListener: _positions,
               itemCount: items.length + 1,
@@ -386,7 +479,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Center(
                       child: t.exhausted
-                          ? const Text('End of feed')
+                          ? const Text('Beginning of the feed')
                           : const SizedBox(
                               height: 24,
                               width: 24,
@@ -395,48 +488,62 @@ class _TimelineScreenState extends State<TimelineScreen> {
                     ),
                   );
                 }
-                return PostCard(
-                  key: ValueKey((items[i].chatId, items[i].rowId)),
-                  item: items[i],
-                  channelTitle: _titles[items[i].chatId] ?? '',
+                final item = items[i];
+                final id = (item.chatId, item.rowId);
+                final card = PostCard(
+                  item: item,
+                  channelTitle: _titles[item.chatId] ?? '',
                   gateway: widget.gateway,
-                  unread: FeedTimeline.isUnread(items[i], _marks),
-                  onOpenInTelegram: () => _openInTelegram(items[i]),
-                  onShare: () => _share(items[i]),
-                  onCopyLink: () => _copyLink(items[i]),
-                  onReact: (emoji, remove) => _react(items[i], emoji, remove),
-                  onPickReaction: () => _pickReaction(items[i]),
+                  unread: FeedTimeline.isUnread(item, _marks),
+                  onOpenInTelegram: () => _openInTelegram(item),
+                  onShare: () => _share(item),
+                  onCopyLink: () => _copyLink(item),
+                  onReact: (emoji, remove) => _react(item, emoji, remove),
+                  onPickReaction: () => _pickReaction(item),
                   // Only posts of channels with a discussion group have a thread.
-                  onOpenThread: !items[i].head.canComment
+                  onOpenThread: !item.head.canComment
                       ? null
                       : () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => ThreadScreen(
                               gateway: widget.gateway,
-                              post: items[i].head,
-                              channelTitle: _titles[items[i].chatId] ?? '',
+                              post: item.head,
+                              channelTitle: _titles[item.chatId] ?? '',
                             ),
                           ),
                         ),
                 );
+                return KeyedSubtree(
+                  key: ValueKey(id),
+                  child: id == _firstUnread
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [const UnreadDivider(), card],
+                        )
+                      : card,
+                );
               },
             ),
-          if (t != null && t.pendingNew > 0)
-            Positioned(
-              top: 8,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: FilledButton.tonalIcon(
-                  onPressed: _release,
-                  icon: const Icon(Icons.arrow_upward),
-                  label: Text(
-                    '${t.pendingNew} new post${t.pendingNew == 1 ? '' : 's'}',
-                  ),
-                ),
-              ),
-            ),
-        ],
+    );
+  }
+}
+
+/// Marks where the unread posts began when the feed was opened.
+class UnreadDivider extends StatelessWidget {
+  const UnreadDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      color: scheme.secondaryContainer,
+      alignment: Alignment.center,
+      child: Text(
+        'Unread posts',
+        style: Theme.of(context).textTheme.labelMedium
+            ?.copyWith(color: scheme.onSecondaryContainer),
       ),
     );
   }

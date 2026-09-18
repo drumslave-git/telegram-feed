@@ -120,7 +120,9 @@ The timeline is a k-way merge over per-channel histories, ordered by `(date desc
 
 - `FeedTimeline` keeps one cursor per source: `oldestLoadedMessageId` and a small page buffer.
 - Loading a page: for every source whose buffer is empty, fetch the next `history()` page (limit 30). Then pop from a max-heap keyed by date until the requested count is satisfied. Sources that return nothing are marked exhausted.
-- Live updates: `postEvents` for any `chat_id` in the feed are inserted at the head if the user is at the top, otherwise counted into a "N new posts" pill.
+- Live updates: `postEvents` for any `chat_id` in the feed are inserted at the newest end if the user is there, otherwise they wait and are counted on the "to newest" button, which releases them.
+- Layout: the list is reversed (index 0 is the newest post, at the bottom), so loading older pages appends at the far end and never shifts what is on screen. A row inserted at the newest end does shift every index; the screen then re-anchors on index 0. Rows are keyed by `(chat_id, album or message id)`.
+- Opening (`_open` in `TimelineScreen`): the list widget takes its start position only when it is first built, so the first pages are loaded before it is. The position is, in this order: the post a notification asked for; where the user left the feed earlier in the session (kept in memory per feed: row and its edge); the first unread post; the newest post. For the first unread post the sources are loaded down to their read marks, at most 300 rows; the "Unread posts" divider is drawn on top of that row, and because a reversed list aligns rows by their bottom edge, the row above it is aligned just below the top of the screen. If the unread posts do not fill the screen, the newest post is put at the bottom instead of leaving a gap.
 - Album messages (media groups, `media_album_id`) are collapsed into a single timeline item.
 - Edits replace the item in place; deletes remove it.
 
@@ -130,8 +132,8 @@ Nothing is persisted by the timeline itself; TDLib's message database makes re-f
 
 - `feed_read_marks` stores, per feed and per channel, the newest message id the user has scrolled past. When a channel is added to a feed the mark starts at Telegram's own read position for it (`chat.last_read_inbox_message_id`), so the backlog is not unread.
 - Unread count for a feed = Σ over its sources of messages with id > mark. Computed from TDLib (`getChatHistory` with `only_local`, or `chat.lastMessage.id` compared to the mark for a cheap upper bound) and refreshed on `postEvents`.
-- Marking read happens on viewport exit with a debounce, and calls `markViewed` on TDLib so the official Telegram app agrees. Setting `syncReadToTelegram`, default on; when off, only `feed_read_marks` is updated.
-- "Jump to first unread" opens the timeline at the oldest mark across sources and loads forward.
+- A post is read once its end has been on screen, as in Telegram. Marking is debounced and calls `markViewed` on TDLib so the official Telegram app agrees. Setting `syncReadToTelegram`, default on; when off, only `feed_read_marks` is updated.
+- The timeline opens at the first unread post (section 5.3); there is no separate jump action.
 
 ### 5.5 Sync through Google Drive (phase 4)
 
@@ -293,3 +295,4 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-17 | Web stays on tdweb, built from source; no GramJS gateway | tdweb 1.8.67 self-built works end to end, npm 1.8.0 is dead (spike P0-4) |
 | 2026-09-19 | Videos play while they download, through a loopback HTTP server over TDLib's partial file | Founder feedback: the official app starts videos much sooner; keeps `video_player` instead of a player with a custom data source |
 | 2026-09-19 | Short videos autoplay muted; limits 60 s and 20 MB by default, adjustable in Settings | Founder feedback |
+| 2026-09-19 | Timeline in chat order (oldest on top), opens at the remembered position, else the first unread post | Founder feedback: same behaviour as a chat in Telegram; replaces newest-first and the jump-to-unread action |

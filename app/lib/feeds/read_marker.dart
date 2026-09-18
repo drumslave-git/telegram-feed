@@ -4,7 +4,7 @@ import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-/// Turns "these items were scrolled past" into read marks (ARCHITECTURE.md section 5.4):
+/// Turns "these items were on screen down to their end" into read marks (ARCHITECTURE.md section 5.4):
 /// per chat the newest message id seen goes to `feed_read_marks`, and, when the
 /// `syncReadToTelegram` setting is on, to Telegram through `viewMessages`.
 final class ReadMarker {
@@ -20,14 +20,14 @@ final class ReadMarker {
   final int feedId;
   final Duration debounce;
 
-  final _maxSeen = <int, int>{}; // chat id → newest scrolled-past message id
+  final _maxSeen = <int, int>{}; // chat id → newest seen message id
   final _pendingIds =
       <int, Set<int>>{}; // chat id → message ids to report to Telegram
   final _reported = <int, int>{}; // chat id → newest id already written
   Timer? _timer;
 
-  /// Records items that left the viewport. Cheap; the write happens after [debounce].
-  void scrolledPast(Iterable<TimelineItem> items) {
+  /// Records items the user has seen. Cheap; the write happens after [debounce].
+  void seen(Iterable<TimelineItem> items) {
     var changed = false;
     for (final item in items) {
       for (final post in item.allPosts) {
