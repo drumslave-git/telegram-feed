@@ -128,6 +128,7 @@ final class MediaServer {
     // The player reads one range at a time; the newest request decides where TDLib downloads.
     final turn = ++f.turn;
     _watch(f);
+    final clock = Stopwatch()..start();
     var pos = start;
     // The first answer also tells where TDLib keeps the file.
     var aimed = f.path.isEmpty;
@@ -154,6 +155,12 @@ final class MediaServer {
         continue;
       }
       aimed = false;
+      if (pos == start) {
+        debugPrint(
+          'media: ${f.fileId} range $start- first bytes after '
+          '${clock.elapsedMilliseconds} ms',
+        );
+      }
       final n = min(min(available, end - pos + 1), _chunk);
       out.add(await _read(f, pos, n));
       await out.flush(); // back-pressure: never buffer more than a chunk

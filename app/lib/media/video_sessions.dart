@@ -40,6 +40,7 @@ final class VideoSession extends ChangeNotifier {
   Future<void> _start() async {
     _error = null;
     notifyListeners();
+    final clock = Stopwatch()..start();
     try {
       final c = await _owner._createController(file, mixWithOthers: _muted);
       if (_disposed) {
@@ -49,6 +50,10 @@ final class VideoSession extends ChangeNotifier {
       _controller = c;
       c.addListener(_onPlayerValue);
       await c.initialize();
+      debugPrint(
+        'media: ${file.id} (${file.size} bytes) ready after '
+        '${clock.elapsedMilliseconds} ms from ${c.dataSourceType.name}',
+      );
       if (_disposed) return;
       await c.setLooping(loop);
       await c.setVolume(_muted ? 0 : 1);
@@ -175,6 +180,14 @@ final class VideoSessions {
     if (file.isDownloaded) {
       return VideoPlayerController.file(
         File(file.localPath!),
+        videoPlayerOptions: options,
+      );
+    }
+    if (file.size <= 0) {
+      // Ranges need the size; without one the file is fetched whole first.
+      final done = await gateway.download(file, priority: 32);
+      return VideoPlayerController.file(
+        File(done.localPath!),
         videoPlayerOptions: options,
       );
     }

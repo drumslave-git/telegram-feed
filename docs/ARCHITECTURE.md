@@ -76,6 +76,9 @@ abstract interface class TelegramGateway {
 
   Future<FileRef> download(FileRef ref, {int priority});   // completes with localPath set
   Stream<FileProgress> fileProgress(int fileId);
+  Future<FileProgress> downloadFrom(int fileId, {int offset, int priority});  // play while downloading
+  Future<int> downloadedPrefix(int fileId, int offset);    // bytes readable from offset
+  Future<void> cancelDownload(int fileId);
   Future<void> close();
 
   // phase 3: react, discussion
@@ -129,6 +132,12 @@ Nothing is persisted by the timeline itself; TDLib's message database makes re-f
 - Unread count for a feed = Σ over its sources of messages with id > mark. Computed from TDLib (`getChatHistory` with `only_local`, or `chat.lastMessage.id` compared to the mark for a cheap upper bound) and refreshed on `postEvents`.
 - Marking read happens on viewport exit with a debounce, and calls `markViewed` on TDLib so the official Telegram app agrees. Setting `syncReadToTelegram`, default on; when off, only `feed_read_marks` is updated.
 - "Jump to first unread" opens the timeline at the oldest mark across sources and loads forward.
+
+### 5.6 Video playback
+
+- **Playing while downloading.** A video starts as soon as its first bytes are there, as in the official app. `MediaServer` (UI isolate) is an HTTP server on the loopback interface; the player (`video_player`, ExoPlayer) opens `http://127.0.0.1:<port>/<secret>/<fileId>` and asks for byte ranges. Bytes TDLib already has are read from its partial file, where they sit at their final offsets; for a range that is not there yet the download is aimed at it (`downloadFile` with `offset`) and the response waits. Seeking and MP4 files with the index at the end are the same case: another range. The newest request decides where TDLib downloads. Response headers are written at once through a detached socket, because dart:io holds them back until the first body byte and the player's read timeout would run meanwhile. The path contains a random token, since other apps can reach the port; the port closes when nothing plays. A finished file is played from disk without the server; a file without a known size is downloaded whole first.
+- **Sessions.** `VideoSessions` keeps one `VideoSession` (player plus state) per file id outside the widget tree. The inline view and the full-screen view show the same session, and a timeline row that the list rebuilds picks its session up again within a grace period of 0.8 s; after that the player is disposed and an unfinished download is cancelled. Only one session has sound at a time. Timeline rows are keyed by post, because the list otherwise reuses row state by position and a new post at the top shifts state under another post.
+- **Controls** (`VideoStage`): tap shows or hides them; scrubber with the buffered range, speed, mute, full screen, replay at the end; double tap on the left or right third seeks 10 s, in the middle it toggles full screen. The gesture layer lies behind the buttons, not around them, so button taps do not wait out the double-tap window.
 
 ### 5.5 Sync through Google Drive (phase 4)
 
@@ -281,3 +290,4 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-18 | A channel added to a feed starts at Telegram's read position | Founder decision while dogfooding: the whole history used to count as unread |
 | 2026-09-17 | Web target dropped after the phase 3 build worked | Founder decision, Android only; the build stays in history at 87e10f3 |
 | 2026-09-17 | Web stays on tdweb, built from source; no GramJS gateway | tdweb 1.8.67 self-built works end to end, npm 1.8.0 is dead (spike P0-4) |
+| 2026-09-19 | Videos play while they download, through a loopback HTTP server over TDLib's partial file | Founder feedback: the official app starts videos much sooner; keeps `video_player` instead of a player with a custom data source |
