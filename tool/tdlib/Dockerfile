@@ -13,10 +13,12 @@ WORKDIR /home
 ARG ANDROID_NDK_VERSION=23.2.8568313
 ARG ABIS="arm64-v8a x86_64"
 COPY ./check-environment.sh ./fetch-sdk.sh ./
-RUN ./fetch-sdk.sh SDK "$ANDROID_NDK_VERSION"
+# The executable bit does not survive every checkout (Windows), so set it here.
+RUN chmod +x ./check-environment.sh ./fetch-sdk.sh && ./fetch-sdk.sh SDK "$ANDROID_NDK_VERSION"
 
 ARG OPENSSL_VERSION=OpenSSL_1_1_1w
 COPY ./build-openssl.sh ./
+RUN chmod +x ./build-openssl.sh
 RUN sed -i "s/^for ABI in .* ; do/for ABI in $ABIS ; do/" build-openssl.sh \
  && sed -i 's/make -j4 -s/make -j$(nproc) -s/' build-openssl.sh \
  && ./build-openssl.sh SDK "$ANDROID_NDK_VERSION" openssl "$OPENSSL_VERSION" ""
