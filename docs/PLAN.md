@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** stabilisation (founder dogfooding). **Next task:** S-1 (founder), then the first `S-n` fix task.
+**Current phase:** stabilisation. **Next task:** S-1.
 
 ## Phase 0 — Spikes
 
@@ -53,7 +53,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 
 ## Stabilisation (before phase 4, decided 2026-09-17)
 
-- [ ] S-1 Founder build and dogfood: build the debug APK with the founder's own `TG_API_ID` / `TG_API_HASH`, log the spare account in on the emulator, add feeds and rules, use it for a few days. Every bug or rough edge found becomes an `S-n` fix task below; phase 4 starts only when S-1 is closed.
+- [ ] S-1 Dogfood on the emulator: Claude builds and installs the debug APK, drives the app end to end (login screen, feeds, timeline, media, rules, notifications, read-aloud, reactions, comments, share) and turns every bug or rough edge into an `S-n` fix task below. The only founder input is typing the spare account's phone number and code into the emulator's login screen. Phase 4 starts when the `S-n` list is empty.
 
 ## Phase 4 — Extras
 
