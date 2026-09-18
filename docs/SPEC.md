@@ -30,7 +30,7 @@ Not a replacement for the official Telegram app. Chats, calls, stories, and acco
 | Read aloud triggers | Automatic when a rule with read-aloud fires; "Listen" action on a notification. AI-generated podcast later. |
 | TTS engine | Device TTS with per-post language auto-detection |
 | Background strategy (Android) | Persistent foreground service keeping TDLib connected |
-| Cross-device sync | Local only for MVP |
+| Cross-device sync | Local only for MVP; phase 4 syncs feeds and rules through the user's own Google Drive, with no backend of ours |
 | MVP | Login, feeds CRUD, combined timeline with media and read state |
 
 ## 3. Users and core stories
@@ -103,7 +103,7 @@ Phase 2 adds **Rules list**, **Rule editor**, and **Read-aloud settings**.
 
 **Phase 3, interactions and web.** Reactions, comments, share. Flutter web build on tdweb (built, then dropped; see the decision log).
 
-**Phase 4, extras.** Optional sync backend for feeds and rules. AI semantic rules, AI-generated podcast from a feed, optional cloud voices.
+**Phase 4, extras.** Sync of feeds and rules through the user's Google Drive (no backend). AI semantic rules, AI-generated podcast from a feed, optional cloud voices.
 
 ## 7. Resolved decisions (2026-09-17)
 

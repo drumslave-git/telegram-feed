@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 4 (extras). **Next task:** P4-2.
+**Current phase:** 4 (extras). **Next task:** P4-1.
 
 ## Phase 0 — Spikes
 
@@ -64,7 +64,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 
 ## Phase 4 — Extras
 
-- [ ] P4-1 Optional sync backend for feeds and rules.
+- [ ] P4-1 Sync of feeds and rules between devices through the user's Google Drive, no backend of ours (founder decision 2026-09-18).
 - [x] P4-2 AI semantic rules. `rules.semantic_prompt` (schema v3), `MatchedRule` details on match events, `SemanticClient` for OpenAI-compatible endpoints, `SemanticGate` in the service host (one request per post, failures skip the rule and leave a quiet note), AI settings screen with the key in the keystore, rule editor field with the send-everything warning and a model-backed dry run. (a372673)
 - [ ] P4-3 AI-generated podcast from a feed.
 - [ ] P4-4 Optional cloud voices.

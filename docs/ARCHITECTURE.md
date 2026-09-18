@@ -261,6 +261,7 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-17 | Foreground service type `specialUse` | Android 15+ caps `dataSync` at 6 h/day (spike P0-2) |
 | 2026-09-17 | TTS and notification plugins live in the service host isolate, core sends commands | Background isolates cannot receive platform callbacks (spike P0-2) |
 | 2026-09-17 | Share puts the `t.me` link (public username link, else `t.me/c`) into the system share sheet via `share_plus`; copy link uses the clipboard | Private `tg://privatepost` links stay for Open in Telegram only, since other apps cannot open them |
+| 2026-09-18 | Sync goes through the user's Google Drive; no sync backend | Founder decision; keeps the project backend-free |
 | 2026-09-18 | AI semantic rules use any OpenAI-compatible endpoint; the user enters endpoint, model and key in Settings | Founder decision; no provider lock-in, works with local models |
 | 2026-09-18 | Keyword pre-filter of an AI rule is optional per rule, with a warning when empty | Founder decision; the user trades coverage against cost and privacy |
 | 2026-09-18 | A semantic check that fails skips that rule for that post, quietly | Founder decision; no retries, no fallback alerts, other rules still fire |
