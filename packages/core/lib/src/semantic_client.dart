@@ -91,9 +91,10 @@ final class SemanticClient {
                 'authorization': 'Bearer ${config.apiKey}',
             },
             body: jsonEncode({
+              // Only the universally accepted fields: reasoning models need room to think
+              // before the short answer (a token cap leaves them with empty content), and
+              // some reject a custom temperature.
               'model': config.model.trim(),
-              'temperature': 0,
-              'max_tokens': 40,
               'messages': [
                 {'role': 'system', 'content': _system},
                 {'role': 'user', 'content': userMessage(postText, criteria)},
@@ -114,11 +115,17 @@ final class SemanticClient {
       final json =
           jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, Object?>;
       final choice = (json['choices'] as List).first as Map<String, Object?>;
-      answer = (choice['message'] as Map<String, Object?>)['content'] as String;
+      answer =
+          ((choice['message'] as Map<String, Object?>)['content'] as String?) ??
+          '';
     } catch (_) {
       throw const SemanticException(
         'The AI endpoint sent an unexpected answer.',
       );
+    }
+    if (answer.trim().isEmpty) {
+      // Not the same as NONE: the model never got to its answer (cut off while reasoning).
+      throw const SemanticException('The model returned an empty answer.');
     }
     return parseAnswer(answer, criteria.length);
   }

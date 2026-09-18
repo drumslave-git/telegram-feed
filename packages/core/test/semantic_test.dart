@@ -46,6 +46,10 @@ void main() {
     expect(seen.headers['authorization'], 'Bearer k');
     final body = jsonDecode(seen.body) as Map<String, Object?>;
     expect(body['model'], 'small');
+    expect(body.keys.toSet(), {
+      'model',
+      'messages',
+    }); // nothing a provider may reject
     final user = ((body['messages'] as List)[1] as Map)['content'] as String;
     expect(user, contains('2. sports'));
     expect(user, contains('ЦБ снизил ключевую ставку'));
@@ -94,6 +98,25 @@ void main() {
       throwsA(isA<SemanticException>()),
     );
   });
+
+  test(
+    'an empty answer (reasoning model cut off) is a failure, not NONE',
+    () async {
+      final client = SemanticClient(
+        client: MockClient((_) async => _reply('  ')),
+      );
+      await expectLater(
+        client.matching(config: config, postText: 'x', criteria: ['a']),
+        throwsA(
+          isA<SemanticException>().having(
+            (e) => e.message,
+            'message',
+            contains('empty answer'),
+          ),
+        ),
+      );
+    },
+  );
 
   test('long posts are cut before they are sent', () {
     final msg = SemanticClient.userMessage('a' * 10000, ['x']);
