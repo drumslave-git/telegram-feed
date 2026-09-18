@@ -170,7 +170,7 @@ Edited messages are ignored by the engine. Deleted messages cancel a pending not
 |---|---|---|
 | silent | LOW | In the shade, no sound, no heads-up |
 | normal | DEFAULT | Sound and vibration per system settings |
-| urgent | HIGH + `bypassDnd` | Heads-up; DND bypass requires the user to grant notification-policy access, which the app requests when the first urgent rule is created |
+| urgent | HIGH + `bypassDnd` | Heads-up; DND bypass requires the user to grant notification-policy access, which the app requests when the first urgent rule is created. Android fixes a channel's DND bypass at creation, so the notifier posts on `posts_urgent` until access exists and then creates `posts_urgent_dnd` (and deletes the other); it re-checks before every urgent notification |
 
 Each notification: channel title, post excerpt, thumbnail if present, actions **Listen** and **Open in Telegram**. Tapping opens the post inside the first feed containing that channel. Notifications from the same channel are grouped.
 

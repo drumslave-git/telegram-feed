@@ -58,6 +58,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 - [x] S-3 Comments chip appeared on channels without a discussion group and opened a dead end. `Post.canComment` (from `reply_info`) gates the chip. (287f028)
 - [x] S-4 Open in Telegram did nothing without the Telegram app: url_launcher throws on `tg://` instead of returning false, so the `t.me` fallback never ran. `launchFirst` tries each link and survives the exception (timeline and notification action). (af041b2)
 - [x] S-5 A channel added to a feed counted its whole history as unread. The feed's mark now starts at Telegram's read position (`Channel.lastReadMessageId`, founder decision 2026-09-18). (02edf46)
+- [x] S-6 Urgent rules never bypassed Do Not Disturb when policy access was granted after the channel existed (Android fixes the flag at channel creation). The notifier switches to a `posts_urgent_dnd` channel once access is granted, checked before every urgent notification.
 
 ## Phase 4 — Extras
 

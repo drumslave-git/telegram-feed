@@ -7,6 +7,11 @@ const channelSilent = 'posts_silent';
 const channelNormal = 'posts_normal';
 const channelUrgent = 'posts_urgent';
 
+/// Urgent channel that bypasses Do Not Disturb. Android fixes a channel's DND bypass when
+/// the channel is created, and only honours it if the app already has notification policy
+/// access, so this second channel is created once access is granted ([Notifier]).
+const channelUrgentDnd = 'posts_urgent_dnd';
+
 /// Action ids on post notifications.
 const actionListen = 'listen';
 const actionOpenTelegram = 'open_tg';

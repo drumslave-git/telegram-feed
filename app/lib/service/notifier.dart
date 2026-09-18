@@ -47,18 +47,46 @@ final class Notifier {
         importance: Importance.defaultImportance,
       ),
     );
-    await android.createNotificationChannel(
-      const AndroidNotificationChannel(
-        channelUrgent,
-        'Urgent posts',
-        description: 'Rules with urgent priority; bypasses Do Not Disturb once policy access is granted',
-        importance: Importance.high,
-        bypassDnd: true,
-      ),
-    );
+    await _ensureUrgentChannel();
   }
 
+  /// Which urgent channel to post on. Re-checked before every urgent notification so that
+  /// granting policy access later takes effect without restarting the service.
+  Future<String> _ensureUrgentChannel() async {
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (android == null) return channelUrgent;
+    final bypass = await android.hasNotificationPolicyAccess() ?? false;
+    if (bypass == _urgentBypassesDnd) return _urgentChannel;
+    await android.createNotificationChannel(
+      AndroidNotificationChannel(
+        bypass ? channelUrgentDnd : channelUrgent,
+        'Urgent posts',
+        description: bypass
+            ? 'Rules with urgent priority; bypasses Do Not Disturb'
+            : 'Rules with urgent priority',
+        importance: Importance.high,
+        bypassDnd: bypass,
+      ),
+    );
+    // One "Urgent posts" row in the system settings, not two.
+    await android.deleteNotificationChannel(
+      channelId: bypass ? channelUrgent : channelUrgentDnd,
+    );
+    _urgentBypassesDnd = bypass;
+    return _urgentChannel;
+  }
+
+  bool? _urgentBypassesDnd;
+  String get _urgentChannel =>
+      (_urgentBypassesDnd ?? false) ? channelUrgentDnd : channelUrgent;
+
   Future<void> show(NotificationPlan plan) async {
+    final channelId = plan.channelId == channelUrgent
+        ? await _ensureUrgentChannel()
+        : plan.channelId;
     final importance = switch (plan.channelId) {
       channelSilent => Importance.low,
       channelUrgent => Importance.high,
@@ -76,8 +104,8 @@ final class Notifier {
       payload: plan.payload,
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
-          plan.channelId,
-          plan.channelId,
+          channelId,
+          channelId,
           importance: importance,
           priority: priority,
           groupKey: plan.groupKey,
@@ -104,8 +132,8 @@ final class Notifier {
         body: '$n new post${n == 1 ? '' : 's'}',
         notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
-            plan.channelId,
-            plan.channelId,
+            channelId,
+            channelId,
             importance: importance,
             priority: priority,
             groupKey: plan.groupKey,
