@@ -11,6 +11,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import 'feed_editor_screen.dart';
 import 'media_view.dart';
 import 'open_links.dart';
+import 'photo_viewer.dart';
 import 'read_marker.dart';
 import 'thread_screen.dart';
 
@@ -545,7 +546,21 @@ class PostCard extends StatelessWidget {
             for (final m in media.take(10))
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: MediaView(media: m, gateway: gateway),
+                child: MediaView(
+                  media: m,
+                  gateway: gateway,
+                  onOpenPhoto: m is! PhotoMedia
+                      ? null
+                      : () {
+                          final photos = media.whereType<PhotoMedia>().toList();
+                          PhotoViewerScreen.open(
+                            context,
+                            photos: photos,
+                            gateway: gateway,
+                            initialIndex: photos.indexOf(m),
+                          );
+                        },
+                ),
               ),
             if (media.length > 10)
               Padding(

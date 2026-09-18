@@ -9,7 +9,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import 'feeds_screen_test.dart' show ChannelsGateway;
 
 /// 1x1 transparent PNG.
-const _png = [
+const onePixelPng = [
   137,
   80,
   78,
@@ -110,7 +110,7 @@ void main() {
   setUpAll(() {
     tmp = Directory.systemTemp.createTempSync('tf_media');
     pngPath = '${tmp.path}/p.png';
-    File(pngPath).writeAsBytesSync(_png);
+    File(pngPath).writeAsBytesSync(onePixelPng);
   });
   tearDownAll(() => tmp.deleteSync(recursive: true));
   setUp(() => gw = DownloadGateway(pngPath));

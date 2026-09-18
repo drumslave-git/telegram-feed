@@ -9,15 +9,24 @@ import 'players.dart';
 /// Renders one post's media inline. Files are TDLib-managed: [gateway.download] returns the
 /// local path and [gateway.fileProgress] reports progress while it downloads.
 class MediaView extends StatelessWidget {
-  const MediaView({super.key, required this.media, required this.gateway});
+  const MediaView({
+    super.key,
+    required this.media,
+    required this.gateway,
+    this.onOpenPhoto,
+  });
   final Media media;
   final TelegramGateway gateway;
+
+  /// Tap on a photo (the timeline opens the full-screen viewer).
+  final VoidCallback? onOpenPhoto;
 
   @override
   Widget build(BuildContext context) => switch (media) {
     PhotoMedia(:final sizes) => PhotoView(
       file: _pickSize(sizes, MediaQuery.sizeOf(context).width),
       gateway: gateway,
+      onTap: onOpenPhoto,
     ),
     VideoMedia(
       :final file,
@@ -160,28 +169,40 @@ class _DownloadedState extends State<Downloaded> {
 }
 
 class PhotoView extends StatelessWidget {
-  const PhotoView({super.key, required this.file, required this.gateway});
+  const PhotoView({
+    super.key,
+    required this.file,
+    required this.gateway,
+    this.onTap,
+  });
   final FileRef file;
   final TelegramGateway gateway;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final aspect = file.width > 0 && file.height > 0
         ? file.width / file.height
         : 4 / 3;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: AspectRatio(
-        aspectRatio: aspect.clamp(0.5, 2.5),
-        child: Downloaded(
-          file: file,
-          gateway: gateway,
-          placeholder: const ColoredBox(
-            color: Colors.black12,
-            child: Center(child: CircularProgressIndicator()),
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: AspectRatio(
+          aspectRatio: aspect.clamp(0.5, 2.5),
+          child: Downloaded(
+            file: file,
+            gateway: gateway,
+            placeholder: const ColoredBox(
+              color: Colors.black12,
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            builder: (context, path) => Image.file(
+              File(path),
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+            ),
           ),
-          builder: (context, path) =>
-              Image.file(File(path), fit: BoxFit.cover, gaplessPlayback: true),
         ),
       ),
     );
