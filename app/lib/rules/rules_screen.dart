@@ -54,21 +54,9 @@ class RulesScreen extends StatelessWidget {
       body: Column(
         children: [
           if (batteryExempt != null)
-            FutureBuilder<bool>(
-              future: batteryExempt!(),
-              builder: (context, snap) => snap.data == false
-                  ? MaterialBanner(
-                      content: const Text(
-                        'Android may stop the watcher in the background. Allow the app to ignore battery optimisation so rules keep working.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: onRequestBatteryExemption,
-                          child: const Text('Allow'),
-                        ),
-                      ],
-                    )
-                  : const SizedBox.shrink(),
+            BatteryBanner(
+              exempt: batteryExempt!,
+              onRequest: onRequestBatteryExemption,
             ),
           StreamBuilder<String?>(
             stream: db.watchSetting(AiKeys.lastError),
@@ -162,5 +150,60 @@ class RulesScreen extends StatelessWidget {
     } on FormatException {
       return '(invalid condition)';
     }
+  }
+}
+
+/// Asks for the battery-optimisation exemption until it is granted. The answer is given in a
+/// system dialog or in Android's settings, so it is checked again whenever the app resumes.
+class BatteryBanner extends StatefulWidget {
+  const BatteryBanner({super.key, required this.exempt, this.onRequest});
+  final Future<bool> Function() exempt;
+  final Future<void> Function()? onRequest;
+
+  @override
+  State<BatteryBanner> createState() => _BatteryBannerState();
+}
+
+class _BatteryBannerState extends State<BatteryBanner>
+    with WidgetsBindingObserver {
+  bool _exempt = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _check();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _check();
+  }
+
+  Future<void> _check() async {
+    final exempt = await widget.exempt();
+    if (mounted && exempt != _exempt) setState(() => _exempt = exempt);
+  }
+
+  Future<void> _request() async {
+    await widget.onRequest?.call();
+    await _check();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_exempt) return const SizedBox.shrink();
+    return MaterialBanner(
+      content: const Text(
+        'Android may stop the watcher in the background. Allow the app to ignore battery optimisation so rules keep working.',
+      ),
+      actions: [TextButton(onPressed: _request, child: const Text('Allow'))],
+    );
   }
 }
