@@ -1,15 +1,18 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Golden comparison with a small tolerance: goldens are generated on Windows and checked on
-/// Linux CI, where anti-aliasing can differ by a few pixels.
+/// Golden comparison with a tolerance. The golden images are rendered on Linux, the
+/// platform CI runs on (`tool/update_goldens.sh` regenerates them in Docker). Other
+/// platforms rasterise text and shadows a little differently (Windows: up to 0.9% of the
+/// pixels), so there the check is looser and only catches layout regressions.
 class _TolerantComparator extends LocalFileComparator {
   _TolerantComparator(super.testFile);
 
   /// Percentage of differing pixels tolerated.
-  static const maxDiffPercent = 0.3;
+  static final double maxDiffPercent = Platform.isLinux ? 0.3 : 1.5;
 
   @override
   Future<bool> compare(Uint8List imageBytes, Uri golden) async {
