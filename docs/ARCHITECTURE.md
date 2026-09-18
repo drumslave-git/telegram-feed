@@ -182,7 +182,7 @@ Android 13+ requires `POST_NOTIFICATIONS`; requested during onboarding of phase 
 - Language: `google_mlkit_language_id` on Android (on-device). Detected code selects a voice from the user's per-language preferences, falling back to the system default for that language, then to the app's default voice.
 - Text preparation: strip URLs (say "link"), collapse whitespace, drop emoji and formatting markers, prepend "New post in <channel>". Posts over a configurable length are truncated with "… and more".
 - Audio focus: request transient focus with ducking; release on queue drain. Never speak during a phone call (check `audio_session` / telephony state).
-- The "Listen" action and auto-read use the same path, so behaviour is identical.
+- The "Listen" action and auto-read use the same path; the only difference is that a Listen request is spoken right after the current utterance instead of at the end of the queue. The queue never drops items, however far it is behind (founder decision 2026-09-18).
 
 ## 8. Platform notes
 
@@ -250,6 +250,7 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-17 | Foreground service type `specialUse` | Android 15+ caps `dataSync` at 6 h/day (spike P0-2) |
 | 2026-09-17 | TTS and notification plugins live in the service host isolate, core sends commands | Background isolates cannot receive platform callbacks (spike P0-2) |
 | 2026-09-17 | Share puts the `t.me` link (public username link, else `t.me/c`) into the system share sheet via `share_plus`; copy link uses the clipboard | Private `tg://privatepost` links stay for Open in Telegram only, since other apps cannot open them |
+| 2026-09-18 | Read-aloud queue never drops items; Listen requests go next | Found while dogfooding with busy channels; founder chose completeness over freshness |
 | 2026-09-18 | A channel added to a feed starts at Telegram's read position | Founder decision while dogfooding: the whole history used to count as unread |
 | 2026-09-17 | Web target dropped after the phase 3 build worked | Founder decision, Android only; the build stays in history at 87e10f3 |
 | 2026-09-17 | Web stays on tdweb, built from source; no GramJS gateway | tdweb 1.8.67 self-built works end to end, npm 1.8.0 is dead (spike P0-4) |

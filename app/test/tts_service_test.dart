@@ -84,6 +84,30 @@ void main() {
   );
 
   test(
+    'an explicit request is spoken next, even when already queued',
+    () async {
+      tts.enqueue(const TtsItem(text: 'one', key: 1));
+      tts.enqueue(const TtsItem(text: 'two', key: 2));
+      tts.enqueue(const TtsItem(text: 'three', key: 3));
+      await tick();
+      tts.enqueue(const TtsItem(text: 'three', key: 3), next: true); // Listen
+      tts.enqueue(
+        const TtsItem(text: 'four', key: 4),
+        next: true,
+      ); // Listen, new
+      tts.enqueue(
+        const TtsItem(text: 'one', key: 1),
+        next: true,
+      ); // already playing
+      for (var i = 0; i < 4; i++) {
+        sp.finish();
+        await tick();
+      }
+      expect(sp.spoken, ['one', 'four', 'three', 'two']);
+    },
+  );
+
+  test(
     'language: detected, else default setting, else en; voice from settings',
     () async {
       await db.setSetting(TtsKeys.defaultLanguage, 'de');

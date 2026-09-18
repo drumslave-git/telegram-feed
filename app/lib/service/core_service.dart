@@ -173,7 +173,7 @@ class CoreServiceHandler extends TaskHandler {
   }
 
   /// The "Listen" action and auto-read share this path (ARCHITECTURE 7).
-  void _speakPost(int chatId, int messageId) {
+  void _speakPost(int chatId, int messageId, {bool next = false}) {
     final text = _recentTexts[(chatId, messageId)];
     if (text == null) {
       _log('no text remembered for $chatId/$messageId');
@@ -185,6 +185,7 @@ class CoreServiceHandler extends TaskHandler {
         channelTitle: _titles[chatId],
         key: (chatId, messageId),
       ),
+      next: next,
     );
   }
 
@@ -200,7 +201,7 @@ class CoreServiceHandler extends TaskHandler {
       'notification action ${m['actionId']} on ${ref?.chatId}/${ref?.messageId}',
     );
     if (m['actionId'] == actionListen && ref != null) {
-      _speakPost(ref.chatId, ref.messageId);
+      _speakPost(ref.chatId, ref.messageId, next: true);
     }
     // Taps and \"Open in Telegram\" are handled by the app (notification_launch.dart).
   }

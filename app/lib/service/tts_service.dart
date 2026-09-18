@@ -93,9 +93,22 @@ final class TtsService {
   }
 
   /// Adds to the queue (deduplicated by [TtsItem.key]) and starts speaking if idle.
-  void enqueue(TtsItem item) {
-    if (item.key != null && !_keys.add(item.key!)) return;
-    _queue.add(item);
+  ///
+  /// [next] is for explicit requests (the notification's Listen action): the item is spoken
+  /// right after the current one, also when it was already waiting further back.
+  void enqueue(TtsItem item, {bool next = false}) {
+    final key = item.key;
+    final isNew = key == null || _keys.add(key);
+    if (!isNew && !next) return;
+    if (!isNew) {
+      if (_current?.key == key) return; // being spoken right now
+      _queue.removeWhere((q) => q.key == key);
+    }
+    if (next) {
+      _queue.addFirst(item);
+    } else {
+      _queue.add(item);
+    }
     _stopped = false;
     unawaited(_drain());
   }
