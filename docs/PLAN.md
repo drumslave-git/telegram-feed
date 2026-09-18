@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 4 (extras). **Next task:** P4-3.
+**Current phase:** feedback round 1 (before P4-3). **Next task:** F-1.
 
 ## Phase 0 — Spikes
 
@@ -65,6 +65,23 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 ## Tooling
 
 - [x] T-1 Automatic versioned debug releases: `packages/versioning` (next semantic version and changelog from conventional commits), `debug-release.yml` (after green CI on main: tag, debug APKs signed with a fixed key, prerelease), `release.yml` now promotes an existing tag to signed APKs by hand.
+
+## Feedback round 1 (founder, 2026-09-19)
+
+Founder feedback after using the debug release. Decisions taken the same day are in the ARCHITECTURE decision log. Phase 4 continues afterwards.
+
+- [ ] F-1 The battery-optimisation banner stays after the exemption is granted until the screen is reopened.
+- [ ] F-2 The channel picker's list is covered by the keyboard; the last channels cannot be reached.
+- [ ] F-3 Tapping a photo does nothing: full-screen viewer with zoom and album paging.
+- [ ] F-4 Video player: controls, full screen, double-tap seek at the edges; fix sound with an endless spinner.
+- [ ] F-5 Videos start much slower than in the official app: play while TDLib downloads instead of after.
+- [ ] F-6 Autoplay of short videos, with settings.
+- [ ] F-7 Timeline runs oldest to newest like a Telegram chat and opens at the remembered position or at the first unread post.
+- [ ] F-8 Tabbed main screen: `+`, one tab per feed, one tab per Telegram folder (its channels), All channels.
+- [ ] F-9 Account section in Settings shows photo, name, username, phone, bio.
+- [ ] F-10 Per-feed content filters (media presence, media type, minimum video length, text length); they apply to the timeline and to rules.
+- [ ] F-11 Application icon.
+- [ ] F-12 Two login notices in the official app after one login.
 
 ## Phase 4 — Extras
 
