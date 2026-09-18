@@ -18,7 +18,7 @@ jobs:
       commit: ${{ steps.pin.outputs.commit }}
       tag: ${{ steps.pin.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: pin
         run: |
           c=$(tr -d '[:space:]' < packages/tdlib_bindings/schema/TDLIB_COMMIT)
@@ -29,14 +29,14 @@ jobs:
     needs: pin
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build libtdjson.so (arm64-v8a, x86_64)
         run: docker build --build-arg COMMIT_HASH=${{ needs.pin.outputs.commit }} --output out -f tool/tdlib/Dockerfile tool/tdlib
       - name: Repack as tar.gz (libs/<abi>/libtdjson.so)
         run: |
           mkdir -p pack && cd pack && unzip -q ../out/tdlib.zip && tar -czf ../libtdjson-android.tar.gz -C tdlib libs
           cd .. && tar -czf libtdjson-android-debug.tar.gz -C out tdlib-debug.zip
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android
           path: libtdjson-android*.tar.gz
@@ -47,7 +47,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           merge-multiple: true
       - name: Checksums
@@ -55,7 +55,7 @@ jobs:
           echo "${{ needs.pin.outputs.commit }}" > TDLIB_COMMIT
           sha256sum libtdjson-android.tar.gz libtdjson-android-debug.tar.gz > SHA256SUMS
           cat SHA256SUMS
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.pin.outputs.tag }}
           name: TDLib ${{ needs.pin.outputs.tag }}
