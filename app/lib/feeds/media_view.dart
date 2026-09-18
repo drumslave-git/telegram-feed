@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../media/video_sessions.dart';
+import '../media/video_stage.dart';
 import 'players.dart';
 
 /// Renders one post's media inline. Files are TDLib-managed: [gateway.download] returns the
@@ -113,20 +115,38 @@ class _DownloadedState extends State<Downloaded> {
     if (_path == null && widget.autoStart) start();
   }
 
+  /// The list reuses row state by position; a different file starts over.
+  @override
+  void didUpdateWidget(Downloaded old) {
+    super.didUpdateWidget(old);
+    if (old.file.id == widget.file.id) return;
+    _sub?.cancel();
+    _started = false;
+    _progress = null;
+    _error = null;
+    _path = widget.file.isDownloaded ? widget.file.localPath : null;
+    if (_path == null && widget.autoStart) start();
+  }
+
   Future<void> start() async {
     if (_started) return;
     setState(() => _started = true);
-    _sub = widget.gateway.fileProgress(widget.file.id).listen((p) {
-      if (!mounted) return;
+    final file = widget.file;
+    final sub = _sub = widget.gateway.fileProgress(file.id).listen((p) {
+      if (!mounted || widget.file.id != file.id) return;
       setState(() => _progress = p.total > 0 ? p.downloaded / p.total : null);
     });
     try {
-      final done = await widget.gateway.download(widget.file);
-      if (mounted) setState(() => _path = done.localPath);
+      final done = await widget.gateway.download(file);
+      if (mounted && widget.file.id == file.id) {
+        setState(() => _path = done.localPath);
+      }
     } on TelegramException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted && widget.file.id == file.id) {
+        setState(() => _error = e.message);
+      }
     } finally {
-      await _sub?.cancel();
+      await sub.cancel();
     }
   }
 
@@ -209,7 +229,9 @@ class PhotoView extends StatelessWidget {
   }
 }
 
-/// Thumbnail with a play button; downloads and plays inline on tap.
+/// Thumbnail with a play button; plays inline on tap while TDLib downloads the file
+/// ([VideoSessions]). A session that is already running for the file is picked up again, so
+/// a row rebuilt by the list keeps playing.
 class VideoView extends StatefulWidget {
   const VideoView({
     super.key,
@@ -230,46 +252,73 @@ class VideoView extends StatefulWidget {
 }
 
 class _VideoViewState extends State<VideoView> {
-  bool _playing = false;
+  VideoSession? _session;
+
+  VideoSessions get _sessions => VideoSessions.of(widget.gateway);
+
+  @override
+  void initState() {
+    super.initState();
+    _adopt(_sessions.find(widget.file.id));
+  }
+
+  @override
+  void didUpdateWidget(VideoView old) {
+    super.didUpdateWidget(old);
+    if (old.file.id != widget.file.id) {
+      _session?.release();
+      _session = null;
+      _adopt(_sessions.find(widget.file.id));
+    }
+  }
+
+  void _adopt(VideoSession? s) {
+    if (s == null) return;
+    s.retain();
+    _session = s;
+  }
+
+  void _play() => setState(
+    () => _adopt(_sessions.open(widget.file, loop: widget.isAnimation)),
+  );
+
+  @override
+  void dispose() {
+    _session?.release();
+    super.dispose();
+  }
+
+  Widget _poster() => widget.thumbnail == null
+      ? const ColoredBox(color: Colors.black26)
+      : Downloaded(
+          key: ValueKey(widget.thumbnail!.id),
+          file: widget.thumbnail!,
+          gateway: widget.gateway,
+          placeholder: const ColoredBox(color: Colors.black26),
+          builder: (context, path) => Image.file(File(path), fit: BoxFit.cover),
+        );
 
   @override
   Widget build(BuildContext context) {
     final aspect = widget.file.width > 0 && widget.file.height > 0
         ? widget.file.width / widget.file.height
         : 16 / 9;
+    final session = _session;
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: AspectRatio(
         aspectRatio: aspect.clamp(0.5, 2.5),
-        child: _playing
-            ? Downloaded(
-                file: widget.file,
-                gateway: widget.gateway,
-                placeholder: const ColoredBox(
-                  color: Colors.black87,
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-                builder: (context, path) =>
-                    VideoPlayerWidget(path: path, loop: widget.isAnimation),
-              )
+        child: session != null
+            ? VideoStage(session: session, poster: _poster())
             : Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (widget.thumbnail != null)
-                    Downloaded(
-                      file: widget.thumbnail!,
-                      gateway: widget.gateway,
-                      placeholder: const ColoredBox(color: Colors.black26),
-                      builder: (context, path) =>
-                          Image.file(File(path), fit: BoxFit.cover),
-                    )
-                  else
-                    const ColoredBox(color: Colors.black26),
+                  _poster(),
                   Center(
                     child: IconButton.filled(
                       iconSize: 40,
                       tooltip: 'Play',
-                      onPressed: () => setState(() => _playing = true),
+                      onPressed: _play,
                       icon: const Icon(Icons.play_arrow),
                     ),
                   ),

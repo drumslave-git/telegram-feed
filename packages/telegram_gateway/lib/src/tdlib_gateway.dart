@@ -305,6 +305,33 @@ final class TdlibGateway implements TelegramGateway {
     return ref.copyWith(localPath: p.localPath);
   }
 
+  @override
+  Future<FileProgress> downloadFrom(
+    int fileId, {
+    int offset = 0,
+    int priority = 32,
+  }) async => _progress(
+    await _client.call(
+      td.DownloadFile(
+        fileId: fileId,
+        priority: priority,
+        offset: offset,
+        limit: 0,
+        synchronous: false,
+      ),
+    ),
+  );
+
+  @override
+  Future<int> downloadedPrefix(int fileId, int offset) async =>
+      (await _client.call(
+        td.GetFileDownloadedPrefixSize(fileId: fileId, offset: offset),
+      )).size;
+
+  @override
+  Future<void> cancelDownload(int fileId) =>
+      _client.call(td.CancelDownloadFile(fileId: fileId, onlyIfPending: false));
+
   Future<String> _senderName(td.Message m) async {
     switch (m.senderId) {
       case td.MessageSenderUser(:final userId):
@@ -474,6 +501,7 @@ final class TdlibGateway implements TelegramGateway {
     localPath: (f.local?.isDownloadingCompleted ?? false)
         ? f.local!.path
         : null,
+    partialPath: f.local?.path ?? '',
   );
 
   @override

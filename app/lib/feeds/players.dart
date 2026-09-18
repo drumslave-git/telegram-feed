@@ -1,75 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:video_player/video_player.dart';
 
 import 'media_view.dart' show formatDuration;
-
-/// Inline video for a downloaded file. Starts playing immediately; tap toggles pause.
-class VideoPlayerWidget extends StatefulWidget {
-  const VideoPlayerWidget({super.key, required this.path, this.loop = false});
-  final String path;
-  final bool loop;
-
-  @override
-  State<VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
-}
-
-class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
-  late final VideoPlayerController _ctl = VideoPlayerController.file(
-    File(widget.path),
-  );
-  bool _ready = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctl.initialize().then((_) {
-      if (!mounted) return;
-      setState(() => _ready = true);
-      _ctl.setLooping(widget.loop);
-      _ctl.play();
-    });
-  }
-
-  @override
-  void dispose() {
-    _ctl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_ready) {
-      return const ColoredBox(
-        color: Colors.black87,
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    return GestureDetector(
-      onTap: () =>
-          setState(() => _ctl.value.isPlaying ? _ctl.pause() : _ctl.play()),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          FittedBox(
-            fit: BoxFit.contain,
-            child: SizedBox(
-              width: _ctl.value.size.width,
-              height: _ctl.value.size.height,
-              child: VideoPlayer(_ctl),
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: VideoProgressIndicator(_ctl, allowScrubbing: true),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 /// Play/pause with position for a downloaded audio file (voice messages, music).
 class AudioPlayerWidget extends StatefulWidget {

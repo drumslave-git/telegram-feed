@@ -182,6 +182,20 @@ final class CoreServer {
           priority: a['priority'] as int,
         );
         return encodeFileRef(done);
+      case 'downloadFrom':
+        final fileId = a['fileId'] as int;
+        _watchFile(fileId);
+        return encodeFileProgress(
+          await gateway.downloadFrom(
+            fileId,
+            offset: a['offset'] as int,
+            priority: a['priority'] as int,
+          ),
+        );
+      case 'downloadedPrefix':
+        return gateway.downloadedPrefix(a['fileId'] as int, a['offset'] as int);
+      case 'cancelDownload':
+        await gateway.cancelDownload(a['fileId'] as int);
       case 'watchFile':
         _watchFile(a['fileId'] as int);
       case 'refresh':

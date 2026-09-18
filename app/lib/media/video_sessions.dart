@@ -1,0 +1,208 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:telegram_gateway/telegram_gateway.dart';
+import 'package:video_player/video_player.dart';
+
+import 'media_server.dart';
+
+/// Playback of one video file. Lives outside the widget tree so that the inline player, the
+/// full-screen player and a list row that was rebuilt all drive the same player instead of
+/// each starting their own.
+final class VideoSession extends ChangeNotifier {
+  VideoSession._(
+    this._owner,
+    this.file, {
+    required this.loop,
+    required this._muted,
+  });
+
+  final VideoSessions _owner;
+  final FileRef file;
+  final bool loop;
+
+  VideoPlayerController? _controller;
+  String? _error;
+  bool _muted;
+  bool _disposed = false;
+  int _holders = 0;
+  Timer? _idle;
+  bool _resumeOnRetain = false;
+
+  /// Null until the player is created; check `value.isInitialized` before showing it.
+  VideoPlayerController? get controller => _controller;
+  String? get error => _error;
+  bool get muted => _muted;
+  bool get isReady => _controller?.value.isInitialized ?? false;
+
+  Future<void> _start() async {
+    _error = null;
+    notifyListeners();
+    try {
+      final c = await _owner._createController(file, mixWithOthers: _muted);
+      if (_disposed) {
+        await c.dispose();
+        return;
+      }
+      _controller = c;
+      c.addListener(_onPlayerValue);
+      await c.initialize();
+      if (_disposed) return;
+      await c.setLooping(loop);
+      await c.setVolume(_muted ? 0 : 1);
+      await play();
+    } catch (e) {
+      if (_disposed) return;
+      _error = e is PlatformException ? (e.message ?? e.code) : '$e';
+      notifyListeners();
+    }
+  }
+
+  void _onPlayerValue() {
+    final v = _controller?.value;
+    if (v != null && v.hasError && _error == null) _error = v.errorDescription;
+    notifyListeners();
+  }
+
+  /// Drops the broken player and tries again.
+  Future<void> retry() async {
+    final old = _controller;
+    _controller = null;
+    old?.removeListener(_onPlayerValue);
+    await old?.dispose();
+    await _start();
+  }
+
+  Future<void> play() async {
+    if (!_muted) _owner._pauseOthers(this);
+    await _controller?.play();
+  }
+
+  Future<void> pause() async => _controller?.pause();
+
+  Future<void> togglePlay() =>
+      (_controller?.value.isPlaying ?? false) ? pause() : play();
+
+  Future<void> setMuted(bool muted) async {
+    _muted = muted;
+    if (!muted) _owner._pauseOthers(this);
+    await _controller?.setVolume(muted ? 0 : 1);
+    notifyListeners();
+  }
+
+  /// Seeks relative to the current position, clamped to the video.
+  Future<void> seekBy(Duration delta) async {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) return;
+    var to = c.value.position + delta;
+    if (to < Duration.zero) to = Duration.zero;
+    if (to > c.value.duration) to = c.value.duration;
+    await c.seekTo(to);
+  }
+
+  /// A widget shows this session. Balanced by [release].
+  void retain() {
+    _holders++;
+    _idle?.cancel();
+    _idle = null;
+    if (_resumeOnRetain) {
+      _resumeOnRetain = false;
+      unawaited(play());
+    }
+  }
+
+  /// The widget went away. A row that is only being rebuilt retains again within the grace
+  /// period; otherwise playback ends and the unfinished download is cancelled.
+  void release() {
+    if (--_holders > 0 || _disposed) return;
+    _resumeOnRetain = _controller?.value.isPlaying ?? false;
+    unawaited(pause());
+    _idle = Timer(VideoSessions.gracePeriod, () => _owner._close(this));
+  }
+
+  Future<void> _dispose() async {
+    _disposed = true;
+    _idle?.cancel();
+    final c = _controller;
+    _controller = null;
+    c?.removeListener(_onPlayerValue);
+    await c?.dispose();
+    super.dispose();
+  }
+}
+
+/// All running [VideoSession]s of one gateway, by file id.
+final class VideoSessions {
+  VideoSessions(this.gateway) : _server = MediaServer(gateway);
+
+  static final _instances = Expando<VideoSessions>();
+  static VideoSessions of(TelegramGateway gateway) =>
+      _instances[gateway] ??= VideoSessions(gateway);
+
+  /// How long a session without widgets survives (rows get rebuilt when the list shifts).
+  static const gracePeriod = Duration(milliseconds: 800);
+
+  final TelegramGateway gateway;
+  final MediaServer _server;
+  final _sessions = <int, VideoSession>{};
+
+  VideoSession? find(int fileId) => _sessions[fileId];
+
+  /// The running session for [file], or a new one that starts playing right away.
+  VideoSession open(FileRef file, {bool loop = false, bool muted = false}) {
+    final existing = _sessions[file.id];
+    if (existing != null) return existing;
+    final s = VideoSession._(this, file, loop: loop, muted: muted);
+    _sessions[file.id] = s;
+    unawaited(s._start());
+    return s;
+  }
+
+  /// Only one video has sound at a time.
+  void _pauseOthers(VideoSession except) {
+    for (final s in _sessions.values) {
+      if (!identical(s, except) && !s.muted) unawaited(s.pause());
+    }
+  }
+
+  Future<VideoPlayerController> _createController(
+    FileRef file, {
+    required bool mixWithOthers,
+  }) async {
+    final options = VideoPlayerOptions(mixWithOthers: mixWithOthers);
+    if (file.isDownloaded) {
+      return VideoPlayerController.file(
+        File(file.localPath!),
+        videoPlayerOptions: options,
+      );
+    }
+    // Start the download at once; the player reads behind it through the loopback server.
+    final state = await gateway.downloadFrom(file.id);
+    if (state.isComplete) {
+      return VideoPlayerController.file(
+        File(state.localPath!),
+        videoPlayerOptions: options,
+      );
+    }
+    return VideoPlayerController.networkUrl(
+      await _server.urlFor(file),
+      videoPlayerOptions: options,
+    );
+  }
+
+  Future<void> _close(VideoSession s) async {
+    if (s._holders > 0) return;
+    _sessions.remove(s.file.id);
+    _server.release(s.file.id);
+    await s._dispose();
+    if (!s.file.isDownloaded) {
+      try {
+        await gateway.cancelDownload(s.file.id);
+      } on TelegramException catch (e) {
+        debugPrint('media: cancel ${s.file.id}: ${e.message}');
+      }
+    }
+  }
+}

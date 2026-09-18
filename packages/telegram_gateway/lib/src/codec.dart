@@ -307,6 +307,7 @@ Map<String, Object?> encodeFileProgress(FileProgress p) => {
   'downloaded': p.downloaded,
   'total': p.total,
   'localPath': p.localPath,
+  'partialPath': p.partialPath,
 };
 
 FileProgress decodeFileProgress(Map<Object?, Object?> m) => FileProgress(
@@ -314,4 +315,5 @@ FileProgress decodeFileProgress(Map<Object?, Object?> m) => FileProgress(
   downloaded: m['downloaded'] as int,
   total: m['total'] as int,
   localPath: m['localPath'] as String?,
+  partialPath: (m['partialPath'] as String?) ?? '',
 );

@@ -16,6 +16,9 @@ final class TimelineItem {
   int get albumId => head.albumId;
   bool get isAlbum => albumId != 0;
 
+  /// Stable identity within the chat: the head of an album changes while its parts arrive.
+  int get rowId => isAlbum ? albumId : head.messageId;
+
   /// Plain text of the item: the head's text, or the first non-empty caption of an album.
   String get text {
     if (head.text.isNotEmpty) return head.text;

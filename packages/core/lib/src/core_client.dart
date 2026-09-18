@@ -168,6 +168,28 @@ final class CoreClient implements TelegramGateway {
   }
 
   @override
+  Future<FileProgress> downloadFrom(
+    int fileId, {
+    int offset = 0,
+    int priority = 32,
+  }) async => decodeFileProgress(
+    (await _call('downloadFrom', {
+      'fileId': fileId,
+      'offset': offset,
+      'priority': priority,
+    })) as Map<Object?, Object?>,
+  );
+
+  @override
+  Future<int> downloadedPrefix(int fileId, int offset) async =>
+      (await _call('downloadedPrefix', {'fileId': fileId, 'offset': offset}))
+          as int;
+
+  @override
+  Future<void> cancelDownload(int fileId) =>
+      _call('cancelDownload', {'fileId': fileId});
+
+  @override
   Future<Thread?> discussion(int chatId, int messageId) async {
     final r = await _call('discussion', {
       'chatId': chatId,

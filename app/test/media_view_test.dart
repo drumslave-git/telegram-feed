@@ -4,8 +4,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/media_view.dart';
+import 'package:telegram_feed/media/video_stage.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import 'fake_video_platform.dart';
 import 'feeds_screen_test.dart' show ChannelsGateway;
 
 /// 1x1 transparent PNG.
@@ -86,6 +88,23 @@ class DownloadGateway extends ChannelsGateway {
     completers[ref.id] = c;
     return c.future;
   }
+
+  /// (file id, offset) of every [downloadFrom].
+  final aimed = <(int, int)>[];
+  final cancelled = <int>[];
+
+  @override
+  Future<FileProgress> downloadFrom(
+    int fileId, {
+    int offset = 0,
+    int priority = 32,
+  }) async {
+    aimed.add((fileId, offset));
+    return FileProgress(fileId: fileId, downloaded: 0, total: 100);
+  }
+
+  @override
+  Future<void> cancelDownload(int fileId) async => cancelled.add(fileId);
 
   void finish(int fileId) {
     progress.add(
@@ -176,30 +195,106 @@ void main() {
     expect(gw.completers, isEmpty);
   });
 
-  testWidgets('video shows duration and downloads only on play', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        const VideoMedia(
-          file: FileRef(
-            id: 4,
-            remoteId: 'd',
-            size: 100,
-            width: 640,
-            height: 360,
-          ),
-          durationSeconds: 754,
-        ),
-      ),
+  const video = VideoMedia(
+    file: FileRef(id: 4, remoteId: 'd', size: 100, width: 640, height: 360),
+    durationSeconds: 754,
+  );
+
+  /// Lets the player's start-up (download call, fake platform events) run.
+  Future<void> startUp(WidgetTester tester) async {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 30)),
     );
     await tester.pump();
-    expect(find.text('12:34'), findsOneWidget);
-    expect(gw.completers, isEmpty);
-    await tester.tap(find.byIcon(Icons.play_arrow));
+  }
+
+  /// Ends the session's grace period so no timer outlives the test.
+  Future<void> unmount(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+    // Disposing the player is asynchronous.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 30)),
+    );
     await tester.pump();
-    expect(gw.completers.keys, [4]);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  }
+
+  testWidgets('video shows duration and starts the download only on play', (
+    tester,
+  ) async {
+    final platform = FakeVideoPlatform.install();
+    await tester.pumpWidget(host(video));
+    await tester.pump();
+    expect(find.text('12:34'), findsOneWidget);
+    expect(gw.aimed, isEmpty);
+
+    await tester.tap(find.byIcon(Icons.play_arrow));
+    await startUp(tester);
+    // Plays through the loopback server while TDLib downloads, not after.
+    expect(gw.aimed, [(4, 0)]);
+    expect(platform.sources.single.uri, startsWith('http://127.0.0.1:'));
+    expect(platform.log, contains('play 1'));
+    expect(find.byTooltip('Full screen'), findsOneWidget);
+    await unmount(tester);
+    expect(platform.log, contains('dispose 1'));
+    expect(gw.cancelled, [4]);
+  });
+
+  testWidgets('double tap on the edges seeks, in the middle goes full screen', (
+    tester,
+  ) async {
+    final platform = FakeVideoPlatform.install();
+    await tester.pumpWidget(host(video));
+    await tester.tap(find.byIcon(Icons.play_arrow));
+    await startUp(tester);
+
+    final box = tester.getRect(find.byType(VideoStage));
+    Future<void> doubleTap(Offset at) async {
+      await tester.tapAt(at);
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.tapAt(at);
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    await doubleTap(box.centerRight - const Offset(20, 0));
+    expect(platform.log, contains('seek 1 10'));
+    expect(find.text('10 s'), findsOneWidget);
+    await doubleTap(box.centerLeft + const Offset(20, 0));
+    expect(platform.log.last, 'seek 1 0');
+
+    await tester.pump(const Duration(seconds: 1));
+    // Middle third, beside the play button that sits in the very centre.
+    await doubleTap(box.center - const Offset(0, 80));
+    await tester.pumpAndSettle();
+    expect(find.byType(FullscreenVideoScreen), findsOneWidget);
+    expect(find.byTooltip('Leave full screen'), findsOneWidget);
+    // The same player, not a second one.
+    expect(platform.sources, hasLength(1));
+    await tester.tap(find.byTooltip('Leave full screen'));
+    // A single tap waits out the double-tap window.
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    expect(find.byType(FullscreenVideoScreen), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('a rebuilt row picks the running player up again', (
+    tester,
+  ) async {
+    final platform = FakeVideoPlatform.install();
+    await tester.pumpWidget(host(video));
+    await tester.tap(find.byIcon(Icons.play_arrow));
+    await startUp(tester);
+
+    // The list drops the row and builds it again at another index.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpWidget(host(video));
+    await tester.pump();
+    expect(find.byType(VideoStage), findsOneWidget);
+    expect(platform.sources, hasLength(1));
+    expect(platform.log, isNot(contains('dispose 1')));
+    await unmount(tester);
   });
 
   testWidgets('voice message and document rows', (tester) async {

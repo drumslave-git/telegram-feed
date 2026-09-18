@@ -30,6 +30,20 @@ abstract interface class TelegramGateway {
   Future<FileRef> download(FileRef ref, {int priority = 16});
   Stream<FileProgress> fileProgress(int fileId);
 
+  /// Playing while downloading: aims the download of [fileId] at [offset] (the bytes the
+  /// player needs next come first) and answers with the file's state right away.
+  Future<FileProgress> downloadFrom(
+    int fileId, {
+    int offset = 0,
+    int priority = 32,
+  });
+
+  /// Bytes readable from [offset] on in [FileProgress.partialPath].
+  Future<int> downloadedPrefix(int fileId, int offset);
+
+  /// Stops a download nobody waits for any more; what is on disk stays.
+  Future<void> cancelDownload(int fileId);
+
   /// Emoji this account may react with on the post (phase 3).
   Future<List<String>> availableReactions(int chatId, int messageId);
 

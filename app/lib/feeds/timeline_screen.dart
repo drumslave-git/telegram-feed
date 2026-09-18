@@ -396,6 +396,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                   );
                 }
                 return PostCard(
+                  key: ValueKey((items[i].chatId, items[i].rowId)),
                   item: items[i],
                   channelTitle: _titles[items[i].chatId] ?? '',
                   gateway: widget.gateway,

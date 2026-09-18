@@ -128,11 +128,18 @@ final class FileProgress {
     required this.downloaded,
     required this.total,
     this.localPath,
+    this.partialPath = '',
   });
   final int fileId;
   final int downloaded;
   final int total;
+
+  /// Set once the whole file is on disk.
   final String? localPath;
+
+  /// Where TDLib keeps the file while it downloads (bytes sit at their final offsets), or the
+  /// finished file. Empty before anything is written. TDLib moves the file when it completes.
+  final String partialPath;
   bool get isComplete => localPath != null && localPath!.isNotEmpty;
 }
 
