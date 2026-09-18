@@ -12,3 +12,4 @@ export 'src/tts_text.dart';
 export 'src/protocol.dart';
 export 'src/rule_engine.dart';
 export 'src/semantic_client.dart';
+export 'src/sync.dart';

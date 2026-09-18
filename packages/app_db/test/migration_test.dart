@@ -13,10 +13,10 @@ void main() {
 
   setUpAll(() => verifier = SchemaVerifier(GeneratedHelper()));
 
-  test('v1 to v3 adds the rules table and keeps data', () async {
+  test('v1 to v4 adds the rules table and keeps data', () async {
     final connection = await verifier.startAt(1);
     final db = AppDatabase(connection);
-    await verifier.migrateAndValidate(db, 3);
+    await verifier.migrateAndValidate(db, 4);
     // The upgraded database is usable.
     final feed = await db.createFeed('kept');
     await db.insertRule(
@@ -33,7 +33,7 @@ void main() {
     await db.close();
   });
 
-  test('v2 to v3 adds semantic_prompt and keeps rules', () async {
+  test('v2 to v4 adds semantic_prompt and keeps rules', () async {
     final schema = await verifier.schemaAt(2);
     schema.rawDatabase.execute(
       "INSERT INTO rules (name, enabled, scope_kind, condition_json, priority, "
@@ -41,7 +41,7 @@ void main() {
       "'normal', 0, 0)",
     );
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 3);
+    await verifier.migrateAndValidate(db, 4);
     final rule = (await db.allRules()).single;
     expect(rule.name, 'old');
     expect(rule.semanticPrompt, isNull);
@@ -52,10 +52,40 @@ void main() {
     await db.close();
   });
 
-  test('fresh v3 database matches the dump', () async {
-    final connection = await verifier.startAt(3);
+  test(
+    'v3 to v4 gives existing feeds and rules sync ids and edit times',
+    () async {
+      final schema = await verifier.schemaAt(3);
+      schema.rawDatabase
+        ..execute(
+          "INSERT INTO feeds (name, position, created_at) VALUES ('Old feed', 0, 1000)",
+        )
+        ..execute(
+          "INSERT INTO rules (name, enabled, scope_kind, condition_json, priority, "
+          "read_aloud, created_at) VALUES ('old', 1, 'global', '{}', 'normal', 0, 2000)",
+        )
+        ..execute(
+          "INSERT INTO settings (key, value) VALUES ('themeMode', 'dark')",
+        );
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 4);
+      final feed = (await db.allFeeds()).single;
+      final rule = (await db.allRules()).single;
+      expect(feed.syncId, hasLength(32));
+      expect(rule.syncId, hasLength(32));
+      expect(feed.syncId, isNot(rule.syncId));
+      expect(feed.updatedAt, feed.createdAt);
+      expect(rule.updatedAt, rule.createdAt);
+      expect(await db.setting('themeMode'), 'dark');
+      expect(await db.allTombstones(), isEmpty);
+      await db.close();
+    },
+  );
+
+  test('fresh v4 database matches the dump', () async {
+    final connection = await verifier.startAt(4);
     final db = AppDatabase(connection);
-    await verifier.migrateAndValidate(db, 3);
+    await verifier.migrateAndValidate(db, 4);
     await db.close();
   });
 }

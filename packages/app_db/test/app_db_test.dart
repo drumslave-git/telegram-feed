@@ -133,4 +133,154 @@ void main() {
     await sub.cancel();
     expect(names.last, ['A', 'B']);
   });
+
+  group('sync bookkeeping', () {
+    late AppDatabase sdb;
+    var now = DateTime(2026, 1, 1);
+
+    setUp(() {
+      now = DateTime(2026, 1, 1);
+      sdb = AppDatabase(NativeDatabase.memory(), clock: () => now);
+    });
+    tearDown(() => sdb.close());
+
+    test('edits stamp the feed; its sources count as part of it', () async {
+      final feed = await sdb.createFeed('F');
+      expect(feed.syncId, hasLength(32));
+      expect(feed.updatedAt, DateTime(2026, 1, 1));
+
+      now = DateTime(2026, 1, 2);
+      await sdb.addSource(feed.id, -1, title: 'One');
+      expect((await sdb.allFeeds()).single.updatedAt, DateTime(2026, 1, 2));
+
+      now = DateTime(2026, 1, 3);
+      await sdb.removeSource(feed.id, -1);
+      expect((await sdb.allFeeds()).single.updatedAt, DateTime(2026, 1, 3));
+
+      // Reordering stamps only feeds that moved.
+      final other = await sdb.createFeed('G');
+      now = DateTime(2026, 1, 4);
+      await sdb.reorderFeeds([feed.id, other.id]);
+      expect(
+        (await sdb.allFeeds()).map((f) => f.updatedAt),
+        everyElement(isNot(DateTime(2026, 1, 4))),
+      );
+      await sdb.reorderFeeds([other.id, feed.id]);
+      expect(
+        (await sdb.allFeeds()).map((f) => f.updatedAt),
+        everyElement(DateTime(2026, 1, 4)),
+      );
+    });
+
+    test(
+      'deleting a feed or rule leaves a tombstone; wipe leaves none',
+      () async {
+        final feed = await sdb.createFeed('F');
+        final rule = await sdb.insertRule(
+          RulesCompanion.insert(
+            name: 'r',
+            scopeKind: 'global',
+            conditionJson: '{"term":"x"}',
+            priority: 'normal',
+            createdAt: now,
+          ),
+        );
+        expect(rule.updatedAt, now);
+        now = DateTime(2026, 2, 1);
+        await sdb.setRuleEnabled(rule.id, false);
+        expect((await sdb.allRules()).single.updatedAt, now);
+        await sdb.deleteFeed(feed.id);
+        await sdb.deleteRule(rule.id);
+        final graves = await sdb.allTombstones();
+        expect(graves.map((t) => (t.kind, t.syncId)).toSet(), {
+          ('feed', feed.syncId),
+          ('rule', rule.syncId),
+        });
+        expect(graves.map((t) => t.deletedAt), everyElement(now));
+
+        await sdb.pruneTombstones(DateTime(2026, 3, 1));
+        expect(await sdb.allTombstones(), isEmpty);
+
+        final again = await sdb.createFeed('again');
+        await sdb.deleteFeed(again.id);
+        await sdb.wipe();
+        expect(await sdb.allTombstones(), isEmpty);
+      },
+    );
+
+    test(
+      'applying synced items creates, updates and deletes by sync id',
+      () async {
+        await sdb.applySyncedFeed(
+          syncId: 'feed-a',
+          name: 'Remote',
+          position: 0,
+          updatedAt: DateTime(2026, 5, 1),
+          sources: [
+            (chatId: -1, title: 'One', username: 'one'),
+            (chatId: -2, title: 'Two', username: null),
+          ],
+        );
+        var feed = (await sdb.allFeeds()).single;
+        expect(feed.name, 'Remote');
+        expect(feed.updatedAt, DateTime(2026, 5, 1));
+        expect((await sdb.sourcesOf(feed.id)).map((s) => s.chatId), [-1, -2]);
+        expect((await sdb.allWatched()).map((w) => w.title).toSet(), {
+          'One',
+          'Two',
+        });
+        await sdb.markRead(feed.id, -2, 50);
+
+        await sdb.applySyncedFeed(
+          syncId: 'feed-a',
+          name: 'Renamed',
+          position: 3,
+          updatedAt: DateTime(2026, 5, 2),
+          sources: [(chatId: -2, title: 'Two', username: null)],
+        );
+        feed = (await sdb.allFeeds()).single;
+        expect(feed.name, 'Renamed');
+        expect((await sdb.sourcesOf(feed.id)).map((s) => s.chatId), [-2]);
+        expect(await sdb.readMarks(feed.id), {-2: 50});
+        expect((await sdb.allWatched()).map((w) => w.chatId), [-2]);
+
+        await sdb.applySyncedRule(
+          RulesCompanion.insert(
+            name: 'remote rule',
+            scopeKind: 'global',
+            conditionJson: '{"term":"x"}',
+            priority: 'urgent',
+            createdAt: DateTime(2026, 5, 1),
+            syncId: const Value('rule-a'),
+            updatedAt: Value(DateTime(2026, 5, 1)),
+          ),
+        );
+        await sdb.applySyncedRule(
+          RulesCompanion.insert(
+            name: 'remote rule 2',
+            scopeKind: 'global',
+            conditionJson: '{"term":"y"}',
+            priority: 'silent',
+            createdAt: DateTime(2026, 5, 1),
+            syncId: const Value('rule-a'),
+            updatedAt: Value(DateTime(2026, 5, 3)),
+          ),
+        );
+        final rule = (await sdb.allRules()).single;
+        expect(rule.name, 'remote rule 2');
+        expect(rule.priority, 'silent');
+
+        await sdb.applySyncedDeletion('feed', 'feed-a', DateTime(2026, 6, 1));
+        await sdb.applySyncedDeletion('rule', 'rule-a', DateTime(2026, 6, 1));
+        expect(await sdb.allFeeds(), isEmpty);
+        expect(await sdb.allRules(), isEmpty);
+        expect(await sdb.allTombstones(), hasLength(2));
+
+        await sdb.applySyncedSetting('themeMode', 'dark', DateTime(2026, 6, 2));
+        final setting = (await sdb.allSettings()).single;
+        expect(setting.value, 'dark');
+        expect(setting.updatedAt, DateTime(2026, 6, 2));
+      },
+    );
+  });
 }

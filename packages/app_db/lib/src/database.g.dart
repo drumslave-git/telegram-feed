@@ -56,8 +56,36 @@ class $FeedsTable extends Feeds with TableInfo<$FeedsTable, Feed> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
   @override
-  List<GeneratedColumn> get $columns => [id, name, position, createdAt];
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+    'sync_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    clientDefault: newSyncId,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    position,
+    createdAt,
+    syncId,
+    updatedAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -97,6 +125,18 @@ class $FeedsTable extends Feeds with TableInfo<$FeedsTable, Feed> {
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('sync_id')) {
+      context.handle(
+        _syncIdMeta,
+        syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -122,6 +162,14 @@ class $FeedsTable extends Feeds with TableInfo<$FeedsTable, Feed> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      syncId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_id'],
+      ),
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
     );
   }
 
@@ -136,11 +184,18 @@ class Feed extends DataClass implements Insertable<Feed> {
   final String name;
   final int position;
   final DateTime createdAt;
+
+  /// Sync (ARCHITECTURE.md section 5.5): cross-device id and time of the last edit, which
+  /// covers the feed's name, position and list of sources.
+  final String? syncId;
+  final DateTime? updatedAt;
   const Feed({
     required this.id,
     required this.name,
     required this.position,
     required this.createdAt,
+    this.syncId,
+    this.updatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -149,6 +204,12 @@ class Feed extends DataClass implements Insertable<Feed> {
     map['name'] = Variable<String>(name);
     map['position'] = Variable<int>(position);
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || syncId != null) {
+      map['sync_id'] = Variable<String>(syncId);
+    }
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
     return map;
   }
 
@@ -158,6 +219,12 @@ class Feed extends DataClass implements Insertable<Feed> {
       name: Value(name),
       position: Value(position),
       createdAt: Value(createdAt),
+      syncId: syncId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncId),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -171,6 +238,8 @@ class Feed extends DataClass implements Insertable<Feed> {
       name: serializer.fromJson<String>(json['name']),
       position: serializer.fromJson<int>(json['position']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      syncId: serializer.fromJson<String?>(json['syncId']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -181,22 +250,34 @@ class Feed extends DataClass implements Insertable<Feed> {
       'name': serializer.toJson<String>(name),
       'position': serializer.toJson<int>(position),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'syncId': serializer.toJson<String?>(syncId),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
-  Feed copyWith({int? id, String? name, int? position, DateTime? createdAt}) =>
-      Feed(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        position: position ?? this.position,
-        createdAt: createdAt ?? this.createdAt,
-      );
+  Feed copyWith({
+    int? id,
+    String? name,
+    int? position,
+    DateTime? createdAt,
+    Value<String?> syncId = const Value.absent(),
+    Value<DateTime?> updatedAt = const Value.absent(),
+  }) => Feed(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    position: position ?? this.position,
+    createdAt: createdAt ?? this.createdAt,
+    syncId: syncId.present ? syncId.value : this.syncId,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+  );
   Feed copyWithCompanion(FeedsCompanion data) {
     return Feed(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       position: data.position.present ? data.position.value : this.position,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -206,13 +287,16 @@ class Feed extends DataClass implements Insertable<Feed> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('position: $position, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('syncId: $syncId, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, position, createdAt);
+  int get hashCode =>
+      Object.hash(id, name, position, createdAt, syncId, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -220,7 +304,9 @@ class Feed extends DataClass implements Insertable<Feed> {
           other.id == this.id &&
           other.name == this.name &&
           other.position == this.position &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.syncId == this.syncId &&
+          other.updatedAt == this.updatedAt);
 }
 
 class FeedsCompanion extends UpdateCompanion<Feed> {
@@ -228,17 +314,23 @@ class FeedsCompanion extends UpdateCompanion<Feed> {
   final Value<String> name;
   final Value<int> position;
   final Value<DateTime> createdAt;
+  final Value<String?> syncId;
+  final Value<DateTime?> updatedAt;
   const FeedsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.position = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.syncId = const Value.absent(),
+    this.updatedAt = const Value.absent(),
   });
   FeedsCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     required int position,
     required DateTime createdAt,
+    this.syncId = const Value.absent(),
+    this.updatedAt = const Value.absent(),
   }) : name = Value(name),
        position = Value(position),
        createdAt = Value(createdAt);
@@ -247,12 +339,16 @@ class FeedsCompanion extends UpdateCompanion<Feed> {
     Expression<String>? name,
     Expression<int>? position,
     Expression<DateTime>? createdAt,
+    Expression<String>? syncId,
+    Expression<DateTime>? updatedAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (position != null) 'position': position,
       if (createdAt != null) 'created_at': createdAt,
+      if (syncId != null) 'sync_id': syncId,
+      if (updatedAt != null) 'updated_at': updatedAt,
     });
   }
 
@@ -261,12 +357,16 @@ class FeedsCompanion extends UpdateCompanion<Feed> {
     Value<String>? name,
     Value<int>? position,
     Value<DateTime>? createdAt,
+    Value<String?>? syncId,
+    Value<DateTime?>? updatedAt,
   }) {
     return FeedsCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       position: position ?? this.position,
       createdAt: createdAt ?? this.createdAt,
+      syncId: syncId ?? this.syncId,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -285,6 +385,12 @@ class FeedsCompanion extends UpdateCompanion<Feed> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
     return map;
   }
 
@@ -294,7 +400,9 @@ class FeedsCompanion extends UpdateCompanion<Feed> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('position: $position, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('syncId: $syncId, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
@@ -1159,8 +1267,19 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
   @override
-  List<GeneratedColumn> get $columns => [key, value];
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [key, value, updatedAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1189,6 +1308,12 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     } else if (isInserting) {
       context.missing(_valueMeta);
     }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -1206,6 +1331,10 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.string,
         data['${effectivePrefix}value'],
       )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
     );
   }
 
@@ -1218,17 +1347,29 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
 class Setting extends DataClass implements Insertable<Setting> {
   final String key;
   final String value;
-  const Setting({required this.key, required this.value});
+
+  /// Sync: time of the last change.
+  final DateTime? updatedAt;
+  const Setting({required this.key, required this.value, this.updatedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['key'] = Variable<String>(key);
     map['value'] = Variable<String>(value);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
     return map;
   }
 
   SettingsCompanion toCompanion(bool nullToAbsent) {
-    return SettingsCompanion(key: Value(key), value: Value(value));
+    return SettingsCompanion(
+      key: Value(key),
+      value: Value(value),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+    );
   }
 
   factory Setting.fromJson(
@@ -1239,6 +1380,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     return Setting(
       key: serializer.fromJson<String>(json['key']),
       value: serializer.fromJson<String>(json['value']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -1247,15 +1389,24 @@ class Setting extends DataClass implements Insertable<Setting> {
     return <String, dynamic>{
       'key': serializer.toJson<String>(key),
       'value': serializer.toJson<String>(value),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
-  Setting copyWith({String? key, String? value}) =>
-      Setting(key: key ?? this.key, value: value ?? this.value);
+  Setting copyWith({
+    String? key,
+    String? value,
+    Value<DateTime?> updatedAt = const Value.absent(),
+  }) => Setting(
+    key: key ?? this.key,
+    value: value ?? this.value,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+  );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
       key: data.key.present ? data.key.value : this.key,
       value: data.value.present ? data.value.value : this.value,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -1263,42 +1414,51 @@ class Setting extends DataClass implements Insertable<Setting> {
   String toString() {
     return (StringBuffer('Setting(')
           ..write('key: $key, ')
-          ..write('value: $value')
+          ..write('value: $value, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(key, value);
+  int get hashCode => Object.hash(key, value, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is Setting && other.key == this.key && other.value == this.value);
+      (other is Setting &&
+          other.key == this.key &&
+          other.value == this.value &&
+          other.updatedAt == this.updatedAt);
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<String> key;
   final Value<String> value;
+  final Value<DateTime?> updatedAt;
   final Value<int> rowid;
   const SettingsCompanion({
     this.key = const Value.absent(),
     this.value = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SettingsCompanion.insert({
     required String key,
     required String value,
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : key = Value(key),
        value = Value(value);
   static Insertable<Setting> custom({
     Expression<String>? key,
     Expression<String>? value,
+    Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (key != null) 'key': key,
       if (value != null) 'value': value,
+      if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1306,11 +1466,13 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   SettingsCompanion copyWith({
     Value<String>? key,
     Value<String>? value,
+    Value<DateTime?>? updatedAt,
     Value<int>? rowid,
   }) {
     return SettingsCompanion(
       key: key ?? this.key,
       value: value ?? this.value,
+      updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1324,6 +1486,9 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (value.present) {
       map['value'] = Variable<String>(value.value);
     }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1335,6 +1500,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     return (StringBuffer('SettingsCompanion(')
           ..write('key: $key, ')
           ..write('value: $value, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1479,6 +1645,27 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
+  @override
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+    'sync_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    clientDefault: newSyncId,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1492,6 +1679,8 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
     scheduleJson,
     createdAt,
     semanticPrompt,
+    syncId,
+    updatedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1590,6 +1779,18 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
         ),
       );
     }
+    if (data.containsKey('sync_id')) {
+      context.handle(
+        _syncIdMeta,
+        syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -1643,6 +1844,14 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
         DriftSqlType.string,
         data['${effectivePrefix}semantic_prompt'],
       ),
+      syncId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_id'],
+      ),
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
     );
   }
 
@@ -1671,6 +1880,10 @@ class Rule extends DataClass implements Insertable<Rule> {
   /// AI semantic rule (section 6.4): what the post should be about, in the user's words.
   /// Null for plain keyword rules. `condition_json` is then the optional keyword pre-filter.
   final String? semanticPrompt;
+
+  /// Sync: cross-device id and time of the last edit.
+  final String? syncId;
+  final DateTime? updatedAt;
   const Rule({
     required this.id,
     required this.name,
@@ -1683,6 +1896,8 @@ class Rule extends DataClass implements Insertable<Rule> {
     this.scheduleJson,
     required this.createdAt,
     this.semanticPrompt,
+    this.syncId,
+    this.updatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1703,6 +1918,12 @@ class Rule extends DataClass implements Insertable<Rule> {
     map['created_at'] = Variable<DateTime>(createdAt);
     if (!nullToAbsent || semanticPrompt != null) {
       map['semantic_prompt'] = Variable<String>(semanticPrompt);
+    }
+    if (!nullToAbsent || syncId != null) {
+      map['sync_id'] = Variable<String>(syncId);
+    }
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
     }
     return map;
   }
@@ -1726,6 +1947,12 @@ class Rule extends DataClass implements Insertable<Rule> {
       semanticPrompt: semanticPrompt == null && nullToAbsent
           ? const Value.absent()
           : Value(semanticPrompt),
+      syncId: syncId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncId),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -1746,6 +1973,8 @@ class Rule extends DataClass implements Insertable<Rule> {
       scheduleJson: serializer.fromJson<String?>(json['scheduleJson']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       semanticPrompt: serializer.fromJson<String?>(json['semanticPrompt']),
+      syncId: serializer.fromJson<String?>(json['syncId']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -1763,6 +1992,8 @@ class Rule extends DataClass implements Insertable<Rule> {
       'scheduleJson': serializer.toJson<String?>(scheduleJson),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'semanticPrompt': serializer.toJson<String?>(semanticPrompt),
+      'syncId': serializer.toJson<String?>(syncId),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
@@ -1778,6 +2009,8 @@ class Rule extends DataClass implements Insertable<Rule> {
     Value<String?> scheduleJson = const Value.absent(),
     DateTime? createdAt,
     Value<String?> semanticPrompt = const Value.absent(),
+    Value<String?> syncId = const Value.absent(),
+    Value<DateTime?> updatedAt = const Value.absent(),
   }) => Rule(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -1792,6 +2025,8 @@ class Rule extends DataClass implements Insertable<Rule> {
     semanticPrompt: semanticPrompt.present
         ? semanticPrompt.value
         : this.semanticPrompt,
+    syncId: syncId.present ? syncId.value : this.syncId,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
   );
   Rule copyWithCompanion(RulesCompanion data) {
     return Rule(
@@ -1814,6 +2049,8 @@ class Rule extends DataClass implements Insertable<Rule> {
       semanticPrompt: data.semanticPrompt.present
           ? data.semanticPrompt.value
           : this.semanticPrompt,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -1830,7 +2067,9 @@ class Rule extends DataClass implements Insertable<Rule> {
           ..write('readAloud: $readAloud, ')
           ..write('scheduleJson: $scheduleJson, ')
           ..write('createdAt: $createdAt, ')
-          ..write('semanticPrompt: $semanticPrompt')
+          ..write('semanticPrompt: $semanticPrompt, ')
+          ..write('syncId: $syncId, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
@@ -1848,6 +2087,8 @@ class Rule extends DataClass implements Insertable<Rule> {
     scheduleJson,
     createdAt,
     semanticPrompt,
+    syncId,
+    updatedAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -1863,7 +2104,9 @@ class Rule extends DataClass implements Insertable<Rule> {
           other.readAloud == this.readAloud &&
           other.scheduleJson == this.scheduleJson &&
           other.createdAt == this.createdAt &&
-          other.semanticPrompt == this.semanticPrompt);
+          other.semanticPrompt == this.semanticPrompt &&
+          other.syncId == this.syncId &&
+          other.updatedAt == this.updatedAt);
 }
 
 class RulesCompanion extends UpdateCompanion<Rule> {
@@ -1878,6 +2121,8 @@ class RulesCompanion extends UpdateCompanion<Rule> {
   final Value<String?> scheduleJson;
   final Value<DateTime> createdAt;
   final Value<String?> semanticPrompt;
+  final Value<String?> syncId;
+  final Value<DateTime?> updatedAt;
   const RulesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -1890,6 +2135,8 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     this.scheduleJson = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.semanticPrompt = const Value.absent(),
+    this.syncId = const Value.absent(),
+    this.updatedAt = const Value.absent(),
   });
   RulesCompanion.insert({
     this.id = const Value.absent(),
@@ -1903,6 +2150,8 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     this.scheduleJson = const Value.absent(),
     required DateTime createdAt,
     this.semanticPrompt = const Value.absent(),
+    this.syncId = const Value.absent(),
+    this.updatedAt = const Value.absent(),
   }) : name = Value(name),
        scopeKind = Value(scopeKind),
        conditionJson = Value(conditionJson),
@@ -1920,6 +2169,8 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     Expression<String>? scheduleJson,
     Expression<DateTime>? createdAt,
     Expression<String>? semanticPrompt,
+    Expression<String>? syncId,
+    Expression<DateTime>? updatedAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1933,6 +2184,8 @@ class RulesCompanion extends UpdateCompanion<Rule> {
       if (scheduleJson != null) 'schedule_json': scheduleJson,
       if (createdAt != null) 'created_at': createdAt,
       if (semanticPrompt != null) 'semantic_prompt': semanticPrompt,
+      if (syncId != null) 'sync_id': syncId,
+      if (updatedAt != null) 'updated_at': updatedAt,
     });
   }
 
@@ -1948,6 +2201,8 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     Value<String?>? scheduleJson,
     Value<DateTime>? createdAt,
     Value<String?>? semanticPrompt,
+    Value<String?>? syncId,
+    Value<DateTime?>? updatedAt,
   }) {
     return RulesCompanion(
       id: id ?? this.id,
@@ -1961,6 +2216,8 @@ class RulesCompanion extends UpdateCompanion<Rule> {
       scheduleJson: scheduleJson ?? this.scheduleJson,
       createdAt: createdAt ?? this.createdAt,
       semanticPrompt: semanticPrompt ?? this.semanticPrompt,
+      syncId: syncId ?? this.syncId,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -2000,6 +2257,12 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     if (semanticPrompt.present) {
       map['semantic_prompt'] = Variable<String>(semanticPrompt.value);
     }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
     return map;
   }
 
@@ -2016,7 +2279,272 @@ class RulesCompanion extends UpdateCompanion<Rule> {
           ..write('readAloud: $readAloud, ')
           ..write('scheduleJson: $scheduleJson, ')
           ..write('createdAt: $createdAt, ')
-          ..write('semanticPrompt: $semanticPrompt')
+          ..write('semanticPrompt: $semanticPrompt, ')
+          ..write('syncId: $syncId, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncTombstonesTable extends SyncTombstones
+    with TableInfo<$SyncTombstonesTable, SyncTombstone> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncTombstonesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
+  @override
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+    'sync_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [kind, syncId, deletedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_tombstones';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncTombstone> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('sync_id')) {
+      context.handle(
+        _syncIdMeta,
+        syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_syncIdMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deletedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {kind, syncId};
+  @override
+  SyncTombstone map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncTombstone(
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      syncId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_id'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncTombstonesTable createAlias(String alias) {
+    return $SyncTombstonesTable(attachedDatabase, alias);
+  }
+}
+
+class SyncTombstone extends DataClass implements Insertable<SyncTombstone> {
+  /// 'feed' or 'rule'.
+  final String kind;
+  final String syncId;
+  final DateTime deletedAt;
+  const SyncTombstone({
+    required this.kind,
+    required this.syncId,
+    required this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['kind'] = Variable<String>(kind);
+    map['sync_id'] = Variable<String>(syncId);
+    map['deleted_at'] = Variable<DateTime>(deletedAt);
+    return map;
+  }
+
+  SyncTombstonesCompanion toCompanion(bool nullToAbsent) {
+    return SyncTombstonesCompanion(
+      kind: Value(kind),
+      syncId: Value(syncId),
+      deletedAt: Value(deletedAt),
+    );
+  }
+
+  factory SyncTombstone.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncTombstone(
+      kind: serializer.fromJson<String>(json['kind']),
+      syncId: serializer.fromJson<String>(json['syncId']),
+      deletedAt: serializer.fromJson<DateTime>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'kind': serializer.toJson<String>(kind),
+      'syncId': serializer.toJson<String>(syncId),
+      'deletedAt': serializer.toJson<DateTime>(deletedAt),
+    };
+  }
+
+  SyncTombstone copyWith({String? kind, String? syncId, DateTime? deletedAt}) =>
+      SyncTombstone(
+        kind: kind ?? this.kind,
+        syncId: syncId ?? this.syncId,
+        deletedAt: deletedAt ?? this.deletedAt,
+      );
+  SyncTombstone copyWithCompanion(SyncTombstonesCompanion data) {
+    return SyncTombstone(
+      kind: data.kind.present ? data.kind.value : this.kind,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncTombstone(')
+          ..write('kind: $kind, ')
+          ..write('syncId: $syncId, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(kind, syncId, deletedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncTombstone &&
+          other.kind == this.kind &&
+          other.syncId == this.syncId &&
+          other.deletedAt == this.deletedAt);
+}
+
+class SyncTombstonesCompanion extends UpdateCompanion<SyncTombstone> {
+  final Value<String> kind;
+  final Value<String> syncId;
+  final Value<DateTime> deletedAt;
+  final Value<int> rowid;
+  const SyncTombstonesCompanion({
+    this.kind = const Value.absent(),
+    this.syncId = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncTombstonesCompanion.insert({
+    required String kind,
+    required String syncId,
+    required DateTime deletedAt,
+    this.rowid = const Value.absent(),
+  }) : kind = Value(kind),
+       syncId = Value(syncId),
+       deletedAt = Value(deletedAt);
+  static Insertable<SyncTombstone> custom({
+    Expression<String>? kind,
+    Expression<String>? syncId,
+    Expression<DateTime>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (kind != null) 'kind': kind,
+      if (syncId != null) 'sync_id': syncId,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncTombstonesCompanion copyWith({
+    Value<String>? kind,
+    Value<String>? syncId,
+    Value<DateTime>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return SyncTombstonesCompanion(
+      kind: kind ?? this.kind,
+      syncId: syncId ?? this.syncId,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncTombstonesCompanion(')
+          ..write('kind: $kind, ')
+          ..write('syncId: $syncId, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -2033,6 +2561,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $SettingsTable settings = $SettingsTable(this);
   late final $RulesTable rules = $RulesTable(this);
+  late final $SyncTombstonesTable syncTombstones = $SyncTombstonesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2044,6 +2573,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     watchedChannels,
     settings,
     rules,
+    syncTombstones,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -2069,12 +2599,16 @@ typedef $$FeedsTableCreateCompanionBuilder = FeedsCompanion Function({
   required String name,
   required int position,
   required DateTime createdAt,
+  Value<String?> syncId,
+  Value<DateTime?> updatedAt,
 });
 typedef $$FeedsTableUpdateCompanionBuilder = FeedsCompanion Function({
   Value<int> id,
   Value<String> name,
   Value<int> position,
   Value<DateTime> createdAt,
+  Value<String?> syncId,
+  Value<DateTime?> updatedAt,
 });
 
 final class $$FeedsTableReferences
@@ -2143,6 +2677,16 @@ class $$FeedsTableFilterComposer extends Composer<_$AppDatabase, $FeedsTable> {
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+    column: $table.syncId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2225,6 +2769,16 @@ class $$FeedsTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get syncId => $composableBuilder(
+    column: $table.syncId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FeedsTableAnnotationComposer
@@ -2247,6 +2801,12 @@ class $$FeedsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
   Expression<T> feedSourcesRefs<T extends Object>(
     Expression<T> Function($$FeedSourcesTableAnnotationComposer a) f,
@@ -2331,11 +2891,15 @@ class $$FeedsTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<int> position = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String?> syncId = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
               }) => FeedsCompanion(
                 id: id,
                 name: name,
                 position: position,
                 createdAt: createdAt,
+                syncId: syncId,
+                updatedAt: updatedAt,
               ),
           createCompanionCallback:
               ({
@@ -2343,11 +2907,15 @@ class $$FeedsTableTableManager
                 required String name,
                 required int position,
                 required DateTime createdAt,
+                Value<String?> syncId = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
               }) => FeedsCompanion.insert(
                 id: id,
                 name: name,
                 position: position,
                 createdAt: createdAt,
+                syncId: syncId,
+                updatedAt: updatedAt,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -3185,11 +3753,13 @@ typedef $$WatchedChannelsTableProcessedTableManager =
 typedef $$SettingsTableCreateCompanionBuilder = SettingsCompanion Function({
   required String key,
   required String value,
+  Value<DateTime?> updatedAt,
   Value<int> rowid,
 });
 typedef $$SettingsTableUpdateCompanionBuilder = SettingsCompanion Function({
   Value<String> key,
   Value<String> value,
+  Value<DateTime?> updatedAt,
   Value<int> rowid,
 });
 
@@ -3209,6 +3779,11 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<String> get value => $composableBuilder(
     column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3231,6 +3806,11 @@ class $$SettingsTableOrderingComposer
     column: $table.value,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SettingsTableAnnotationComposer
@@ -3247,6 +3827,9 @@ class $$SettingsTableAnnotationComposer
 
   GeneratedColumn<String> get value =>
       $composableBuilder(column: $table.value, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 }
 
 class $$SettingsTableTableManager
@@ -3275,16 +3858,30 @@ class $$SettingsTableTableManager
               $$SettingsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
               $$SettingsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback: ({
-            Value<String> key = const Value.absent(),
-            Value<String> value = const Value.absent(),
-            Value<int> rowid = const Value.absent(),
-          }) => SettingsCompanion(key: key, value: value, rowid: rowid),
-          createCompanionCallback: ({
-            required String key,
-            required String value,
-            Value<int> rowid = const Value.absent(),
-          }) => SettingsCompanion.insert(key: key, value: value, rowid: rowid),
+          updateCompanionCallback:
+              ({
+                Value<String> key = const Value.absent(),
+                Value<String> value = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SettingsCompanion(
+                key: key,
+                value: value,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String key,
+                required String value,
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SettingsCompanion.insert(
+                key: key,
+                value: value,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
@@ -3328,6 +3925,8 @@ typedef $$RulesTableCreateCompanionBuilder = RulesCompanion Function({
   Value<String?> scheduleJson,
   required DateTime createdAt,
   Value<String?> semanticPrompt,
+  Value<String?> syncId,
+  Value<DateTime?> updatedAt,
 });
 typedef $$RulesTableUpdateCompanionBuilder = RulesCompanion Function({
   Value<int> id,
@@ -3341,6 +3940,8 @@ typedef $$RulesTableUpdateCompanionBuilder = RulesCompanion Function({
   Value<String?> scheduleJson,
   Value<DateTime> createdAt,
   Value<String?> semanticPrompt,
+  Value<String?> syncId,
+  Value<DateTime?> updatedAt,
 });
 
 class $$RulesTableFilterComposer extends Composer<_$AppDatabase, $RulesTable> {
@@ -3403,6 +4004,16 @@ class $$RulesTableFilterComposer extends Composer<_$AppDatabase, $RulesTable> {
 
   ColumnFilters<String> get semanticPrompt => $composableBuilder(
     column: $table.semanticPrompt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+    column: $table.syncId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3470,6 +4081,16 @@ class $$RulesTableOrderingComposer
     column: $table.semanticPrompt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get syncId => $composableBuilder(
+    column: $table.syncId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$RulesTableAnnotationComposer
@@ -3521,6 +4142,12 @@ class $$RulesTableAnnotationComposer
     column: $table.semanticPrompt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 }
 
 class $$RulesTableTableManager
@@ -3562,6 +4189,8 @@ class $$RulesTableTableManager
                 Value<String?> scheduleJson = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<String?> semanticPrompt = const Value.absent(),
+                Value<String?> syncId = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
               }) => RulesCompanion(
                 id: id,
                 name: name,
@@ -3574,6 +4203,8 @@ class $$RulesTableTableManager
                 scheduleJson: scheduleJson,
                 createdAt: createdAt,
                 semanticPrompt: semanticPrompt,
+                syncId: syncId,
+                updatedAt: updatedAt,
               ),
           createCompanionCallback:
               ({
@@ -3588,6 +4219,8 @@ class $$RulesTableTableManager
                 Value<String?> scheduleJson = const Value.absent(),
                 required DateTime createdAt,
                 Value<String?> semanticPrompt = const Value.absent(),
+                Value<String?> syncId = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
               }) => RulesCompanion.insert(
                 id: id,
                 name: name,
@@ -3600,6 +4233,8 @@ class $$RulesTableTableManager
                 scheduleJson: scheduleJson,
                 createdAt: createdAt,
                 semanticPrompt: semanticPrompt,
+                syncId: syncId,
+                updatedAt: updatedAt,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -3632,6 +4267,179 @@ typedef $$RulesTableProcessedTableManager =
       Rule,
       PrefetchHooks Function()
     >;
+typedef $$SyncTombstonesTableCreateCompanionBuilder =
+    SyncTombstonesCompanion Function({
+      required String kind,
+      required String syncId,
+      required DateTime deletedAt,
+      Value<int> rowid,
+    });
+typedef $$SyncTombstonesTableUpdateCompanionBuilder =
+    SyncTombstonesCompanion Function({
+      Value<String> kind,
+      Value<String> syncId,
+      Value<DateTime> deletedAt,
+      Value<int> rowid,
+    });
+
+class $$SyncTombstonesTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncTombstonesTable> {
+  $$SyncTombstonesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+    column: $table.syncId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncTombstonesTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncTombstonesTable> {
+  $$SyncTombstonesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncId => $composableBuilder(
+    column: $table.syncId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncTombstonesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncTombstonesTable> {
+  $$SyncTombstonesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $$SyncTombstonesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncTombstonesTable,
+          SyncTombstone,
+          $$SyncTombstonesTableFilterComposer,
+          $$SyncTombstonesTableOrderingComposer,
+          $$SyncTombstonesTableAnnotationComposer,
+          $$SyncTombstonesTableCreateCompanionBuilder,
+          $$SyncTombstonesTableUpdateCompanionBuilder,
+          (
+            SyncTombstone,
+            BaseReferences<_$AppDatabase, $SyncTombstonesTable, SyncTombstone>,
+          ),
+          SyncTombstone,
+          PrefetchHooks Function()
+        > {
+  $$SyncTombstonesTableTableManager(
+    _$AppDatabase db,
+    $SyncTombstonesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncTombstonesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncTombstonesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncTombstonesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> kind = const Value.absent(),
+                Value<String> syncId = const Value.absent(),
+                Value<DateTime> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncTombstonesCompanion(
+                kind: kind,
+                syncId: syncId,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String kind,
+                required String syncId,
+                required DateTime deletedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => SyncTombstonesCompanion.insert(
+                kind: kind,
+                syncId: syncId,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SyncTombstonesTable, SyncTombstone>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $SyncTombstonesTable,
+                    SyncTombstone
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncTombstonesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncTombstonesTable,
+      SyncTombstone,
+      $$SyncTombstonesTableFilterComposer,
+      $$SyncTombstonesTableOrderingComposer,
+      $$SyncTombstonesTableAnnotationComposer,
+      $$SyncTombstonesTableCreateCompanionBuilder,
+      $$SyncTombstonesTableUpdateCompanionBuilder,
+      (
+        SyncTombstone,
+        BaseReferences<_$AppDatabase, $SyncTombstonesTable, SyncTombstone>,
+      ),
+      SyncTombstone,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3648,4 +4456,6 @@ class $AppDatabaseManager {
       $$SettingsTableTableManager(_db, _db.settings);
   $$RulesTableTableManager get rules =>
       $$RulesTableTableManager(_db, _db.rules);
+  $$SyncTombstonesTableTableManager get syncTombstones =>
+      $$SyncTombstonesTableTableManager(_db, _db.syncTombstones);
 }

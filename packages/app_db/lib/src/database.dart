@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:drift/drift.dart';
 
 part 'database.g.dart';
@@ -5,11 +7,25 @@ part 'database.g.dart';
 // Schema per ARCHITECTURE.md section 5.1. TDLib owns messages and files; this database only
 // holds what the app adds on top: feeds, their sources, read marks and settings.
 
+/// Random id that names a feed or rule on every device (local row ids differ per device).
+String newSyncId() {
+  final r = Random.secure();
+  return [
+    for (var i = 0; i < 16; i++)
+      r.nextInt(256).toRadixString(16).padLeft(2, '0'),
+  ].join();
+}
+
 class Feeds extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 100)();
   IntColumn get position => integer()();
   DateTimeColumn get createdAt => dateTime()();
+
+  /// Sync (ARCHITECTURE.md section 5.5): cross-device id and time of the last edit, which
+  /// covers the feed's name, position and list of sources.
+  TextColumn get syncId => text().nullable().clientDefault(newSyncId)();
+  DateTimeColumn get updatedAt => dateTime().nullable()();
 }
 
 class FeedSources extends Table {
@@ -65,14 +81,32 @@ class Rules extends Table {
   /// AI semantic rule (section 6.4): what the post should be about, in the user's words.
   /// Null for plain keyword rules. `condition_json` is then the optional keyword pre-filter.
   TextColumn get semanticPrompt => text().nullable()();
+
+  /// Sync: cross-device id and time of the last edit.
+  TextColumn get syncId => text().nullable().clientDefault(newSyncId)();
+  DateTimeColumn get updatedAt => dateTime().nullable()();
 }
 
 class Settings extends Table {
   TextColumn get key => text()();
   TextColumn get value => text()();
 
+  /// Sync: time of the last change.
+  DateTimeColumn get updatedAt => dateTime().nullable()();
+
   @override
   Set<Column> get primaryKey => {key};
+}
+
+/// Feeds and rules deleted on this or another device, so a sync does not resurrect them.
+class SyncTombstones extends Table {
+  /// 'feed' or 'rule'.
+  TextColumn get kind => text()();
+  TextColumn get syncId => text()();
+  DateTimeColumn get deletedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {kind, syncId};
 }
 
 /// A feed with its ordered sources, as screens need it.
@@ -90,13 +124,25 @@ abstract final class SettingKeys {
 }
 
 @DriftDatabase(
-  tables: [Feeds, FeedSources, FeedReadMarks, WatchedChannels, Settings, Rules],
+  tables: [
+    Feeds,
+    FeedSources,
+    FeedReadMarks,
+    WatchedChannels,
+    Settings,
+    Rules,
+    SyncTombstones,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase(super.executor);
+  AppDatabase(super.executor, {DateTime Function()? clock})
+    : _clock = clock ?? DateTime.now;
+
+  /// Stamps `updated_at`; injectable so sync tests control time.
+  final DateTime Function() _clock;
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -104,8 +150,27 @@ class AppDatabase extends _$AppDatabase {
     onUpgrade: (m, from, to) async {
       if (from < 2) {
         await m.createTable(rules); // already has every later column
-      } else if (from < 3) {
-        await m.addColumn(rules, rules.semanticPrompt);
+      } else {
+        if (from < 3) await m.addColumn(rules, rules.semanticPrompt);
+        if (from < 4) {
+          await m.addColumn(rules, rules.syncId);
+          await m.addColumn(rules, rules.updatedAt);
+        }
+      }
+      if (from < 4) {
+        await m.addColumn(feeds, feeds.syncId);
+        await m.addColumn(feeds, feeds.updatedAt);
+        await m.addColumn(settings, settings.updatedAt);
+        await m.createTable(syncTombstones);
+        // Existing rows get an id now; their edit time is their creation time.
+        await customStatement(
+          'UPDATE feeds SET sync_id = lower(hex(randomblob(16))), updated_at = created_at '
+          'WHERE sync_id IS NULL',
+        );
+        await customStatement(
+          'UPDATE rules SET sync_id = lower(hex(randomblob(16))), updated_at = created_at '
+          'WHERE sync_id IS NULL',
+        );
       }
     },
     beforeOpen: (details) async {
@@ -121,18 +186,26 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<Rule>> watchRules() =>
       (select(rules)..orderBy([(r) => OrderingTerm.asc(r.createdAt)])).watch();
 
-  Future<Rule> insertRule(RulesCompanion rule) =>
-      into(rules).insertReturning(rule);
+  Future<Rule> insertRule(RulesCompanion rule) => into(rules).insertReturning(
+    rule.updatedAt.present ? rule : rule.copyWith(updatedAt: Value(_clock())),
+  );
 
-  Future<void> updateRule(Rule rule) => update(rules).replace(rule);
+  Future<void> updateRule(Rule rule) =>
+      update(rules).replace(rule.copyWith(updatedAt: Value(_clock())));
 
   Future<void> setRuleEnabled(int id, bool enabled) =>
       (update(rules)..where((r) => r.id.equals(id))).write(
-        RulesCompanion(enabled: Value(enabled)),
+        RulesCompanion(enabled: Value(enabled), updatedAt: Value(_clock())),
       );
 
-  Future<void> deleteRule(int id) =>
-      (delete(rules)..where((r) => r.id.equals(id))).go();
+  Future<void> deleteRule(int id) => transaction(() async {
+    final row = await (select(
+      rules,
+    )..where((r) => r.id.equals(id))).getSingleOrNull();
+    if (row == null) return;
+    await (delete(rules)..where((r) => r.id.equals(id))).go();
+    await _bury('rule', row.syncId);
+  });
 
   // ---- feeds ----
 
@@ -151,30 +224,55 @@ class AppDatabase extends _$AppDatabase {
           FeedsCompanion.insert(
             name: name,
             position: max + 1,
-            createdAt: now ?? DateTime.now(),
+            createdAt: now ?? _clock(),
+            updatedAt: Value(now ?? _clock()),
           ),
         );
       });
 
   Future<void> renameFeed(int feedId, String name) =>
       (update(feeds)..where((f) => f.id.equals(feedId))).write(
-        FeedsCompanion(name: Value(name)),
+        FeedsCompanion(name: Value(name), updatedAt: Value(_clock())),
       );
 
   /// Rewrites positions so [orderedFeedIds] becomes the feed order.
   Future<void> reorderFeeds(List<int> orderedFeedIds) => transaction(() async {
+    final now = _clock();
     for (var i = 0; i < orderedFeedIds.length; i++) {
-      await (update(feeds)..where((f) => f.id.equals(orderedFeedIds[i]))).write(
-        FeedsCompanion(position: Value(i)),
-      );
+      // Only feeds that really moved count as edited.
+      await (update(feeds)..where(
+            (f) => f.id.equals(orderedFeedIds[i]) & f.position.equals(i).not(),
+          ))
+          .write(FeedsCompanion(position: Value(i), updatedAt: Value(now)));
     }
   });
 
   /// Deletes the feed, its sources and read marks (cascade), then prunes watched channels.
   Future<void> deleteFeed(int feedId) => transaction(() async {
+    final row = await (select(
+      feeds,
+    )..where((f) => f.id.equals(feedId))).getSingleOrNull();
     await (delete(feeds)..where((f) => f.id.equals(feedId))).go();
     await _pruneWatched();
+    await _bury('feed', row?.syncId);
   });
+
+  /// A feed's sources are part of the feed for sync: changing them edits the feed.
+  Future<void> _touchFeed(int feedId) =>
+      (update(feeds)..where((f) => f.id.equals(feedId))).write(
+        FeedsCompanion(updatedAt: Value(_clock())),
+      );
+
+  Future<void> _bury(String kind, String? syncId) async {
+    if (syncId == null) return;
+    await into(syncTombstones).insertOnConflictUpdate(
+      SyncTombstonesCompanion.insert(
+        kind: kind,
+        syncId: syncId,
+        deletedAt: _clock(),
+      ),
+    );
+  }
 
   /// Feeds that contain [chatId] as a source, in feed order (notification tap target).
   Future<List<Feed>> feedsContaining(int chatId) async {
@@ -251,9 +349,10 @@ class AppDatabase extends _$AppDatabase {
           feedId: feedId,
           chatId: chatId,
           position: max + 1,
-          addedAt: now ?? DateTime.now(),
+          addedAt: now ?? _clock(),
         ),
       );
+      await _touchFeed(feedId);
     }
     await into(watchedChannels).insertOnConflictUpdate(
       WatchedChannelsCompanion.insert(
@@ -272,6 +371,7 @@ class AppDatabase extends _$AppDatabase {
       feedReadMarks,
     )..where((r) => r.feedId.equals(feedId) & r.chatId.equals(chatId))).go();
     await _pruneWatched();
+    await _touchFeed(feedId);
   });
 
   Future<void> reorderSources(int feedId, List<int> orderedChatIds) =>
@@ -284,6 +384,7 @@ class AppDatabase extends _$AppDatabase {
               ))
               .write(FeedSourcesCompanion(position: Value(i)));
         }
+        await _touchFeed(feedId);
       });
 
   // ---- read marks ----
@@ -357,7 +458,134 @@ class AppDatabase extends _$AppDatabase {
       (delete(settings)..where((s) => s.key.equals(key))).go();
 
   Future<void> setSetting(String key, String value) => into(settings)
-      .insertOnConflictUpdate(SettingsCompanion.insert(key: key, value: value));
+      .insertOnConflictUpdate(
+        SettingsCompanion.insert(
+          key: key,
+          value: value,
+          updatedAt: Value(_clock()),
+        ),
+      );
+
+  // ---- sync (ARCHITECTURE.md section 5.5); the merge itself lives in package core ----
+
+  Future<List<Setting>> allSettings() => select(settings).get();
+
+  Future<List<SyncTombstone>> allTombstones() => select(syncTombstones).get();
+
+  Stream<void> watchSyncedData() => customSelect(
+    'SELECT 1',
+    readsFrom: {feeds, feedSources, rules, settings},
+  ).watch().map((_) {});
+
+  /// Writes a feed as another device saved it. Its source list is replaced; read marks of
+  /// sources that stay are kept.
+  Future<void> applySyncedFeed({
+    required String syncId,
+    required String name,
+    required int position,
+    required DateTime updatedAt,
+    required List<({int chatId, String title, String? username})> sources,
+  }) => transaction(() async {
+    final existing = await (select(
+      feeds,
+    )..where((f) => f.syncId.equals(syncId))).getSingleOrNull();
+    final int feedId;
+    if (existing == null) {
+      feedId = await into(feeds).insert(
+        FeedsCompanion.insert(
+          name: name,
+          position: position,
+          createdAt: updatedAt,
+          syncId: Value(syncId),
+          updatedAt: Value(updatedAt),
+        ),
+      );
+    } else {
+      feedId = existing.id;
+      await (update(feeds)..where((f) => f.id.equals(feedId))).write(
+        FeedsCompanion(
+          name: Value(name),
+          position: Value(position),
+          updatedAt: Value(updatedAt),
+        ),
+      );
+    }
+    final keep = {for (final s in sources) s.chatId};
+    await (delete(
+      feedSources,
+    )..where((s) => s.feedId.equals(feedId) & s.chatId.isNotIn(keep))).go();
+    await (delete(
+      feedReadMarks,
+    )..where((r) => r.feedId.equals(feedId) & r.chatId.isNotIn(keep))).go();
+    for (var i = 0; i < sources.length; i++) {
+      final src = sources[i];
+      await into(feedSources).insertOnConflictUpdate(
+        FeedSourcesCompanion.insert(
+          feedId: feedId,
+          chatId: src.chatId,
+          position: i,
+          addedAt: updatedAt,
+        ),
+      );
+      await into(watchedChannels).insertOnConflictUpdate(
+        WatchedChannelsCompanion.insert(
+          chatId: Value(src.chatId),
+          title: src.title,
+          username: Value.absentIfNull(src.username),
+        ),
+      );
+    }
+    await _pruneWatched();
+  });
+
+  /// Writes a rule as another device saved it ([rule] carries `syncId` and `updatedAt`).
+  Future<void> applySyncedRule(RulesCompanion rule) => transaction(() async {
+    final existing = await (select(
+      rules,
+    )..where((r) => r.syncId.equals(rule.syncId.value!))).getSingleOrNull();
+    if (existing == null) {
+      await into(rules).insert(rule);
+    } else {
+      await (update(rules)..where((r) => r.id.equals(existing.id))).write(rule);
+    }
+  });
+
+  /// Removes what another device deleted and remembers the deletion.
+  Future<void> applySyncedDeletion(
+    String kind,
+    String syncId,
+    DateTime deletedAt,
+  ) => transaction(() async {
+    if (kind == 'feed') {
+      await (delete(feeds)..where((f) => f.syncId.equals(syncId))).go();
+      await _pruneWatched();
+    } else if (kind == 'rule') {
+      await (delete(rules)..where((r) => r.syncId.equals(syncId))).go();
+    }
+    await into(syncTombstones).insertOnConflictUpdate(
+      SyncTombstonesCompanion.insert(
+        kind: kind,
+        syncId: syncId,
+        deletedAt: deletedAt,
+      ),
+    );
+  });
+
+  Future<void> applySyncedSetting(
+    String key,
+    String value,
+    DateTime updatedAt,
+  ) => into(settings).insertOnConflictUpdate(
+    SettingsCompanion.insert(
+      key: key,
+      value: value,
+      updatedAt: Value(updatedAt),
+    ),
+  );
+
+  Future<void> pruneTombstones(DateTime olderThan) => (delete(
+    syncTombstones,
+  )..where((t) => t.deletedAt.isSmallerThanValue(olderThan))).go();
 
   Future<bool> syncReadToTelegram() async =>
       (await setting(SettingKeys.syncReadToTelegram)) != 'false';
@@ -370,6 +598,7 @@ class AppDatabase extends _$AppDatabase {
     await delete(feeds).go();
     await delete(watchedChannels).go();
     await delete(settings).go();
+    await delete(syncTombstones).go(); // a logout is not a deletion to sync
   });
 
   Future<int> _maxPosition<T extends Table>(
