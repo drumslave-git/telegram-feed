@@ -53,7 +53,7 @@ Throwaway branches `spike/<name>`. Each spike ends with a short outcome note in 
 
 ## Stabilisation (before phase 4, decided 2026-09-17)
 
-- [ ] S-1 Dogfood on the emulator: Claude builds and installs the debug APK, drives the app end to end (login screen, feeds, timeline, media, rules, notifications, read-aloud, reactions, comments, share) and turns every bug or rough edge into an `S-n` fix task below. The only founder input is typing the spare account's phone number and code into the emulator's login screen. Phase 4 starts when the `S-n` list is empty.
+- [x] S-1 Dogfooding pass on the emulator (2026-09-18, spare account, 12 channels): login, feeds, editor, timeline, read marks, video, reactions, share, copy link, Open in Telegram, rules with dry run, background matches, grouped notifications, tap and Listen actions, background read-aloud, themes, settings. Findings are S-2 to S-8 below, all fixed and re-verified on the device.
 - [x] S-2 Rule dry run scanned only 3 posts: TDLib answers `getChatHistory` with short pages (often the single cached message). `TdlibGateway.history` now pages until the limit or the end; local reads stay a single probe. (287f028)
 - [x] S-3 Comments chip appeared on channels without a discussion group and opened a dead end. `Post.canComment` (from `reply_info`) gates the chip. (287f028)
 - [x] S-4 Open in Telegram did nothing without the Telegram app: url_launcher throws on `tg://` instead of returning false, so the `t.me` fallback never ran. `launchFirst` tries each link and survives the exception (timeline and notification action). (af041b2)
