@@ -7,10 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'feed_editor_screen.dart';
 import 'media_view.dart';
+import 'open_links.dart';
 import 'read_marker.dart';
 import 'thread_screen.dart';
 
@@ -219,10 +219,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
       chatId: item.chatId,
       messageId: item.head.messageId,
     );
-    for (final u in [uri, web]) {
-      if (u == null) continue;
-      if (await launchUrl(u, mode: LaunchMode.externalApplication)) return;
-    }
+    if (await launchFirst([uri, web])) return;
     messenger.showSnackBar(
       const SnackBar(content: Text('No app can open this post.')),
     );

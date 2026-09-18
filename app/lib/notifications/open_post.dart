@@ -1,8 +1,8 @@
 import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../feeds/open_links.dart';
 import '../feeds/timeline_screen.dart';
 import '../host/app_host.dart';
 import '../service/notification_plan.dart';
@@ -21,11 +21,7 @@ Future<void> openInTelegram(AppDatabase db, PostRef ref) async {
     username: username,
   );
   final web = telegramPostWebUri(chatId: ref.chatId, messageId: ref.messageId);
-  for (final u in [uri, web]) {
-    if (u != null && await launchUrl(u, mode: LaunchMode.externalApplication)) {
-      return;
-    }
-  }
+  await launchFirst([uri, web]);
 }
 
 /// Pushes the timeline of the first feed containing the post's channel, focused on the post.
