@@ -41,6 +41,18 @@ android {
     }
 
     signingConfigs {
+        // CI signs debug builds with one fixed key (DEBUG_KEYSTORE_PATH, see
+        // .github/workflows/debug-release.yml) so that each debug APK installs over the
+        // previous one and the SHA-1 registered for Google sign-in stays valid. The default
+        // location (~/.android/debug.keystore) is not reliable on CI runners.
+        System.getenv("DEBUG_KEYSTORE_PATH")?.takeIf { it.isNotBlank() }?.let { path ->
+            getByName("debug") {
+                storeFile = file(path)
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
         if (hasReleaseKey) {
             create("release") {
                 storeFile = rootProject.file(keyProperties.getProperty("storeFile"))

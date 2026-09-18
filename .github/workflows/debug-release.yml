@@ -85,9 +85,12 @@ jobs:
       - name: Fixed debug signing key
         if: steps.v.outputs.release == 'true'
         run: |
-          mkdir -p "$HOME/.android"
-          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > "$HOME/.android/debug.keystore"
-          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | grep -i fingerprint
+          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+          echo "DEBUG_KEYSTORE_PATH=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
+          sha1=$(keytool -list -v -keystore "$RUNNER_TEMP/debug.keystore" -storepass android -alias androiddebugkey \
+            | grep -m1 'SHA1:' | sed 's/.*SHA1: //' | tr -d ':' | tr 'A-F' 'a-f')
+          echo "fixed key SHA-1: $sha1"
+          echo "DEBUG_KEY_SHA1=$sha1" >> "$GITHUB_ENV"
 
       - name: Build debug APKs (arm64-v8a, x86_64)
         if: steps.v.outputs.release == 'true'
@@ -106,9 +109,22 @@ jobs:
           done
           ls -la
 
+      - name: The APKs are signed with the fixed key
+        if: steps.v.outputs.release == 'true'
+        run: |
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          for apk in app/build/app/outputs/flutter-apk/telegram-feed-*-debug.apk; do
+            got=$("$apksigner" verify --print-certs "$apk" | grep -m1 'SHA-1' | sed 's/.*: //')
+            echo "$apk: $got"
+            if [ "$got" != "$DEBUG_KEY_SHA1" ]; then
+              echo "::error::$apk is signed with $got, not with the fixed debug key $DEBUG_KEY_SHA1"
+              exit 1
+            fi
+          done
+
       - name: Remove the signing key
         if: always()
-        run: rm -f "$HOME/.android/debug.keystore"
+        run: rm -f "$RUNNER_TEMP/debug.keystore"
 
       - name: Release notes
         if: steps.v.outputs.release == 'true'
