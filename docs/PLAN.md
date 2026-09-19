@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 4 (extras); feedback rounds 1 and 2 are closed. **Next task:** P4-3.
+**Current phase:** feedback round 3 (posts like the official app), then 4 (extras). **Next task:** R-1.
 
 ## Phase 0 — Spikes
 
@@ -95,6 +95,17 @@ Founder decisions of the same day: the download button fills Telegram's cache (n
 - [x] V-6 Picture-in-picture: a mini player floating over the timeline, and Android's system PiP window when the app is left while a video plays. `MiniPlayer` (overlay, drag, pause, back to the viewer, close), `SystemPip` + `PipHost` + `MainActivity` (`tf/pip`, auto-enter from Android 12), the foreground video pauses when the activity is stopped. The download button also learns live when a file got complete by streaming. (faf12fd)
 
 Verified on the emulator (NewsFeed, 2026-09-19): a tap opens the viewer at once and a 22 MB video plays after 2.4 s; portrait stays portrait and a rotated device is followed; double-tap zoom, drag of the zoomed picture, hold for 2×, album position, swipe down to close; leaving after 1.2 s of playback cancels the streaming download (`media: … closed, streaming download cancelled`); the button shows `39 MB / 45 MB` with a ring and is gone once the file is complete; mini player over the timeline; Home turns the activity into a portrait system window showing only the video, coming back continues in the viewer, dragging the window away stops the audio track. Found and fixed there: the system window was armed as 16:9 because a session counted as playing before its player was initialized.
+
+## Feedback round 3 — posts like the official app (founder, 2026-09-19)
+
+Founder decisions of the same day: the unread dot sits next to the time in a reserved slot, so nothing moves when a post becomes read; a feed made from a folder is a one-time copy of its channels; autoplay keeps the settings of F-6 (they were overlooked), they only become easier to find.
+
+- [ ] R-1 Long press on a folder tab offers "Create feed from folder": a feed with the folder's name and its current channels.
+- [ ] R-2 Posts look like the official app: bubbles on a chat background, channel avatar beside the bubble, coloured channel name, views / edited / time in the bottom right corner with the unread dot in a reserved slot, reaction pills, a comments bar, a share button beside the bubble, date pills between days, the other actions in a menu on tap or long press.
+- [ ] R-3 Albums as Telegram's mosaic (its grouped layout algorithm) instead of one full-width picture under the other.
+- [ ] R-4 Formatted text: bold, italic, underline, strikethrough, code, quotes, spoilers, links, mentions and hashtags (`Post.entities`).
+- [ ] R-5 Avatars everywhere else: comment authors and the post in the thread view, feed editor, channel picker, rule scope picker.
+- [ ] R-6 Autoplay settings are easier to find.
 
 ## Phase 4 — Extras
 
