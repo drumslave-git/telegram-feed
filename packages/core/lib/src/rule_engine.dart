@@ -44,6 +44,13 @@ final class RuleSpec {
   bool get isSemantic =>
       semanticPrompt != null && semanticPrompt!.trim().isNotEmpty;
 
+  /// True for a rule with no condition at all (`And([])`): it notifies about every post
+  /// of its channels, a post without text included.
+  bool get matchesEverything => switch (condition) {
+    And(:final items) => items.isEmpty,
+    _ => false,
+  };
+
   /// Parses a `rules` row. Throws [FormatException] on corrupt JSON.
   factory RuleSpec.fromRow(Rule row) => RuleSpec(
     id: row.id,
@@ -232,6 +239,12 @@ final class RuleEngine {
     return filters.every((f) => !f.mayShow(post));
   }
 
+  /// A post without text (a picture with no caption) only matches a rule with no
+  /// condition, which is "every post" (founder decision 2026-09-19); a keyword has nothing
+  /// to match, and an AI rule nothing to send to the model.
+  static bool _mayMatch(RuleSpec r, String text) =>
+      text.isNotEmpty || (r.matchesEverything && !r.isSemantic);
+
   /// Rules that apply to [chatId] right now.
   List<RuleSpec> candidates(int chatId, {DateTime? now}) {
     final t = now ?? _clock();
@@ -249,10 +262,9 @@ final class RuleEngine {
     if (!_watched.contains(post.chatId)) return null;
     if (_hiddenEverywhere(post)) return null;
     final text = post.text;
-    if (text.isEmpty) return null;
     final hits = [
       for (final r in candidates(post.chatId, now: now))
-        if (_evaluator.matches(r.condition, text)) r,
+        if (_mayMatch(r, text) && _evaluator.matches(r.condition, text)) r,
     ];
     if (hits.isEmpty) return null;
     var priority = RulePriority.silent;

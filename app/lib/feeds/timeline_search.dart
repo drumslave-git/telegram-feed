@@ -164,16 +164,6 @@ class SearchResultTile extends StatelessWidget {
       subtitle: _Snippet(text: text, query: query),
     );
   }
-
-  /// What a post without text is called in a list.
-  static String mediaLabel(Media? m) => switch (m) {
-    PhotoMedia() => 'Photo',
-    VideoMedia(:final isAnimation) => isAnimation ? 'GIF' : 'Video',
-    AudioMedia(:final isVoice) => isVoice ? 'Voice message' : 'Audio',
-    DocumentMedia(:final fileName) => fileName,
-    UnsupportedMedia() => 'Post',
-    null => 'Post',
-  };
 }
 
 /// Two lines of the post with the searched words marked, starting at the first match.

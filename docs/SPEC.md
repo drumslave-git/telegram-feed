@@ -67,7 +67,7 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - A rule can be enabled or disabled without deleting it.
 - When a new post matches, I get a notification that opens the post in its feed. If several rules match, the highest priority wins, and read-aloud happens if any matching rule asks for it.
 - Posts that match no rule produce no notification. The app does not replicate Telegram's own per-chat notifications.
-- Rules are evaluated on post text and media captions. Edited posts are not re-evaluated.
+- Rules are evaluated on post text and media captions. Edited posts are not re-evaluated. A rule with no condition ("every post") also notifies about posts that carry no text at all; the notification then says what the post is — a photo, a video, a file.
 - I can test a rule against recent posts of a channel to see what it would have matched.
 - Several posts from the same channel collapse into one row, and its "N new posts" counts only the ones still in the shade: what I swipe away or open stops counting, and a post deleted in Telegram takes its notification with it.
 

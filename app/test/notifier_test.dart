@@ -38,6 +38,35 @@ void main() {
     );
   });
 
+  test('a post without text shows what it carries', () {
+    MatchEvent carrying(Media? media) => MatchEvent.of(
+      Post(chatId: -1001, messageId: 5 << 20, date: 1, text: '', media: media),
+      [
+        const MatchedRule(
+          name: 'every post',
+          priority: RulePriority.normal,
+          readAloud: false,
+        ),
+      ],
+    );
+    const file = FileRef(id: 1, remoteId: 'r', size: 1);
+    String body(Media? m) =>
+        NotificationPlan.forMatch(carrying(m), channelTitle: 'News').body;
+    expect(body(const PhotoMedia(sizes: [file])), 'Photo');
+    expect(body(const VideoMedia(file: file, durationSeconds: 5)), 'Video');
+    expect(
+      body(
+        const DocumentMedia(
+          file: file,
+          fileName: 'plan.pdf',
+          mimeType: 'application/pdf',
+        ),
+      ),
+      'plan.pdf',
+    );
+    expect(body(null), 'Post');
+  });
+
   test('body is collapsed and truncated', () {
     final long = List.filled(60, 'word').join('\n  ');
     final plan = NotificationPlan.forMatch(

@@ -288,6 +288,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
         : _channels.map((c) => c.chatId).take(10).toList();
     final titles = {for (final c in _channels) c.chatId: c.title};
     final evaluator = RuleEvaluator();
+    final matchesEverything = _isMatchAll(cond) && !_isSemantic;
     final hits = <Post>[];
     var scanned = 0;
     for (final chat in chats) {
@@ -296,7 +297,10 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
         scanned += posts.length;
         hits.addAll(
           posts.where(
-            (p) => p.text.isNotEmpty && evaluator.matches(cond, p.text),
+            // Like the engine: a post without text passes only a rule with no condition.
+            (p) => p.text.isEmpty
+                ? matchesEverything
+                : evaluator.matches(cond, p.text),
           ),
         );
       } on TelegramException {
@@ -345,7 +349,8 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
             ListTile(
               title: Text(titles[p.chatId] ?? '${p.chatId}'),
               subtitle: Text(
-                p.text,
+                // A post without text is one a rule with no condition matches too.
+                postLabel(p),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),

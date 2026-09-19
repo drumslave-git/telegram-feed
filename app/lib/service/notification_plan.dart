@@ -78,7 +78,9 @@ final class NotificationPlan {
     MatchEvent m, {
     required String channelTitle,
   }) {
-    final text = m.post.text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    // A rule with no condition also notifies about posts without text; those show what
+    // they carry ("Photo", "Video", the file's name).
+    final text = postLabel(m.post).replaceAll(RegExp(r'\s+'), ' ').trim();
     final body = text.length > 240 ? '${text.substring(0, 240)}…' : text;
     return NotificationPlan(
       id: idFor(m.post.chatId, m.post.messageId),

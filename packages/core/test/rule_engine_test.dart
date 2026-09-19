@@ -169,6 +169,38 @@ void main() {
     },
   );
 
+  test('a rule with no condition notifies about a post without text', () {
+    final silent = Post(
+      chatId: -1,
+      messageId: 1,
+      date: 1,
+      text: '',
+      media: const PhotoMedia(sizes: [FileRef(id: 1, remoteId: 'r', size: 1)]),
+    );
+    const everyPost = RuleSpec(id: 1, name: 'every', condition: And([]));
+    expect(everyPost.matchesEverything, isTrue);
+    expect(rule(2, 'btc').matchesEverything, isFalse);
+
+    final e = RuleEngine()..update(rules: [everyPost], watched: {-1});
+    expect(e.evaluate(silent), isNotNull);
+    expect(e.evaluate(silent)!.rules.single.id, 1);
+
+    // A keyword has nothing to match, and an AI rule nothing to send to the model.
+    e.update(rules: [rule(2, 'btc')]);
+    expect(e.evaluate(silent), isNull);
+    e.update(
+      rules: [
+        const RuleSpec(
+          id: 3,
+          name: 'ai',
+          condition: And([]),
+          semanticPrompt: 'anything at all',
+        ),
+      ],
+    );
+    expect(e.evaluate(silent), isNull);
+  });
+
   test('the caption of an album notifies when the feed shows whole posts', () {
     const videos = FeedFilter(kinds: {MediaKind.video});
     // The caption of an album sits on its first picture, which a video feed drops.

@@ -9,6 +9,7 @@ export 'src/core_server.dart';
 export 'src/feed_filter.dart';
 export 'src/feed_search.dart';
 export 'src/feed_timeline.dart';
+export 'src/media_label.dart';
 export 'src/telegram_links.dart';
 export 'src/tts_text.dart';
 export 'src/protocol.dart';

@@ -255,7 +255,7 @@ rules (id, name, enabled, scope_kind {global, channel}, scope_chat_id?,
        schedule_json?, created_at, semantic_prompt?)
 ```
 
-A rule with no condition at all (`And([])`, which every post satisfies) notifies about every post of its channels; the editor saves that when both keyword editors are left empty, and the rules list shows it as "every post". Scope, priority, schedule, read-aloud and the feed-filter rule of section 5.8 apply to it like any other.
+A rule with no condition at all (`And([])`, which every post satisfies) notifies about every post of its channels; the editor saves that when both keyword editors are left empty, and the rules list shows it as "every post". Scope, priority, schedule, read-aloud and the feed-filter rule of section 5.8 apply to it like any other. Such a rule also matches a post with no text at all (a picture without a caption), which the evaluation drops for every other rule; its notification and the dry run show what the post carries instead ("Photo", "Video", the file's name — `postLabel` in `core`). An AI rule is not one of them: there is nothing to send to the model.
 
 Condition AST (package `rules`):
 
@@ -271,7 +271,7 @@ The editor is a visual builder (groups of terms with AND/OR toggles, NOT per ter
 
 On every `PostEvent.newMessage` for a watched channel:
 
-1. Extract text: message text, or media caption. Formatted entities are flattened to plain text. Nothing else is matched (no forward origin, no URLs beyond their visible text).
+1. Extract text: message text, or media caption. Formatted entities are flattened to plain text. Nothing else is matched (no forward origin, no URLs beyond their visible text). A post without text only reaches rules with no condition (section 6.1).
 2. Drop the post if every feed containing the channel hides it (section 5.8). Candidate rules = enabled global rules + enabled rules scoped to this `chat_id`, filtered by schedule against the local clock.
 3. Evaluate each condition. Collect matches.
 4. If none: stop. Otherwise: priority = max over matches, readAloud = any match.
@@ -411,6 +411,7 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-19 | Autoplay keeps the switch and limits of F-6; they are also reachable from the menu of a video post | Founder feedback round 3: the settings existed but were overlooked |
 | 2026-09-19 | Avatars sit in the bubble's title line, at the right end, in posts and comments; the share button beside the bubble is gone (sharing stays in the menu) | Founder decision the same day, after seeing the first version of round 3: the avatar column and the share button took too much width from text and pictures. Departs from the official app on purpose |
 | 2026-09-19 | Search, date navigation and shared media work over all of a feed's sources as one merged list and obey the feed's filter | Founder decision, feedback round 4: a feed is merged channels, so it searches exactly what it shows |
+| 2026-09-19 | A rule with no condition notifies about posts without text too, showing what they carry | Founder decision, feedback round 5: "every post" has to mean every post; a keyword rule still needs text, and an AI rule has nothing to send |
 | 2026-09-19 | The channel info screen has no mute and no leave | Founder decision, feedback round 4: notifications are the app's own rules, and only joined channels are sources |
 | 2026-09-19 | A filtered feed shows a post whole: one part that passes carries the rest of the album and its caption. Per-feed checkbox, on for every feed, the ones that exist included | Founder decision, feedback round 5: a filter picks posts, not pieces of them; a video beside a picture is still one post |
 | 2026-09-19 | Whole posts also reach rule notifications and the search by words; the shared media tabs stay strict | Founder decision the same day: what the timeline shows may notify and be found, while the tabs list single media items by kind |
