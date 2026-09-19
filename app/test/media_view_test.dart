@@ -296,6 +296,44 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('double tap in the middle zooms, a drag moves the picture', (
+    tester,
+  ) async {
+    FakeVideoPlatform.install();
+    await tester.pumpWidget(host(video));
+    await tester.tap(find.byIcon(Icons.play_arrow));
+    await startUp(tester);
+    await tester.pumpAndSettle();
+
+    final zoom = tester
+        .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+        .transformationController!;
+    final box = tester.getRect(find.byType(VideoStage));
+    // Middle third, beside the play button that sits in the very centre.
+    final at = box.center - const Offset(0, 80);
+    await doubleTap(tester, at);
+    expect(zoom.value.getMaxScaleOnAxis(), closeTo(2.5, 0.01));
+    // The tapped point stayed where it was.
+    expect(
+      MatrixUtils.transformPoint(zoom.value, at - box.topLeft),
+      within(distance: 0.01, from: at - box.topLeft),
+    );
+
+    final before = zoom.value.getTranslation().x;
+    await tester.dragFrom(
+      box.center + const Offset(0, 60),
+      const Offset(-120, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(zoom.value.getTranslation().x, lessThan(before - 50));
+    expect(zoom.value.getMaxScaleOnAxis(), closeTo(2.5, 0.01));
+
+    await doubleTap(tester, at);
+    expect(zoom.value.getMaxScaleOnAxis(), closeTo(1, 0.01));
+    expect(find.byType(FullscreenVideoScreen), findsOneWidget);
+    await unmount(tester);
+  });
+
   testWidgets('a rebuilt row picks its autoplaying player up again', (
     tester,
   ) async {

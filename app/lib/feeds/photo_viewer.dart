@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../media/zoom.dart';
 import 'media_view.dart';
 
 /// Full-screen photos of one post: swipe between album photos, pinch or double tap to zoom.
@@ -102,8 +103,7 @@ class _ZoomablePhotoState extends State<_ZoomablePhoto> {
     _transform.addListener(_report);
   }
 
-  void _report() =>
-      widget.onZoomChanged(_transform.value.getMaxScaleOnAxis() > 1.01);
+  void _report() => widget.onZoomChanged(_transform.isZoomed);
 
   @override
   void dispose() {
@@ -111,28 +111,11 @@ class _ZoomablePhotoState extends State<_ZoomablePhoto> {
     super.dispose();
   }
 
-  void _toggleZoom() {
-    if (_transform.value.getMaxScaleOnAxis() > 1.01) {
-      _transform.value = Matrix4.identity();
-      return;
-    }
-    const scale = 2.5;
-    // Keep the tapped point under the finger.
-    _transform.value = Matrix4.identity()
-      ..translateByDouble(
-        -_doubleTapAt.dx * (scale - 1),
-        -_doubleTapAt.dy * (scale - 1),
-        0,
-        1,
-      )
-      ..scaleByDouble(scale, scale, 1, 1);
-  }
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onDoubleTapDown: (d) => _doubleTapAt = d.localPosition,
-      onDoubleTap: _toggleZoom,
+      onDoubleTap: () => _transform.toggleZoom(_doubleTapAt),
       child: InteractiveViewer(
         transformationController: _transform,
         minScale: 1,

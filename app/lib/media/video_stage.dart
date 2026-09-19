@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 
 import '../feeds/media_view.dart' show formatDuration;
 import 'video_sessions.dart';
+import 'zoom.dart';
 
 const _seekStep = Duration(seconds: 10);
 
@@ -62,13 +63,22 @@ class InlineVideo extends StatelessWidget {
 
 /// The picture of a [VideoSession] with its controls, as the viewer shows it: tap shows or
 /// hides them, double tap on the left or right third seeks 10 seconds, double tap in the
-/// middle leaves the viewer.
+/// middle zooms in and out. Pinching zooms too, and a drag moves the zoomed picture.
 class VideoStage extends StatefulWidget {
-  const VideoStage({super.key, required this.session, this.poster});
+  const VideoStage({
+    super.key,
+    required this.session,
+    this.poster,
+    this.onZoomChanged,
+  });
   final VideoSession session;
 
   /// Shown until the first frame is ready (the post's thumbnail).
   final Widget? poster;
+
+  /// The viewer stops paging and swipe-to-close while the picture is zoomed in, so that a
+  /// drag pans it.
+  final ValueChanged<bool>? onZoomChanged;
 
   @override
   State<VideoStage> createState() => _VideoStageState();
@@ -87,11 +97,15 @@ class _VideoStageState extends State<VideoStage> {
 
   TapDownDetails? _lastDoubleTap;
 
+  final _transform = TransformationController();
+  bool _zoomed = false;
+
   VideoSession get _s => widget.session;
 
   @override
   void initState() {
     super.initState();
+    _transform.addListener(_onTransform);
     _s.addListener(_onSession);
     _scheduleHide();
   }
@@ -102,7 +116,15 @@ class _VideoStageState extends State<VideoStage> {
     if (!identical(old.session, widget.session)) {
       old.session.removeListener(_onSession);
       _s.addListener(_onSession);
+      _transform.value = Matrix4.identity();
     }
+  }
+
+  void _onTransform() {
+    final zoomed = _transform.isZoomed;
+    if (zoomed == _zoomed) return;
+    _zoomed = zoomed;
+    widget.onZoomChanged?.call(zoomed);
   }
 
   @override
@@ -110,6 +132,7 @@ class _VideoStageState extends State<VideoStage> {
     _s.removeListener(_onSession);
     _hide?.cancel();
     _seekHintTimer?.cancel();
+    _transform.dispose();
     super.dispose();
   }
 
@@ -138,7 +161,7 @@ class _VideoStageState extends State<VideoStage> {
     } else if (x > width * 2 / 3) {
       _seek(1);
     } else {
-      _close();
+      _transform.toggleZoom(d.localPosition);
     }
   }
 
@@ -150,8 +173,6 @@ class _VideoStageState extends State<VideoStage> {
       if (mounted) setState(() => _seekHint = 0);
     });
   }
-
-  void _close() => Navigator.of(context).maybePop();
 
   @override
   Widget build(BuildContext context) {
@@ -165,11 +186,6 @@ class _VideoStageState extends State<VideoStage> {
         fit: StackFit.expand,
         children: [
           const ColoredBox(color: Colors.black),
-          if (ready)
-            VideoPicture(c)
-          else if (widget.poster != null)
-            widget.poster!,
-          if (ready && _controls) const IgnorePointer(child: _Scrim()),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: ready ? _toggleControls : null,
@@ -177,7 +193,18 @@ class _VideoStageState extends State<VideoStage> {
             onDoubleTap: ready
                 ? () => _onDoubleTap(_lastDoubleTap!, box.maxWidth)
                 : null,
+            child: InteractiveViewer(
+              transformationController: _transform,
+              minScale: 1,
+              maxScale: 6,
+              panEnabled: ready,
+              scaleEnabled: ready,
+              child: ready
+                  ? VideoPicture(c)
+                  : widget.poster ?? const SizedBox.expand(),
+            ),
           ),
+          if (ready && _controls) const IgnorePointer(child: _Scrim()),
           if (!ready || c.value.isBuffering)
             const IgnorePointer(
               child: Center(
