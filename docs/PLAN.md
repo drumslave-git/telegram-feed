@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 4 (extras); feedback rounds 1 to 3 are closed. **Next task:** P4-3.
+**Current phase:** feedback round 4 (channels and feeds like the official app); rounds 1 to 3 and P4-1, P4-2 are closed. **Next task:** C-1.
 
 ## Phase 0 — Spikes
 
@@ -112,6 +112,21 @@ Founder decisions of the same day: the unread dot sits next to the time in a res
 - [x] R-8 Founder, after seeing the round: avatars take too much space. The avatar moved into the bubble's title line, at its right end (`BubbleTitle`, posts and comments), and the share button beside the bubble is gone (founder decision; sharing stays in the menu), so bubbles span the whole width. Seen on the emulator: title line with name and photo, a five-photo mosaic from edge to edge. (b34ee69)
 
 Verified on the emulator (NewsFeed, 2026-09-19, light and dark; before R-8 moved the avatars): rows show the channels' photos, coloured names, bold, quotes and links in the text, views, "edited" and the time on the last line; a photo with a video sits side by side and three photos as one on top of two; reactions use the full width with the time at the end of the last row; the menu opens on a tap on the text with the channel's emoji on top, a tap on a picture still opens the viewer; the comments screen shows the post with its autoplaying video on top and comments with avatars (initials for authors without a photo) and coloured names; the long press on the "Real News" tab offers "Create feed from folder" (not created there: the emulator syncs its feeds to the founder's Drive; the creation itself is covered by the widget test); the menu of a video post opens the autoplay sheet; after R-7 the log shows one sync at launch and none in the following 70 seconds.
+
+## Feedback round 4 — channels and feeds like the official app (founder, 2026-09-19)
+
+Founder decisions of the same day: a feed is merged channels, so search, date navigation and shared media run over all of a feed's sources as one merged list and obey the feed's filter (F-10); the feed editor becomes the feed's info screen and gains the same media tabs; mute and leave stay out of the channel info screen because notifications are the app's own rules.
+
+- [ ] C-1 Gateway: search in a channel (query and media filters, paging, total count), the post nearest a date, and channel info (description, subscribers, link), end to end through the core isolate.
+- [ ] C-2 Merged search and merged media over a feed in `core`: a paged k-way merge over the sources that obeys `FeedFilter`, and the nearest post to a date across sources.
+- [ ] C-3 Search in the timeline: the app bar turns into a search field, results are rows with channel, snippet and date, a tap opens the timeline at the post, up and down step through the results with "3 of 47".
+- [ ] C-4 Jump to date: a calendar in the search bar and on the day pill; the timeline opens at the nearest post of that day (in a feed, the nearest across sources).
+- [ ] C-5 Channel info screen: the app-bar title opens photo, name, @username, subscribers, description and the link, with the shared media tabs Media, Files, Links, Music and Voice.
+- [ ] C-6 The feed editor gains the same media tabs, merged over the sources and obeying the feed's filter.
+- [ ] C-7 Scroll-to-bottom button with the unread counter, as in the official app.
+
+- [-] Mute and leave in the channel info screen: the app has its own notification rules (founder decision 2026-09-19).
+- [-] Pinned posts bar, selecting several posts, search over all channels from the home screen: not part of this round (founder decision 2026-09-19).
 
 ## Phase 4 — Extras
 
