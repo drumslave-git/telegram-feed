@@ -98,6 +98,39 @@ void main() {
     expect(s.totalCount, 2);
   });
 
+  test('a word search finds the caption its album carries', () async {
+    const videos = FeedFilter(kinds: {MediaKind.video});
+    final g = HistoryGateway({
+      -1: [
+        p(-1, 50, 500, text: 'rain over Kyiv', media: photo, album: 4),
+        p(-1, 49, 500, media: shortVideo, album: 4),
+      ],
+    });
+    final s = FeedSearch(g, [-1], query: 'rain', feedFilter: videos);
+    await s.loadMore();
+    expect(s.results.map((p) => p.messageId), [50]);
+
+    // Off, the picture is not shown and not found either.
+    final parts = FeedSearch(
+      g,
+      [-1],
+      query: 'rain',
+      feedFilter: videos.copyWith(wholePost: false),
+    );
+    await parts.loadMore();
+    expect(parts.results, isEmpty);
+
+    // The media tabs list single media items, so the picture stays out of them.
+    final tab = FeedSearch(
+      g,
+      [-1],
+      filter: HistoryFilter.photoAndVideo,
+      feedFilter: videos,
+    );
+    await tab.loadMore();
+    expect(tab.results.map((p) => p.messageId), [49]);
+  });
+
   test('a deleted post leaves the results', () async {
     final g = HistoryGateway({
       -1: [p(-1, 50, 500, text: 'rain'), p(-1, 40, 400, text: 'rain')],

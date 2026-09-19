@@ -4,8 +4,14 @@ import 'package:test/test.dart';
 
 const _file = FileRef(id: 1, remoteId: 'r', size: 10);
 
-Post _post({String text = '', Media? media}) =>
-    Post(chatId: -1, messageId: 1, date: 1, text: text, media: media);
+Post _post({String text = '', Media? media, int album = 0}) => Post(
+  chatId: -1,
+  messageId: 1,
+  date: 1,
+  text: text,
+  media: media,
+  albumId: album,
+);
 
 final _text = _post(text: 'a long enough text');
 final _photo = _post(media: const PhotoMedia(sizes: [_file]));
@@ -58,6 +64,31 @@ void main() {
     expect(f.allows(_text), isFalse);
     expect(f.allows(_post(text: 'x' * 50)), isTrue);
     expect(f.allows(_photo), isTrue);
+  });
+
+  test('whole posts: an album part rides along, a single post does not', () {
+    final albumPhoto = _post(media: const PhotoMedia(sizes: [_file]), album: 7);
+    const videos = FeedFilter(kinds: {MediaKind.video});
+    expect(videos.allows(albumPhoto), isFalse);
+    expect(videos.mayShow(albumPhoto), isTrue);
+    expect(videos.mayShow(_photo), isFalse); // alone, not in an album
+    expect(videos.mayShow(_clip), isTrue);
+
+    const parts = FeedFilter(kinds: {MediaKind.video}, wholePost: false);
+    expect(parts.mayShow(albumPhoto), isFalse);
+
+    // A feed without media never carries an album, whole posts or not.
+    const textOnly = FeedFilter(media: MediaPresence.textOnly);
+    expect(textOnly.mayShow(albumPhoto), isFalse);
+
+    // On by default, including for a filter written before the option existed.
+    expect(FeedFilter.decode('{"kinds":["video"]}'), videos);
+    expect(FeedFilter.decode(parts.encode()), parts);
+    expect(parts.describe(), 'video · matching parts only');
+    // Unchecked with nothing else set hides nothing, but the box stays unchecked.
+    final bare = FeedFilter.none.copyWith(wholePost: false);
+    expect(bare.describe(), 'Everything');
+    expect(FeedFilter.decode(bare.encode()), bare);
   });
 
   test('JSON round trip, unknown values ignored, broken JSON shows everything', () {

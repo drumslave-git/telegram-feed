@@ -379,6 +379,18 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
             ],
           ),
         ),
+        CheckboxListTile(
+          value: _f.wholePost,
+          enabled: mediaPossible,
+          onChanged: !mediaPossible
+              ? null
+              : (v) => setState(() => _f = _f.copyWith(wholePost: v ?? true)),
+          title: const Text('Show the whole post'),
+          subtitle: const Text(
+            'A post with several pictures or videos is shown complete, with its caption, '
+            'as soon as one of them passes. Off shows only the parts that pass.',
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
           child: Text(

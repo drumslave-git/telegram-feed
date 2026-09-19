@@ -27,6 +27,7 @@ final class FeedFilter {
     this.kinds = const {},
     this.minVideoSeconds = 0,
     this.minTextLength = 0,
+    this.wholePost = true,
   });
 
   /// Shows everything.
@@ -43,6 +44,13 @@ final class FeedFilter {
   /// Posts without media whose text is shorter than this are hidden. 0 = no limit.
   final int minTextLength;
 
+  /// An album whose parts do not all pass is shown whole, with the parts the filter would
+  /// drop (founder decision 2026-09-19): the picture beside the video, and the caption
+  /// that usually sits on it. Off shows only the parts that pass.
+  final bool wholePost;
+
+  /// True when nothing is hidden; [wholePost] alone changes nothing, it only softens the
+  /// other four.
   bool get isEmpty =>
       media == MediaPresence.any &&
       kinds.isEmpty &&
@@ -65,16 +73,27 @@ final class FeedFilter {
     return true;
   }
 
+  /// Whether the feed may show [post] on its own or in an album beside its siblings. With
+  /// [wholePost] a part rides along with them; which siblings there are is not visible
+  /// here, so only the media presence is judged and the row decides the rest
+  /// ([FeedTimeline]). Where single messages are listed by kind — the shared media tabs —
+  /// use [allows] instead.
+  bool mayShow(Post post) =>
+      allows(post) ||
+      (wholePost && post.albumId != 0 && media != MediaPresence.textOnly);
+
   FeedFilter copyWith({
     MediaPresence? media,
     Set<MediaKind>? kinds,
     int? minVideoSeconds,
     int? minTextLength,
+    bool? wholePost,
   }) => FeedFilter(
     media: media ?? this.media,
     kinds: kinds ?? this.kinds,
     minVideoSeconds: minVideoSeconds ?? this.minVideoSeconds,
     minTextLength: minTextLength ?? this.minTextLength,
+    wholePost: wholePost ?? this.wholePost,
   );
 
   Map<String, Object?> toJson() => {
@@ -86,10 +105,11 @@ final class FeedFilter {
       ],
     if (minVideoSeconds > 0) 'minVideoSeconds': minVideoSeconds,
     if (minTextLength > 0) 'minTextLength': minTextLength,
+    if (!wholePost) 'wholePost': false,
   };
 
   /// Null for a filter that shows everything, so the column stays empty.
-  String? encode() => isEmpty ? null : jsonEncode(toJson());
+  String? encode() => isEmpty && wholePost ? null : jsonEncode(toJson());
 
   /// Unknown values (from a newer version on another device) are ignored rather than fatal.
   static FeedFilter fromJson(Map<String, Object?> m) => FeedFilter(
@@ -100,6 +120,9 @@ final class FeedFilter {
     },
     minVideoSeconds: (m['minVideoSeconds'] as num?)?.toInt() ?? 0,
     minTextLength: (m['minTextLength'] as num?)?.toInt() ?? 0,
+    // Absent in a filter written before the option existed: those feeds show whole posts
+    // from now on too (founder decision 2026-09-19).
+    wholePost: m['wholePost'] as bool? ?? true,
   );
 
   static FeedFilter decode(String? json) {
@@ -127,6 +150,7 @@ final class FeedFilter {
         ].join(', '),
       if (minVideoSeconds > 0) 'videos from ${duration(minVideoSeconds)}',
       if (minTextLength > 0) 'text from $minTextLength characters',
+      if (!wholePost) 'matching parts only',
     ].join(' · ');
   }
 
@@ -136,6 +160,7 @@ final class FeedFilter {
       other.media == media &&
       other.minVideoSeconds == minVideoSeconds &&
       other.minTextLength == minTextLength &&
+      other.wholePost == wholePost &&
       other.kinds.length == kinds.length &&
       other.kinds.containsAll(kinds);
 
@@ -144,6 +169,7 @@ final class FeedFilter {
     media,
     minVideoSeconds,
     minTextLength,
+    wholePost,
     Object.hashAllUnordered(kinds),
   );
 }

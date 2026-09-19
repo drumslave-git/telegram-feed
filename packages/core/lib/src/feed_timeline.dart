@@ -110,6 +110,76 @@ final class FeedTimeline {
     return ok;
   }
 
+  /// A part the filter hid that its album's row shows after all: it is on the screen, so
+  /// reading the row covers it like any other post.
+  void _promote(Post post) {
+    _hidden[post.chatId]?.remove(post.messageId);
+    (_shown[post.chatId] ??= SplayTreeMap())[post.messageId] = null;
+  }
+
+  /// True when the filter hid [post] but its album's row may still carry it
+  /// ([FeedFilter.wholePost]).
+  bool _ridesAlong(Post post) => post.albumId != 0 && filter.mayShow(post);
+
+  /// Hidden parts whose album has no row yet, per (chat, album): the sibling that opens
+  /// the row takes them along. An album that never gets one loses them again, and the map
+  /// is capped so a long run of such albums cannot grow it.
+  final _held = <(int, int), List<Post>>{};
+
+  void _hold(Post post) {
+    final key = (post.chatId, post.albumId);
+    if (_held.length >= 8 && !_held.containsKey(key)) {
+      _held.remove(_held.keys.first);
+    }
+    (_held[key] ??= []).add(post);
+  }
+
+  /// A row for [post] together with the parts held for its album; the newest of them is
+  /// the head, the rest follow newest first.
+  TimelineItem _newRow(Post post) {
+    if (post.albumId == 0) return TimelineItem(post);
+    final held = _held.remove((post.chatId, post.albumId));
+    if (held == null) return TimelineItem(post);
+    for (final p in held) {
+      _promote(p);
+    }
+    final parts = [post, ...held]
+      ..sort((a, b) => b.messageId.compareTo(a.messageId));
+    return TimelineItem(parts.first, parts.sublist(1));
+  }
+
+  /// Puts [post] into its album's row if that row is listed; parts stay newest first.
+  bool _merge(Post post) {
+    if (post.albumId == 0) return false;
+    for (final item in _items) {
+      if (item.chatId != post.chatId || item.albumId != post.albumId) continue;
+      if (post.messageId > item.head.messageId) {
+        item.parts.insert(0, item.head);
+        item.head = post;
+        return true;
+      }
+      var i = 0;
+      while (i < item.parts.length &&
+          item.parts[i].messageId > post.messageId) {
+        i++;
+      }
+      item.parts.insert(i, post);
+      return true;
+    }
+    return false;
+  }
+
+  /// A hidden part of a whole-post feed: into its row when there is one, held for the
+  /// sibling that will open it otherwise. True when the list changed.
+  bool _rideAlong(Post post) {
+    if (!_merge(post)) {
+      _hold(post);
+      return false;
+    }
+    _promote(post);
+    return true;
+  }
+
   /// The newest message id of [chatId] that reading [fromId] also covers: the hidden posts
   /// that follow it up to the next shown one. [fromId] itself when there are none.
   ///
@@ -205,16 +275,24 @@ final class FeedTimeline {
       final post = best.buffer.removeFirst();
       best.oldestSorted = post.messageId;
       if (!_seen.add((post.chatId, post.messageId))) continue;
-      if (!_sort(post)) continue;
+      final passes = _sort(post);
+      if (!passes && !_ridesAlong(post)) continue;
       final last = _items.isEmpty ? null : _items.last;
       if (post.albumId != 0 &&
           last != null &&
           last.chatId == post.chatId &&
           last.albumId == post.albumId) {
+        if (!passes) _promote(post);
         last.parts.add(post); // older part of the album already listed
         continue;
       }
-      final item = TimelineItem(post);
+      if (!passes) {
+        _hold(
+          post,
+        ); // the next part of this album opens the row, or nothing does
+        continue;
+      }
+      final item = _newRow(post);
       _items.add(item);
       added.add(item);
     }
@@ -253,7 +331,10 @@ final class FeedTimeline {
     // row meet each other whichever end they came from.
     for (final post in fetched..sort((a, b) => _compare(b, a))) {
       if (!_seen.add((post.chatId, post.messageId))) continue;
-      if (!_sort(post)) continue;
+      if (!_sort(post)) {
+        if (_ridesAlong(post)) _rideAlong(post);
+        continue;
+      }
       final before = _items.length;
       _insertNew(post);
       if (_items.length > before) added++;
@@ -267,7 +348,16 @@ final class FeedTimeline {
       case PostAdded(:final post):
         if (!chatIds.contains(post.chatId)) return false;
         if (!_seen.add((post.chatId, post.messageId))) return false;
-        if (!_sort(post)) return false;
+        if (!_sort(post)) {
+          if (!_ridesAlong(post)) return false;
+          // Its row is listed, or it waits for the sibling that opens one — which may
+          // itself still be in [_pending].
+          if (!atTop) {
+            _hold(post);
+            return false;
+          }
+          return _rideAlong(post);
+        }
         if (atTop) {
           _insertNew(post);
           return true;
@@ -309,6 +399,12 @@ final class FeedTimeline {
         _pending.removeWhere(
           (p) => p.chatId == chatId && ids.contains(p.messageId),
         );
+        for (final held in _held.values) {
+          held.removeWhere(
+            (p) => p.chatId == chatId && ids.contains(p.messageId),
+          );
+        }
+        _held.removeWhere((_, held) => held.isEmpty);
         return changed;
     }
   }
@@ -361,24 +457,12 @@ final class FeedTimeline {
   }
 
   void _insertNew(Post post) {
-    // Live posts are almost always the newest; album parts arrive one by one.
-    if (post.albumId != 0) {
-      for (final item in _items.take(5)) {
-        if (item.chatId == post.chatId && item.albumId == post.albumId) {
-          if (post.messageId > item.head.messageId) {
-            item.parts.insert(0, item.head);
-            item.head = post;
-          } else {
-            item.parts.add(post);
-          }
-          return;
-        }
-      }
-    }
+    // Album parts arrive one by one; each one joins the row the first of them opened.
+    if (_merge(post)) return;
     var i = 0;
     while (i < _items.length && _compare(_items[i].head, post) < 0) {
       i++;
     }
-    _items.insert(i, TimelineItem(post));
+    _items.insert(i, _newRow(post));
   }
 }

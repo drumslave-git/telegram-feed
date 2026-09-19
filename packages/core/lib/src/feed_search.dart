@@ -30,6 +30,12 @@ final class FeedSearch {
   /// The feed's content filter; posts it hides are not results either.
   final FeedFilter feedFilter;
 
+  /// True for the shared media tabs: they list single media items by kind, so the feed's
+  /// filter applies post by post there. A search for words instead finds everything the
+  /// timeline shows, an album part carried by its siblings included
+  /// ([FeedFilter.mayShow]).
+  bool get listsMedia => query.isEmpty;
+
   /// Results added per [loadMore].
   final int pageSize;
 
@@ -93,7 +99,9 @@ final class FeedSearch {
       if (best == null) break;
       final post = best.buffer.removeFirst();
       if (!_seen.add((post.chatId, post.messageId))) continue;
-      if (!feedFilter.allows(post)) continue;
+      if (!(listsMedia ? feedFilter.allows(post) : feedFilter.mayShow(post))) {
+        continue;
+      }
       _results.add(post);
       added.add(post);
     }

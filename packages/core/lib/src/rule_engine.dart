@@ -220,11 +220,16 @@ final class RuleEngine {
   }
 
   /// A post that every feed with its channel hides is not worth a notification either
-  /// (founder decision 2026-09-19). One feed that shows it is enough.
+  /// (founder decision 2026-09-19). One feed that shows it is enough. An album part counts
+  /// as shown when the feed shows whole posts ([FeedFilter.mayShow]): the caption of an
+  /// album usually sits on its first picture, which a filter by media kind would drop
+  /// while the timeline still shows the post. Whether its siblings really carry what the
+  /// filter asks for cannot be seen from one post, so such a rule may notify about an
+  /// album the timeline hides after all.
   bool _hiddenEverywhere(Post post) {
     final filters = _filters[post.chatId];
     if (filters == null || filters.isEmpty) return false;
-    return filters.every((f) => !f.allows(post));
+    return filters.every((f) => !f.mayShow(post));
   }
 
   /// Rules that apply to [chatId] right now.

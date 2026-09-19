@@ -386,13 +386,23 @@ void main() {
 
   group('filter', () {
     const file = FileRef(id: 1, remoteId: 'r', size: 1);
-    Post photo(int id) => Post(
+    Post photo(int id, {int album = 0, String text = ''}) => Post(
       chatId: -1,
       messageId: id,
       date: id,
-      text: '',
+      text: text,
+      albumId: album,
       media: const PhotoMedia(sizes: [file]),
     );
+    Post video(int id, {int album = 0, String text = ''}) => Post(
+      chatId: -1,
+      messageId: id,
+      date: id,
+      text: text,
+      albumId: album,
+      media: const VideoMedia(file: file, durationSeconds: 30),
+    );
+    const videosOnly = FeedFilter(kinds: {MediaKind.video});
     Post text(int id) =>
         Post(chatId: -1, messageId: id, date: id, text: 't$id');
 
@@ -437,6 +447,96 @@ void main() {
       t.apply(PostAdded(photo(3))); // waits as pending
       t.apply(PostAdded(text(4))); // hidden
       expect(t.coveredFrom(-1, 2), 2);
+    });
+
+    group('whole posts', () {
+      test(
+        'the album keeps the parts the filter hides, in either order',
+        () async {
+          // Two albums of a picture with the caption and a video, sent in both orders.
+          final gw = HistoryGateway({
+            -1: [
+              photo(14, album: 8, text: 'newer caption'),
+              video(13, album: 8),
+              video(12, album: 7),
+              photo(11, album: 7, text: 'older caption'),
+            ],
+          });
+          final t = FeedTimeline(gw, [-1], filter: videosOnly);
+          await t.loadMore();
+          expect(t.items.map((i) => i.head.messageId), [14, 12]);
+          expect(t.items[0].parts.map((x) => x.messageId), [13]);
+          expect(t.items[0].text, 'newer caption');
+          expect(t.items[1].parts.map((x) => x.messageId), [11]);
+          expect(t.items[1].text, 'older caption');
+        },
+      );
+
+      test('off, only the matching parts of the album show', () async {
+        final gw = HistoryGateway({
+          -1: [photo(12, album: 7, text: 'caption'), video(11, album: 7)],
+        });
+        final t = FeedTimeline(gw, [
+          -1,
+        ], filter: videosOnly.copyWith(wholePost: false));
+        await t.loadMore();
+        expect(t.items.single.head.messageId, 11);
+        expect(t.items.single.parts, isEmpty);
+        expect(t.items.single.text, '');
+        expect(
+          t.coveredFrom(-1, 11),
+          12,
+        ); // reading the video covers the picture
+
+        // The same album, whole: the picture is the head and brings the caption.
+        final whole = FeedTimeline(gw, [-1], filter: videosOnly);
+        await whole.loadMore();
+        expect(whole.items.single.head.messageId, 12);
+        expect(whole.items.single.parts.map((x) => x.messageId), [11]);
+        expect(whole.items.single.text, 'caption');
+      });
+
+      test('an album without a matching part is not shown at all', () async {
+        final gw = HistoryGateway({
+          -1: [photo(12, album: 7), photo(11, album: 7, text: 'caption')],
+        });
+        final t = FeedTimeline(gw, [-1], filter: videosOnly);
+        await t.loadMore();
+        expect(t.items, isEmpty);
+      });
+
+      test('live parts join their row whichever arrives first', () async {
+        final gw = HistoryGateway({-1: []});
+        final t = FeedTimeline(gw, [-1], filter: videosOnly);
+        await t.loadMore();
+        // The caption comes first: it waits until the video opens the row.
+        expect(
+          t.apply(PostAdded(photo(21, album: 3, text: 'caption'))),
+          isFalse,
+        );
+        expect(t.items, isEmpty);
+        expect(t.apply(PostAdded(video(22, album: 3))), isTrue);
+        expect(t.items.single.head.messageId, 22);
+        expect(t.items.single.text, 'caption');
+        // And the other way round, on a row that is already listed.
+        expect(t.apply(PostAdded(video(31, album: 4))), isTrue);
+        expect(t.apply(PostAdded(photo(32, album: 4, text: 'later'))), isTrue);
+        expect(t.items.first.head.messageId, 32);
+        expect(t.items.first.parts.map((x) => x.messageId), [31]);
+        expect(t.pendingNew, 0);
+      });
+
+      test('parts wait with the post behind the button', () async {
+        final gw = HistoryGateway({-1: []});
+        final t = FeedTimeline(gw, [-1], filter: videosOnly)..atTop = false;
+        await t.loadMore();
+        t.apply(PostAdded(photo(41, album: 5, text: 'caption')));
+        t.apply(PostAdded(video(42, album: 5)));
+        expect(t.pendingNew, 1); // the row, not its parts
+        t.releasePending();
+        expect(t.items.single.head.messageId, 42);
+        expect(t.items.single.text, 'caption');
+      });
     });
   });
 }

@@ -154,6 +154,22 @@ void main() {
       ),
     );
     expect(find.text('with media · video · videos from 2 min'), findsOneWidget);
+
+    // Whole posts are on by default; unchecking travels into the feed as well.
+    await tester.tap(find.text('Show'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
+      isTrue,
+    );
+    await tester.tap(find.text('Show the whole post'));
+    await tester.pump();
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    await settle(tester);
+    final again = await tester.runAsync(() => db.allFeeds());
+    expect(FeedFilter.decode(again!.single.filterJson).wholePost, isFalse);
+    expect(find.textContaining('matching parts only'), findsOneWidget);
     await unmount(tester);
   });
 }

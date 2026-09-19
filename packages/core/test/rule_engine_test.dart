@@ -168,4 +168,28 @@ void main() {
       expect(e.evaluate(post(-3, 1, 'btc up')), isNotNull); // no filter known
     },
   );
+
+  test('the caption of an album notifies when the feed shows whole posts', () {
+    const videos = FeedFilter(kinds: {MediaKind.video});
+    // The caption of an album sits on its first picture, which a video feed drops.
+    Post caption(int chat) => Post(
+      chatId: chat,
+      messageId: 1,
+      date: 1,
+      text: 'btc up',
+      albumId: 9,
+      media: const PhotoMedia(sizes: [FileRef(id: 1, remoteId: 'r', size: 1)]),
+    );
+    final e = RuleEngine()
+      ..update(
+        rules: [rule(1, 'btc')],
+        watched: {-1, -2},
+        filters: {
+          -1: [videos],
+          -2: [videos.copyWith(wholePost: false)],
+        },
+      );
+    expect(e.evaluate(caption(-1)), isNotNull); // the row shows it
+    expect(e.evaluate(caption(-2)), isNull); // there only the video shows
+  });
 }
