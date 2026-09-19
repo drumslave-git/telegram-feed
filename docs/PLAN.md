@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 3 (posts like the official app), then 4 (extras). **Next task:** R-1.
+**Current phase:** feedback round 3 (posts like the official app), then 4 (extras). **Next task:** R-2.
 
 ## Phase 0 — Spikes
 
@@ -100,7 +100,7 @@ Verified on the emulator (NewsFeed, 2026-09-19): a tap opens the viewer at once 
 
 Founder decisions of the same day: the unread dot sits next to the time in a reserved slot, so nothing moves when a post becomes read; a feed made from a folder is a one-time copy of its channels; autoplay keeps the settings of F-6 (they were overlooked), they only become easier to find.
 
-- [ ] R-1 Long press on a folder tab offers "Create feed from folder": a feed with the folder's name and its current channels.
+- [x] R-1 Long press on a folder tab offers "Create feed from folder": a feed with the folder's name and its current channels, in the folder's order, each starting at Telegram's read position; the Feeds tab comes up with an Open action. (R1HASH)
 - [ ] R-2 Posts look like the official app: bubbles on a chat background, channel avatar beside the bubble, coloured channel name, views / edited / time in the bottom right corner with the unread dot in a reserved slot, reaction pills, a comments bar, a share button beside the bubble, date pills between days, the other actions in a menu on tap or long press.
 - [ ] R-3 Albums as Telegram's mosaic (its grouped layout algorithm) instead of one full-width picture under the other.
 - [ ] R-4 Formatted text: bold, italic, underline, strikethrough, code, quotes, spoilers, links, mentions and hashtags (`Post.entities`).

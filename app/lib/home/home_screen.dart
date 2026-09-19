@@ -143,6 +143,61 @@ class _HomeScreenState extends State<HomeScreen>
     await _editFeed(feed.id);
   }
 
+  /// Long press on a folder tab: a feed with the folder's name and the channels it has now.
+  /// A one-time copy; afterwards the feed is edited like any other.
+  Future<void> _folderMenu(ChatFolder folder, Offset at) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
+    final choice = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        at & Size.zero,
+        Offset.zero & overlay.size,
+      ),
+      items: const [
+        PopupMenuItem(
+          value: 'feed',
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.rss_feed),
+            title: Text('Create feed from folder'),
+          ),
+        ),
+      ],
+    );
+    if (choice == 'feed') await _createFeedFromFolder(folder);
+  }
+
+  Future<void> _createFeedFromFolder(ChatFolder folder) async {
+    final byId = {for (final c in _channels) c.chatId: c};
+    final channels = [for (final id in folder.channelIds) ?byId[id]];
+    final feed = await widget.db.createFeed(folder.title);
+    for (final c in channels) {
+      await widget.db.addSource(
+        feed.id,
+        c.chatId,
+        title: c.title,
+        username: c.username,
+      );
+      // As in the feed editor: the feed starts at Telegram's own read position.
+      if (c.lastReadMessageId > 0) {
+        await widget.db.markRead(feed.id, c.chatId, c.lastReadMessageId);
+      }
+    }
+    if (!mounted) return;
+    _tabCtl.animateTo(0);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Feed "${folder.title}" created with ${channels.length} '
+          'channel${channels.length == 1 ? '' : 's'}.',
+        ),
+        action: SnackBarAction(label: 'Open', onPressed: () => _openFeed(feed)),
+      ),
+    );
+  }
+
   Future<void> _editFeed(int feedId) => Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => FeedEditorScreen(
@@ -335,7 +390,13 @@ class _HomeScreenState extends State<HomeScreen>
                         );
                       },
                     ),
-                    for (final f in _folders) Tab(text: f.title),
+                    for (final f in _folders)
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onLongPressStart: (d) =>
+                            _folderMenu(f, d.globalPosition),
+                        child: Tab(text: f.title),
+                      ),
                     const Tab(text: 'All channels'),
                   ],
                 ),

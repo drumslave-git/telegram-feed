@@ -245,6 +245,35 @@ void main() {
     },
   );
 
+  testWidgets('long press on a folder tab creates a feed from its channels', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.longPress(find.text('Work'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create feed from folder'));
+    await tester.pumpAndSettle();
+    await settle(tester);
+    await tester.pumpAndSettle();
+
+    final feeds = (await tester.runAsync(db.allFeeds))!;
+    expect(feeds.map((f) => f.name), ['Work']);
+    final sources = (await tester.runAsync(
+      () => db.watchSourceChannels(feeds.single.id).first,
+    ))!;
+    expect(sources.map((s) => s.chatId), [-2, -1]); // the folder's order
+    // The feed starts at Telegram's read position of each channel.
+    expect(await tester.runAsync(() => db.readMarks(feeds.single.id)), {
+      -2: 0,
+      -1: 100,
+    });
+    // Back on the Feeds tab, with the new feed listed.
+    expect(find.widgetWithText(ListTile, 'Work'), findsOneWidget);
+    expect(find.textContaining('created with 2 channels'), findsOneWidget);
+    await unmount(tester);
+  });
+
   testWidgets('all channels: every channel, with search', (tester) async {
     await tester.pumpWidget(app());
     await settle(tester);
