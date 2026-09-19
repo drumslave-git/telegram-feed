@@ -200,6 +200,33 @@ void main() {
       },
     );
 
+    test(
+      'a sync does not set off the next one: only synced data does',
+      () async {
+        await db.createFeed('News');
+        final c = controller();
+        await c.turnOn();
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        final quiet = drive.log.length;
+        // Each run records its time in the settings table, which the watcher sees too; so
+        // do device-local settings. Neither is a reason to talk to Drive.
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        expect(drive.log.length, quiet);
+        await db.setSetting('ai.lastFailure', 'local note');
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        expect(drive.log.length, quiet);
+
+        await db.setSetting(
+          SettingKeys.themeMode,
+          'dark',
+        ); // travels between devices
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        expect(drive.log.length, greaterThan(quiet));
+        expect(drive.files.values.single, contains('dark'));
+        await c.dispose();
+      },
+    );
+
     test('a restart resumes sync; a lost Google session is reported', () async {
       final first = controller();
       await first.turnOn();

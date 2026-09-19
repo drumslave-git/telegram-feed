@@ -81,6 +81,11 @@ final class SyncController {
   Future<void>? _running;
   bool _again = false;
 
+  /// What this device held right after its last sync run, encoded. The watcher fires on any
+  /// write to the watched tables, also the run's own bookkeeping and device-local settings;
+  /// only a difference to this is worth a request to Drive.
+  String? _synced;
+
   /// Restores a previous sign-in and, if sync was on, syncs and starts watching.
   Future<void> start() async {
     if (!auth.isConfigured) return;
@@ -154,6 +159,7 @@ final class SyncController {
         SyncKeys.lastSyncedAt,
         '${now.millisecondsSinceEpoch}',
       );
+      _synced = (await _engine.exportLocal()).encode();
       debugPrint('sync: pulled ${result.pulled}, pushed ${result.pushed}');
       status.value = status.value.copyWith(
         syncing: false,
@@ -172,9 +178,16 @@ final class SyncController {
     _unwatch();
     _changes = db.watchSyncedData().skip(1).listen((_) {
       _debounceTimer?.cancel();
-      _debounceTimer = Timer(debounce, () => unawaited(syncNow()));
+      _debounceTimer = Timer(debounce, () => unawaited(_syncIfChanged()));
     });
     _periodic = Timer.periodic(interval, (_) => unawaited(syncNow()));
+  }
+
+  Future<void> _syncIfChanged() async {
+    if (_synced != null && (await _engine.exportLocal()).encode() == _synced) {
+      return;
+    }
+    await syncNow();
   }
 
   void _unwatch() {
