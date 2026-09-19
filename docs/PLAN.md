@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 5 (notifications, feed filters); rounds 1 to 4 and P4-1, P4-2 are closed. **Next task:** N-4, then verify round 5 on the emulator, then P4-3.
+**Current phase:** feedback round 5 (notifications, feed filters); rounds 1 to 4 and P4-1, P4-2 are closed. **Next task:** verify N-1 to N-3 on the emulator, then P4-3.
 
 ## Phase 0 — Spikes
 
@@ -150,7 +150,7 @@ Founder decisions of the same day: "notify about every post" is a rule with an e
 - [x] N-1 The group summary counts the posts Android still holds (`getActiveNotifications` for the group, plus the one being shown) instead of a tally that only ever grew, and a cancellation that empties a group takes the summary down with it. (7b0e0c4)
 - [x] N-2 The service notification is configurable: `service.minimalNotification` posts it on `core_min` at `IMPORTANCE_MIN` (no status-bar icon, bottom of the shade) instead of `core` at `LOW`, and `service.background` off keeps the service from starting at all, so the core runs in-process and rules only notify while the app is open. Both are read when the core is brought up and so apply at the next app start: the core cannot change host while TDLib is polling (ARCHITECTURE 8). Device-local, not synced. (e81ae65)
 - [x] N-3 A rule with no condition notifies about every post of its channels. The evaluator already matched `And([])`; the editor now saves it for plain rules too, says so under the condition, and the rules list shows "every post". (2e13123)
-- [~] N-4 A filtered feed shows the whole post: an album whose parts do not all pass is shown complete, with the caption that sits on the part a media-kind filter would drop. `FeedFilter.wholePost` (on for every feed, old filters included) and `mayShow`; `FeedTimeline` carries a hidden part into the row its siblings open (held per chat and album until that row exists); the rule engine and the search by words ask `mayShow` too, the shared media tabs stay strict; "Show the whole post" checkbox in the feed editor's Show sheet.
+- [x] N-4 A filtered feed shows the whole post: an album whose parts do not all pass is shown complete, with the caption that sits on the part a media-kind filter would drop. `FeedFilter.wholePost` (on for every feed, old filters included) and `mayShow`; `FeedTimeline` carries a hidden part into the row its siblings open (held per chat and album until that row exists); the rule engine and the search by words ask `mayShow` too, the shared media tabs stay strict; "Show the whole post" checkbox in the feed editor's Show sheet. (74b7498) Verified on the emulator (NewsFeed, 2026-09-19, light and dark): with the feed filtered to videos, a two-part post of Лачен пише keeps the picture beside the video and its caption, and a three-part post of INSIDER UA keeps the picture under its two videos; unchecking the box leaves the bare videos in both, and "Show everything" put the feed back as it was.
 
 ## Phase 4 — Extras
 
