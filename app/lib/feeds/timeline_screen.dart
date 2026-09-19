@@ -728,9 +728,17 @@ class TimelineViewState extends State<TimelineView> {
       }
       final day = _focusDay;
       if (day != null) {
-        // The anchors are the last posts of that day; one page of newer ones goes above,
-        // then the list settles on the oldest row of the day, with the older one before it
-        // just off the top of the screen.
+        // The anchors are the last posts of that day, so the day has to be loaded down to
+        // its beginning before its first post can be found: a page holds thirty rows and a
+        // busy feed has many more in a day.
+        final dayStart = day.millisecondsSinceEpoch ~/ 1000;
+        while (!t.exhausted &&
+            t.items.length < _openCap &&
+            (t.items.isEmpty || t.items.last.head.date >= dayStart)) {
+          await t.loadMore();
+        }
+        // One page of newer posts goes above, then the list settles on the first row of the
+        // day, with the last one of the day before it just off the top of the screen.
         if (t.anchored) await t.loadNewer();
         var first = -1;
         for (var i = 0; i < t.items.length; i++) {

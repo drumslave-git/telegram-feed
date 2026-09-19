@@ -754,4 +754,51 @@ void main() {
     expect(find.textContaining('Nothing here from'), findsOneWidget);
     await unmount(tester);
   });
+  testWidgets('a date jump opens at the first post of a busy day', (
+    tester,
+  ) async {
+    final day = DateTime(2026, 9, 15);
+    int at(DateTime d) => d.millisecondsSinceEpoch ~/ 1000;
+    // More posts on that day than a page holds, and a few from the day before.
+    gw.histories[-1] = [
+      for (var i = 45; i >= 1; i--)
+        post(
+          -1,
+          100 + i,
+          at(day.add(Duration(minutes: 10 * i))),
+          'day-${i.toString().padLeft(2, '0')}',
+        ),
+      for (var i = 5; i >= 1; i--)
+        post(
+          -1,
+          50 + i,
+          at(day.subtract(Duration(hours: 24 - i))),
+          'before-$i',
+        ),
+    ];
+    await tester.runAsync(() async {
+      feed = await db.createFeed('One');
+      await db.addSource(feed.id, -1, title: 'One');
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+
+    final state = tester.state<TimelineViewState>(find.byType(TimelineView));
+    await tester.runAsync(() => state.jumpToDate(day));
+    await settle(tester);
+    await tester.pumpAndSettle();
+
+    // The first post of the day, not the last one the first page reached.
+    expect(find.text('day-01'), findsOneWidget);
+    expect(find.text('before-5'), findsOneWidget); // the day before, above it
+    expect(
+      find.text('day-45'),
+      findsNothing,
+    ); // the end of the day is far below
+    await unmount(tester);
+  });
 }

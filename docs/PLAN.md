@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 4 (channels and feeds like the official app); rounds 1 to 3 and P4-1, P4-2 are closed. **Next task:** C-6.
+**Current phase:** feedback round 4 (channels and feeds like the official app); rounds 1 to 3 and P4-1, P4-2 are closed. **Next task:** verify round 4 on the emulator, then P4-3.
 
 ## Phase 0 — Spikes
 
@@ -123,7 +123,9 @@ Founder decisions of the same day: a feed is merged channels, so search, date na
 - [x] C-4 Jump to date: a calendar in the search bar and on the day pill; the timeline opens at the nearest post of that day (in a feed, the nearest across sources). `pickDate` / `jumpToDate` settle on the first post of the day; a date before everything the sources have only reports that. (19b9b57)
 - [x] C-5 Channel info screen: the app-bar title opens photo, name, @username, subscribers, description and the link, with the shared media tabs Media, Files, Links, Music and Voice. `ChannelInfoScreen` + `SharedMediaTabs` (one `FeedSearch` per tab, media as a grid that opens the viewer over the whole tab). (1fe8594)
 - [x] C-6 The feed editor gains the same media tabs, merged over the sources and obeying the feed's filter. The editor is the feed's info screen: a "Channels" tab with sources, filter and picker, then Media, Files, Links, Music, Voice over all sources; the feed's title in the timeline opens it. Feed editor golden regenerated (the tab bar). (c2d2862)
-- [x] C-7 Scroll-to-bottom button with the unread counter, as in the official app. The badge counts the unread posts between the reader and the newest one (`FeedTimeline.unreadBefore`) plus the ones that arrived while reading; the button also leaves a jumped timeline. Timeline goldens regenerated (the badge). (COMMIT)
+- [x] C-7 Scroll-to-bottom button with the unread counter, as in the official app. The badge counts the unread posts between the reader and the newest one (`FeedTimeline.unreadBefore`) plus the ones that arrived while reading; the button also leaves a jumped timeline. Timeline goldens regenerated (the badge). (88ede03)
+
+- [x] C-8 Found while checking the round on the emulator: a date jump landed at the end of the chosen day, not at its beginning. The first page of history covers only thirty rows, and a busy feed has many more in a day, so the oldest loaded row of the day was taken for its first post. The timeline now pages down to the day before (capped at 300 rows) and then settles on the first post of the day. (COMMIT)
 
 - [-] Mute and leave in the channel info screen: the app has its own notification rules (founder decision 2026-09-19).
 - [-] Pinned posts bar, selecting several posts, search over all channels from the home screen: not part of this round (founder decision 2026-09-19).
