@@ -88,8 +88,9 @@ class _RenderBubbleText extends RenderBox
     if (boxes.isEmpty) return null;
     final last = boxes.last;
     if (last.direction == TextDirection.rtl) return null;
-    // A box that is not on the bottom line: the text ends with an empty line.
-    if (last.bottom < text.size.height - 1) return null;
+    // More than a glyph's height left below the box: it is not on the bottom line, the
+    // text ends with an empty one. (Leading alone leaves less than that.)
+    if (text.size.height - last.bottom >= last.bottom - last.top) return null;
     return last.right;
   }
 

@@ -21,14 +21,17 @@ final class TimelineItem {
   /// Stable identity within the chat: the head of an album changes while its parts arrive.
   int get rowId => isAlbum ? albumId : head.messageId;
 
-  /// Plain text of the item: the head's text, or the first non-empty caption of an album.
-  String get text {
-    if (head.text.isNotEmpty) return head.text;
+  /// The post whose text the row shows: the head, or the first album part with a caption.
+  Post get textPost {
+    if (head.text.isNotEmpty) return head;
     for (final p in parts) {
-      if (p.text.isNotEmpty) return p.text;
+      if (p.text.isNotEmpty) return p;
     }
-    return '';
+    return head;
   }
+
+  /// Plain text of the item: the head's text, or the first non-empty caption of an album.
+  String get text => textPost.text;
 
   List<Post> get allPosts => [head, ...parts];
 }

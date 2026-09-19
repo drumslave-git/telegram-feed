@@ -6,6 +6,7 @@ import '../home/channel_list.dart' show ChannelAvatar;
 import '../media/media_viewer.dart';
 import 'album_layout.dart';
 import 'bubble_text.dart';
+import 'formatted_text.dart';
 import 'media_view.dart';
 
 /// Colours of the chat the official app draws: a tinted backdrop with bubbles on it.
@@ -115,6 +116,7 @@ class PostCard extends StatelessWidget {
     this.onReact,
     this.availableReactions,
     this.onOpenThread,
+    this.onOpenLink,
   });
   final TimelineItem item;
   final String channelTitle;
@@ -131,6 +133,9 @@ class PostCard extends StatelessWidget {
   /// Emoji the account may react with; asked when the menu opens.
   final Future<List<String>> Function()? availableReactions;
   final VoidCallback? onOpenThread;
+
+  /// Tap on a link, a mention or an e-mail address in the text.
+  final void Function(String url)? onOpenLink;
 
   bool get _hasMenu =>
       onOpenInTelegram != null ||
@@ -203,6 +208,7 @@ class PostCard extends StatelessWidget {
       unread: unread,
       onReact: onReact,
       onOpenThread: onOpenThread,
+      onOpenLink: onOpenLink,
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
@@ -277,6 +283,7 @@ class _Bubble extends StatelessWidget {
     required this.unread,
     required this.onReact,
     required this.onOpenThread,
+    required this.onOpenLink,
   });
   final TimelineItem item;
   final List<Media> media;
@@ -285,6 +292,7 @@ class _Bubble extends StatelessWidget {
   final bool unread;
   final void Function(String emoji, bool remove)? onReact;
   final VoidCallback? onOpenThread;
+  final void Function(String url)? onOpenLink;
 
   static const _side = 10.0;
 
@@ -406,8 +414,10 @@ class _Bubble extends StatelessWidget {
     );
   }
 
-  Widget _text(BuildContext context, String text) => Text(
-    text,
+  Widget _text(BuildContext context, String text) => FormattedText(
+    text: text,
+    entities: item.textPost.entities,
+    onOpenLink: onOpenLink,
     style: TextStyle(
       fontSize: 16,
       height: 1.3,

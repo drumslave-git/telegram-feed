@@ -128,7 +128,70 @@ Post post(td.Message m) {
     reactions: reactions(m.interactionInfo?.reactions),
     replyCount: m.interactionInfo?.replyInfo?.replyCount ?? 0,
     canComment: m.interactionInfo?.replyInfo != null,
+    entities: entities(formattedText(m.content)),
   );
+}
+
+/// The text or caption of a message with its formatting, for the kinds [content] reads.
+td.FormattedText? formattedText(td.MessageContent? c) => switch (c) {
+  td.MessageText(:final text) => text,
+  td.MessagePhoto(:final caption) => caption,
+  td.MessageVideo(:final caption) => caption,
+  td.MessageAnimation(:final caption) => caption,
+  td.MessageAudio(:final caption) => caption,
+  td.MessageVoiceNote(:final caption) => caption,
+  td.MessageDocument(:final caption) => caption,
+  _ => null,
+};
+
+/// Formatting the app draws; custom emoji, timestamps and the like stay plain text.
+List<TextEntity> entities(td.FormattedText? t) {
+  if (t == null) return const [];
+  final text = t.text;
+  final out = <TextEntity>[];
+  for (final e in t.entities) {
+    if (e.length <= 0 || e.offset < 0 || e.offset + e.length > text.length) {
+      continue;
+    }
+    final piece = text.substring(e.offset, e.offset + e.length);
+    final (TextEntityKind?, String?) mapped = switch (e.type) {
+      td.TextEntityTypeBold() => (TextEntityKind.bold, null),
+      td.TextEntityTypeItalic() => (TextEntityKind.italic, null),
+      td.TextEntityTypeUnderline() => (TextEntityKind.underline, null),
+      td.TextEntityTypeStrikethrough() => (TextEntityKind.strikethrough, null),
+      td.TextEntityTypeSpoiler() => (TextEntityKind.spoiler, null),
+      td.TextEntityTypeCode() => (TextEntityKind.code, null),
+      td.TextEntityTypePre() => (TextEntityKind.pre, null),
+      td.TextEntityTypePreCode() => (TextEntityKind.pre, null),
+      td.TextEntityTypeBlockQuote() => (TextEntityKind.quote, null),
+      td.TextEntityTypeExpandableBlockQuote() => (TextEntityKind.quote, null),
+      td.TextEntityTypeTextUrl(:final url) => (TextEntityKind.link, url),
+      td.TextEntityTypeUrl() => (
+        TextEntityKind.link,
+        piece.contains('://') ? piece : 'https://$piece',
+      ),
+      td.TextEntityTypeMention() => (
+        TextEntityKind.link,
+        'https://t.me/${piece.replaceFirst('@', '')}',
+      ),
+      td.TextEntityTypeEmailAddress() => (TextEntityKind.link, 'mailto:$piece'),
+      td.TextEntityTypeHashtag() => (TextEntityKind.tag, null),
+      td.TextEntityTypeCashtag() => (TextEntityKind.tag, null),
+      td.TextEntityTypeBotCommand() => (TextEntityKind.tag, null),
+      _ => (null, null),
+    };
+    final kind = mapped.$1;
+    if (kind == null) continue;
+    out.add(
+      TextEntity(
+        offset: e.offset,
+        length: e.length,
+        kind: kind,
+        url: mapped.$2,
+      ),
+    );
+  }
+  return out;
 }
 
 /// Thread a message belongs to (discussion threads are `messageTopicThread`), else 0.

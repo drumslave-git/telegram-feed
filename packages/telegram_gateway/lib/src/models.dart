@@ -280,6 +280,60 @@ final class Reaction {
   final bool chosen;
 }
 
+/// How a stretch of a post's text is set.
+enum TextEntityKind {
+  bold,
+  italic,
+  underline,
+  strikethrough,
+  spoiler,
+
+  /// Inline monospace.
+  code,
+
+  /// A monospace block.
+  pre,
+  quote,
+
+  /// Opens [TextEntity.url]: links, text links, mentions, e-mail addresses.
+  link,
+
+  /// Coloured like a link but without a target: hashtags, cashtags, bot commands.
+  tag,
+}
+
+/// Formatting of one range of [Post.text]; offsets count UTF-16 code units, like Dart
+/// strings and like TDLib.
+final class TextEntity {
+  const TextEntity({
+    required this.offset,
+    required this.length,
+    required this.kind,
+    this.url,
+  });
+  final int offset;
+  final int length;
+  final TextEntityKind kind;
+
+  /// Target of a [TextEntityKind.link].
+  final String? url;
+
+  int get end => offset + length;
+
+  @override
+  bool operator ==(Object other) =>
+      other is TextEntity &&
+      other.offset == offset &&
+      other.length == length &&
+      other.kind == kind &&
+      other.url == url;
+  @override
+  int get hashCode => Object.hash(offset, length, kind, url);
+  @override
+  String toString() =>
+      'TextEntity($kind $offset+$length${url == null ? '' : ' $url'})';
+}
+
 /// One channel post.
 final class Post {
   const Post({
@@ -295,6 +349,7 @@ final class Post {
     this.reactions = const [],
     this.replyCount = 0,
     this.canComment = false,
+    this.entities = const [],
   });
   final int chatId;
   final int messageId;
@@ -304,6 +359,9 @@ final class Post {
 
   /// Plain text: message text or media caption.
   final String text;
+
+  /// Formatting and links of [text]. Rules, read-aloud and sharing use the plain text only.
+  final List<TextEntity> entities;
   final int editDate;
 
   /// `media_album_id`, 0 when not part of an album.

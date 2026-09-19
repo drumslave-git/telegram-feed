@@ -474,6 +474,13 @@ class _TimelineViewState extends State<TimelineView> {
     );
   }
 
+  /// A link in a post: whatever app handles it, the browser for web pages.
+  Future<void> _openLink(String url) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (await launchFirst([Uri.tryParse(url)])) return;
+    messenger.showSnackBar(SnackBar(content: Text('No app can open $url')));
+  }
+
   Uri? _shareLink(TimelineItem item) => telegramShareUri(
     chatId: item.chatId,
     messageId: item.head.messageId,
@@ -649,6 +656,7 @@ class _TimelineViewState extends State<TimelineView> {
                 onCopyLink: () => _copyLink(item),
                 onReact: (emoji, remove) => _react(item, emoji, remove),
                 availableReactions: () => _availableReactions(item),
+                onOpenLink: _openLink,
                 // Only posts of channels with a discussion group have a thread.
                 onOpenThread: !item.head.canComment
                     ? null

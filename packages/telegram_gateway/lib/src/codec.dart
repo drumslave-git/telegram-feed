@@ -199,6 +199,10 @@ Map<String, Object?> encodePost(Post p) => {
   ],
   'replyCount': p.replyCount,
   'canComment': p.canComment,
+  'entities': [
+    for (final e in p.entities)
+      {'o': e.offset, 'l': e.length, 'k': e.kind.name, 'u': e.url},
+  ],
 };
 
 Map<String, Object?> encodeThread(Thread t) => {
@@ -259,6 +263,15 @@ Post decodePost(Map<Object?, Object?> m) => Post(
   ],
   replyCount: (m['replyCount'] as int?) ?? 0,
   canComment: (m['canComment'] as bool?) ?? false,
+  entities: [
+    for (final e in (m['entities'] as List?) ?? const [])
+      TextEntity(
+        offset: (e as Map)['o'] as int,
+        length: e['l'] as int,
+        kind: TextEntityKind.values.byName(e['k'] as String),
+        url: e['u'] as String?,
+      ),
+  ],
 );
 
 Map<String, Object?> encodePostEvent(PostEvent e) => switch (e) {
