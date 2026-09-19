@@ -125,10 +125,23 @@ Founder decisions of the same day: a feed is merged channels, so search, date na
 - [x] C-6 The feed editor gains the same media tabs, merged over the sources and obeying the feed's filter. The editor is the feed's info screen: a "Channels" tab with sources, filter and picker, then Media, Files, Links, Music, Voice over all sources; the feed's title in the timeline opens it. Feed editor golden regenerated (the tab bar). (c2d2862)
 - [x] C-7 Scroll-to-bottom button with the unread counter, as in the official app. The badge counts the unread posts between the reader and the newest one (`FeedTimeline.unreadBefore`) plus the ones that arrived while reading; the button also leaves a jumped timeline. Timeline goldens regenerated (the badge). (88ede03)
 
-- [x] C-8 Found while checking the round on the emulator: a date jump landed at the end of the chosen day, not at its beginning. The first page of history covers only thirty rows, and a busy feed has many more in a day, so the oldest loaded row of the day was taken for its first post. The timeline now pages down to the day before (capped at 300 rows) and then settles on the first post of the day. (COMMIT)
+- [x] C-8 Found while checking the round on the emulator: a date jump landed at the end of the chosen day, not at its beginning. The first page of history covers only thirty rows, and a busy feed has many more in a day, so the oldest loaded row of the day was taken for its first post. The timeline now pages down to the day before (capped at 300 rows) and then settles on the first post of the day. (6696d99)
 
 - [-] Mute and leave in the channel info screen: the app has its own notification rules (founder decision 2026-09-19).
 - [-] Pinned posts bar, selecting several posts, search over all channels from the home screen: not part of this round (founder decision 2026-09-19).
+
+Verified on the emulator (NewsFeed and Real News, 2026-09-19): the magnifier turns the app
+bar into a search field and a query answers with the posts of all three channels, each row
+with its channel, the marked words and the time; a tapped result opens the timeline at that
+post with "3 of 42131" at the bottom, and the arrows step to the older and the newer match
+with the surrounding posts of the other channels around them. The calendar opens from the
+search bar and from a day pill (pre-set to that day), a date lands under the "September 15"
+pill with the last post of the 14th above it, and the button at the corner carries the unread
+count. A channel's title opens its info: photo, 882K subscribers, description, `@ssternenko`
+with its link and a copy button, and the tabs Media (a grid with the length on videos, a tap
+opens the viewer at "1 of 30"), Files, Links (URL, text and day), Music, Voice. The feed's
+title opens the editor with the Channels tab and the same media tabs over all its channels.
+Found and fixed there: C-8.
 
 ## Phase 4 — Extras
 
