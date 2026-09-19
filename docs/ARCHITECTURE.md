@@ -69,6 +69,7 @@ abstract interface class TelegramGateway {
 
   Future<List<Channel>> myChannels();                      // joined supergroups with isChannel = true
   Stream<ChannelMembershipEvent> get membershipEvents;     // user joined / left a channel in Telegram
+  Future<List<ChatFolder>> chatFolders();                  // Telegram folders, reduced to their channels
 
   Future<List<Post>> history(int chatId, {int fromMessageId, int limit, bool onlyLocal});
   Stream<PostEvent> get postEvents;                        // PostAdded / PostEdited / PostsDeleted
@@ -151,6 +152,16 @@ Feeds with their sources, rules and a whitelist of settings (theme, read-aloud p
 - **Sessions.** `VideoSessions` keeps one `VideoSession` (player plus state) per file id outside the widget tree. The inline view and the full-screen view show the same session, and a timeline row that the list rebuilds picks its session up again within a grace period of 0.8 s; after that the player is disposed and an unfinished download is cancelled. Only one session has sound at a time. Timeline rows are keyed by post, because the list otherwise reuses row state by position and a new post at the top shifts state under another post.
 - **Controls** (`VideoStage`): tap shows or hides them; scrubber with the buffered range, speed, mute, full screen, replay at the end; double tap on the left or right third seeks 10 s, in the middle it toggles full screen. The gesture layer lies behind the buttons, not around them, so button taps do not wait out the double-tap window.
 - **Autoplay** (`AutoplayPolicy`, settings `media.autoplay*`, synced): a video up to 60 s and 20 MB (both adjustable; animations only by size) starts muted and looping once 60 % of it is visible, and pauses below 20 %. The first tap turns the sound on. Anything else that plays pauses when it has left the screen, unless the full-screen view is showing it. `AutoplayScope` sits above the navigator and hands the policy to the media widgets.
+
+### 5.7 Main screen
+
+`HomeScreen` is a tab bar: `+`, "Feeds", the Telegram chat folders, "All channels".
+
+- The Feeds tab lists the feeds with the number of channels that have new posts (`FeedsController`); the tab label counts the feeds that have any. A tap opens the feed as `TimelineScreen(feed:)`, dragging reorders, the row's menu leads to its channels, rename and delete. `+` creates a feed and goes straight to its channel editor.
+- Folder tabs come from `chatFolders()`: TDLib announces the folders in `updateChatFolders`; the chats of each are read with `getChats(chatListFolder)`, which already applies the folder's include and exclude rules and Telegram's order, and only channels are kept. Folders without channels get no tab. The app never edits folders.
+- Channel lists (`ChannelList`) show photo, newest post, time and Telegram's unread count from `Channel`. They reload when the app resumes, three seconds after a new post, and on pull to refresh.
+- A channel opens as `TimelineScreen(channel:)`: the same timeline with one source. It belongs to no feed, so its read marks are Telegram's own position (`last_read_inbox_message_id`); reading moves it through `viewMessages` when `syncReadToTelegram` is on and is not recorded otherwise.
+- The folders arrive from TDLib a moment after the screen is up. The `TabController` is replaced only when the set of folders changes, and the selected tab stays selected.
 
 ## 6. Rules and notifications (phase 2)
 
@@ -296,3 +307,5 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-19 | Videos play while they download, through a loopback HTTP server over TDLib's partial file | Founder feedback: the official app starts videos much sooner; keeps `video_player` instead of a player with a custom data source |
 | 2026-09-19 | Short videos autoplay muted; limits 60 s and 20 MB by default, adjustable in Settings | Founder feedback |
 | 2026-09-19 | Timeline in chat order (oldest on top), opens at the remembered position, else the first unread post | Founder feedback: same behaviour as a chat in Telegram; replaces newest-first and the jump-to-unread action |
+| 2026-09-19 | Main screen is a tab bar: `+`, Feeds (the list of feeds), one tab per Telegram folder listing its channels, All channels | Founder feedback; a tab per feed was built first and replaced the same day by the single Feeds tab, founder decision |
+| 2026-09-19 | Folder tabs and All channels show channels only | Founder decision; the app stays a channel reader, chatting is a non-goal |

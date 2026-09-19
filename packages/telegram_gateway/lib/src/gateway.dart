@@ -15,6 +15,10 @@ abstract interface class TelegramGateway {
   Future<List<Channel>> myChannels();
   Stream<ChannelMembershipEvent> get membershipEvents;
 
+  /// The account's chat folders with the joined channels in each; folders without channels
+  /// are left out.
+  Future<List<ChatFolder>> chatFolders();
+
   /// Posts older than [fromMessageId] (0 = newest), newest first. With [onlyLocal] TDLib answers
   /// from its database only and may return fewer posts than exist.
   Future<List<Post>> history(

@@ -62,6 +62,7 @@ final class TdlibGateway implements TelegramGateway {
   final _memberCtl = StreamController<ChannelMembershipEvent>.broadcast();
   final _fileCtl = StreamController<FileProgress>.broadcast();
   final _commentCtl = StreamController<Comment>.broadcast();
+  List<td.ChatFolderInfo> _folders = const [];
   final _supergroups = <int, td.Supergroup>{};
   final _channelChatIds = <int>{};
 
@@ -140,6 +141,8 @@ final class TdlibGateway implements TelegramGateway {
             when isChannel) {
           _channelChatIds.add(chat!.id);
         }
+      case td.UpdateChatFolders(:final chatFolders):
+        _folders = chatFolders;
       case td.UpdateFile(:final file):
         if (file != null) _fileCtl.add(_progress(file));
       default:
@@ -210,15 +213,7 @@ final class TdlibGateway implements TelegramGateway {
   @override
   Future<List<Channel>> myChannels() async {
     const list = td.ChatListMain();
-    // loadChats returns 404 once everything is loaded.
-    for (var i = 0; i < 20; i++) {
-      try {
-        await _client.call(const td.LoadChats(chatList: list, limit: 100));
-      } on TelegramException catch (e) {
-        if (e.code == 404) break;
-        rethrow;
-      }
-    }
+    await _loadAll(list);
     final ids = (await _client.call(
       const td.GetChats(chatList: list, limit: 1000),
     )).chatIds;
@@ -237,6 +232,50 @@ final class TdlibGateway implements TelegramGateway {
       }
     }
     return out;
+  }
+
+  @override
+  Future<List<ChatFolder>> chatFolders() async {
+    final out = <ChatFolder>[];
+    for (final info in _folders) {
+      final list = td.ChatListFolder(chatFolderId: info.id);
+      await _loadAll(list);
+      final ids = (await _client.call(td.GetChats(chatList: list, limit: 1000)))
+          .chatIds;
+      final channels = <int>[];
+      for (final id in ids) {
+        if (!_channelChatIds.contains(id)) {
+          final chat = await _client.call(td.GetChat(chatId: id));
+          if (chat.type case td.ChatTypeSupergroup(:final isChannel)
+              when isChannel) {
+            _channelChatIds.add(id);
+          }
+        }
+        if (_channelChatIds.contains(id)) channels.add(id);
+      }
+      if (channels.isNotEmpty) {
+        out.add(
+          ChatFolder(
+            id: info.id,
+            title: info.name?.text?.text ?? '',
+            channelIds: channels,
+          ),
+        );
+      }
+    }
+    return out;
+  }
+
+  /// loadChats answers 404 once the whole list is loaded.
+  Future<void> _loadAll(td.ChatList list) async {
+    for (var i = 0; i < 20; i++) {
+      try {
+        await _client.call(td.LoadChats(chatList: list, limit: 100));
+      } on TelegramException catch (e) {
+        if (e.code == 404) break;
+        rethrow;
+      }
+    }
   }
 
   @override

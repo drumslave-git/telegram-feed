@@ -20,6 +20,7 @@ Not a replacement for the official Telegram app. Chats, calls, stories, and acco
 | Monetization | None; open source under GPL-3.0, maybe donations later |
 | Feed sources | Only channels the user is a member of (public or private). No search-and-join of unjoined channels. |
 | Feed view | Single chronological timeline laid out like a Telegram chat: oldest on top, newest at the bottom. Opens where the user left it earlier in the session, else at the first unread post, else at the newest |
+| Main screen | Tabs: `+` (new feed), "Feeds" with the list of feeds, one tab per Telegram chat folder listing the folder's channels, and "All channels". A feed or a channel opens as its own timeline. Channels only: groups, bots and private chats of a folder are not shown. |
 | Read state | Per feed with unread counter and badge; a post is read once it has been on screen down to its end; the feed opens at the first unread post under an "Unread posts" divider. Reading here marks the post read in official Telegram too; setting to turn off. |
 | Media | Full in-app playback: photos, video, voice and audio |
 | Interactions | Open in Telegram, share / copy link, react, comment (later phase) |
@@ -39,7 +40,8 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 
 ### Feeds
 - As a user I can log in with my Telegram account so the app sees the channels I already follow.
-- I can create, rename, reorder, and delete feeds.
+- I can create, rename, reorder, and delete feeds. They are listed on the "Feeds" tab of the main screen; `+` creates one, dragging reorders, the row's menu edits its channels, renames or deletes it.
+- My Telegram chat folders appear as tabs too, each listing the folder's channels the way Telegram lists chats (photo, newest post, time, unread count). "All channels" lists every joined channel with a search box. Tapping a channel opens its posts as a timeline; its read position is Telegram's own.
 - I can add channels to a feed by picking from the channels I am a member of, with a search box over that list. Channels I have not joined cannot be added; joining happens in the official Telegram app.
 - I can add the same channel to several feeds.
 - I can remove a channel from a feed without leaving the channel in Telegram.
@@ -78,7 +80,7 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 ## 4. Screens (Android MVP)
 
 1. **Onboarding / Login**: phone number, code, 2FA password, QR-code login as an alternative. Explains what the app can and cannot see.
-2. **Feeds list**: cards with feed name, channel avatars, unread badge. Floating action to create a feed.
+2. **Home**: tab bar with `+`, Feeds (list of feeds, each with the number of channels that have new posts), folder tabs, All channels. Rules and Settings in the app bar.
 3. **Feed editor**: name, ordered list of channels, add-channel sheet listing my joined channels with a search box.
 4. **Feed timeline**: infinite list of posts in chat order, "Unread posts" divider, button to the newest posts with the count of new ones.
 5. **Post view**: full post with media viewer, open in Telegram, share.

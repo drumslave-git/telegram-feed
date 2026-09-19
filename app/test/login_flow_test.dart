@@ -78,6 +78,8 @@ final class ScriptedGateway implements TelegramGateway {
   @override
   Future<void> cancelDownload(int fileId) async {}
   @override
+  Future<List<ChatFolder>> chatFolders() async => const [];
+  @override
   Future<void> close() async {}
 
   @override

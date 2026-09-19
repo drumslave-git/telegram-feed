@@ -161,6 +161,8 @@ final class CoreServer {
         await gateway.logOut();
       case 'myChannels':
         return (await gateway.myChannels()).map(encodeChannel).toList();
+      case 'chatFolders':
+        return (await gateway.chatFolders()).map(encodeChatFolder).toList();
       case 'history':
         final posts = await gateway.history(
           a['chatId'] as int,

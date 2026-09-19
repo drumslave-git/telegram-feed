@@ -221,6 +221,46 @@ void main() {
     },
   );
 
+  test(
+    'chatFolders keeps the channels of each folder, drops empty ones',
+    () async {
+      Map<String, Object?> folder(int id, String name) => {
+        '@type': 'chatFolderInfo',
+        'id': id,
+        'name': {
+          '@type': 'chatFolderName',
+          'text': {'@type': 'formattedText', 'text': name, 'entities': []},
+        },
+      };
+      t.update({
+        '@type': 'updateChatFolders',
+        'chat_folders': [folder(2, 'News'), folder(3, 'Friends')],
+        'main_chat_list_position': 0,
+      });
+      await pumpEventQueue();
+      t.handlers['loadChats'] = (_) => {
+        '@type': 'error',
+        'code': 404,
+        'message': 'Not Found',
+      };
+      t.handlers['getChats'] = (r) => {
+        '@type': 'chats',
+        'total_count': 2,
+        'chat_ids': (r['chat_list'] as Map)['chat_folder_id'] == 2
+            ? [-1001, 7]
+            : [7],
+      };
+      t.handlers['getChat'] = (r) => r['chat_id'] == -1001
+          ? chatJson(-1001, 'News', supergroupId: 1)
+          : chatJson(7, 'Bob');
+
+      final folders = await g.chatFolders();
+      expect(folders.map((f) => (f.id, f.title, f.channelIds)), [
+        (2, 'News', [-1001]),
+      ]);
+    },
+  );
+
   test('history maps text, photo captions and unsupported content', () async {
     t.handlers['getChatHistory'] = (r) => {
       '@type': 'messages',

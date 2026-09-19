@@ -2,8 +2,7 @@ import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
 
 import 'auth/login_screens.dart';
-import 'feeds/feeds_screen.dart';
-import 'feeds/timeline_screen.dart';
+import 'home/home_screen.dart';
 import 'host/app_host.dart';
 import 'media/autoplay.dart';
 import 'notifications/open_post.dart';
@@ -89,15 +88,9 @@ class _Root extends StatelessWidget {
         }
         return AuthGate(
           gateway: h.gateway,
-          child: FeedsScreen(
+          child: HomeScreen(
             db: h.db,
             gateway: h.gateway,
-            onOpenFeed: (feed) => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) =>
-                    TimelineScreen(db: h.db, gateway: h.gateway, feed: feed),
-              ),
-            ),
             actions: [
               IconButton(
                 tooltip: 'Rules',

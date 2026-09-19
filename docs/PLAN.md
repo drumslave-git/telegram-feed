@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 1 (before P4-3). **Next task:** F-8.
+**Current phase:** feedback round 1 (before P4-3). **Next task:** F-9.
 
 ## Phase 0 — Spikes
 
@@ -77,7 +77,7 @@ Founder feedback after using the debug release. Decisions taken the same day are
 - [x] F-5 Videos start much slower than in the official app: play while TDLib downloads instead of after. `MediaServer` (loopback HTTP with a secret path, byte ranges served from TDLib's partial file, a range that is not there yet re-aims the download; headers go out at once through a detached socket), gateway `downloadFrom` / `downloadedPrefix` / `cancelDownload`. On the emulator videos of 8, 105 and 46 MB were ready after 1.1, 0.7 and 1.8 s, the last one with its index at the end of the file. The HTTP 416 of the first run did not come back; a file without a known size is now downloaded whole instead of streamed, and the server logs a range outside the file.
 - [x] F-6 Autoplay of short videos, with settings. `AutoplayPolicy` and `AutoplayScope` (settings `media.autoplay*`, synced; defaults 60 s and 20 MB), start at 60 % visible, pause below 20 %, first tap turns the sound on; Media section in Settings. Verified on the emulator; settings golden regenerated on Linux.
 - [x] F-7 Timeline runs oldest to newest like a Telegram chat and opens at the remembered position or at the first unread post. Reversed positioned list (index 0 = newest at the bottom), opening position decided before the list is built (notification post, remembered row, first unread under an `Unread posts` divider, newest), a post is read once its end was on screen, new posts wait on a badge button while the user reads older ones; the app-bar jump action is gone. Widget tests for each case, verified on the emulator, timeline goldens regenerated.
-- [ ] F-8 Tabbed main screen: `+`, one tab per feed, one tab per Telegram folder (its channels), All channels.
+- [x] F-8 Tabbed main screen: `+`, Feeds (the list of feeds), one tab per Telegram folder (its channels), All channels. `HomeScreen` with `ChannelList` (photo, newest post, time, unread count; search on All channels), gateway `chatFolders()` and richer `Channel`, `TimelineView` split from `TimelineScreen` so one channel opens as a timeline with Telegram's own read position. A tab per feed was built first; the founder replaced it with the single Feeds tab the same day. Verified on the emulator; `home.png` golden replaces `feeds.png`.
 - [ ] F-9 Account section in Settings shows photo, name, username, phone, bio.
 - [ ] F-10 Per-feed content filters (media presence, media type, minimum video length, text length); they apply to the timeline and to rules.
 - [ ] F-11 Application icon.

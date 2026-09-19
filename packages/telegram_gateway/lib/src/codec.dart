@@ -74,7 +74,22 @@ Map<String, Object?> encodeChannel(Channel c) => {
   'isMember': c.isMember,
   'lastMessageId': c.lastMessageId,
   'lastReadMessageId': c.lastReadMessageId,
+  'unreadCount': c.unreadCount,
+  'lastMessageText': c.lastMessageText,
+  'lastMessageDate': c.lastMessageDate,
 };
+
+Map<String, Object?> encodeChatFolder(ChatFolder f) => {
+  'id': f.id,
+  'title': f.title,
+  'channelIds': f.channelIds,
+};
+
+ChatFolder decodeChatFolder(Map<Object?, Object?> m) => ChatFolder(
+  id: m['id'] as int,
+  title: m['title'] as String,
+  channelIds: (m['channelIds'] as List).cast<int>(),
+);
 
 Channel decodeChannel(Map<Object?, Object?> m) => Channel(
   chatId: m['chatId'] as int,
@@ -85,6 +100,9 @@ Channel decodeChannel(Map<Object?, Object?> m) => Channel(
   isMember: m['isMember'] as bool,
   lastMessageId: (m['lastMessageId'] as int?) ?? 0,
   lastReadMessageId: (m['lastReadMessageId'] as int?) ?? 0,
+  unreadCount: (m['unreadCount'] as int?) ?? 0,
+  lastMessageText: (m['lastMessageText'] as String?) ?? '',
+  lastMessageDate: (m['lastMessageDate'] as int?) ?? 0,
 );
 
 Map<String, Object?> encodeMedia(Media m) => switch (m) {

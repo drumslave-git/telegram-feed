@@ -9,8 +9,11 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import 'feeds_screen_test.dart' show ChannelsGateway;
 
 final class TimelineGateway extends ChannelsGateway {
-  TimelineGateway(this.histories, {List<Channel> channels = const []})
-    : super(channels);
+  TimelineGateway(
+    this.histories, {
+    List<Channel> channels = const [],
+    super.folders,
+  }) : super(channels);
   final Map<int, List<Post>> histories;
   final reactions = <String>[];
 

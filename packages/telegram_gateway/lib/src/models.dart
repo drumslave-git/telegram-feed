@@ -66,12 +66,22 @@ final class Channel {
     this.isMember = true,
     this.lastMessageId = 0,
     this.lastReadMessageId = 0,
+    this.unreadCount = 0,
+    this.lastMessageText = '',
+    this.lastMessageDate = 0,
   });
   final int chatId;
   final String title;
   final String? username;
   final int memberCount;
   final FileRef? photo;
+
+  /// Telegram's own unread counter for the channel.
+  final int unreadCount;
+
+  /// Text (or a media label) and unix time of the newest post, for channel lists.
+  final String lastMessageText;
+  final int lastMessageDate;
 
   /// Id of the newest post TDLib knows about (0 if none); cheap unread upper bound.
   final int lastMessageId;
@@ -85,6 +95,20 @@ final class Channel {
 
   @override
   String toString() => 'Channel($chatId, $title)';
+}
+
+/// A Telegram chat folder, reduced to the channels in it (the app reads channels only).
+final class ChatFolder {
+  const ChatFolder({
+    required this.id,
+    required this.title,
+    required this.channelIds,
+  });
+  final int id;
+  final String title;
+
+  /// Chat ids in Telegram's order for the folder (pinned first, then by last post).
+  final List<int> channelIds;
 }
 
 final class ChannelMembershipEvent {

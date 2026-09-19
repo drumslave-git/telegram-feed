@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:telegram_feed/feeds/feed_editor_screen.dart';
 import 'package:telegram_feed/feeds/timeline_screen.dart';
+import 'package:telegram_feed/home/home_screen.dart';
 import 'package:telegram_feed/main.dart' as app;
 
 Future<bool> _waitFor(
@@ -33,7 +34,7 @@ void main() {
     tester,
   ) async {
     app.main();
-    final feeds = find.text('Feeds');
+    final feeds = find.byType(HomeScreen);
     final login = find.text('Log in to Telegram');
     final ok = await _waitFor(
       tester,
@@ -45,7 +46,7 @@ void main() {
       ok,
       isTrue,
       reason:
-          'neither the feeds list nor the login screen appeared within 30 s',
+          'neither the home screen nor the login screen appeared within 30 s',
     );
 
     if (login.evaluate().isNotEmpty) {
@@ -62,11 +63,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), name);
     await tester.tap(find.text('Create'));
-    expect(await _waitFor(tester, find.text(name)), isTrue);
-
-    await tester.tap(find.text(name));
-    expect(await _waitFor(tester, find.byType(TimelineScreen)), isTrue);
-    await tester.tap(find.byIcon(Icons.tune));
+    // A new feed opens its channel editor right away.
     expect(await _waitFor(tester, find.byType(FeedEditorScreen)), isTrue);
     await tester.tap(find.text('Add channel'));
     expect(
@@ -81,8 +78,11 @@ void main() {
       isTrue,
     );
 
-    // Back to the timeline: posts should arrive from TDLib.
+    // Back to the Feeds tab; open the feed: posts should arrive from TDLib.
     await tester.pageBack();
+    expect(await _waitFor(tester, find.text(name)), isTrue);
+    await tester.tap(find.text(name));
+    expect(await _waitFor(tester, find.byType(TimelineScreen)), isTrue);
     expect(
       await _waitFor(
         tester,

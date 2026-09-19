@@ -15,20 +15,81 @@ import 'photo_viewer.dart';
 import 'read_marker.dart';
 import 'thread_screen.dart';
 
-/// The merged timeline of one feed (ARCHITECTURE.md section 5.3).
-class TimelineScreen extends StatefulWidget {
+/// A timeline with its own app bar: a feed opened from a notification, or one channel
+/// opened from a folder tab or the channel list.
+class TimelineScreen extends StatelessWidget {
   const TimelineScreen({
     super.key,
     required this.db,
     required this.gateway,
-    required this.feed,
+    this.feed,
+    this.channel,
+    this.focusChatId,
+    this.focusMessageId,
+    this.share = TimelineView.shareWithSystemSheet,
+  }) : assert((feed == null) != (channel == null));
+  final AppDatabase db;
+  final TelegramGateway gateway;
+  final Feed? feed;
+  final Channel? channel;
+  final int? focusChatId;
+  final int? focusMessageId;
+  final Future<void> Function(String text, {required String subject}) share;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: Text(feed?.name ?? channel!.title),
+      actions: [
+        if (feed != null)
+          IconButton(
+            tooltip: 'Edit feed',
+            icon: const Icon(Icons.tune),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => FeedEditorScreen(
+                  db: db,
+                  gateway: gateway,
+                  feedId: feed!.id,
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+    body: TimelineView(
+      db: db,
+      gateway: gateway,
+      feed: feed,
+      channel: channel,
+      focusChatId: focusChatId,
+      focusMessageId: focusMessageId,
+      share: share,
+    ),
+  );
+}
+
+/// The merged timeline of one feed, or the posts of one channel (ARCHITECTURE.md 5.3).
+/// Has no app bar of its own; [TimelineScreen] supplies one.
+class TimelineView extends StatefulWidget {
+  const TimelineView({
+    super.key,
+    required this.db,
+    required this.gateway,
+    this.feed,
+    this.channel,
     this.focusChatId,
     this.focusMessageId,
     this.share = shareWithSystemSheet,
-  });
+  }) : assert((feed == null) != (channel == null));
   final AppDatabase db;
   final TelegramGateway gateway;
-  final Feed feed;
+
+  /// A feed of ours: sources and read marks come from the database.
+  final Feed? feed;
+
+  /// One channel: its read position is Telegram's own.
+  final Channel? channel;
 
   /// Opens the system share sheet with [text] (tests inject a recorder).
   final Future<void> Function(String text, {required String subject}) share;
@@ -40,12 +101,12 @@ class TimelineScreen extends StatefulWidget {
     await SharePlus.instance.share(ShareParams(text: text, subject: subject));
   }
 
-  /// Post to scroll to after loading (notification tap). Loads up to a few pages to find it.
+  /// Post to open at (notification tap). Loads up to a few pages to find it.
   final int? focusChatId;
   final int? focusMessageId;
 
   @override
-  State<TimelineScreen> createState() => _TimelineScreenState();
+  State<TimelineView> createState() => _TimelineViewState();
 }
 
 /// Where the user was in a feed; kept in memory so coming back within the session lands on
@@ -59,9 +120,9 @@ class _Anchor {
   final double edge;
 }
 
-class _TimelineScreenState extends State<TimelineScreen> {
-  /// Remembered positions per feed id. They hang off the database object, which goes away
-  /// with the session.
+class _TimelineViewState extends State<TimelineView> {
+  /// Remembered positions per feed id (positive) or channel chat id (negative). They hang
+  /// off the database object, which goes away with the session.
   static final _memory = Expando<Map<int, _Anchor>>();
 
   /// Opening loads down to the read marks, but never more than this many rows.
@@ -72,8 +133,10 @@ class _TimelineScreenState extends State<TimelineScreen> {
   late final ReadMarker _marker = ReadMarker(
     db: widget.db,
     gateway: widget.gateway,
-    feedId: widget.feed.id,
+    feedId: widget.feed?.id,
   );
+
+  int get _memoryKey => widget.feed?.id ?? widget.channel!.chatId;
   FeedTimeline? _timeline;
   StreamSubscription<PostEvent>? _events;
   StreamSubscription<List<WatchedChannel>>? _sources;
@@ -99,15 +162,34 @@ class _TimelineScreenState extends State<TimelineScreen> {
   void initState() {
     super.initState();
     _positions.itemPositions.addListener(_onPositions);
-    _sources = widget.db.watchSourceChannels(widget.feed.id).listen(_onSources);
+    final feed = widget.feed;
+    if (feed == null) {
+      final c = widget.channel!;
+      _marks = {c.chatId: c.lastReadMessageId};
+      _setSources([(chatId: c.chatId, title: c.title, username: c.username)]);
+      return;
+    }
+    _sources = widget.db
+        .watchSourceChannels(feed.id)
+        .listen(
+          (rows) => _setSources([
+            for (final r in rows)
+              (chatId: r.chatId, title: r.title, username: r.username),
+          ]),
+        );
     _marksSub = widget.db.watchAllReadMarks().listen((_) async {
-      _marks = await widget.db.readMarks(widget.feed.id);
+      _marks = await widget.db.readMarks(feed.id);
       if (mounted) setState(() {});
     });
   }
 
-  /// (Re)builds the timeline when the feed's sources change.
-  void _onSources(List<WatchedChannel> sources) {
+  Future<Map<int, int>> _loadMarks() async =>
+      widget.feed == null ? _marks : await widget.db.readMarks(widget.feed!.id);
+
+  /// (Re)builds the timeline when the sources change.
+  void _setSources(
+    List<({int chatId, String title, String? username})> sources,
+  ) {
     _titles = {for (final s in sources) s.chatId: s.title};
     _usernames = {for (final s in sources) s.chatId: s.username};
     final ids = sources.map((s) => s.chatId).toList();
@@ -140,7 +222,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
   Future<void> _open(FeedTimeline t) async {
     setState(() => _loading = true);
     try {
-      _marks = await widget.db.readMarks(widget.feed.id);
+      _marks = await _loadMarks();
       await t.loadMore();
       Future<int> search(int Function() find) async {
         var index = find();
@@ -153,7 +235,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
       final focusChat = widget.focusChatId;
       final focusMessage = widget.focusMessageId;
-      final left = _remembered[widget.feed.id];
+      final left = _remembered[_memoryKey];
       var index = -1;
       if (focusChat != null && focusMessage != null) {
         index = await search(
@@ -246,10 +328,25 @@ class _TimelineScreenState extends State<TimelineScreen> {
         seen.add(items[p.index]);
       }
     }
-    if (seen.isNotEmpty) _marker.seen(seen);
+    if (seen.isNotEmpty) {
+      _marker.seen(seen);
+      // A single channel has no marks table to listen to; its dots clear here.
+      if (widget.feed == null) {
+        final chat = widget.channel!.chatId;
+        var newestSeen = _marks[chat] ?? 0;
+        for (final item in seen) {
+          if (item.head.messageId > newestSeen) {
+            newestSeen = item.head.messageId;
+          }
+        }
+        if (newestSeen != _marks[chat]) {
+          setState(() => _marks = {chat: newestSeen});
+        }
+      }
+    }
     if (newest.index < items.length) {
       final row = items[newest.index];
-      _remembered[widget.feed.id] = _Anchor(
+      _remembered[_memoryKey] = _Anchor(
         row.chatId,
         row.rowId,
         newest.itemLeadingEdge,
@@ -417,31 +514,18 @@ class _TimelineScreenState extends State<TimelineScreen> {
   Widget build(BuildContext context) {
     final t = _timeline;
     final items = t?.items ?? const <TimelineItem>[];
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.feed.name),
-        actions: [
-          IconButton(
-            tooltip: 'Edit feed',
-            icon: const Icon(Icons.tune),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => FeedEditorScreen(
-                  db: widget.db,
-                  gateway: widget.gateway,
-                  feedId: widget.feed.id,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: t == null || _opening || t.atTop
-          ? null
-          : Badge.count(
+    return Stack(
+      children: [
+        Positioned.fill(child: _body(context, t, items)),
+        if (t != null && !_opening && !t.atTop)
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: Badge.count(
               count: t.pendingNew,
               isLabelVisible: t.pendingNew > 0,
               child: FloatingActionButton.small(
+                heroTag: null,
                 tooltip: t.pendingNew > 0
                     ? '${t.pendingNew} new post${t.pendingNew == 1 ? '' : 's'}'
                     : 'Newest posts',
@@ -449,82 +533,91 @@ class _TimelineScreenState extends State<TimelineScreen> {
                 child: const Icon(Icons.keyboard_arrow_down),
               ),
             ),
-      body: t == null || _opening
-          ? const Center(child: CircularProgressIndicator())
-          : items.isEmpty && t.chatIds.isEmpty
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Text(
-                  'This feed has no channels yet. Tap the tune icon to add some.',
-                  textAlign: TextAlign.center,
-                ),
+          ),
+      ],
+    );
+  }
+
+  Widget _body(
+    BuildContext context,
+    FeedTimeline? t,
+    List<TimelineItem> items,
+  ) {
+    return t == null || _opening
+        ? const Center(child: CircularProgressIndicator())
+        : items.isEmpty && t.chatIds.isEmpty
+        ? const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Text(
+                'This feed has no channels yet. Tap the tune icon to add some.',
+                textAlign: TextAlign.center,
               ),
-            )
-          : items.isEmpty
-          ? Center(
-              child: Text(_error == null ? 'No posts.' : 'Telegram: $_error'),
-            )
-          // Oldest at the top, newest at the bottom, like a chat in Telegram.
-          : ScrollablePositionedList.builder(
-              reverse: true,
-              initialScrollIndex: _initialIndex.clamp(0, items.length),
-              initialAlignment: _initialAlignment,
-              itemScrollController: _scrollCtl,
-              itemPositionsListener: _positions,
-              itemCount: items.length + 1,
-              itemBuilder: (context, i) {
-                if (i == items.length) {
-                  return Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(
-                      child: t.exhausted
-                          ? const Text('Beginning of the feed')
-                          : const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                    ),
-                  );
-                }
-                final item = items[i];
-                final id = (item.chatId, item.rowId);
-                final card = PostCard(
-                  item: item,
-                  channelTitle: _titles[item.chatId] ?? '',
-                  gateway: widget.gateway,
-                  unread: FeedTimeline.isUnread(item, _marks),
-                  onOpenInTelegram: () => _openInTelegram(item),
-                  onShare: () => _share(item),
-                  onCopyLink: () => _copyLink(item),
-                  onReact: (emoji, remove) => _react(item, emoji, remove),
-                  onPickReaction: () => _pickReaction(item),
-                  // Only posts of channels with a discussion group have a thread.
-                  onOpenThread: !item.head.canComment
-                      ? null
-                      : () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => ThreadScreen(
-                              gateway: widget.gateway,
-                              post: item.head,
-                              channelTitle: _titles[item.chatId] ?? '',
-                            ),
+            ),
+          )
+        : items.isEmpty
+        ? Center(
+            child: Text(_error == null ? 'No posts.' : 'Telegram: $_error'),
+          )
+        // Oldest at the top, newest at the bottom, like a chat in Telegram.
+        : ScrollablePositionedList.builder(
+            reverse: true,
+            initialScrollIndex: _initialIndex.clamp(0, items.length),
+            initialAlignment: _initialAlignment,
+            itemScrollController: _scrollCtl,
+            itemPositionsListener: _positions,
+            itemCount: items.length + 1,
+            itemBuilder: (context, i) {
+              if (i == items.length) {
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Center(
+                    child: t.exhausted
+                        ? const Text('Beginning of the feed')
+                        : const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                  ),
+                );
+              }
+              final item = items[i];
+              final id = (item.chatId, item.rowId);
+              final card = PostCard(
+                item: item,
+                channelTitle: _titles[item.chatId] ?? '',
+                gateway: widget.gateway,
+                unread: FeedTimeline.isUnread(item, _marks),
+                onOpenInTelegram: () => _openInTelegram(item),
+                onShare: () => _share(item),
+                onCopyLink: () => _copyLink(item),
+                onReact: (emoji, remove) => _react(item, emoji, remove),
+                onPickReaction: () => _pickReaction(item),
+                // Only posts of channels with a discussion group have a thread.
+                onOpenThread: !item.head.canComment
+                    ? null
+                    : () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => ThreadScreen(
+                            gateway: widget.gateway,
+                            post: item.head,
+                            channelTitle: _titles[item.chatId] ?? '',
                           ),
                         ),
-                );
-                return KeyedSubtree(
-                  key: ValueKey(id),
-                  child: id == _firstUnread
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [const UnreadDivider(), card],
-                        )
-                      : card,
-                );
-              },
-            ),
-    );
+                      ),
+              );
+              return KeyedSubtree(
+                key: ValueKey(id),
+                child: id == _firstUnread
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [const UnreadDivider(), card],
+                      )
+                    : card,
+              );
+            },
+          );
   }
 }
 

@@ -91,7 +91,24 @@ Channel channel(td.Chat chat, td.Supergroup sg) => Channel(
   isMember: isMemberStatus(sg.status),
   lastMessageId: chat.lastMessage?.id ?? 0,
   lastReadMessageId: chat.lastReadInboxMessageId,
+  unreadCount: chat.unreadCount,
+  lastMessageText: preview(chat.lastMessage?.content),
+  lastMessageDate: chat.lastMessage?.date ?? 0,
 );
+
+/// One line for a channel list: the text or caption, else what kind of media it is.
+String preview(td.MessageContent? c) {
+  final (text, media) = content(c);
+  if (text.isNotEmpty) return text.replaceAll(RegExp(r'\s+'), ' ');
+  return switch (media) {
+    PhotoMedia() => 'Photo',
+    VideoMedia(:final isAnimation) => isAnimation ? 'GIF' : 'Video',
+    AudioMedia(:final isVoice) => isVoice ? 'Voice message' : 'Audio',
+    DocumentMedia(:final fileName) => fileName,
+    UnsupportedMedia(:final tdType) => tdType.replaceFirst('message', ''),
+    null => '',
+  };
+}
 
 Post post(td.Message m) {
   final (text, media) = content(m.content);

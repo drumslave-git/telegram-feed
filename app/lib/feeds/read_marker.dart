@@ -17,7 +17,9 @@ final class ReadMarker {
 
   final AppDatabase db;
   final TelegramGateway gateway;
-  final int feedId;
+
+  /// Null for a single channel outside any feed: then only Telegram keeps the position.
+  final int? feedId;
   final Duration debounce;
 
   final _maxSeen = <int, int>{}; // chat id → newest seen message id
@@ -60,7 +62,8 @@ final class ReadMarker {
       final newest = entry.value;
       if (newest <= (_reported[chatId] ?? 0)) continue;
       _reported[chatId] = newest;
-      await db.markRead(feedId, chatId, newest);
+      final feed = feedId;
+      if (feed != null) await db.markRead(feed, chatId, newest);
       final ids = batch[chatId];
       if (sync && ids != null && ids.isNotEmpty) {
         try {

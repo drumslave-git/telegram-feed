@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/auth/login_screens.dart';
 import 'package:telegram_feed/feeds/feed_editor_screen.dart';
-import 'package:telegram_feed/feeds/feeds_screen.dart';
 import 'package:telegram_feed/feeds/timeline_screen.dart';
+import 'package:telegram_feed/home/home_screen.dart';
 import 'package:telegram_feed/settings/settings_screen.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -96,7 +96,9 @@ void main() {
     );
   });
 
-  testWidgets('feeds list with badges', (tester) async {
+  testWidgets('home: feeds tab with badges, folder tab, all channels', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(_phone);
     final db = AppDatabase(NativeDatabase.memory());
     await tester.runAsync(() async {
@@ -109,17 +111,32 @@ void main() {
     final gw = TimelineGateway(
       {},
       channels: const [
-        Channel(chatId: -1, title: 'Alpha News', lastMessageId: 100),
-        Channel(chatId: -2, title: 'Beta Daily', lastMessageId: 200),
+        Channel(
+          chatId: -1,
+          title: 'Alpha News',
+          lastMessageId: 100,
+          lastMessageText: 'Quarterly results are out',
+          lastMessageDate: 1,
+        ),
+        Channel(
+          chatId: -2,
+          title: 'Beta Daily',
+          lastMessageId: 200,
+          unreadCount: 12,
+          lastMessageText: 'Photo',
+          lastMessageDate: 1,
+        ),
+      ],
+      folders: const [
+        ChatFolder(id: 2, title: 'News', channelIds: [-2, -1]),
       ],
     );
-    await tester.pumpWidget(
-      _app(FeedsScreen(db: db, gateway: gw, onOpenFeed: (_) {})),
-    );
+    await tester.pumpWidget(_app(HomeScreen(db: db, gateway: gw)));
+    await _settle(tester);
     await _settle(tester);
     await expectLater(
       find.byType(MaterialApp),
-      matchesGoldenFile('goldens/feeds.png'),
+      matchesGoldenFile('goldens/home.png'),
     );
     await _unmount(tester);
   });

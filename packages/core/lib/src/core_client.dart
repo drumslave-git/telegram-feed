@@ -136,6 +136,12 @@ final class CoreClient implements TelegramGateway {
           .toList();
 
   @override
+  Future<List<ChatFolder>> chatFolders() async =>
+      ((await _call('chatFolders')) as List)
+          .map((e) => decodeChatFolder(e as Map<Object?, Object?>))
+          .toList();
+
+  @override
   Future<List<Post>> history(
     int chatId, {
     int fromMessageId = 0,
