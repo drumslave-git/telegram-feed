@@ -171,6 +171,23 @@ final class CoreServer {
           onlyLocal: a['onlyLocal'] as bool,
         );
         return posts.map(encodePost).toList();
+      case 'searchHistory':
+        return encodeSearchPage(
+          await gateway.searchHistory(
+            a['chatId'] as int,
+            query: a['query'] as String,
+            filter: HistoryFilter.values.byName(a['filter'] as String),
+            fromMessageId: a['fromMessageId'] as int,
+            limit: a['limit'] as int,
+          ),
+        );
+      case 'messageIdByDate':
+        return gateway.messageIdByDate(
+          a['chatId'] as int,
+          a['unixDate'] as int,
+        );
+      case 'channelInfo':
+        return encodeChannelInfo(await gateway.channelInfo(a['chatId'] as int));
       case 'markViewed':
         await gateway.markViewed(
           a['chatId'] as int,

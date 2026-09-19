@@ -86,6 +86,40 @@ final class FakeGateway implements TelegramGateway {
   }
 
   @override
+  Future<SearchPage> searchHistory(
+    int chatId, {
+    String query = '',
+    HistoryFilter filter = HistoryFilter.any,
+    int fromMessageId = 0,
+    int limit = 30,
+  }) async {
+    calls.add('search:$chatId:$query:${filter.name}:$fromMessageId:$limit');
+    return SearchPage(
+      posts: [Post(chatId: chatId, messageId: 5, date: 3, text: 'hit')],
+      totalCount: 12,
+      nextFromMessageId: 5,
+    );
+  }
+
+  @override
+  Future<int> messageIdByDate(int chatId, int unixDate) async {
+    calls.add('byDate:$chatId:$unixDate');
+    return 77;
+  }
+
+  @override
+  Future<ChannelInfo> channelInfo(int chatId) async {
+    calls.add('info:$chatId');
+    return ChannelInfo(
+      chatId: chatId,
+      description: 'About',
+      memberCount: 9,
+      inviteLink: 'https://t.me/+x',
+      bigPhoto: const FileRef(id: 3, remoteId: 'b', size: 4),
+    );
+  }
+
+  @override
   Future<void> markViewed(int chatId, List<int> messageIds) async =>
       calls.add('viewed:$chatId:${messageIds.join(",")}');
 
@@ -195,6 +229,27 @@ void main() {
 
       await client.markViewed(-1001, [7, 6]);
       expect(gw.calls.last, 'viewed:-1001:7,6');
+
+      final page = await client.searchHistory(
+        -1001,
+        query: 'rain',
+        filter: HistoryFilter.photoAndVideo,
+        fromMessageId: 9,
+        limit: 5,
+      );
+      expect(gw.calls.last, 'search:-1001:rain:photoAndVideo:9:5');
+      expect(page.posts.single.text, 'hit');
+      expect(page.totalCount, 12);
+      expect(page.isLast, isFalse);
+
+      expect(await client.messageIdByDate(-1001, 1700), 77);
+      expect(gw.calls.last, 'byDate:-1001:1700');
+
+      final info = await client.channelInfo(-1001);
+      expect(info.description, 'About');
+      expect(info.memberCount, 9);
+      expect(info.inviteLink, 'https://t.me/+x');
+      expect(info.bigPhoto?.id, 3);
     });
 
     test('events are forwarded', () async {

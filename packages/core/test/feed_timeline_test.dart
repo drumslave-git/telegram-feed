@@ -26,6 +26,56 @@ final class HistoryGateway implements TelegramGateway {
     return older.take(limit).toList();
   }
 
+  /// Searches the same histories: substring match on the text, media kind for the tabs.
+  @override
+  Future<SearchPage> searchHistory(
+    int chatId, {
+    String query = '',
+    HistoryFilter filter = HistoryFilter.any,
+    int fromMessageId = 0,
+    int limit = 30,
+  }) async {
+    calls.add('search:$chatId:$query:${filter.name}:$fromMessageId');
+    final all = [
+      for (final p in network[chatId] ?? const <Post>[])
+        if ((query.isEmpty ||
+                p.text.toLowerCase().contains(query.toLowerCase())) &&
+            _matches(filter, p.media))
+          p,
+    ];
+    final older = fromMessageId == 0
+        ? all
+        : all.where((p) => p.messageId < fromMessageId).toList();
+    final page = older.take(limit).toList();
+    return SearchPage(
+      posts: page,
+      totalCount: all.length,
+      nextFromMessageId: page.length < older.length ? page.last.messageId : 0,
+    );
+  }
+
+  static bool _matches(HistoryFilter f, Media? m) => switch (f) {
+    HistoryFilter.any => true,
+    HistoryFilter.photoAndVideo => m is PhotoMedia || m is VideoMedia,
+    HistoryFilter.document => m is DocumentMedia,
+    HistoryFilter.url => m is! PhotoMedia && m is! VideoMedia,
+    HistoryFilter.audio => m is AudioMedia && !m.isVoice,
+    HistoryFilter.voice => m is AudioMedia && m.isVoice,
+  };
+
+  @override
+  Future<int> messageIdByDate(int chatId, int unixDate) async {
+    calls.add('byDate:$chatId:$unixDate');
+    for (final p in network[chatId] ?? const <Post>[]) {
+      if (p.date <= unixDate) return p.messageId;
+    }
+    return 0;
+  }
+
+  @override
+  Future<ChannelInfo> channelInfo(int chatId) async =>
+      ChannelInfo(chatId: chatId);
+
   @override
   Stream<AuthState> get authState => const Stream.empty();
   @override

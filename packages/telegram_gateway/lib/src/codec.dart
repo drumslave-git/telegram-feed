@@ -105,6 +105,36 @@ Channel decodeChannel(Map<Object?, Object?> m) => Channel(
   lastMessageDate: (m['lastMessageDate'] as int?) ?? 0,
 );
 
+Map<String, Object?> encodeChannelInfo(ChannelInfo i) => {
+  'chatId': i.chatId,
+  'description': i.description,
+  'memberCount': i.memberCount,
+  'inviteLink': i.inviteLink,
+  'bigPhoto': _fileOrNull(i.bigPhoto),
+};
+
+ChannelInfo decodeChannelInfo(Map<Object?, Object?> m) => ChannelInfo(
+  chatId: m['chatId'] as int,
+  description: m['description'] as String,
+  memberCount: m['memberCount'] as int,
+  inviteLink: m['inviteLink'] as String,
+  bigPhoto: _decodeFileOrNull(m['bigPhoto']),
+);
+
+Map<String, Object?> encodeSearchPage(SearchPage p) => {
+  'posts': p.posts.map(encodePost).toList(),
+  'totalCount': p.totalCount,
+  'nextFromMessageId': p.nextFromMessageId,
+};
+
+SearchPage decodeSearchPage(Map<Object?, Object?> m) => SearchPage(
+  posts: [
+    for (final p in m['posts'] as List) decodePost(p as Map<Object?, Object?>),
+  ],
+  totalCount: m['totalCount'] as int,
+  nextFromMessageId: m['nextFromMessageId'] as int,
+);
+
 Map<String, Object?> encodeMedia(Media m) => switch (m) {
   PhotoMedia(:final sizes) => {
     'kind': 'photo',

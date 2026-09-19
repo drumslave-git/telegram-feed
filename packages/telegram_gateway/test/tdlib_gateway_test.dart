@@ -785,6 +785,105 @@ void main() {
     },
   );
 
+  test('searchHistory pages, carries the total and the next offset', () async {
+    final asked = <Map<String, Object?>>[];
+    t.handlers['searchChatMessages'] = (r) {
+      asked.add(r);
+      final from = r['from_message_id'] as int;
+      final ids = switch (from) {
+        0 => [90],
+        90 => [80, 70],
+        _ => <int>[],
+      };
+      return {
+        '@type': 'foundChatMessages',
+        'total_count': 17,
+        'messages': [for (final id in ids) messageJson(-1001, id)],
+        'next_from_message_id': ids.isEmpty ? 0 : ids.last,
+      };
+    };
+    final page = await g.searchHistory(-1001, query: 'rain', limit: 3);
+    expect(page.posts.map((p) => p.messageId), [90, 80, 70]);
+    expect(page.totalCount, 17);
+    expect(page.nextFromMessageId, 70);
+    expect(page.isLast, isFalse);
+    expect(asked.first['query'], 'rain');
+    expect(asked.first['filter'], isNull);
+    expect(asked.map((r) => r['from_message_id']), [0, 90]);
+
+    // A media tab: no query, a filter, and the end of the history.
+    asked.clear();
+    t.handlers['searchChatMessages'] = (r) {
+      asked.add(r);
+      return {
+        '@type': 'foundChatMessages',
+        'total_count': 1,
+        'messages': [messageJson(-1001, 12)],
+        'next_from_message_id': 0,
+      };
+    };
+    final media = await g.searchHistory(
+      -1001,
+      filter: HistoryFilter.photoAndVideo,
+    );
+    expect(media.posts.single.messageId, 12);
+    expect(media.isLast, isTrue);
+    expect(
+      (asked.single['filter']! as Map<String, Object?>)['@type'],
+      'searchMessagesFilterPhotoAndVideo',
+    );
+  });
+
+  test(
+    'messageIdByDate answers 0 when nothing was posted that early',
+    () async {
+      t.handlers['getChatMessageByDate'] = (r) =>
+          (r['date'] as int) < 1700000000
+          ? {'@type': 'error', 'code': 404, 'message': 'Message not found'}
+          : messageJson(-1001, 31);
+      expect(await g.messageIdByDate(-1001, 1700000100), 31);
+      expect(await g.messageIdByDate(-1001, 1600000000), 0);
+    },
+  );
+
+  test('channelInfo reads description, members and the big photo', () async {
+    t.handlers['getChat'] = (_) => {
+      ...chatJson(-1001, 'News', supergroupId: 1),
+      'photo': {
+        '@type': 'chatPhotoInfo',
+        'small': {'@type': 'file', 'id': 4, 'size': 1, 'expected_size': 1},
+        'big': {'@type': 'file', 'id': 5, 'size': 2, 'expected_size': 2},
+        'has_animation': false,
+        'is_personal': false,
+      },
+    };
+    t.handlers['getSupergroupFullInfo'] = (_) => {
+      '@type': 'supergroupFullInfo',
+      'description': 'All the news',
+      'member_count': 1234,
+      'invite_link': {
+        '@type': 'chatInviteLink',
+        'invite_link': 'https://t.me/+abc',
+        'name': '',
+        'creator_user_id': 1,
+        'date': 0,
+        'edit_date': 0,
+        'expiration_date': 0,
+        'member_limit': 0,
+        'member_count': 0,
+        'pending_join_request_count': 0,
+        'creates_join_request': false,
+        'is_primary': true,
+        'is_revoked': false,
+      },
+    };
+    final info = await g.channelInfo(-1001);
+    expect(info.description, 'All the news');
+    expect(info.memberCount, 1234);
+    expect(info.inviteLink, 'https://t.me/+abc');
+    expect(info.bigPhoto?.id, 5);
+  });
+
   test('canComment follows reply_info', () async {
     t.handlers['getChatHistory'] = (r) => {
       '@type': 'messages',

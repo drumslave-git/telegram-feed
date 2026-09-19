@@ -111,6 +111,62 @@ final class ChatFolder {
   final List<int> channelIds;
 }
 
+/// What a search of a channel's history looks for: words in everything, or one kind of
+/// attachment (the shared media tabs of the official app).
+enum HistoryFilter {
+  /// Text search over every post.
+  any,
+  photoAndVideo,
+  document,
+
+  /// Posts containing a link.
+  url,
+
+  /// Music files, not voice messages.
+  audio,
+  voice,
+}
+
+/// One page of [TelegramGateway.searchHistory], newest first.
+final class SearchPage {
+  const SearchPage({
+    this.posts = const [],
+    this.totalCount = 0,
+    this.nextFromMessageId = 0,
+  });
+
+  final List<Post> posts;
+
+  /// Telegram's approximate count for the whole query; -1 when it does not know.
+  final int totalCount;
+
+  /// Where the next page starts; 0 when the end is reached.
+  final int nextFromMessageId;
+
+  bool get isLast => nextFromMessageId == 0;
+}
+
+/// What a channel's info screen shows beyond what a channel list needs ([Channel]).
+final class ChannelInfo {
+  const ChannelInfo({
+    required this.chatId,
+    this.description = '',
+    this.memberCount = 0,
+    this.inviteLink = '',
+    this.bigPhoto,
+  });
+  final int chatId;
+  final String description;
+  final int memberCount;
+
+  /// Primary invite link; empty unless this account may see it (administrators only).
+  /// Public channels are linked by their username instead.
+  final String inviteLink;
+
+  /// Large profile photo for the header; the small one is [Channel.photo].
+  final FileRef? bigPhoto;
+}
+
 final class ChannelMembershipEvent {
   const ChannelMembershipEvent({required this.chatId, required this.isMember});
   final int chatId;

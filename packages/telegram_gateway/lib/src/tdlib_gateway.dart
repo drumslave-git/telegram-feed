@@ -313,6 +313,82 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
+  Future<SearchPage> searchHistory(
+    int chatId, {
+    String query = '',
+    HistoryFilter filter = HistoryFilter.any,
+    int fromMessageId = 0,
+    int limit = 30,
+  }) async {
+    // Like getChatHistory, searchChatMessages picks its own page size and often answers
+    // with fewer messages than asked; keep asking until [limit] or the end.
+    final out = <Post>[];
+    var total = 0;
+    var next = fromMessageId;
+    var first = true;
+    while (out.length < limit) {
+      final r = await _client.call(
+        td.SearchChatMessages(
+          chatId: chatId,
+          query: query,
+          fromMessageId: next,
+          offset: 0,
+          limit: limit - out.length,
+          filter: map.searchFilter(filter),
+        ),
+      );
+      if (first) {
+        total = r.totalCount;
+        first = false;
+      }
+      out.addAll(r.messages.map(map.post));
+      next = r.nextFromMessageId;
+      if (next == 0 || r.messages.isEmpty) {
+        next = 0;
+        break;
+      }
+    }
+    return SearchPage(posts: out, totalCount: total, nextFromMessageId: next);
+  }
+
+  @override
+  Future<int> messageIdByDate(int chatId, int unixDate) async {
+    try {
+      return (await _client.call(
+        td.GetChatMessageByDate(chatId: chatId, date: unixDate),
+      )).id;
+    } on TelegramException catch (e) {
+      // 404: nothing was posted that early.
+      if (e.code == 404) return 0;
+      rethrow;
+    }
+  }
+
+  @override
+  Future<ChannelInfo> channelInfo(int chatId) async {
+    final chat = await _client.call(td.GetChat(chatId: chatId));
+    final big = chat.photo?.big;
+    var description = '';
+    var memberCount = 0;
+    var inviteLink = '';
+    if (chat.type case td.ChatTypeSupergroup(:final supergroupId)) {
+      final full = await _client.call(
+        td.GetSupergroupFullInfo(supergroupId: supergroupId),
+      );
+      description = full.description;
+      memberCount = full.memberCount;
+      inviteLink = full.inviteLink?.inviteLink ?? '';
+    }
+    return ChannelInfo(
+      chatId: chatId,
+      description: description,
+      memberCount: memberCount,
+      inviteLink: inviteLink,
+      bigPhoto: big == null ? null : map.fileRef(big),
+    );
+  }
+
+  @override
   Future<void> markViewed(int chatId, List<int> messageIds) => _client.call(
     td.ViewMessages(
       chatId: chatId,

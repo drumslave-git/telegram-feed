@@ -27,6 +27,23 @@ abstract interface class TelegramGateway {
     int limit = 30,
     bool onlyLocal = false,
   });
+
+  /// Posts of [chatId] matching [query] and [filter], newest first. An empty [query] with
+  /// a filter is how the shared media tabs list a channel's photos, files, links and audio.
+  Future<SearchPage> searchHistory(
+    int chatId, {
+    String query = '',
+    HistoryFilter filter = HistoryFilter.any,
+    int fromMessageId = 0,
+    int limit = 30,
+  });
+
+  /// Newest post of [chatId] sent no later than [unixDate]; 0 when the channel has none.
+  Future<int> messageIdByDate(int chatId, int unixDate);
+
+  /// Description, subscriber count and link of a channel, for its info screen.
+  Future<ChannelInfo> channelInfo(int chatId);
+
   Stream<PostEvent> get postEvents;
   Future<void> markViewed(int chatId, List<int> messageIds);
 

@@ -155,6 +155,33 @@ final class CoreClient implements TelegramGateway {
   })) as List).map((e) => decodePost(e as Map<Object?, Object?>)).toList();
 
   @override
+  Future<SearchPage> searchHistory(
+    int chatId, {
+    String query = '',
+    HistoryFilter filter = HistoryFilter.any,
+    int fromMessageId = 0,
+    int limit = 30,
+  }) async => decodeSearchPage(
+    (await _call('searchHistory', {
+      'chatId': chatId,
+      'query': query,
+      'filter': filter.name,
+      'fromMessageId': fromMessageId,
+      'limit': limit,
+    })) as Map<Object?, Object?>,
+  );
+
+  @override
+  Future<int> messageIdByDate(int chatId, int unixDate) async =>
+      (await _call('messageIdByDate', {'chatId': chatId, 'unixDate': unixDate}))
+          as int;
+
+  @override
+  Future<ChannelInfo> channelInfo(int chatId) async => decodeChannelInfo(
+    (await _call('channelInfo', {'chatId': chatId})) as Map<Object?, Object?>,
+  );
+
+  @override
   Future<void> markViewed(int chatId, List<int> messageIds) =>
       _call('markViewed', {'chatId': chatId, 'messageIds': messageIds});
 

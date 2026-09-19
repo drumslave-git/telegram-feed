@@ -99,6 +99,16 @@ Channel channel(td.Chat chat, td.Supergroup sg) => Channel(
   lastMessageDate: chat.lastMessage?.date ?? 0,
 );
 
+/// TDLib's filter for a [HistoryFilter]; null searches everything.
+td.SearchMessagesFilter? searchFilter(HistoryFilter f) => switch (f) {
+  HistoryFilter.any => null,
+  HistoryFilter.photoAndVideo => const td.SearchMessagesFilterPhotoAndVideo(),
+  HistoryFilter.document => const td.SearchMessagesFilterDocument(),
+  HistoryFilter.url => const td.SearchMessagesFilterUrl(),
+  HistoryFilter.audio => const td.SearchMessagesFilterAudio(),
+  HistoryFilter.voice => const td.SearchMessagesFilterVoiceNote(),
+};
+
 /// One line for a channel list: the text or caption, else what kind of media it is.
 String preview(td.MessageContent? c) {
   final (text, media) = content(c);

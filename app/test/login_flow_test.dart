@@ -64,6 +64,19 @@ final class ScriptedGateway implements TelegramGateway {
     bool onlyLocal = false,
   }) async => const [];
   @override
+  Future<SearchPage> searchHistory(
+    int chatId, {
+    String query = '',
+    HistoryFilter filter = HistoryFilter.any,
+    int fromMessageId = 0,
+    int limit = 30,
+  }) async => const SearchPage();
+  @override
+  Future<int> messageIdByDate(int chatId, int unixDate) async => 0;
+  @override
+  Future<ChannelInfo> channelInfo(int chatId) async =>
+      ChannelInfo(chatId: chatId);
+  @override
   Future<void> markViewed(int chatId, List<int> messageIds) async {}
   @override
   Future<FileRef> download(FileRef ref, {int priority = 16}) async => ref;
