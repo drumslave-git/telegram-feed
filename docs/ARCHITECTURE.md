@@ -187,6 +187,25 @@ A timeline row (`PostCard`, `feeds/post_card.dart`) is drawn like a post in the 
 - **Editing.** The feed editor's "Show" row opens a sheet with the four controls; the row's subtitle is the filter in words.
 - **Sync.** The filter travels with the feed as the optional `filter` key of the snapshot. The file's format version stays 1: a device on an older version ignores the key and keeps syncing, and the filter survives as long as that device does not edit the feed.
 
+### 5.10 Search, dates and shared media
+
+A feed is merged channels, so everything the official app offers inside one channel runs over
+all of a feed's sources at once and obeys the feed's filter (founder decision 2026-09-19).
+
+- **Search and media tabs** share one engine, `FeedSearch` (package `core`). It is the merge
+  of `FeedTimeline` over `searchHistory` instead of `history`: a buffer and a next offset per
+  source, `(date desc, chatId, messageId desc)`, `loadMore()` for the next page. Albums are
+  not collapsed — a result row and a media tile mean one post. A media tab is the same search
+  with an empty query and a `HistoryFilter` (photo and video, document, link, audio, voice),
+  which the gateway turns into TDLib's `SearchMessagesFilter`.
+- **The feed's filter applies**: a post the feed hides is not a result either. Telegram's
+  `total_count` per source is summed into `FeedSearch.totalCount`; it counts what the server
+  matched, so with a filter it is an upper bound, and once the search is exhausted the number
+  of results is exact.
+- **Dates.** `anchorsForDate` asks every source for the newest post sent no later than the
+  chosen day (`getChatMessageByDate`, a 404 means the channel has nothing that old and it
+  contributes nothing at that point). The anchors are where the timeline starts.
+
 ## 6. Rules and notifications (phase 2)
 
 ### 6.1 Rule model
@@ -343,3 +362,4 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-19 | A feed made from a Telegram folder is a one-time copy of its channels | Founder decision, feedback round 3; no link to the folder, no schema change |
 | 2026-09-19 | Autoplay keeps the switch and limits of F-6; they are also reachable from the menu of a video post | Founder feedback round 3: the settings existed but were overlooked |
 | 2026-09-19 | Avatars sit in the bubble's title line, at the right end, in posts and comments; the share button beside the bubble is gone (sharing stays in the menu) | Founder decision the same day, after seeing the first version of round 3: the avatar column and the share button took too much width from text and pictures. Departs from the official app on purpose |
+| 2026-09-19 | Search, date navigation and shared media work over all of a feed's sources as one merged list and obey the feed's filter | Founder decision, feedback round 4: a feed is merged channels, so it searches exactly what it shows |

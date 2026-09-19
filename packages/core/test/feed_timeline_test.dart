@@ -40,7 +40,7 @@ final class HistoryGateway implements TelegramGateway {
       for (final p in network[chatId] ?? const <Post>[])
         if ((query.isEmpty ||
                 p.text.toLowerCase().contains(query.toLowerCase())) &&
-            _matches(filter, p.media))
+            _matches(filter, p))
           p,
     ];
     final older = fromMessageId == 0
@@ -54,14 +54,17 @@ final class HistoryGateway implements TelegramGateway {
     );
   }
 
-  static bool _matches(HistoryFilter f, Media? m) => switch (f) {
-    HistoryFilter.any => true,
-    HistoryFilter.photoAndVideo => m is PhotoMedia || m is VideoMedia,
-    HistoryFilter.document => m is DocumentMedia,
-    HistoryFilter.url => m is! PhotoMedia && m is! VideoMedia,
-    HistoryFilter.audio => m is AudioMedia && !m.isVoice,
-    HistoryFilter.voice => m is AudioMedia && m.isVoice,
-  };
+  static bool _matches(HistoryFilter f, Post post) {
+    final m = post.media;
+    return switch (f) {
+      HistoryFilter.any => true,
+      HistoryFilter.photoAndVideo => m is PhotoMedia || m is VideoMedia,
+      HistoryFilter.document => m is DocumentMedia,
+      HistoryFilter.url => post.text.contains('http'),
+      HistoryFilter.audio => m is AudioMedia && !m.isVoice,
+      HistoryFilter.voice => m is AudioMedia && m.isVoice,
+    };
+  }
 
   @override
   Future<int> messageIdByDate(int chatId, int unixDate) async {
