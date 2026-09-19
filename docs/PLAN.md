@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 4 (extras); feedback round 2 (video viewer) in progress. **Next task:** V-6.
+**Current phase:** 4 (extras); feedback rounds 1 and 2 are closed. **Next task:** P4-3.
 
 ## Phase 0 — Spikes
 
@@ -91,8 +91,10 @@ Founder decisions of the same day: the download button fills Telegram's cache (n
 - [x] V-2 Zoom in full screen: double tap in the middle zooms in and out, pinch zooms, a drag moves the zoomed picture; the edges keep the 10 s seek. `InteractiveViewer` in `VideoStage`, helpers in `media/zoom.dart`. (a3ee5d5)
 - [x] V-3 Download button in the top left corner of a video (timeline and viewer): size, progress ring, tap again cancels. The download goes to Telegram's cache and survives leaving full screen. `VideoDownloads` + `VideoDownloadButton`; timeline goldens regenerated. (c8efba1)
 - [x] V-4 Swipe down or up closes the viewer with a fading background; holding a finger on the video plays at 2× while held. `SwipeToClose`, see-through viewer route, autoplay rests under it. (378ee21)
-- [x] V-5 One viewer for photos and videos: swiping sideways pages through the album of the post.
-- [ ] V-6 Picture-in-picture: a mini player floating over the timeline, and Android's system PiP window when the app is left while a video plays.
+- [x] V-5 One viewer for photos and videos: swiping sideways pages through the album of the post. `MediaViewerScreen` replaces `PhotoViewerScreen` and `FullscreenVideoScreen`; only the page in front has a session. (5afc101)
+- [x] V-6 Picture-in-picture: a mini player floating over the timeline, and Android's system PiP window when the app is left while a video plays. `MiniPlayer` (overlay, drag, pause, back to the viewer, close), `SystemPip` + `PipHost` + `MainActivity` (`tf/pip`, auto-enter from Android 12), the foreground video pauses when the activity is stopped. The download button also learns live when a file got complete by streaming.
+
+Verified on the emulator (NewsFeed, 2026-09-19): a tap opens the viewer at once and a 22 MB video plays after 2.4 s; portrait stays portrait and a rotated device is followed; double-tap zoom, drag of the zoomed picture, hold for 2×, album position, swipe down to close; leaving after 1.2 s of playback cancels the streaming download (`media: … closed, streaming download cancelled`); the button shows `39 MB / 45 MB` with a ring and is gone once the file is complete; mini player over the timeline; Home turns the activity into a portrait system window showing only the video, coming back continues in the viewer, dragging the window away stops the audio track. Found and fixed there: the system window was armed as 16:9 because a session counted as playing before its player was initialized.
 
 ## Phase 4 — Extras
 

@@ -71,6 +71,14 @@ final class VideoDownloads extends ChangeNotifier {
     }
   }
 
+  /// The file got complete some other way: a video streamed it to the end while it played.
+  void markComplete(int fileId) {
+    if (_done.contains(fileId)) return;
+    _drop(fileId);
+    _done.add(fileId);
+    notifyListeners();
+  }
+
   void _onProgress(int fileId, FileProgress p) {
     final w = _wanted[fileId];
     if (w == null) return;
@@ -123,17 +131,38 @@ class VideoDownloadButton extends StatefulWidget {
 
 class _VideoDownloadButtonState extends State<VideoDownloadButton> {
   VideoDownloads get _downloads => VideoDownloads.of(widget.gateway);
+  StreamSubscription<FileProgress>? _completion;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_downloads.check(widget.file));
+    _watch();
   }
 
   @override
   void didUpdateWidget(VideoDownloadButton old) {
     super.didUpdateWidget(old);
-    if (old.file.id != widget.file.id) unawaited(_downloads.check(widget.file));
+    if (old.file.id != widget.file.id) _watch();
+  }
+
+  @override
+  void dispose() {
+    _completion?.cancel();
+    super.dispose();
+  }
+
+  /// Whether the file is complete by now, and the moment it gets complete while the button
+  /// shows: a short video that autoplays under it is streamed whole within seconds.
+  void _watch() {
+    _completion?.cancel();
+    _completion = null;
+    final file = widget.file;
+    if (file.isDownloaded) return;
+    unawaited(_downloads.check(file));
+    final downloads = _downloads;
+    _completion = widget.gateway.fileProgress(file.id).listen((p) {
+      if (p.isComplete) downloads.markComplete(p.fileId);
+    });
   }
 
   @override

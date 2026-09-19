@@ -33,6 +33,11 @@ final class VideoSession extends ChangeNotifier {
   bool _muted;
   bool _disposed = false;
   int _holders = 0;
+
+  /// Those of [_holders] that watch with sound: the viewer's page and the mini player. One
+  /// can hand over to the other (picture-in-picture and back) without the video stopping.
+  int _viewerHolds = 0;
+  bool _wasPlaying = false;
   Timer? _idle;
   bool _resumeOnRetain = false;
 
@@ -76,8 +81,17 @@ final class VideoSession extends ChangeNotifier {
   void _onPlayerValue() {
     final v = _controller?.value;
     if (v != null && v.hasError && _error == null) _error = v.errorDescription;
+    // "Playing" may be set while the player still initializes; it counts once there is a
+    // picture, whose size the picture-in-picture window needs.
+    final playing = v != null && v.isInitialized && v.isPlaying;
+    if (playing != _wasPlaying) {
+      _wasPlaying = playing;
+      _owner._syncForeground();
+    }
     notifyListeners();
   }
+
+  bool get isPlaying => isReady && _controller!.value.isPlaying;
 
   /// Drops the broken player and tries again.
   Future<void> retry() async {
@@ -140,10 +154,12 @@ final class VideoSession extends ChangeNotifier {
   /// rebuild widgets).
   void retainForViewer() {
     retain();
+    _viewerHolds++;
     scheduleMicrotask(() async {
       if (_disposed) return;
       if (_muted) await setMuted(false);
       await play();
+      _owner._syncForeground();
     });
   }
 
@@ -153,9 +169,12 @@ final class VideoSession extends ChangeNotifier {
   void releaseFromViewer() {
     if (_disposed) return;
     _holders--;
+    // Handed over between the viewer and the mini player: the other one goes on watching.
+    if (--_viewerHolds > 0) return;
     final backToRow = autoplay && _holders > 0;
     scheduleMicrotask(() async {
       if (_disposed) return;
+      _owner._syncForeground();
       if (backToRow) {
         await setMuted(true);
         await play();
@@ -191,6 +210,18 @@ final class VideoSessions {
   final TelegramGateway gateway;
   final MediaServer _server;
   final _sessions = <int, VideoSession>{};
+
+  /// The video that plays in the viewer or the mini player, if any: what Android's
+  /// picture-in-picture window shows when the app is left (`SystemPip`).
+  static final foreground = ValueNotifier<VideoSession?>(null);
+
+  void _syncForeground() {
+    VideoSession? playing;
+    for (final s in _sessions.values) {
+      if (s._viewerHolds > 0 && s.isPlaying && !s._disposed) playing = s;
+    }
+    foreground.value = playing;
+  }
 
   VideoSession? find(int fileId) => _sessions[fileId];
 
@@ -254,6 +285,7 @@ final class VideoSessions {
     if (s._holders > 0) return;
     _sessions.remove(s.file.id);
     _server.release(s.file.id);
+    _syncForeground();
     await s._dispose();
     final downloads = VideoDownloads.of(gateway);
     // A download the user asked for with the button goes on without the player.
@@ -263,6 +295,7 @@ final class VideoSessions {
     if (downloads.phase(s.file) == DownloadPhase.done) return;
     try {
       await gateway.cancelDownload(s.file.id);
+      debugPrint('media: ${s.file.id} closed, streaming download cancelled');
     } on TelegramException catch (e) {
       debugPrint('media: cancel ${s.file.id}: ${e.message}');
     }

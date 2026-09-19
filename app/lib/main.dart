@@ -5,6 +5,7 @@ import 'auth/login_screens.dart';
 import 'home/home_screen.dart';
 import 'host/app_host.dart';
 import 'media/autoplay.dart';
+import 'media/system_pip.dart';
 import 'notifications/open_post.dart';
 import 'rules/rules_screen.dart';
 import 'settings/settings_screen.dart';
@@ -48,9 +49,11 @@ class TelegramFeedApp extends StatelessWidget {
           ),
           themeMode: themeModeFrom(mode.data),
           // Above the navigator, so every route's media sees the autoplay settings.
-          builder: (context, child) => snap.data == null
-              ? child!
-              : AutoplayScope(db: snap.data!.db, child: child!),
+          builder: (context, child) => PipHost(
+            child: snap.data == null
+                ? child!
+                : AutoplayScope(db: snap.data!.db, child: child!),
+          ),
           home: _Root(host: h),
         ),
       ),

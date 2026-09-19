@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../feeds/media_view.dart' show Downloaded;
+import 'mini_player.dart';
 import 'swipe_to_close.dart';
 import 'video_downloads.dart';
 import 'video_sessions.dart';
@@ -14,7 +15,8 @@ import 'zoom.dart';
 /// The photos and videos of one post on the whole screen, in whatever orientation the device
 /// has: swipe sideways through the album, pinch or double tap to zoom, drag down or up to
 /// close. The video of the page in front plays with sound; turning the page or leaving hands
-/// its session back, which ends playback and streaming unless the video autoplays in its row.
+/// its session back, which ends playback and streaming unless the video autoplays in its row
+/// or moved on into the [MiniPlayer].
 class MediaViewerScreen extends StatefulWidget {
   const MediaViewerScreen({
     super.key,
@@ -68,6 +70,20 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    // Once the first page holds its session: a mini player that was opened in the viewer
+    // again goes on here, any other one ends.
+    WidgetsBinding.instance.addPostFrameCallback((_) => MiniPlayer.dismiss());
+  }
+
+  void _toMiniPlayer(VideoSession session) {
+    MiniPlayer.show(
+      context,
+      session: session,
+      items: widget.items,
+      index: _index,
+      gateway: widget.gateway,
+    );
+    Navigator.of(context).maybePop();
   }
 
   @override
@@ -111,6 +127,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
               active: i == _index,
               title: counter,
               onZoomChanged: _onZoom,
+              onPip: _toMiniPlayer,
             ),
             final PhotoMedia photo => Stack(
               fit: StackFit.expand,
@@ -141,12 +158,14 @@ class _VideoPage extends StatefulWidget {
     required this.active,
     required this.title,
     required this.onZoomChanged,
+    required this.onPip,
   });
   final VideoMedia video;
   final TelegramGateway gateway;
   final bool active;
   final Widget? title;
   final ValueChanged<bool> onZoomChanged;
+  final ValueChanged<VideoSession> onPip;
 
   @override
   State<_VideoPage> createState() => _VideoPageState();
@@ -206,6 +225,12 @@ class _VideoPageState extends State<_VideoPage> {
       onZoomChanged: widget.onZoomChanged,
       actions: [
         VideoDownloadButton(file: widget.video.file, gateway: widget.gateway),
+        IconButton(
+          tooltip: 'Picture-in-picture',
+          color: Colors.white,
+          icon: const Icon(Icons.picture_in_picture_alt),
+          onPressed: () => widget.onPip(session),
+        ),
       ],
     );
   }

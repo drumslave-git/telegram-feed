@@ -449,6 +449,21 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('download button goes once the file got complete by streaming', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(video));
+    await tester.pump();
+    expect(find.byTooltip('Download'), findsOneWidget);
+    gw.progress.add(
+      FileProgress(fileId: 4, downloaded: 100, total: 100, localPath: pngPath),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.byTooltip('Download'), findsNothing);
+    expect(gw.aimed, isEmpty);
+  });
+
   testWidgets('a rebuilt row picks its autoplaying player up again', (
     tester,
   ) async {
