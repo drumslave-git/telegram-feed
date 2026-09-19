@@ -24,8 +24,9 @@ final class SyncException implements Exception {
   String toString() => 'SyncException: $message';
 }
 
-/// Settings that travel between devices. Device state (AI failure note, sync status) and
-/// secrets stay local; the AI API key is in the keystore and never in the database at all.
+/// Settings that travel between devices. Device state (AI failure note, sync status, how
+/// the background service runs on this phone) and secrets stay local; the AI API key is in
+/// the keystore and never in the database at all.
 bool isSyncedSetting(String key) =>
     key == SettingKeys.themeMode ||
     key == SettingKeys.syncReadToTelegram ||

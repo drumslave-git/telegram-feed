@@ -115,6 +115,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const _Header('Video autoplay'),
           AutoplaySettings(db: widget.db),
           const Divider(),
+          const _Header('Background'),
+          StreamBuilder<String?>(
+            stream: widget.db.watchSetting(SettingKeys.backgroundWatching),
+            builder: (context, snap) {
+              final watching = snap.data != 'false';
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SwitchListTile(
+                    secondary: const Icon(Icons.radar_outlined),
+                    title: const Text('Watch channels in the background'),
+                    subtitle: const Text(
+                      'Rules keep running while the app is closed. Off removes the permanent notification, and rules then only notify while the app is open. Takes effect the next time the app starts.',
+                    ),
+                    value: watching,
+                    onChanged: (v) => widget.db.setSetting(
+                      SettingKeys.backgroundWatching,
+                      v ? 'true' : 'false',
+                    ),
+                  ),
+                  StreamBuilder<String?>(
+                    stream: widget.db.watchSetting(
+                      SettingKeys.minimalServiceNotification,
+                    ),
+                    builder: (context, m) => SwitchListTile(
+                      secondary: const Icon(
+                        Icons.notifications_paused_outlined,
+                      ),
+                      title: const Text('Keep that notification minimal'),
+                      subtitle: const Text(
+                        'No status bar icon, and "Watching channels" sits at the bottom of the shade. Android does not let a background service hide its notification altogether. Takes effect the next time the app starts.',
+                      ),
+                      value: m.data == 'true',
+                      onChanged: watching
+                          ? (v) => widget.db.setSetting(
+                              SettingKeys.minimalServiceNotification,
+                              v ? 'true' : 'false',
+                            )
+                          : null,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          const Divider(),
           const _Header('Rules'),
           StreamBuilder<String?>(
             stream: widget.db.watchSetting(AiKeys.baseUrl),

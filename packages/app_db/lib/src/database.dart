@@ -134,6 +134,16 @@ abstract final class SettingKeys {
 
   /// Largest video that autoplays, in megabytes (default 20).
   static const autoplayMaxMegabytes = 'media.autoplayMaxMegabytes';
+
+  /// Rules keep being evaluated while the app is closed, in the foreground service;
+  /// 'true' | 'false', default true. Off means no permanent notification and no rule
+  /// notifications unless the app is open.
+  static const backgroundWatching = 'service.background';
+
+  /// The foreground service's permanent notification sits at MIN importance: no status
+  /// bar icon, collapsed at the bottom of the shade; 'true' | 'false', default false.
+  /// Android will not let a foreground service hide its notification altogether.
+  static const minimalServiceNotification = 'service.minimalNotification';
 }
 
 @DriftDatabase(

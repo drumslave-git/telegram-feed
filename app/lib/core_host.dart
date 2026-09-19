@@ -57,14 +57,23 @@ final class CoreHost implements AppHost {
   @override
   bool get runningInService => _inService;
 
+  /// Where the core runs, and how loud the service notification is, are settled here.
+  /// The core cannot move between the service and the app while it is up — TDLib is polled
+  /// by one isolate per engine group (`native_isolate.dart`) — so both settings take effect
+  /// the next time the app starts.
   Future<void> _connect() async {
+    final background =
+        await db.setting(SettingKeys.backgroundWatching) != 'false';
+    final minimal =
+        await db.setting(SettingKeys.minimalServiceNotification) == 'true';
+    if (!background && Platform.isAndroid) await _stopService();
     var port = IsolateNameServer.lookupPortByName(corePortName);
-    if (port == null && Platform.isAndroid) {
+    if (port == null && Platform.isAndroid && background) {
       if (await FlutterForegroundTask.checkNotificationPermission() !=
           NotificationPermission.granted) {
         await FlutterForegroundTask.requestNotificationPermission();
       }
-      if (await startCoreService()) {
+      if (await startCoreService(minimal: minimal)) {
         port = await _waitForPort(const Duration(seconds: 15));
         _inService = port != null;
         if (port == null) {
@@ -76,6 +85,20 @@ final class CoreHost implements AppHost {
     }
     port ??= await _spawnInProcess();
     _client = await CoreClient.connect(port);
+  }
+
+  /// Background watching is off, so the service must go even when Android brought it back
+  /// on boot. Waiting for it to be gone keeps its core isolate, and the TDLib receive
+  /// isolate with it, from overlapping with the one spawned in this engine.
+  Future<void> _stopService() async {
+    if (!await FlutterForegroundTask.isRunningService) return;
+    await FlutterForegroundTask.stopService();
+    final end = DateTime.now().add(const Duration(seconds: 5));
+    while (DateTime.now().isBefore(end) &&
+        await FlutterForegroundTask.isRunningService) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    IsolateNameServer.removePortNameMapping(corePortName);
   }
 
   Future<SendPort?> _waitForPort(Duration timeout) async {
