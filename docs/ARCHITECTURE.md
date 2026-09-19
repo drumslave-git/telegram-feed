@@ -202,6 +202,21 @@ all of a feed's sources at once and obeys the feed's filter (founder decision 20
   `total_count` per source is summed into `FeedSearch.totalCount`; it counts what the server
   matched, so with a filter it is an upper bound, and once the search is exhausted the number
   of results is exact.
+- **In the timeline.** The magnifier turns the app bar of `TimelineScreen` into a search
+  field (`SearchResults`, `SearchResultTile`, `SearchStepper` in `feeds/timeline_search.dart`).
+  Typing runs a `SearchSession` after 300 ms; the results cover the timeline, each row naming
+  its channel and marking the words. A tap opens the result: the list makes way, the bar
+  keeps the query, and the bottom bar steps through the matches with "3 of 47".
+- **Jumping to a post.** `TimelineViewState.jumpToPost` rebuilds the timeline anchored at that
+  post: the post itself for its own channel, `anchorsForDate` for the others. One page of
+  newer posts is loaded straight away, so the post stands in its surroundings and the list
+  does not run on towards the newest end by itself; `FeedTimeline.loadNewer` (gateway
+  `historyAfter`, TDLib's negative offset) adds more as the reader scrolls down, and every
+  row it adds moves the indices, so the list is jumped back to where the reader was. While
+  the timeline is jumped, new posts wait on the badge, the remembered position is left alone,
+  and the button at the corner rebuilds the live timeline at its newest post. A rebuilt list
+  keeps the scroll position of the old one, so an opening that is not the first also jumps
+  explicitly; `initialScrollIndex` only counts for the first build.
 - **Dates.** `anchorsForDate` asks every source for the newest post sent no later than the
   chosen day (`getChatMessageByDate`, a 404 means the channel has nothing that old and it
   contributes nothing at that point). The anchors are where the timeline starts.

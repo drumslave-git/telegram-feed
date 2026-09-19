@@ -43,6 +43,11 @@ class _Source {
   final buffer = Queue<Post>();
   bool exhausted = false;
 
+  /// Newest post loaded from this source; where paging towards the newest end continues.
+  /// Only used by an anchored timeline; 0 means it is already at the newest end.
+  int newerFrom = 0;
+  bool noNewer = true;
+
   /// Oldest message id that went through the filter (shown or hidden); 0 before the first.
   int oldestSorted = 0;
 }
@@ -59,7 +64,33 @@ final class FeedTimeline {
     this.pageSize = 30,
     this.historyLimit = 30,
     this.filter = FeedFilter.none,
-  }) : _sources = [for (final id in chatIds) _Source(id)];
+    Map<int, int>? startAt,
+  }) : _sources = [for (final id in chatIds) _Source(id)],
+       anchored = startAt != null {
+    if (startAt == null) return;
+    // Opened at an older post (a search result, a date): every source starts at its own
+    // anchor, which is the newest post it may show, and can page both ways from there.
+    // A source without an anchor has nothing that old; it stays out until the timeline is
+    // back at the newest end, where it is opened without anchors again.
+    atTop = false;
+    for (final s in _sources) {
+      final anchor = startAt[s.chatId];
+      if (anchor == null) {
+        s.exhausted = true;
+        continue;
+      }
+      // getChatHistory answers with posts older than the bound, so the anchor itself needs
+      // one more: TDLib message ids are server ids shifted left by 20 bits, nothing sits
+      // between id and id + 1.
+      s.fromMessageId = anchor + 1;
+      s.newerFrom = anchor;
+      s.noNewer = false;
+    }
+  }
+
+  /// True when the timeline was opened at an older post instead of at the newest one. New
+  /// posts then wait in [pendingNew] and [loadNewer] pages towards the newest end.
+  final bool anchored;
 
   /// What the feed shows. Hidden posts never become rows; [coveredFrom] lets read marks
   /// pass over them.
@@ -186,6 +217,46 @@ final class FeedTimeline {
       final item = TimelineItem(post);
       _items.add(item);
       added.add(item);
+    }
+    return added;
+  }
+
+  /// True when every source has reached the newest post it knows: an anchored timeline is
+  /// then as complete as an unanchored one.
+  bool get exhaustedNewer => _sources.every((s) => s.noNewer);
+
+  /// Adds posts newer than the ones loaded, at the newest end of the list (only meaningful
+  /// for an [anchored] timeline). Returns how many rows appeared before the ones already
+  /// there, so the screen can keep the reader in place.
+  Future<int> loadNewer() async {
+    final fetched = <Post>[];
+    await Future.wait([
+      for (final s in _sources)
+        if (!s.noNewer)
+          gateway
+              .historyAfter(
+                s.chatId,
+                afterMessageId: s.newerFrom,
+                limit: historyLimit,
+              )
+              .then((posts) {
+                if (posts.isEmpty) {
+                  s.noNewer = true;
+                  return;
+                }
+                s.newerFrom = posts.first.messageId; // newest first
+                fetched.addAll(posts);
+              }),
+    ]);
+    var added = 0;
+    // Oldest first: each one is inserted where the order puts it, so the album parts of a
+    // row meet each other whichever end they came from.
+    for (final post in fetched..sort((a, b) => _compare(b, a))) {
+      if (!_seen.add((post.chatId, post.messageId))) continue;
+      if (!_sort(post)) continue;
+      final before = _items.length;
+      _insertNew(post);
+      if (_items.length > before) added++;
     }
     return added;
   }

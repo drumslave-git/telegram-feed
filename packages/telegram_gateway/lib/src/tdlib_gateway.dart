@@ -313,6 +313,38 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
+  Future<List<Post>> historyAfter(
+    int chatId, {
+    required int afterMessageId,
+    int limit = 30,
+  }) async {
+    // A negative offset is TDLib's way to ask for newer messages: the window starts
+    // -offset messages before [fromMessageId]. Pages are short here too.
+    final out = <Post>[];
+    var from = afterMessageId;
+    while (out.length < limit) {
+      final n = (limit - out.length).clamp(1, 99);
+      final r = await _client.call(
+        td.GetChatHistory(
+          chatId: chatId,
+          fromMessageId: from,
+          offset: -n,
+          limit: n,
+          onlyLocal: false,
+        ),
+      );
+      final newer = [
+        for (final m in r.messages)
+          if (m.id > from) m,
+      ]..sort((a, b) => a.id.compareTo(b.id));
+      if (newer.isEmpty) break;
+      out.addAll(newer.map(map.post));
+      from = newer.last.id;
+    }
+    return out.reversed.toList();
+  }
+
+  @override
   Future<SearchPage> searchHistory(
     int chatId, {
     String query = '',

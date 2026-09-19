@@ -785,6 +785,29 @@ void main() {
     },
   );
 
+  test('historyAfter asks TDLib for newer messages and pages up', () async {
+    final asked = <Map<String, Object?>>[];
+    t.handlers['getChatHistory'] = (r) {
+      asked.add(r);
+      final from = r['from_message_id'] as int;
+      final ids = switch (from) {
+        10 => [30, 20], // newest first, as TDLib answers
+        30 => [40],
+        _ => <int>[],
+      };
+      return {
+        '@type': 'messages',
+        'total_count': ids.length,
+        'messages': [for (final id in ids) messageJson(-1001, id)],
+      };
+    };
+    final posts = await g.historyAfter(-1001, afterMessageId: 10, limit: 5);
+    expect(posts.map((p) => p.messageId), [40, 30, 20]);
+    expect(asked.map((r) => r['from_message_id']), [10, 30, 40]);
+    expect(asked.first['offset'], -5);
+    expect(asked.first['limit'], 5);
+  });
+
   test('searchHistory pages, carries the total and the next offset', () async {
     final asked = <Map<String, Object?>>[];
     t.handlers['searchChatMessages'] = (r) {

@@ -28,6 +28,15 @@ abstract interface class TelegramGateway {
     bool onlyLocal = false,
   });
 
+  /// Posts of [chatId] newer than [afterMessageId], newest first. This is how a timeline
+  /// that was opened at an older post (a search result, a date) pages back towards the
+  /// newest one.
+  Future<List<Post>> historyAfter(
+    int chatId, {
+    required int afterMessageId,
+    int limit = 30,
+  });
+
   /// Posts of [chatId] matching [query] and [filter], newest first. An empty [query] with
   /// a filter is how the shared media tabs list a channel's photos, files, links and audio.
   Future<SearchPage> searchHistory(

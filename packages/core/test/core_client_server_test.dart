@@ -86,6 +86,16 @@ final class FakeGateway implements TelegramGateway {
   }
 
   @override
+  Future<List<Post>> historyAfter(
+    int chatId, {
+    required int afterMessageId,
+    int limit = 30,
+  }) async {
+    calls.add('after:$chatId:$afterMessageId:$limit');
+    return [Post(chatId: chatId, messageId: 9, date: 5, text: 'newer')];
+  }
+
+  @override
   Future<SearchPage> searchHistory(
     int chatId, {
     String query = '',
@@ -229,6 +239,12 @@ void main() {
 
       await client.markViewed(-1001, [7, 6]);
       expect(gw.calls.last, 'viewed:-1001:7,6');
+
+      expect(
+        (await client.historyAfter(-1001, afterMessageId: 7)).single.messageId,
+        9,
+      );
+      expect(gw.calls.last, 'after:-1001:7:30');
 
       final page = await client.searchHistory(
         -1001,

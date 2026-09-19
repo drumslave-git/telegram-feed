@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/timeline_screen.dart';
+import 'package:telegram_feed/feeds/timeline_search.dart';
 import 'package:telegram_feed/home/channel_list.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -25,6 +26,51 @@ final class TimelineGateway extends ChannelsGateway {
     String emoji, {
     bool remove = false,
   }) async => reactions.add('$chatId/$messageId ${remove ? '-' : '+'}$emoji');
+
+  @override
+  Future<SearchPage> searchHistory(
+    int chatId, {
+    String query = '',
+    HistoryFilter filter = HistoryFilter.any,
+    int fromMessageId = 0,
+    int limit = 30,
+  }) async {
+    final all = [
+      for (final p in histories[chatId] ?? const <Post>[])
+        if (query.isEmpty || p.text.toLowerCase().contains(query.toLowerCase()))
+          p,
+    ];
+    final older = fromMessageId == 0
+        ? all
+        : all.where((p) => p.messageId < fromMessageId).toList();
+    final page = older.take(limit).toList();
+    return SearchPage(
+      posts: page,
+      totalCount: all.length,
+      nextFromMessageId: page.length < older.length ? page.last.messageId : 0,
+    );
+  }
+
+  @override
+  Future<int> messageIdByDate(int chatId, int unixDate) async {
+    for (final p in histories[chatId] ?? const <Post>[]) {
+      if (p.date <= unixDate) return p.messageId;
+    }
+    return 0;
+  }
+
+  @override
+  Future<List<Post>> historyAfter(
+    int chatId, {
+    required int afterMessageId,
+    int limit = 30,
+  }) async {
+    final newer = [
+      for (final p in histories[chatId] ?? const <Post>[])
+        if (p.messageId > afterMessageId) p,
+    ];
+    return newer.sublist(newer.length > limit ? newer.length - limit : 0);
+  }
 
   @override
   Future<List<Post>> history(
@@ -499,6 +545,121 @@ void main() {
     );
     await settle(tester);
     expect(find.textContaining('no channels yet'), findsOneWidget);
+    await unmount(tester);
+  });
+  testWidgets('search: merged results, a tap opens the timeline at the post', (
+    tester,
+  ) async {
+    // Forty posts per channel, so the match is far outside the first page.
+    gw.histories[-1] = [
+      for (var id = 40; id >= 1; id--)
+        post(-1, id, id * 100, id == 4 ? 'rain in Berlin' : 'one-$id'),
+    ];
+    gw.histories[-2] = [
+      for (var id = 40; id >= 1; id--)
+        post(-2, id, id * 100 + 50, id == 30 ? 'rain in Prague' : 'two-$id'),
+    ];
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Mix');
+      await db.addSource(feed.id, -1, title: 'One');
+      await db.addSource(feed.id, -2, title: 'Two');
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'rain');
+    await tester.pump(const Duration(milliseconds: 400));
+    await settle(tester);
+
+    // Both channels answered, newest match first. The rows mark the query, so their text
+    // is rich: they are found by what they contain.
+    Finder inResults(String text) => find.descendant(
+      of: find.byType(SearchResults),
+      matching: find.textContaining(text),
+    );
+    expect(find.byType(SearchResultTile), findsNWidgets(2));
+    expect(inResults('in Prague'), findsOneWidget);
+    expect(inResults('in Berlin'), findsOneWidget);
+    expect(
+      tester.getTopLeft(inResults('in Prague')).dy,
+      lessThan(tester.getTopLeft(inResults('in Berlin')).dy),
+    );
+    expect(find.text('2 results'), findsOneWidget);
+
+    // The older match: the timeline is rebuilt around it and the stepper appears.
+    await tester.tap(find.byType(SearchResultTile).last);
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('2 of 2'), findsOneWidget);
+    expect(find.byType(SearchResults), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(PostCard),
+        matching: find.text('rain in Berlin'),
+      ),
+      findsOneWidget,
+    );
+    // Around it: the neighbouring posts of both channels, not the newest ones.
+    expect(find.text('one-40'), findsNothing);
+    expect(find.textContaining('two-'), findsWidgets);
+
+    // Step to the newer match.
+    await tester.tap(find.byTooltip('Newer match'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('1 of 2'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(PostCard),
+        matching: find.text('rain in Prague'),
+      ),
+      findsOneWidget,
+    );
+    await unmount(tester);
+  });
+
+  testWidgets('a jumped timeline pages back to the newest posts', (
+    tester,
+  ) async {
+    gw.histories[-1] = [
+      for (var id = 40; id >= 1; id--)
+        post(-1, id, id * 100, id == 2 ? 'rain' : 'one-$id'),
+    ];
+    await tester.runAsync(() async {
+      feed = await db.createFeed('One');
+      await db.addSource(feed.id, -1, title: 'One');
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'rain');
+    await tester.pump(const Duration(milliseconds: 400));
+    await settle(tester);
+    await tester.tap(find.byType(SearchResultTile).first);
+    await settle(tester);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(of: find.byType(PostCard), matching: find.text('rain')),
+      findsOneWidget,
+    );
+    expect(find.text('one-40'), findsNothing);
+    // The button of a jumped timeline goes back to the live one.
+    await tester.tap(find.byTooltip('Newest posts'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('one-40'), findsOneWidget);
     await unmount(tester);
   });
 }

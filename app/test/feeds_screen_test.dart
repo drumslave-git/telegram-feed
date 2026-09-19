@@ -48,6 +48,12 @@ class ChannelsGateway implements TelegramGateway {
     bool onlyLocal = false,
   }) async => const [];
   @override
+  Future<List<Post>> historyAfter(
+    int chatId, {
+    required int afterMessageId,
+    int limit = 30,
+  }) async => const [];
+  @override
   Future<SearchPage> searchHistory(
     int chatId, {
     String query = '',

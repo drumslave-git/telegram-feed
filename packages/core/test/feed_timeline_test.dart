@@ -26,6 +26,21 @@ final class HistoryGateway implements TelegramGateway {
     return older.take(limit).toList();
   }
 
+  /// Posts newer than an id, newest first (the merge pages this way after a jump).
+  @override
+  Future<List<Post>> historyAfter(
+    int chatId, {
+    required int afterMessageId,
+    int limit = 30,
+  }) async {
+    calls.add('after:$chatId:$afterMessageId');
+    final newer = [
+      for (final p in network[chatId] ?? const <Post>[])
+        if (p.messageId > afterMessageId) p,
+    ];
+    return newer.sublist(newer.length > limit ? newer.length - limit : 0);
+  }
+
   /// Searches the same histories: substring match on the text, media kind for the tabs.
   @override
   Future<SearchPage> searchHistory(
@@ -172,6 +187,56 @@ List<Post> series(int chat, int n, {int start = 1000, int step = 10}) => [
 ];
 
 void main() {
+  test('opened at anchors: older first, then back towards the newest', () async {
+    final g = HistoryGateway({
+      -1: series(-1, 20, start: 0, step: 10), // ids 20..1, dates 200..10
+      -2: series(-2, 20, start: 5, step: 10), // ids 20..1, dates 205..15
+    });
+    // Open around date 100: -1 at its id 10 (date 100), -2 at its id 9 (date 95).
+    final t = FeedTimeline(
+      g,
+      [-1, -2],
+      pageSize: 4,
+      historyLimit: 4,
+      startAt: {-1: 10, -2: 9},
+    );
+    expect(t.anchored, isTrue);
+    expect(t.atTop, isFalse);
+
+    final older = await t.loadMore();
+    expect(older.map((i) => i.head.date), [100, 95, 90, 85]);
+    // The anchors themselves are the newest rows: nothing newer was loaded yet.
+    expect(t.items.first.head.date, 100);
+
+    final added = await t.loadNewer();
+    expect(added, 8); // four from each source
+    // Four posts per source: -1 reached date 140, -2 date 135; still below the newest.
+    expect(t.items.first.head.date, 140);
+    expect(t.exhaustedNewer, isFalse);
+
+    // Paging up until both sources run out ends at the newest posts of the feed.
+    while (!t.exhaustedNewer) {
+      await t.loadNewer();
+    }
+    expect(t.items.first.head.date, 205);
+    final dates = t.items.map((i) => i.head.date).toList();
+    expect(dates, List.of(dates)..sort((a, b) => b.compareTo(a)));
+  });
+
+  test(
+    'a source with nothing that old stays out of an anchored timeline',
+    () async {
+      final g = HistoryGateway({
+        -1: series(-1, 5, start: 0, step: 10),
+        -2: series(-2, 5, start: 500, step: 10), // all newer than the anchor
+      });
+      final t = FeedTimeline(g, [-1, -2], pageSize: 10, startAt: {-1: 3});
+      await t.loadMore();
+      expect(t.items.map((i) => i.chatId).toSet(), {-1});
+      expect(t.exhausted, isTrue);
+    },
+  );
+
   test('merges by date desc across sources and pages', () async {
     final g = HistoryGateway({
       -1: series(-1, 50, start: 0, step: 10), // dates 10..500

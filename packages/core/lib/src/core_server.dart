@@ -171,6 +171,13 @@ final class CoreServer {
           onlyLocal: a['onlyLocal'] as bool,
         );
         return posts.map(encodePost).toList();
+      case 'historyAfter':
+        final newer = await gateway.historyAfter(
+          a['chatId'] as int,
+          afterMessageId: a['afterMessageId'] as int,
+          limit: a['limit'] as int,
+        );
+        return newer.map(encodePost).toList();
       case 'searchHistory':
         return encodeSearchPage(
           await gateway.searchHistory(

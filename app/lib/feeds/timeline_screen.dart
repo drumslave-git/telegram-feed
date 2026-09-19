@@ -14,12 +14,15 @@ import 'open_links.dart';
 import 'post_card.dart';
 import 'read_marker.dart';
 import 'thread_screen.dart';
+import 'timeline_search.dart';
 
 export 'post_card.dart' show PostCard;
 
 /// A timeline with its own app bar: a feed opened from a notification, or one channel
-/// opened from a folder tab or the channel list.
-class TimelineScreen extends StatelessWidget {
+/// opened from a folder tab or the channel list. The app bar also carries the search of
+/// ARCHITECTURE.md 5.10: the magnifier turns it into a search field, the results cover the
+/// timeline, and a tapped result opens the timeline at that post.
+class TimelineScreen extends StatefulWidget {
   const TimelineScreen({
     super.key,
     required this.db,
@@ -39,37 +42,261 @@ class TimelineScreen extends StatelessWidget {
   final Future<void> Function(String text, {required String subject}) share;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text(feed?.name ?? channel!.title),
+  State<TimelineScreen> createState() => _TimelineScreenState();
+}
+
+class _TimelineScreenState extends State<TimelineScreen> {
+  final _view = GlobalKey<TimelineViewState>();
+  final _queryCtl = TextEditingController();
+  final _queryFocus = FocusNode();
+  Timer? _debounce;
+
+  /// The running search; null until the first query.
+  SearchSession? _session;
+  bool _searchOpen = false;
+
+  /// True while the results cover the timeline; false once a result was opened.
+  bool _listOpen = false;
+
+  /// Result the timeline stands on, -1 before one was opened.
+  int _current = -1;
+  bool _jumping = false;
+
+  /// What the timeline reads, handed up by [TimelineView] as it loads.
+  TimelineSources _sources = (
+    chatIds: const [],
+    filter: FeedFilter.none,
+    titles: const {},
+    photos: const {},
+  );
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _queryCtl.dispose();
+    _queryFocus.dispose();
+    super.dispose();
+  }
+
+  void _onSources(TimelineSources sources) {
+    if (!mounted) return;
+    setState(() => _sources = sources);
+    // A search that started before the sources were known covers them now.
+    final session = _session;
+    if (session != null && session.chatIds.length != sources.chatIds.length) {
+      unawaited(_startSearch(session.query));
+    }
+  }
+
+  void _openSearch() => setState(() {
+    _searchOpen = true;
+    _listOpen = true;
+  });
+
+  void _closeSearch() {
+    _debounce?.cancel();
+    _queryCtl.clear();
+    setState(() {
+      _searchOpen = false;
+      _listOpen = false;
+      _session = null;
+      _current = -1;
+    });
+  }
+
+  void _onQuery(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(
+      const Duration(milliseconds: 300),
+      () => unawaited(_startSearch(value)),
+    );
+    setState(() {
+      _listOpen = true;
+      _current = -1;
+    });
+  }
+
+  Future<void> _startSearch(String value) async {
+    final query = value.trim();
+    if (query.isEmpty) {
+      setState(() => _session = null);
+      return;
+    }
+    final session = SearchSession(
+      gateway: widget.gateway,
+      chatIds: _sources.chatIds,
+      query: query,
+      feedFilter: _sources.filter,
+    );
+    setState(() {
+      _session = session;
+      _current = -1;
+    });
+    await session.loadMore();
+    if (mounted && identical(_session, session)) setState(() {});
+  }
+
+  Future<void> _loadMoreResults() async {
+    final session = _session;
+    if (session == null) return;
+    final changed = await session.loadMore();
+    if (changed && mounted && identical(_session, session)) setState(() {});
+  }
+
+  /// Opens the result at [index]: the list makes way and the timeline is rebuilt around
+  /// that post, as the official app does when a result is tapped.
+  Future<void> _openResult(int index) async {
+    final session = _session;
+    if (session == null || _jumping || index < 0) return;
+    setState(() => _jumping = true);
+    try {
+      if (!await session.ensure(index)) return;
+      if (!mounted || !identical(_session, session)) return;
+      final post = session.results[index];
+      _queryFocus.unfocus();
+      setState(() {
+        _current = index;
+        _listOpen = false;
+      });
+      await _view.currentState?.jumpToPost(
+        chatId: post.chatId,
+        messageId: post.messageId,
+        date: post.date,
+      );
+    } finally {
+      if (mounted) setState(() => _jumping = false);
+    }
+  }
+
+  PreferredSizeWidget _appBar(BuildContext context) {
+    if (_searchOpen) {
+      return AppBar(
+        leading: BackButton(onPressed: _closeSearch),
+        titleSpacing: 0,
+        title: TextField(
+          controller: _queryCtl,
+          focusNode: _queryFocus,
+          autofocus: true,
+          textInputAction: TextInputAction.search,
+          decoration: const InputDecoration(
+            hintText: 'Search posts',
+            border: InputBorder.none,
+          ),
+          onChanged: _onQuery,
+          onTap: () => setState(() => _listOpen = true),
+        ),
+        actions: [
+          if (_queryCtl.text.isNotEmpty)
+            IconButton(
+              tooltip: 'Clear',
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                _queryCtl.clear();
+                _onQuery('');
+              },
+            ),
+        ],
+      );
+    }
+    return AppBar(
+      title: Text(widget.feed?.name ?? widget.channel!.title),
       actions: [
-        if (feed != null)
+        IconButton(
+          tooltip: 'Search',
+          icon: const Icon(Icons.search),
+          onPressed: _openSearch,
+        ),
+        if (widget.feed != null)
           IconButton(
             tooltip: 'Edit feed',
             icon: const Icon(Icons.tune),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => FeedEditorScreen(
-                  db: db,
-                  gateway: gateway,
-                  feedId: feed!.id,
+                  db: widget.db,
+                  gateway: widget.gateway,
+                  feedId: widget.feed!.id,
                 ),
               ),
             ),
           ),
       ],
-    ),
-    body: TimelineView(
-      db: db,
-      gateway: gateway,
-      feed: feed,
-      channel: channel,
-      focusChatId: focusChatId,
-      focusMessageId: focusMessageId,
-      share: share,
-    ),
-  );
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = _session;
+    return Scaffold(
+      appBar: _appBar(context),
+      body: Column(
+        children: [
+          Expanded(
+            child: Stack(
+              children: [
+                TimelineView(
+                  key: _view,
+                  db: widget.db,
+                  gateway: widget.gateway,
+                  feed: widget.feed,
+                  channel: widget.channel,
+                  focusChatId: widget.focusChatId,
+                  focusMessageId: widget.focusMessageId,
+                  share: widget.share,
+                  onSources: _onSources,
+                ),
+                if (_searchOpen && _listOpen)
+                  Positioned.fill(
+                    child: Material(
+                      color: Theme.of(context).colorScheme.surface,
+                      child: SearchResults(
+                        results: session?.results ?? const [],
+                        gateway: widget.gateway,
+                        look: (chatId) => (
+                          title: _sources.titles[chatId] ?? '',
+                          photo: _sources.photos[chatId],
+                        ),
+                        onOpen: (i) => unawaited(_openResult(i)),
+                        onLoadMore: () => unawaited(_loadMoreResults()),
+                        query: _queryCtl.text,
+                        loading: session?.loading ?? false,
+                        exhausted: session?.exhausted ?? false,
+                        error: session?.error,
+                        current: _current,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (_searchOpen && !_listOpen && session != null)
+            SearchStepper(
+              current: _current,
+              total: session.total,
+              loading: _jumping,
+              onOlder:
+                  _jumping ||
+                      (session.exhausted &&
+                          _current + 1 >= session.results.length)
+                  ? null
+                  : () => unawaited(_openResult(_current + 1)),
+              onNewer: _jumping || _current <= 0
+                  ? null
+                  : () => unawaited(_openResult(_current - 1)),
+            ),
+        ],
+      ),
+    );
+  }
 }
+
+/// The channels a timeline reads, with what the search rows need to draw them.
+typedef TimelineSources = ({
+  List<int> chatIds,
+  FeedFilter filter,
+  Map<int, String> titles,
+  Map<int, FileRef?> photos,
+});
 
 /// The merged timeline of one feed, or the posts of one channel (ARCHITECTURE.md 5.3).
 /// Has no app bar of its own; [TimelineScreen] supplies one.
@@ -83,9 +310,13 @@ class TimelineView extends StatefulWidget {
     this.focusChatId,
     this.focusMessageId,
     this.share = shareWithSystemSheet,
+    this.onSources,
   }) : assert((feed == null) != (channel == null));
   final AppDatabase db;
   final TelegramGateway gateway;
+
+  /// Reports the channels, the filter and the photos as they are loaded, for the search.
+  final ValueChanged<TimelineSources>? onSources;
 
   /// A feed of ours: sources and read marks come from the database.
   final Feed? feed;
@@ -108,7 +339,7 @@ class TimelineView extends StatefulWidget {
   final int? focusMessageId;
 
   @override
-  State<TimelineView> createState() => _TimelineViewState();
+  State<TimelineView> createState() => TimelineViewState();
 }
 
 /// Where the user was in a feed; kept in memory so coming back within the session lands on
@@ -122,7 +353,7 @@ class _Anchor {
   final double edge;
 }
 
-class _TimelineViewState extends State<TimelineView> {
+class TimelineViewState extends State<TimelineView> {
   /// Remembered positions per feed id (positive) or channel chat id (negative). They hang
   /// off the database object, which goes away with the session.
   static final _memory = Expando<Map<int, _Anchor>>();
@@ -167,11 +398,29 @@ class _TimelineViewState extends State<TimelineView> {
   /// Row that gets the "Unread posts" divider above it; fixed when the feed opens.
   (int, int)? _firstUnread;
 
+  /// Post the timeline opens at: a notification, or a search result / date it jumped to.
+  int? _focusChat;
+  int? _focusMessage;
+
+  /// Where each source starts when the timeline was jumped; null for the live timeline.
+  Map<int, int>? _anchors;
+
+  /// The jumped-to row, tinted for a moment so the eye finds it.
+  (int, int)? _highlight;
+  Timer? _highlightTimer;
+  bool _loadingNewer = false;
+
+  /// Set by the button that leaves a jump: the rebuilt timeline opens at its newest post,
+  /// not where it would open when the feed is entered.
+  bool _openAtNewest = false;
+
   Map<int, _Anchor> get _remembered => _memory[widget.db] ??= {};
 
   @override
   void initState() {
     super.initState();
+    _focusChat = widget.focusChatId;
+    _focusMessage = widget.focusMessageId;
     _positions.itemPositions.addListener(_onPositions);
     final feed = widget.feed;
     if (feed == null) {
@@ -212,6 +461,7 @@ class _TimelineViewState extends State<TimelineView> {
       final channels = await widget.gateway.myChannels();
       if (!mounted) return;
       setState(() => _photos = {for (final c in channels) c.chatId: c.photo});
+      _reportSources();
     } on TelegramException {
       // Initials stay.
     }
@@ -235,7 +485,12 @@ class _TimelineViewState extends State<TimelineView> {
       return;
     }
     _events?.cancel();
-    final t = FeedTimeline(widget.gateway, ids, filter: _filter);
+    final t = FeedTimeline(
+      widget.gateway,
+      ids,
+      filter: _filter,
+      startAt: _anchors,
+    );
     _firstUnread = null;
     _timeline = t;
     _events = widget.gateway.postEvents.listen((e) {
@@ -246,8 +501,79 @@ class _TimelineViewState extends State<TimelineView> {
       if (t.atTop && t.items.length > before) _jumpToNewest();
       if (e is PostAdded) _coverHidden();
     });
+    // A list that is already up keeps its scroll position: initialScrollIndex only counts
+    // when it is built for the first time, and the spinner in between may never be drawn.
+    final rebuild = _scrollCtl.isAttached;
     setState(() => _opening = true);
-    unawaited(_open(t));
+    _reportSources();
+    unawaited(_open(t, reposition: rebuild));
+  }
+
+  /// Hands the screen what its search needs. After the frame: sources arrive while this
+  /// widget builds, and the parent may not be rebuilt from inside that build.
+  void _reportSources() {
+    final report = widget.onSources;
+    if (report == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      report((
+        chatIds: [for (final s in _sourceRows) s.chatId],
+        filter: _filter,
+        titles: _titles,
+        photos: _photos,
+      ));
+    });
+  }
+
+  /// Opens the timeline around one post, the way the official app opens a search result or
+  /// a date: every source starts at its newest post up to that moment, the post itself is
+  /// the anchor of its own channel, and the list can page both ways from there.
+  Future<void> jumpToPost({
+    required int chatId,
+    required int messageId,
+    required int date,
+  }) async {
+    final others = [
+      for (final s in _sourceRows)
+        if (s.chatId != chatId) s.chatId,
+    ];
+    var anchors = {chatId: messageId};
+    if (others.isNotEmpty) {
+      try {
+        anchors = {
+          ...await anchorsForDate(widget.gateway, others, date),
+          chatId: messageId,
+        };
+      } on TelegramException catch (e) {
+        _error = e.message; // the post of its own channel is still reachable
+      }
+    }
+    if (!mounted) return;
+    _focusChat = chatId;
+    _focusMessage = messageId;
+    _anchors = anchors;
+    _highlightTimer?.cancel();
+    _highlight = null;
+    _timeline = null;
+    _setSources(_sourceRows);
+  }
+
+  /// Back to the live timeline: rebuilt without anchors, at its newest post.
+  void _toNewest() {
+    final t = _timeline;
+    if (t == null) return;
+    if (!t.anchored) {
+      _release();
+      return;
+    }
+    _anchors = null;
+    _focusChat = null;
+    _focusMessage = null;
+    _openAtNewest = true;
+    _highlightTimer?.cancel();
+    _highlight = null;
+    _timeline = null;
+    _setSources(_sourceRows);
   }
 
   /// Posts the filter hides count as read once everything before them is: otherwise a
@@ -269,7 +595,7 @@ class _TimelineViewState extends State<TimelineView> {
   /// Loads the first rows and decides where the list opens: the post a notification asked
   /// for, else where the user left this feed earlier in the session, else the first unread
   /// post, else the newest post.
-  Future<void> _open(FeedTimeline t) async {
+  Future<void> _open(FeedTimeline t, {bool reposition = false}) async {
     setState(() => _loading = true);
     try {
       _marks = await _loadMarks();
@@ -283,19 +609,29 @@ class _TimelineViewState extends State<TimelineView> {
         return index;
       }
 
-      final focusChat = widget.focusChatId;
-      final focusMessage = widget.focusMessageId;
+      final focusChat = _focusChat;
+      final focusMessage = _focusMessage;
       final left = _remembered[_memoryKey];
       var index = -1;
+      if (_openAtNewest) {
+        _openAtNewest = false;
+        _initialIndex = 0;
+        _initialAlignment = 0;
+        _error = null;
+        return;
+      }
       if (focusChat != null && focusMessage != null) {
-        index = await search(
-          () => _indexOf(
-            t,
-            focusChat,
-            (i) => i.allPosts.any((p) => p.messageId == focusMessage),
-          ),
-        );
-        _initialAlignment = 0.3;
+        bool isFocus(TimelineItem i) =>
+            i.allPosts.any((p) => p.messageId == focusMessage);
+        index = await search(() => _indexOf(t, focusChat, isFocus));
+        if (t.anchored && index >= 0) {
+          // One page of newer posts above the post, so it stands in its surroundings and
+          // the list does not run on towards the newest end by itself.
+          await t.loadNewer();
+          index = _indexOf(t, focusChat, isFocus);
+          _flash((focusChat, t.items[index].rowId));
+        }
+        _initialAlignment = t.anchored ? 0.55 : 0.3;
       } else if (left != null) {
         index = await search(
           () => _indexOf(t, left.chatId, (i) => i.rowId == left.rowId),
@@ -333,6 +669,18 @@ class _TimelineViewState extends State<TimelineView> {
           _opening = false;
         });
         _settled = false;
+        if (reposition) {
+          final at = _initialIndex;
+          final alignment = _initialAlignment;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && identical(t, _timeline) && _scrollCtl.isAttached) {
+              _scrollCtl.jumpTo(
+                index: at.clamp(0, t.items.length),
+                alignment: alignment,
+              );
+            }
+          });
+        }
         _coverHidden();
       }
     }
@@ -405,7 +753,7 @@ class _TimelineViewState extends State<TimelineView> {
         }
       }
     }
-    if (newest.index < items.length) {
+    if (newest.index < items.length && !t.anchored) {
       final row = items[newest.index];
       _remembered[_memoryKey] = _Anchor(
         row.chatId,
@@ -413,7 +761,15 @@ class _TimelineViewState extends State<TimelineView> {
         newest.itemLeadingEdge,
       );
     }
-    final atNewest = newest.index == 0 && newest.itemLeadingEdge >= -0.05;
+    // Close to the newest loaded row of a jumped timeline: fetch the ones above it.
+    if (t.anchored && !t.exhaustedNewer && newest.index <= 3) {
+      unawaited(_loadNewer());
+    }
+    // A jumped timeline is only at the newest post once it has caught up with the live end.
+    final atNewest =
+        newest.index == 0 &&
+        newest.itemLeadingEdge >= -0.05 &&
+        (!t.anchored || t.exhaustedNewer);
     if (atNewest != t.atTop) {
       t.atTop = atNewest;
       if (atNewest && t.pendingNew > 0) {
@@ -423,6 +779,43 @@ class _TimelineViewState extends State<TimelineView> {
       }
     }
     if (oldestIndex >= items.length - 5) unawaited(_loadMore());
+  }
+
+  /// Tints the row for a moment, so the post the timeline jumped to is easy to spot.
+  void _flash((int, int) row) {
+    _highlightTimer?.cancel();
+    _highlight = row;
+    _highlightTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (mounted) setState(() => _highlight = null);
+    });
+  }
+
+  /// Pages towards the newest post after a jump. The rows appear before the ones on screen,
+  /// so every index moves up by as many; the reader is put back where they were.
+  Future<void> _loadNewer() async {
+    final t = _timeline;
+    if (t == null || _loadingNewer || !t.anchored || t.exhaustedNewer) return;
+    _loadingNewer = true;
+    // The row closest to the newest end is the one to hold on to.
+    ItemPosition? newest;
+    for (final p in _positions.itemPositions.value) {
+      if (newest == null || p.index < newest.index) newest = p;
+    }
+    final index = newest?.index ?? 0;
+    final edge = newest?.itemLeadingEdge ?? 0.0;
+    try {
+      final added = await t.loadNewer();
+      if (!mounted || !identical(t, _timeline)) return;
+      setState(() {});
+      if (added > 0 && _scrollCtl.isAttached) {
+        // Right away, like _settleAtNewest: a later frame would show the new rows first.
+        _scrollCtl.jumpTo(index: index + added, alignment: edge);
+      }
+    } on TelegramException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      _loadingNewer = false;
+    }
   }
 
   Future<void> _loadMore() async {
@@ -537,6 +930,7 @@ class _TimelineViewState extends State<TimelineView> {
   @override
   void dispose() {
     _positions.itemPositions.removeListener(_onPositions);
+    _highlightTimer?.cancel();
     _events?.cancel();
     _sources?.cancel();
     _marksSub?.cancel();
@@ -557,7 +951,7 @@ class _TimelineViewState extends State<TimelineView> {
             child: _body(context, t, items),
           ),
         ),
-        if (t != null && !_opening && !t.atTop)
+        if (t != null && !_opening && (!t.atTop || t.anchored))
           Positioned(
             right: 16,
             bottom: 16,
@@ -569,7 +963,7 @@ class _TimelineViewState extends State<TimelineView> {
                 tooltip: t.pendingNew > 0
                     ? '${t.pendingNew} new post${t.pendingNew == 1 ? '' : 's'}'
                     : 'Newest posts',
-                onPressed: _release,
+                onPressed: _toNewest,
                 child: const Icon(Icons.keyboard_arrow_down),
               ),
             ),
@@ -679,16 +1073,23 @@ class _TimelineViewState extends State<TimelineView> {
               final day = _dayOf(item);
               final newDay =
                   i == items.length - 1 || _dayOf(items[i + 1]) != day;
+              final row = id != _highlight
+                  ? card
+                  : ColoredBox(
+                      color: Theme.of(context).colorScheme.primary
+                          .withValues(alpha: 0.12),
+                      child: card,
+                    );
               return KeyedSubtree(
                 key: ValueKey(id),
                 child: !newDay && id != _firstUnread
-                    ? card
+                    ? row
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           if (newDay) ChatPill(formatDay(day)),
                           if (id == _firstUnread) const UnreadDivider(),
-                          card,
+                          row,
                         ],
                       ),
               );
