@@ -59,9 +59,13 @@ class _RenderBubbleText extends RenderBox
   /// Everything on one line.
   @override
   double computeMaxIntrinsicWidth(double height) =>
-      _text.getMaxIntrinsicWidth(double.infinity) +
-      _gap +
-      _footer.getMaxIntrinsicWidth(double.infinity);
+      // One more pixel: glyph boxes can end a fraction beyond the measured text width,
+      // and a bubble sized to the pixel would then push the footer to a line of its own.
+      (_text.getMaxIntrinsicWidth(double.infinity) +
+              _gap +
+              _footer.getMaxIntrinsicWidth(double.infinity))
+          .ceilToDouble() +
+      1;
 
   @override
   double computeMinIntrinsicHeight(double width) =>
@@ -104,7 +108,8 @@ class _RenderBubbleText extends RenderBox
     final end = _lastLineEnd();
     final double width;
     final double height;
-    if (end != null && end + _gap + footer.width <= constraints.maxWidth) {
+    if (end != null &&
+        end + _gap + footer.width <= constraints.maxWidth + 0.5) {
       width = math.max(text.width, end + _gap + footer.width);
       height = math.max(text.height, footer.height);
     } else {

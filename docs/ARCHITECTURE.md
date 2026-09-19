@@ -164,6 +164,18 @@ Feeds with their sources, rules and a whitelist of settings (theme, read-aloud p
 - Channel lists (`ChannelList`) show photo, newest post, time and Telegram's unread count from `Channel`. They reload when the app resumes, three seconds after a new post, and on pull to refresh.
 - A channel opens as `TimelineScreen(channel:)`: the same timeline with one source. It belongs to no feed, so its read marks are Telegram's own position (`last_read_inbox_message_id`); reading moves it through `viewMessages` when `syncReadToTelegram` is on and is not recorded otherwise.
 - The folders arrive from TDLib a moment after the screen is up. The `TabController` is replaced only when the set of folders changes, and the selected tab stays selected.
+- A long press on a folder tab offers "Create feed from folder": a feed with the folder's name and the channels it has at that moment, in the folder's order, each starting at Telegram's read position. It is a one-time copy; the feed does not follow the folder afterwards.
+
+### 5.9 Posts and comments look like the official app
+
+A timeline row (`PostCard`, `feeds/post_card.dart`) is drawn like a post in the official Android app, in the group-chat form because a feed mixes channels: the channel's photo beside a bubble on a tinted backdrop (`ChatColors`), the channel's name in one of Telegram's seven peer colours (`peerColor`, by id), media edge to edge, the text, reaction pills, a comments bar, a round share button beside the bubble, and day pills between days.
+
+- Views, "edited" and the time sit in the bottom right corner. `BubbleText` is a render object of its own that puts this footer on the last line of the text when there is room and on a line of its own otherwise; with reactions the pills use the full width and the footer takes the free end of the last row; with nothing under the pictures it lies on top of them.
+- The unread dot has a reserved slot beside the time and only fades, so nothing moves when a post becomes read.
+- A tap or a long press on the bubble opens the menu: the emoji the channel allows, Open in Telegram, Comments, Share, Copy link.
+- Albums of photos and videos are a mosaic: `layoutAlbum` ports the grouped layout of the official apps (hand-made arrangements for two to four pictures by their proportions, row splitting towards a 3:4 block for more). The mosaic always fills the bubble's width and is at most one and a half widths tall; cells crop their picture. Audio and documents of an album stay a list.
+- `Post.entities` and `Comment.entities` carry TDLib's text entities (offsets in UTF-16 units). `FormattedText` cuts the text at every entity boundary, so nested and overlapping formatting works; links, mentions and e-mail addresses open through `launchFirst`, spoilers are covered until tapped. Rules, read-aloud, sharing and notifications keep using the plain text.
+- Avatars: the timeline takes channel photos from `myChannels()` (the database keeps titles only); comments carry `authorId` and `authorPhoto`, resolved once per sender by the gateway. The thread view shows the post as its timeline row on top and comments as bubbles, own comments on the right without a photo. Feed editor, channel picker and the rule scope list show the channel photos too.
 
 ### 5.8 Feed filters
 
@@ -326,3 +338,6 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-19 | Main screen is a tab bar: `+`, Feeds (the list of feeds), one tab per Telegram folder listing its channels, All channels | Founder feedback; a tab per feed was built first and replaced the same day by the single Feeds tab, founder decision |
 | 2026-09-19 | Folder tabs and All channels show channels only | Founder decision; the app stays a channel reader, chatting is a non-goal |
 | 2026-09-19 | Feeds have content filters; they apply to the timeline and to rules (a post hidden by every feed with its channel does not notify) | Founder decision; refines "rules never per feed": rules stay per channel or global, filters only silence what no feed shows |
+| 2026-09-19 | Posts and comments are drawn like the official app: bubbles with avatars, coloured names, mosaic albums, formatted text, footer with views and time | Founder feedback round 3; the group-chat form, since a feed mixes channels and avatars were asked for everywhere |
+| 2026-09-19 | The unread dot sits beside the time in a reserved slot and only fades | Founder decision, feedback round 3: the dot in front of the title made the title jump when a post became read |
+| 2026-09-19 | A feed made from a Telegram folder is a one-time copy of its channels | Founder decision, feedback round 3; no link to the folder, no schema change |

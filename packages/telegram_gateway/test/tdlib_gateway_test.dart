@@ -629,6 +629,11 @@ void main() {
         'id': r['user_id'],
         'first_name': 'Ann',
         'last_name': 'Lee',
+        'profile_photo': {
+          '@type': 'profilePhoto',
+          'id': '1',
+          'small': {'@type': 'file', 'id': 31, 'size': 900},
+        },
       };
       t.handlers['getMessageThreadHistory'] = (_) => {
         '@type': 'messages',
@@ -661,6 +666,9 @@ void main() {
       final history = await g.threadHistory(thread);
       expect(history.map((c) => c.messageId), [902]); // root excluded
       expect(history.single.author, 'Ann Lee');
+      // Id and photo for the avatar and the colour of the name.
+      expect(history.single.authorId, isPositive);
+      expect(history.single.authorPhoto?.id, 31);
 
       final live = <Comment>[];
       final sub = g.comments.listen(live.add);

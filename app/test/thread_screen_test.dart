@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telegram_feed/feeds/post_card.dart';
 import 'package:telegram_feed/feeds/thread_screen.dart';
+import 'package:telegram_feed/home/channel_list.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'feeds_screen_test.dart' show ChannelsGateway;
@@ -87,6 +89,11 @@ void main() {
           .toList();
       expect(texts.indexOf('first'), lessThan(texts.indexOf('second')));
       expect(find.text('Ann'), findsOneWidget);
+      // The post on top with the channel's avatar, and one avatar per comment author.
+      expect(find.byType(PostCard), findsOneWidget);
+      expect(find.text('the post'), findsOneWidget);
+      expect(find.byType(CommentBubble), findsNWidgets(2));
+      expect(find.byType(ChannelAvatar), findsNWidgets(3));
 
       gw.live.add(
         const Comment(
@@ -112,6 +119,27 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('third'), findsOneWidget);
       expect(find.text('elsewhere'), findsNothing);
+
+      // An own comment sits on the right and has no avatar.
+      gw.live.add(
+        const Comment(
+          chatId: -2,
+          messageId: 904,
+          threadId: 900,
+          date: 4,
+          text: 'mine',
+          author: 'Me',
+          isOutgoing: true,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(ChannelAvatar), findsNWidgets(4));
+      expect(find.text('Me'), findsNothing);
+      expect(
+        tester.getCenter(find.text('mine')).dx,
+        greaterThan(tester.getCenter(find.text('third')).dx),
+      );
 
       await tester.enterText(find.byType(TextField), 'my reply');
       await tester.tap(find.byIcon(Icons.send));

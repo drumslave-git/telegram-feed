@@ -1,7 +1,14 @@
 import 'dart:async';
 
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
+
+import '../home/channel_list.dart' show ChannelAvatar;
+import 'bubble_text.dart';
+import 'formatted_text.dart';
+import 'open_links.dart';
+import 'post_card.dart';
 
 /// Comments on a post from the channel's discussion group, with a reply composer.
 class ThreadScreen extends StatefulWidget {
@@ -10,10 +17,16 @@ class ThreadScreen extends StatefulWidget {
     required this.gateway,
     required this.post,
     required this.channelTitle,
+    this.channelPhoto,
+    this.item,
   });
   final TelegramGateway gateway;
   final Post post;
   final String channelTitle;
+  final FileRef? channelPhoto;
+
+  /// The timeline row of [post]; with it the header shows the whole album.
+  final TimelineItem? item;
 
   @override
   State<ThreadScreen> createState() => _ThreadScreenState();
@@ -120,6 +133,12 @@ class _ThreadScreenState extends State<ThreadScreen> {
     }
   }
 
+  Future<void> _openLink(String url) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (await launchFirst([Uri.tryParse(url)])) return;
+    messenger.showSnackBar(SnackBar(content: Text('No app can open $url')));
+  }
+
   void _scrollToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
@@ -144,7 +163,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colors = ChatColors.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -153,125 +172,199 @@ class _ThreadScreenState extends State<ThreadScreen> {
               : 'Comments · ${widget.channelTitle}',
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _noThread
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Text(
-                        'This channel has no discussion group, so posts cannot be commented on.',
-                        textAlign: TextAlign.center,
+      body: ColoredBox(
+        color: colors.background,
+        child: Column(
+          children: [
+            Expanded(
+              child: _noThread
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Text(
+                          'This channel has no discussion group, so posts cannot be commented on.',
+                          textAlign: TextAlign.center,
+                        ),
                       ),
-                    ),
-                  )
-                : _error != null && _comments.isEmpty
-                ? Center(child: Text('Telegram: $_error'))
-                : ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _comments.length + 2,
-                    itemBuilder: (context, i) {
-                      if (i == 0) {
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  widget.channelTitle,
-                                  style: theme.textTheme.labelLarge,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  widget.post.text,
-                                  maxLines: 8,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                if (!_exhausted && _thread != null)
-                                  TextButton(
-                                    onPressed: _loading ? null : _loadOlder,
-                                    child: Text(
-                                      _loading
-                                          ? 'Loading…'
-                                          : 'Load older comments',
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
+                    )
+                  : _error != null && _comments.isEmpty
+                  ? Center(child: Text('Telegram: $_error'))
+                  : ListView.builder(
+                      controller: _scroll,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: _comments.length + 2,
+                      itemBuilder: (context, i) {
+                        if (i == 0) return _header();
+                        if (i == _comments.length + 1) {
+                          return _comments.isEmpty && !_loading
+                              ? const ChatPill('No comments yet.')
+                              : const SizedBox(height: 8);
+                        }
+                        return CommentBubble(
+                          comment: _comments[i - 1],
+                          gateway: widget.gateway,
+                          onOpenLink: _openLink,
                         );
-                      }
-                      if (i == _comments.length + 1) {
-                        return _comments.isEmpty && !_loading
-                            ? const Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Center(child: Text('No comments yet.')),
-                              )
-                            : const SizedBox(height: 8);
-                      }
-                      final c = _comments[i - 1];
-                      return Align(
-                        alignment: c.isOutgoing
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          constraints: const BoxConstraints(maxWidth: 320),
-                          margin: const EdgeInsets.symmetric(vertical: 3),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: c.isOutgoing
-                                ? theme.colorScheme.primaryContainer
-                                : theme.colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (c.author.isNotEmpty)
-                                Text(
-                                  c.author,
-                                  style: theme.textTheme.labelMedium,
-                                ),
-                              Text(c.text),
-                            ],
+                      },
+                    ),
+            ),
+            if (_thread != null)
+              Material(
+                color: Theme.of(context).colorScheme.surface,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _composer,
+                            minLines: 1,
+                            maxLines: 4,
+                            decoration: const InputDecoration(
+                              hintText: 'Write a comment',
+                              isDense: true,
+                            ),
+                            onSubmitted: (_) => _send(),
                           ),
                         ),
-                      );
-                    },
+                        IconButton(
+                          tooltip: 'Send',
+                          icon: const Icon(Icons.send),
+                          onPressed: _sending ? null : _send,
+                        ),
+                      ],
+                    ),
                   ),
-          ),
-          if (_thread != null)
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _composer,
-                        minLines: 1,
-                        maxLines: 4,
-                        decoration: const InputDecoration(
-                          hintText: 'Write a comment',
-                          isDense: true,
-                        ),
-                        onSubmitted: (_) => _send(),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Send',
-                      icon: const Icon(Icons.send),
-                      onPressed: _sending ? null : _send,
-                    ),
-                  ],
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The post the comments belong to, as it looks in the timeline, as the official app
+  /// shows it on top of its comments.
+  Widget _header() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      PostCard(
+        item: widget.item ?? TimelineItem(widget.post),
+        channelTitle: widget.channelTitle,
+        channelPhoto: widget.channelPhoto,
+        gateway: widget.gateway,
+        onOpenLink: _openLink,
+      ),
+      if (!_exhausted && _thread != null)
+        Center(
+          child: TextButton(
+            onPressed: _loading ? null : _loadOlder,
+            child: Text(_loading ? 'Loading…' : 'Load older comments'),
+          ),
+        )
+      else if (_comments.isNotEmpty)
+        const ChatPill('Discussion started'),
+    ],
+  );
+}
+
+/// One comment: the author's photo, and a bubble with the coloured name, the text and the
+/// time. Own comments sit on the right without a photo, as in the official app.
+class CommentBubble extends StatelessWidget {
+  const CommentBubble({
+    super.key,
+    required this.comment,
+    required this.gateway,
+    this.onOpenLink,
+  });
+  final Comment comment;
+  final TelegramGateway gateway;
+  final void Function(String url)? onOpenLink;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final colors = ChatColors.of(context);
+    final c = comment;
+    final own = c.isOutgoing;
+    final time = Text(
+      formatTime(DateTime.fromMillisecondsSinceEpoch(c.date * 1000)),
+      style: TextStyle(
+        fontSize: 12,
+        height: 1.2,
+        color: scheme.onSurfaceVariant,
+      ),
+    );
+    final bubble = Material(
+      color: own ? colors.ownBubble : colors.bubble,
+      elevation: 0.5,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(14),
+          topRight: const Radius.circular(14),
+          bottomLeft: Radius.circular(own ? 14 : 4),
+          bottomRight: Radius.circular(own ? 4 : 14),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+        child: IntrinsicWidth(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!own && c.author.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text(
+                    c.author,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: peerColor(c.authorId, scheme.brightness),
+                    ),
+                  ),
+                ),
+              BubbleText(
+                text: FormattedText(
+                  text: c.text,
+                  entities: c.entities,
+                  onOpenLink: onOpenLink,
+                  style: TextStyle(
+                    fontSize: 16,
+                    height: 1.3,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                footer: time,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return Padding(
+      padding: EdgeInsets.fromLTRB(own ? 56 : 8, 3, own ? 8 : 56, 3),
+      child: Row(
+        mainAxisAlignment: own
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!own) ...[
+            ChannelAvatar(
+              photo: c.authorPhoto,
+              title: c.author,
+              gateway: gateway,
+              radius: 18,
             ),
+            const SizedBox(width: 6),
+          ],
+          Flexible(child: bubble),
         ],
       ),
     );

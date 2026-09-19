@@ -257,7 +257,10 @@ final class Comment {
     required this.date,
     required this.text,
     required this.author,
+    this.authorId = 0,
+    this.authorPhoto,
     this.isOutgoing = false,
+    this.entities = const [],
   });
   final int chatId;
   final int messageId;
@@ -265,7 +268,17 @@ final class Comment {
   final int date;
   final String text;
   final String author;
+
+  /// User id, or chat id of a channel or group commenting as itself; picks the colour of
+  /// the name. 0 when unknown.
+  final int authorId;
+
+  /// Small profile photo of the author, if there is one.
+  final FileRef? authorPhoto;
   final bool isOutgoing;
+
+  /// Formatting of [text], as in [Post.entities].
+  final List<TextEntity> entities;
 }
 
 /// An emoji reaction on a post with its count and whether this account chose it.

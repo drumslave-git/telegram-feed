@@ -199,11 +199,23 @@ Map<String, Object?> encodePost(Post p) => {
   ],
   'replyCount': p.replyCount,
   'canComment': p.canComment,
-  'entities': [
-    for (final e in p.entities)
-      {'o': e.offset, 'l': e.length, 'k': e.kind.name, 'u': e.url},
-  ],
+  'entities': _encodeEntities(p.entities),
 };
+
+List<Map<String, Object?>> _encodeEntities(List<TextEntity> entities) => [
+  for (final e in entities)
+    {'o': e.offset, 'l': e.length, 'k': e.kind.name, 'u': e.url},
+];
+
+List<TextEntity> _decodeEntities(Object? list) => [
+  for (final e in (list as List?) ?? const [])
+    TextEntity(
+      offset: (e as Map)['o'] as int,
+      length: e['l'] as int,
+      kind: TextEntityKind.values.byName(e['k'] as String),
+      url: e['u'] as String?,
+    ),
+];
 
 Map<String, Object?> encodeThread(Thread t) => {
   'chatId': t.chatId,
@@ -228,7 +240,10 @@ Map<String, Object?> encodeComment(Comment c) => {
   'date': c.date,
   'text': c.text,
   'author': c.author,
+  'authorId': c.authorId,
+  'authorPhoto': _fileOrNull(c.authorPhoto),
   'isOutgoing': c.isOutgoing,
+  'entities': _encodeEntities(c.entities),
 };
 
 Comment decodeComment(Map<Object?, Object?> m) => Comment(
@@ -238,7 +253,10 @@ Comment decodeComment(Map<Object?, Object?> m) => Comment(
   date: m['date'] as int,
   text: m['text'] as String,
   author: m['author'] as String,
+  authorId: (m['authorId'] as int?) ?? 0,
+  authorPhoto: _decodeFileOrNull(m['authorPhoto']),
   isOutgoing: m['isOutgoing'] as bool,
+  entities: _decodeEntities(m['entities']),
 );
 
 Post decodePost(Map<Object?, Object?> m) => Post(
@@ -263,15 +281,7 @@ Post decodePost(Map<Object?, Object?> m) => Post(
   ],
   replyCount: (m['replyCount'] as int?) ?? 0,
   canComment: (m['canComment'] as bool?) ?? false,
-  entities: [
-    for (final e in (m['entities'] as List?) ?? const [])
-      TextEntity(
-        offset: (e as Map)['o'] as int,
-        length: e['l'] as int,
-        kind: TextEntityKind.values.byName(e['k'] as String),
-        url: e['u'] as String?,
-      ),
-  ],
+  entities: _decodeEntities(m['entities']),
 );
 
 Map<String, Object?> encodePostEvent(PostEvent e) => switch (e) {

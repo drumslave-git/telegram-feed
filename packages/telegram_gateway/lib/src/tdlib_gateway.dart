@@ -68,7 +68,7 @@ final class TdlibGateway implements TelegramGateway {
 
   /// (discussion chat id, thread id) of threads a screen has open.
   final _openThreads = <(int, int)>{};
-  final _senderNames = <String, String>{};
+  final _senders = <String, map.Sender>{};
 
   @override
   Stream<AuthState> get authState async* {
@@ -95,7 +95,7 @@ final class TdlibGateway implements TelegramGateway {
       case td.UpdateNewMessage(:final message):
         if (message == null) return;
         if (_openThreads.contains((message.chatId, map.threadIdOf(message)))) {
-          _commentCtl.add(map.comment(message, await _senderName(message)));
+          _commentCtl.add(map.comment(message, await _sender(message)));
         } else if (_isChannelChat(message.chatId)) {
           _postCtl.add(PostAdded(map.post(message)));
         }
@@ -371,31 +371,43 @@ final class TdlibGateway implements TelegramGateway {
   Future<void> cancelDownload(int fileId) =>
       _client.call(td.CancelDownloadFile(fileId: fileId, onlyIfPending: false));
 
-  Future<String> _senderName(td.Message m) async {
+  /// Name and photo of whoever wrote [m], looked up once per session.
+  Future<map.Sender> _sender(td.Message m) async {
     switch (m.senderId) {
       case td.MessageSenderUser(:final userId):
-        return _senderNames['u$userId'] ??= await _userName(userId);
+        return _senders['u$userId'] ??= await _userSender(userId);
       case td.MessageSenderChat(:final chatId):
-        return _senderNames['c$chatId'] ??= await _chatTitle(chatId);
+        return _senders['c$chatId'] ??= await _chatSender(chatId);
       default:
-        return '';
+        return (id: 0, name: '', photo: null);
     }
   }
 
-  Future<String> _userName(int userId) async {
+  Future<map.Sender> _userSender(int userId) async {
     try {
       final u = await _client.call(td.GetUser(userId: userId));
-      return [u.firstName, u.lastName].where((s) => s.isNotEmpty).join(' ');
+      final small = u.profilePhoto?.small;
+      return (
+        id: userId,
+        name: [u.firstName, u.lastName].where((s) => s.isNotEmpty).join(' '),
+        photo: small == null ? null : map.fileRef(small),
+      );
     } on TelegramException {
-      return '';
+      return (id: userId, name: '', photo: null);
     }
   }
 
-  Future<String> _chatTitle(int chatId) async {
+  Future<map.Sender> _chatSender(int chatId) async {
     try {
-      return (await _client.call(td.GetChat(chatId: chatId))).title;
+      final c = await _client.call(td.GetChat(chatId: chatId));
+      final small = c.photo?.small;
+      return (
+        id: chatId,
+        name: c.title,
+        photo: small == null ? null : map.fileRef(small),
+      );
     } on TelegramException {
-      return '';
+      return (id: chatId, name: '', photo: null);
     }
   }
 
@@ -439,7 +451,7 @@ final class TdlibGateway implements TelegramGateway {
     final out = <Comment>[];
     for (final m in r.messages) {
       if (m.id == thread.threadId) continue; // the forwarded post itself
-      out.add(map.comment(m, await _senderName(m)));
+      out.add(map.comment(m, await _sender(m)));
     }
     return out;
   }

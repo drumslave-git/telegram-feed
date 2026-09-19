@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/feed_editor_screen.dart';
+import 'package:telegram_feed/home/channel_list.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'feeds_screen_test.dart' show ChannelsGateway;
@@ -65,6 +66,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Alpha News'), findsOneWidget);
     expect(find.text('Beta Daily'), findsOneWidget);
+    // Every channel comes with its avatar, in the picker and in the list of sources.
+    final picker = find.byType(ChannelPicker);
+    expect(
+      find.descendant(of: picker, matching: find.byType(ChannelAvatar)),
+      findsNWidgets(
+        find
+            .descendant(of: picker, matching: find.byType(ListTile))
+            .evaluate()
+            .length,
+      ),
+    );
 
     await tester.enterText(find.byType(TextField), 'bet');
     await tester.pump();
@@ -74,6 +86,7 @@ void main() {
     await settle(tester);
     expect(find.text('Beta Daily'), findsOneWidget);
     expect(find.text('@beta'), findsOneWidget);
+    expect(find.byType(ChannelAvatar), findsOneWidget);
     // The feed starts at Telegram's own read position for the channel.
     final marks = await tester.runAsync(() => db.readMarks(feedId));
     expect(marks, {-2: 700});

@@ -14,6 +14,7 @@ final class ChatColors {
   const ChatColors._({
     required this.background,
     required this.bubble,
+    required this.ownBubble,
     required this.pill,
     required this.onPill,
   });
@@ -31,6 +32,7 @@ final class ChatColors {
       bubble: dark
           ? scheme.surfaceContainerHigh
           : scheme.surfaceContainerLowest,
+      ownBubble: dark ? scheme.primaryContainer : const Color(0xFFEFFDDE),
       pill: Colors.black.withValues(alpha: dark ? 0.45 : 0.28),
       onPill: Colors.white,
     );
@@ -38,6 +40,9 @@ final class ChatColors {
 
   final Color background;
   final Color bubble;
+
+  /// Bubble of the account's own comments (Telegram's green in the light theme).
+  final Color ownBubble;
 
   /// Date labels and the share button float on the backdrop in a see-through dark shape.
   final Color pill;
@@ -380,26 +385,31 @@ class _Bubble extends StatelessWidget {
         if (reactions.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(_side, 2, _side, 6),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            // The pills use the whole width. The footer goes to the bottom right corner;
+            // an unseen copy of it at the end of the pills keeps that corner free, on the
+            // last row when there is room and on a row of its own otherwise.
+            child: Stack(
               children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      for (final r in reactions)
-                        ReactionPill(
-                          reaction: r,
-                          onTap: onReact == null
-                              ? null
-                              : () => onReact!(r.emoji, r.chosen),
-                        ),
-                    ],
-                  ),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.end,
+                  children: [
+                    for (final r in reactions)
+                      ReactionPill(
+                        reaction: r,
+                        onTap: onReact == null
+                            ? null
+                            : () => onReact!(r.emoji, r.chosen),
+                      ),
+                    ExcludeSemantics(
+                      child: IgnorePointer(
+                        child: Opacity(opacity: 0, child: footer),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                footer,
+                Positioned(right: 0, bottom: 0, child: footer),
               ],
             ),
           ),

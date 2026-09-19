@@ -200,14 +200,20 @@ int threadIdOf(td.Message m) => switch (m.topicId) {
   _ => 0,
 };
 
-Comment comment(td.Message m, String author) => Comment(
+/// Who wrote a comment: a user, or a channel or group commenting as itself.
+typedef Sender = ({int id, String name, FileRef? photo});
+
+Comment comment(td.Message m, Sender sender) => Comment(
   chatId: m.chatId,
   messageId: m.id,
   threadId: threadIdOf(m),
   date: m.date,
   text: content(m.content).$1,
-  author: author,
+  author: sender.name,
+  authorId: sender.id,
+  authorPhoto: sender.photo,
   isOutgoing: m.isOutgoing,
+  entities: entities(formattedText(m.content)),
 );
 
 List<Reaction> reactions(td.MessageReactions? r) => [

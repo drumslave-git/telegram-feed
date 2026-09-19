@@ -665,7 +665,9 @@ class _TimelineViewState extends State<TimelineView> {
                           builder: (_) => ThreadScreen(
                             gateway: widget.gateway,
                             post: item.head,
+                            item: item,
                             channelTitle: _titles[item.chatId] ?? '',
+                            channelPhoto: _photos[item.chatId],
                           ),
                         ),
                       ),

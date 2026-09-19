@@ -8,6 +8,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../notifications/notification_policy.dart';
 import '../ai/semantic_gate.dart';
+import '../home/channel_list.dart' show ChannelAvatar;
 import 'rule_builder_model.dart';
 
 /// Create or edit one rule: visual builder or text form, scope, priority, read-aloud,
@@ -58,6 +59,9 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   bool _saving = false;
   List<WatchedChannel> _channels = const [];
 
+  /// Channel photos for the scope list; the database only keeps titles.
+  Map<int, FileRef?> _photos = const {};
+
   @override
   void initState() {
     super.initState();
@@ -96,6 +100,10 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     widget.db.allWatched().then((c) {
       if (mounted) setState(() => _channels = c);
     });
+    widget.gateway.myChannels().then((channels) {
+      if (!mounted) return;
+      setState(() => _photos = {for (final c in channels) c.chatId: c.photo});
+    }, onError: (Object _) {}); // initials stay
     widget.db.setting(AiKeys.baseUrl).then((url) {
       if (mounted) setState(() => _aiConfigured = (url ?? '').isNotEmpty);
     });
@@ -390,6 +398,8 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
           const SizedBox(height: 12),
           DropdownButtonFormField<int?>(
             initialValue: _scopeChatId,
+            // The items are rows with an avatar; they need the width of the field.
+            isExpanded: true,
             decoration: const InputDecoration(labelText: 'Channels'),
             items: [
               const DropdownMenuItem<int?>(
@@ -399,7 +409,20 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
               for (final c in _channels)
                 DropdownMenuItem<int?>(
                   value: c.chatId,
-                  child: Text(c.title, overflow: TextOverflow.ellipsis),
+                  child: Row(
+                    children: [
+                      ChannelAvatar(
+                        photo: _photos[c.chatId],
+                        title: c.title,
+                        gateway: widget.gateway,
+                        radius: 12,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(c.title, overflow: TextOverflow.ellipsis),
+                      ),
+                    ],
+                  ),
                 ),
             ],
             onChanged: (v) => setState(() => _scopeChatId = v),

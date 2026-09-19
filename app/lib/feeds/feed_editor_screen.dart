@@ -3,6 +3,8 @@ import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../home/channel_list.dart' show ChannelAvatar;
+
 /// Edit a feed's sources: add joined channels from a searchable picker, remove, reorder.
 /// Only channels the account has joined can be added (SPEC section 7); the app never joins.
 class FeedEditorScreen extends StatefulWidget {
@@ -33,6 +35,7 @@ class _FeedEditorScreenState extends State<FeedEditorScreen> {
       useSafeArea: true,
       builder: (_) => ChannelPicker(
         channels: channels.where((c) => !taken.contains(c.chatId)).toList(),
+        gateway: widget.gateway,
       ),
     );
     if (picked != null) {
@@ -80,6 +83,10 @@ class _FeedEditorScreenState extends State<FeedEditorScreen> {
                 for (final c in chSnap.data ?? const <Channel>[])
                   if (!c.isMember) c.chatId,
               };
+              final photos = {
+                for (final c in chSnap.data ?? const <Channel>[])
+                  c.chatId: c.photo,
+              };
               if (sources.isEmpty) {
                 return const Center(
                   child: Padding(
@@ -106,7 +113,12 @@ class _FeedEditorScreenState extends State<FeedEditorScreen> {
                   final hasLeft = left.contains(s.chatId);
                   return ListTile(
                     key: ValueKey(s.chatId),
-                    leading: const Icon(Icons.campaign_outlined),
+                    leading: ChannelAvatar(
+                      photo: photos[s.chatId],
+                      title: s.title,
+                      gateway: widget.gateway,
+                      radius: 20,
+                    ),
                     title: Text(s.title),
                     subtitle: hasLeft
                         ? const Text('Left in Telegram; history stays readable')
@@ -323,8 +335,11 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
 
 /// Searchable list of joined channels; pops with the chosen [Channel].
 class ChannelPicker extends StatefulWidget {
-  const ChannelPicker({super.key, required this.channels});
+  const ChannelPicker({super.key, required this.channels, this.gateway});
   final List<Channel> channels;
+
+  /// Downloads the channel photos; without it the rows show no picture.
+  final TelegramGateway? gateway;
 
   @override
   State<ChannelPicker> createState() => _ChannelPickerState();
@@ -382,7 +397,16 @@ class _ChannelPickerState extends State<ChannelPicker> {
                     itemCount: shown.length,
                     itemBuilder: (context, i) {
                       final c = shown[i];
+                      final gateway = widget.gateway;
                       return ListTile(
+                        leading: gateway == null
+                            ? null
+                            : ChannelAvatar(
+                                photo: c.photo,
+                                title: c.title,
+                                gateway: gateway,
+                                radius: 20,
+                              ),
                         title: Text(c.title),
                         subtitle: c.username == null
                             ? null
