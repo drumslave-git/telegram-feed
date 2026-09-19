@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 4 (extras); feedback round 2 (video viewer) in progress. **Next task:** V-4.
+**Current phase:** 4 (extras); feedback round 2 (video viewer) in progress. **Next task:** V-5.
 
 ## Phase 0 — Spikes
 
@@ -89,8 +89,8 @@ Founder decisions of the same day: the download button fills Telegram's cache (n
 
 - [x] V-1 A tap plays in full screen at once, in the orientation the device has (nothing is forced). Leaving full screen pauses the video and cancels its streaming download; an autoplayed video returns to muted autoplay. Inline controls go away, the timeline only shows posters and muted autoplay. `VideoSession.retainForViewer` / `releaseFromViewer`, `InlineVideo` for rows, `VideoStage` only in the viewer. (e07347e)
 - [x] V-2 Zoom in full screen: double tap in the middle zooms in and out, pinch zooms, a drag moves the zoomed picture; the edges keep the 10 s seek. `InteractiveViewer` in `VideoStage`, helpers in `media/zoom.dart`. (a3ee5d5)
-- [x] V-3 Download button in the top left corner of a video (timeline and viewer): size, progress ring, tap again cancels. The download goes to Telegram's cache and survives leaving full screen.
-- [ ] V-4 Swipe down or up closes the viewer with a fading background; holding a finger on the video plays at 2× while held.
+- [x] V-3 Download button in the top left corner of a video (timeline and viewer): size, progress ring, tap again cancels. The download goes to Telegram's cache and survives leaving full screen. `VideoDownloads` + `VideoDownloadButton`; timeline goldens regenerated. (c8efba1)
+- [x] V-4 Swipe down or up closes the viewer with a fading background; holding a finger on the video plays at 2× while held.
 - [ ] V-5 One viewer for photos and videos: swiping sideways pages through the album of the post.
 - [ ] V-6 Picture-in-picture: a mini player floating over the timeline, and Android's system PiP window when the app is left while a video plays.
 

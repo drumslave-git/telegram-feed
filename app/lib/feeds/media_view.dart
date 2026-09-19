@@ -253,6 +253,9 @@ class _VideoViewState extends State<VideoView> {
   /// Only ever an autoplay session; a video started by a tap belongs to the viewer.
   VideoSession? _session;
 
+  bool _routeIsCurrent = true;
+  double _visible = 0;
+
   VideoSessions get _sessions => VideoSessions.of(widget.gateway);
   FileRef get _file => widget.video.file;
 
@@ -270,6 +273,26 @@ class _VideoViewState extends State<VideoView> {
       _session = null;
       _adopt(_sessions.find(_file.id));
     }
+  }
+
+  /// The route of the viewer is see-through (it can be dragged away), so rows below it stay
+  /// visible to the visibility detector; autoplay rests while another route is on top.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final current = ModalRoute.of(context)?.isCurrent ?? true;
+    if (current == _routeIsCurrent) return;
+    _routeIsCurrent = current;
+    // Not now: the listeners of the session rebuild widgets.
+    scheduleMicrotask(() {
+      final s = _session;
+      if (!mounted || s == null || s.isShared) return;
+      if (!current) {
+        unawaited(s.pause());
+      } else if (_visible >= 0.6) {
+        unawaited(s.play());
+      }
+    });
   }
 
   void _adopt(VideoSession? s) {
@@ -295,8 +318,9 @@ class _VideoViewState extends State<VideoView> {
   /// left, unless the viewer is showing it.
   void _onVisibility(VisibilityInfo info) {
     if (!mounted) return;
-    final visible = info.visibleFraction;
+    final visible = _visible = info.visibleFraction;
     final s = _session;
+    if (!_routeIsCurrent) return;
     if (s == null) {
       if (widget.autoplay && visible >= 0.6) {
         setState(

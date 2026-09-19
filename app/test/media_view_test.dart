@@ -336,6 +336,60 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a held finger plays at 2x until it lifts', (tester) async {
+    final platform = FakeVideoPlatform.install();
+    await tester.pumpWidget(host(video));
+    await tester.tap(find.byIcon(Icons.play_arrow));
+    await startUp(tester);
+    await tester.pumpAndSettle();
+
+    final box = tester.getRect(find.byType(VideoStage));
+    final finger = await tester.startGesture(box.center - const Offset(0, 80));
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(platform.log.last, 'speed 1 2.0');
+    expect(find.text('2×'), findsOneWidget);
+
+    await finger.up();
+    await tester.pump();
+    expect(platform.log.last, 'speed 1 1.0');
+    expect(find.text('2×'), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('a swipe down closes the viewer, a short drag swings back', (
+    tester,
+  ) async {
+    FakeVideoPlatform.install();
+    await tester.pumpWidget(host(video));
+    await tester.tap(find.byIcon(Icons.play_arrow));
+    await startUp(tester);
+    await tester.pumpAndSettle();
+    final from =
+        tester.getRect(find.byType(VideoStage)).center + const Offset(0, 60);
+
+    await tester.dragFrom(from, const Offset(0, 70));
+    await tester.pumpAndSettle();
+    expect(find.byType(FullscreenVideoScreen), findsOneWidget);
+    expect(tester.getTopLeft(find.byType(VideoStage)).dy, 0);
+
+    // Zoomed in, the same drag moves the picture instead.
+    final zoom = tester
+        .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+        .transformationController!;
+    await doubleTap(tester, from);
+    final before = zoom.value.getTranslation().y;
+    await tester.dragFrom(from, const Offset(0, 300));
+    await tester.pumpAndSettle();
+    expect(find.byType(FullscreenVideoScreen), findsOneWidget);
+    expect(zoom.value.getTranslation().y, greaterThan(before + 100));
+    await doubleTap(tester, from);
+
+    await tester.dragFrom(from, const Offset(0, 300));
+    await tester.pumpAndSettle();
+    expect(find.byType(FullscreenVideoScreen), findsNothing);
+    await unmount(tester);
+  });
+
   testWidgets('download button: size, progress, cancel, gone when complete', (
     tester,
   ) async {
@@ -374,8 +428,8 @@ void main() {
     await startUp(tester);
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(FullscreenVideoScreen), findsOneWidget);
-    // The viewer has the button too, in the same state.
-    expect(find.byTooltip('Cancel download'), findsOneWidget);
+    // The viewer has the button too, in the same state as the row under it.
+    expect(find.byTooltip('Cancel download'), findsNWidgets(2));
     // No pumpAndSettle here: the progress ring never settles.
     await tester.tap(find.byType(BackButton));
     await tester.pump();

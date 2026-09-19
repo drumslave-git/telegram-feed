@@ -63,7 +63,8 @@ class FakeVideoPlatform extends VideoPlayerPlatform {
   Future<void> setVolume(int playerId, double volume) async =>
       log.add('volume $playerId $volume');
   @override
-  Future<void> setPlaybackSpeed(int playerId, double speed) async {}
+  Future<void> setPlaybackSpeed(int playerId, double speed) async =>
+      log.add('speed $playerId $speed');
   @override
   Future<void> setMixWithOthers(bool mixWithOthers) async {}
 

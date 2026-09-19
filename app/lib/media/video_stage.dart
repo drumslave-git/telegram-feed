@@ -6,11 +6,13 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:video_player/video_player.dart';
 
 import '../feeds/media_view.dart' show formatDuration;
+import 'swipe_to_close.dart';
 import 'video_downloads.dart';
 import 'video_sessions.dart';
 import 'zoom.dart';
 
 const _seekStep = Duration(seconds: 10);
+const _holdSpeed = 2.0;
 
 /// The session's frames at the video's own aspect ratio.
 class VideoPicture extends StatelessWidget {
@@ -64,7 +66,9 @@ class InlineVideo extends StatelessWidget {
 
 /// The picture of a [VideoSession] with its controls, as the viewer shows it: tap shows or
 /// hides them, double tap on the left or right third seeks 10 seconds, double tap in the
-/// middle zooms in and out. Pinching zooms too, and a drag moves the zoomed picture.
+/// middle zooms in and out. Pinching zooms too, and a drag moves the zoomed picture. A finger
+/// held down plays at 2× until it lifts. The stage has no background of its own: the viewer
+/// puts the black behind it and fades it while the stage is dragged away.
 class VideoStage extends StatefulWidget {
   const VideoStage({
     super.key,
@@ -105,6 +109,9 @@ class _VideoStageState extends State<VideoStage> {
   final _transform = TransformationController();
   bool _zoomed = false;
 
+  /// The speed to go back to while a held finger plays at 2×; null when none is held.
+  double? _speedBeforeHold;
+
   VideoSession get _s => widget.session;
 
   @override
@@ -138,6 +145,8 @@ class _VideoStageState extends State<VideoStage> {
     _hide?.cancel();
     _seekHintTimer?.cancel();
     _transform.dispose();
+    final before = _speedBeforeHold;
+    if (before != null) unawaited(_s.controller?.setPlaybackSpeed(before));
     super.dispose();
   }
 
@@ -170,6 +179,20 @@ class _VideoStageState extends State<VideoStage> {
     }
   }
 
+  void _holdStart() {
+    final c = _s.controller;
+    if (c == null || !c.value.isPlaying || _speedBeforeHold != null) return;
+    setState(() => _speedBeforeHold = c.value.playbackSpeed);
+    unawaited(c.setPlaybackSpeed(_holdSpeed));
+  }
+
+  void _holdEnd() {
+    final before = _speedBeforeHold;
+    if (before == null) return;
+    setState(() => _speedBeforeHold = null);
+    unawaited(_s.controller?.setPlaybackSpeed(before));
+  }
+
   void _seek(int direction) {
     unawaited(_s.seekBy(_seekStep * direction));
     _seekHintTimer?.cancel();
@@ -190,7 +213,6 @@ class _VideoStageState extends State<VideoStage> {
       builder: (context, box) => Stack(
         fit: StackFit.expand,
         children: [
-          const ColoredBox(color: Colors.black),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: ready ? _toggleControls : null,
@@ -198,6 +220,9 @@ class _VideoStageState extends State<VideoStage> {
             onDoubleTap: ready
                 ? () => _onDoubleTap(_lastDoubleTap!, box.maxWidth)
                 : null,
+            onLongPressStart: ready ? (_) => _holdStart() : null,
+            onLongPressEnd: ready ? (_) => _holdEnd() : null,
+            onLongPressCancel: ready ? _holdEnd : null,
             child: InteractiveViewer(
               transformationController: _transform,
               minScale: 1,
@@ -218,6 +243,7 @@ class _VideoStageState extends State<VideoStage> {
             ),
           if (_seekHint != 0)
             IgnorePointer(child: _SeekHint(direction: _seekHint)),
+          if (_speedBeforeHold != null) const IgnorePointer(child: _HoldHint()),
           if (ready && _controls) SafeArea(child: _overlay(c)),
           // Leaving must work while the video still loads, too.
           if (!ready || _controls) _TopBar(actions: widget.actions),
@@ -226,8 +252,7 @@ class _VideoStageState extends State<VideoStage> {
     );
   }
 
-  Widget _error(String message) => ColoredBox(
-    color: Colors.black,
+  Widget _error(String message) => SizedBox.expand(
     child: Stack(
       fit: StackFit.expand,
       children: [
@@ -392,6 +417,34 @@ class _Scrim extends StatelessWidget {
   );
 }
 
+/// Shown at the top while a held finger plays the video faster.
+class _HoldHint extends StatelessWidget {
+  const _HoldHint();
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        margin: const EdgeInsets.only(top: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.black54,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('2×', style: TextStyle(color: Colors.white)),
+            SizedBox(width: 4),
+            Icon(Icons.fast_forward, color: Colors.white, size: 18),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 class _SeekHint extends StatelessWidget {
   const _SeekHint({required this.direction});
   final int direction;
@@ -446,6 +499,8 @@ class FullscreenVideoScreen extends StatefulWidget {
     Widget? poster,
   }) => Navigator.of(context, rootNavigator: true).push(
     PageRouteBuilder<void>(
+      // The timeline shows through while the video is dragged away.
+      opaque: false,
       pageBuilder: (_, _, _) =>
           FullscreenVideoScreen(video: video, gateway: gateway, poster: poster),
       transitionsBuilder: (_, animation, _, child) =>
@@ -459,6 +514,7 @@ class FullscreenVideoScreen extends StatefulWidget {
 
 class _FullscreenVideoScreenState extends State<FullscreenVideoScreen> {
   late final VideoSession _session;
+  bool _zoomed = false;
 
   @override
   void initState() {
@@ -479,13 +535,18 @@ class _FullscreenVideoScreenState extends State<FullscreenVideoScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.black,
-    body: VideoStage(
-      session: _session,
-      poster: widget.poster,
-      actions: [
-        VideoDownloadButton(file: widget.video.file, gateway: widget.gateway),
-      ],
+    backgroundColor: Colors.transparent,
+    body: SwipeToClose(
+      enabled: !_zoomed,
+      onClose: () => Navigator.of(context).maybePop(),
+      child: VideoStage(
+        session: _session,
+        poster: widget.poster,
+        onZoomChanged: (z) => setState(() => _zoomed = z),
+        actions: [
+          VideoDownloadButton(file: widget.video.file, gateway: widget.gateway),
+        ],
+      ),
     ),
   );
 }
