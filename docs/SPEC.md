@@ -84,7 +84,7 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 3. **Feed editor**: name, ordered list of channels, add-channel sheet listing my joined channels with a search box.
 4. **Feed timeline**: infinite list of posts in chat order, "Unread posts" divider, button to the newest posts with the count of new ones.
 5. **Post view**: full post with media viewer, open in Telegram, share.
-6. **Settings**: account, logout, appearance, storage usage and cache clearing, about and licenses.
+6. **Settings**: account as a profile (photo, name, username, phone, bio, Telegram ID), logout, media autoplay, appearance, storage usage and cache clearing, about and licenses.
 
 Phase 2 adds **Rules list**, **Rule editor**, and **Read-aloud settings**.
 

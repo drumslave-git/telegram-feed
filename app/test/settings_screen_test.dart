@@ -17,7 +17,8 @@ class SettingsGateway extends ChannelsGateway {
     firstName: 'Ann',
     lastName: 'Lee',
     username: 'ann',
-    phoneNumber: '+1555',
+    phoneNumber: '1555',
+    bio: 'Reads a lot',
   );
   @override
   Future<StorageStats> storageStats() async => StorageStats(
@@ -84,7 +85,11 @@ void main() {
     await tester.pumpWidget(app());
     await settle(tester);
     expect(find.text('Ann Lee'), findsOneWidget);
-    expect(find.text('@ann · +1555'), findsOneWidget);
+    expect(find.text('@ann'), findsOneWidget);
+    expect(find.text('+1555'), findsOneWidget);
+    expect(find.text('Reads a lot'), findsOneWidget);
+    expect(find.text('Telegram ID 9'), findsOneWidget);
+    expect(find.text('A'), findsOneWidget); // initial while there is no photo
     await tester.scrollUntilVisible(
       find.text('3.5 MB'),
       200,

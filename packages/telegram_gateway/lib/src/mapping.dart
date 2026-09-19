@@ -43,7 +43,7 @@ AuthState authState(td.AuthorizationState s) => switch (s) {
   _ => const AuthStarting(),
 };
 
-UserInfo user(td.User u) => UserInfo(
+UserInfo user(td.User u, {String bio = ''}) => UserInfo(
   id: u.id,
   firstName: u.firstName,
   lastName: u.lastName,
@@ -55,6 +55,9 @@ UserInfo user(td.User u) => UserInfo(
     _ => null,
   },
   phoneNumber: u.phoneNumber,
+  photo: u.profilePhoto?.small == null ? null : fileRef(u.profilePhoto!.small!),
+  bio: bio,
+  isPremium: u.isPremium,
 );
 
 StorageStats storageStats(td.StorageStatisticsFast s) => StorageStats(

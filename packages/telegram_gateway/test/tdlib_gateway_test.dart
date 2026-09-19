@@ -255,9 +255,65 @@ void main() {
           : chatJson(7, 'Bob');
 
       final folders = await g.chatFolders();
-      expect(folders.map((f) => (f.id, f.title, f.channelIds)), [
-        (2, 'News', [-1001]),
-      ]);
+      expect(folders, hasLength(1));
+      expect(folders.single.id, 2);
+      expect(folders.single.title, 'News');
+      expect(folders.single.channelIds, [-1001]);
+    },
+  );
+
+  test(
+    'me: profile with photo, phone, premium and the bio from the full info',
+    () async {
+      t.handlers['getMe'] = (_) => {
+        '@type': 'user',
+        'id': 42,
+        'first_name': 'Ann',
+        'last_name': 'Lee',
+        'usernames': {
+          '@type': 'usernames',
+          'active_usernames': ['ann'],
+          'disabled_usernames': [],
+          'editable_username': 'ann',
+        },
+        'phone_number': '15550100',
+        'is_premium': true,
+        'profile_photo': {
+          '@type': 'profilePhoto',
+          'id': '1',
+          'small': {
+            '@type': 'file',
+            'id': 77,
+            'size': 900,
+            'expected_size': 900,
+            'local': {'@type': 'localFile', 'path': ''},
+            'remote': {'@type': 'remoteFile', 'id': 'r77'},
+          },
+        },
+      };
+      t.handlers['getUserFullInfo'] = (r) => {
+        '@type': 'userFullInfo',
+        'bio': {
+          '@type': 'formattedText',
+          'text': 'Reads a lot',
+          'entities': [],
+        },
+      };
+      final me = await g.me();
+      expect(me.displayName, 'Ann Lee');
+      expect(me.username, 'ann');
+      expect(me.phoneDisplay, '+15550100');
+      expect(me.photo?.id, 77);
+      expect(me.bio, 'Reads a lot');
+      expect(me.isPremium, isTrue);
+
+      // Without the full info the basic profile still comes back.
+      t.handlers['getUserFullInfo'] = (_) => {
+        '@type': 'error',
+        'code': 500,
+        'message': 'later',
+      };
+      expect((await g.me()).bio, '');
     },
   );
 

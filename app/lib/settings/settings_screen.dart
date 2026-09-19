@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../ai/semantic_gate.dart';
+import '../home/channel_list.dart' show ChannelAvatar;
 import '../home/home_placeholder.dart';
 import '../media/autoplay.dart';
 import 'ai_settings_screen.dart';
@@ -65,32 +66,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const _Header('Account'),
           FutureBuilder<UserInfo>(
             future: _me,
-            builder: (context, snap) {
-              final u = snap.data;
-              return ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: Text(
-                  u == null
-                      ? (snap.hasError ? 'Account unavailable' : 'Loading…')
-                      : u.displayName,
-                ),
-                subtitle: u == null
-                    ? null
-                    : Text(
-                        [
-                          if (u.username != null) '@${u.username}',
-                          u.phoneNumber,
-                        ].where((s) => s.isNotEmpty).join(' · '),
-                      ),
-                trailing: IconButton(
-                  tooltip: 'Refresh',
-                  icon: const Icon(Icons.refresh),
-                  onPressed: () => setState(() {
-                    _me = widget.gateway.me();
-                  }),
-                ),
-              );
-            },
+            builder: (context, snap) => AccountHeader(
+              user: snap.data,
+              failed: snap.hasError,
+              gateway: widget.gateway,
+              onRefresh: () => setState(() {
+                _me = widget.gateway.me();
+              }),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.logout),
@@ -254,6 +237,104 @@ class _SettingsScreenState extends State<SettingsScreen> {
               applicationName: 'telegram-feed',
               applicationLegalese: 'GPL-3.0',
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The logged-in account as Telegram shows a profile: photo, name, username, phone, bio.
+class AccountHeader extends StatelessWidget {
+  const AccountHeader({
+    super.key,
+    required this.user,
+    required this.failed,
+    required this.gateway,
+    required this.onRefresh,
+  });
+  final UserInfo? user;
+  final bool failed;
+  final TelegramGateway gateway;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final u = user;
+    if (u == null) {
+      return ListTile(
+        leading: const Icon(Icons.person_outline),
+        title: Text(failed ? 'Account unavailable' : 'Loading…'),
+        trailing: failed
+            ? IconButton(
+                tooltip: 'Refresh',
+                icon: const Icon(Icons.refresh),
+                onPressed: onRefresh,
+              )
+            : null,
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ChannelAvatar(
+            photo: u.photo,
+            title: u.displayName,
+            gateway: gateway,
+            radius: 36,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        u.displayName,
+                        style: theme.textTheme.titleLarge,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (u.isPremium)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: Icon(
+                          Icons.star,
+                          size: 18,
+                          color: theme.colorScheme.primary,
+                          semanticLabel: 'Telegram Premium',
+                        ),
+                      ),
+                  ],
+                ),
+                if (u.username != null)
+                  Text('@${u.username}', style: theme.textTheme.bodyMedium),
+                if (u.phoneNumber.isNotEmpty)
+                  Text(u.phoneDisplay, style: theme.textTheme.bodyMedium),
+                if (u.bio.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(u.bio, style: theme.textTheme.bodySmall),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'Telegram ID ${u.id}',
+                    style: theme.textTheme.labelSmall,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh),
+            onPressed: onRefresh,
           ),
         ],
       ),

@@ -505,7 +505,19 @@ final class TdlibGateway implements TelegramGateway {
         );
 
   @override
-  Future<UserInfo> me() async => map.user(await _client.call(const td.GetMe()));
+  Future<UserInfo> me() async {
+    final u = await _client.call(const td.GetMe());
+    var bio = '';
+    try {
+      final full = await _client.call(td.GetUserFullInfo(userId: u.id));
+      bio = full.bio?.text ?? '';
+    } on TelegramException catch (e) {
+      log?.call(
+        'getUserFullInfo failed: $e',
+      ); // the basic profile is still worth showing
+    }
+    return map.user(u, bio: bio);
+  }
 
   @override
   Future<StorageStats> storageStats() async =>

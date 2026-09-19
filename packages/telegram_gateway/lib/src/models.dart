@@ -353,12 +353,27 @@ final class UserInfo {
     this.lastName = '',
     this.username,
     this.phoneNumber = '',
+    this.photo,
+    this.bio = '',
+    this.isPremium = false,
   });
   final int id;
   final String firstName;
   final String lastName;
   final String? username;
+
+  /// Digits as Telegram stores them, without the leading `+`.
   final String phoneNumber;
+
+  /// Small profile photo (160x160), if the account has one.
+  final FileRef? photo;
+  final String bio;
+  final bool isPremium;
+
+  /// [phoneNumber] the way people write it.
+  String get phoneDisplay => phoneNumber.isEmpty || phoneNumber.startsWith('+')
+      ? phoneNumber
+      : '+$phoneNumber';
 
   String get displayName =>
       [firstName, lastName].where((s) => s.isNotEmpty).join(' ');

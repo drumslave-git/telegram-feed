@@ -298,6 +298,9 @@ Map<String, Object?> encodeUser(UserInfo u) => {
   'lastName': u.lastName,
   'username': u.username,
   'phoneNumber': u.phoneNumber,
+  'photo': _fileOrNull(u.photo),
+  'bio': u.bio,
+  'isPremium': u.isPremium,
 };
 
 UserInfo decodeUser(Map<Object?, Object?> m) => UserInfo(
@@ -306,6 +309,9 @@ UserInfo decodeUser(Map<Object?, Object?> m) => UserInfo(
   lastName: m['lastName'] as String,
   username: m['username'] as String?,
   phoneNumber: m['phoneNumber'] as String,
+  photo: _decodeFileOrNull(m['photo']),
+  bio: (m['bio'] as String?) ?? '',
+  isPremium: (m['isPremium'] as bool?) ?? false,
 );
 
 Map<String, Object?> encodeStorage(StorageStats s) => {
