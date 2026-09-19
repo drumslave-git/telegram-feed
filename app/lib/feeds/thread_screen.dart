@@ -4,7 +4,6 @@ import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import '../home/channel_list.dart' show ChannelAvatar;
 import 'bubble_text.dart';
 import 'formatted_text.dart';
 import 'open_links.dart';
@@ -270,8 +269,8 @@ class _ThreadScreenState extends State<ThreadScreen> {
   );
 }
 
-/// One comment: the author's photo, and a bubble with the coloured name, the text and the
-/// time. Own comments sit on the right without a photo, as in the official app.
+/// One comment: a bubble with the coloured name, the author's photo at the right end of
+/// that line, the text and the time. Own comments sit on the right without name and photo.
 class CommentBubble extends StatelessWidget {
   const CommentBubble({
     super.key,
@@ -304,7 +303,7 @@ class CommentBubble extends StatelessWidget {
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(14),
           topRight: const Radius.circular(14),
-          bottomLeft: Radius.circular(own ? 14 : 4),
+          bottomLeft: const Radius.circular(14),
           bottomRight: Radius.circular(own ? 4 : 14),
         ),
       ),
@@ -315,18 +314,14 @@ class CommentBubble extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (!own && c.author.isNotEmpty)
+              if (!own)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: Text(
-                    c.author,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: peerColor(c.authorId, scheme.brightness),
-                    ),
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: BubbleTitle(
+                    name: c.author,
+                    colorId: c.authorId,
+                    photo: c.authorPhoto,
+                    gateway: gateway,
                   ),
                 ),
               BubbleText(
@@ -348,24 +343,10 @@ class CommentBubble extends StatelessWidget {
       ),
     );
     return Padding(
-      padding: EdgeInsets.fromLTRB(own ? 56 : 8, 3, own ? 8 : 56, 3),
-      child: Row(
-        mainAxisAlignment: own
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!own) ...[
-            ChannelAvatar(
-              photo: c.authorPhoto,
-              title: c.author,
-              gateway: gateway,
-              radius: 18,
-            ),
-            const SizedBox(width: 6),
-          ],
-          Flexible(child: bubble),
-        ],
+      padding: EdgeInsets.fromLTRB(own ? 48 : 8, 3, own ? 8 : 48, 3),
+      child: Align(
+        alignment: own ? Alignment.centerRight : Alignment.centerLeft,
+        child: bubble,
       ),
     );
   }

@@ -94,8 +94,13 @@ void main() {
     expect(y('two-mid'), lessThan(y('one-newest')));
     expect(find.text('One'), findsNWidgets(2)); // both posts of channel One
     expect(find.byType(PostCard), findsNWidgets(3));
-    // Every row has the avatar of its channel (initials here: the fake has no photos).
+    // Every row has the avatar of its channel (initials here: the fake has no photos), at
+    // the right end of the title line inside the bubble.
     expect(find.byType(ChannelAvatar), findsNWidgets(3));
+    final title = tester.getRect(find.text('One').first);
+    final avatar = tester.getRect(find.byType(ChannelAvatar).first);
+    expect(avatar.left, greaterThan(title.right - 1));
+    expect(avatar.center.dy, closeTo(title.center.dy, 4));
     expect(find.text('Beginning of the feed'), findsOneWidget);
     // Posts of 1970 in a feed read today: one day label above the oldest of them.
     expect(find.text('January 1, 1970'), findsOneWidget);
@@ -404,15 +409,13 @@ void main() {
     );
     await settle(tester);
 
-    // The round button beside the bubble, and the same action in the menu.
-    await tester.tap(find.byTooltip('Share'));
-    await tester.pumpAndSettle();
-    expect(shared, ['News|News\n\nshareable\n\nhttps://t.me/news/5']);
+    // Sharing is in the menu; nothing stands beside the bubble.
+    expect(find.byTooltip('Share'), findsNothing);
     await tester.longPress(find.text('shareable'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Share'));
     await tester.pumpAndSettle();
-    expect(shared, hasLength(2));
+    expect(shared, ['News|News\n\nshareable\n\nhttps://t.me/news/5']);
 
     await tester.tap(find.text('shareable'));
     await tester.pumpAndSettle();

@@ -44,7 +44,7 @@ final class ChatColors {
   /// Bubble of the account's own comments (Telegram's green in the light theme).
   final Color ownBubble;
 
-  /// Date labels and the share button float on the backdrop in a see-through dark shape.
+  /// Date labels float on the backdrop in a see-through dark shape.
   final Color pill;
   final Color onPill;
 }
@@ -103,10 +103,11 @@ class ChatPill extends StatelessWidget {
   }
 }
 
-/// One timeline row, looking like a post in the official app: the channel's photo, and a
-/// bubble with the channel's name, the media (albums as a mosaic), the text, views and time
-/// in the bottom right corner, reactions and the comments bar. A tap or a long press on the
-/// bubble opens the menu with reactions and actions; the round button beside it shares.
+/// One timeline row, looking like a post in the official app, except that the bubble has
+/// the whole width: the channel's name with its photo at the right end of that line, the
+/// media (albums as a mosaic), the text, views and time in the bottom right corner,
+/// reactions and the comments bar. A tap or a long press on the bubble opens the menu with
+/// reactions and actions, sharing among them.
 class PostCard extends StatelessWidget {
   const PostCard({
     super.key,
@@ -220,74 +221,75 @@ class PostCard extends StatelessWidget {
       item: item,
       media: media,
       channelTitle: channelTitle,
+      channelPhoto: channelPhoto,
       gateway: gateway,
       unread: unread,
       onReact: onReact,
       onOpenThread: onOpenThread,
       onOpenLink: onOpenLink,
     );
+    // The bubble has the row to itself: the channel's photo sits in its title line and
+    // sharing is in the menu, so nothing beside it takes width from text and pictures.
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          ChannelAvatar(
-            photo: channelPhoto,
-            title: channelTitle,
-            gateway: gateway,
-            radius: 18,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Material(
+          color: colors.bubble,
+          elevation: 0.5,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(14)),
           ),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Material(
-              color: colors.bubble,
-              elevation: 0.5,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(14),
-                  topRight: Radius.circular(14),
-                  bottomRight: Radius.circular(14),
-                  // The corner by the avatar, where Telegram draws the tail.
-                  bottomLeft: Radius.circular(4),
-                ),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: _hasMenu ? () => _menu(context) : null,
-                onLongPress: _hasMenu ? () => _menu(context) : null,
-                // Text alone makes a bubble as wide as it needs; media fills the row.
-                child: media.isEmpty
-                    ? IntrinsicWidth(child: bubble)
-                    : SizedBox(width: double.infinity, child: bubble),
-              ),
-            ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: _hasMenu ? () => _menu(context) : null,
+            onLongPress: _hasMenu ? () => _menu(context) : null,
+            // Text alone makes a bubble as wide as it needs; media fills the row.
+            child: media.isEmpty
+                ? IntrinsicWidth(child: bubble)
+                : SizedBox(width: double.infinity, child: bubble),
           ),
-          const SizedBox(width: 6),
-          if (onShare != null)
-            Tooltip(
-              message: 'Share',
-              child: Material(
-                color: colors.pill,
-                shape: const CircleBorder(),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: onShare,
-                  child: SizedBox.square(
-                    dimension: 32,
-                    child: Transform.flip(
-                      flipX: true,
-                      child: Icon(Icons.reply, size: 20, color: colors.onPill),
-                    ),
-                  ),
-                ),
-              ),
-            )
-          else
-            const SizedBox(width: 32),
-        ],
+        ),
       ),
     );
   }
+}
+
+/// The first line of a bubble: the coloured name, and the photo at its right end.
+class BubbleTitle extends StatelessWidget {
+  const BubbleTitle({
+    super.key,
+    required this.name,
+    required this.colorId,
+    required this.photo,
+    required this.gateway,
+  });
+  final String name;
+
+  /// Chat or user id; picks the colour of the name ([peerColor]).
+  final int colorId;
+  final FileRef? photo;
+  final TelegramGateway gateway;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: peerColor(colorId, Theme.of(context).colorScheme.brightness),
+          ),
+        ),
+      ),
+      const SizedBox(width: 8),
+      ChannelAvatar(photo: photo, title: name, gateway: gateway, radius: 12),
+    ],
+  );
 }
 
 class _Bubble extends StatelessWidget {
@@ -295,6 +297,7 @@ class _Bubble extends StatelessWidget {
     required this.item,
     required this.media,
     required this.channelTitle,
+    required this.channelPhoto,
     required this.gateway,
     required this.unread,
     required this.onReact,
@@ -304,6 +307,7 @@ class _Bubble extends StatelessWidget {
   final TimelineItem item;
   final List<Media> media;
   final String channelTitle;
+  final FileRef? channelPhoto;
   final TelegramGateway gateway;
   final bool unread;
   final void Function(String emoji, bool remove)? onReact;
@@ -356,16 +360,12 @@ class _Bubble extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(_side, 6, _side, 4),
-          child: Text(
-            channelTitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: peerColor(item.chatId, scheme.brightness),
-            ),
+          padding: const EdgeInsets.fromLTRB(_side, 5, 6, 5),
+          child: BubbleTitle(
+            name: channelTitle,
+            colorId: item.chatId,
+            photo: channelPhoto,
+            gateway: gateway,
           ),
         ),
         if (pictures != null)
