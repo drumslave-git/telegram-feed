@@ -445,6 +445,10 @@ class TimelineViewState extends State<TimelineView> {
   /// False until the list has reported its first positions after opening.
   bool _settled = true;
 
+  /// Unread posts between the reader and the newest one, plus the ones that arrived while
+  /// reading: what the button at the corner counts, as the official app does.
+  int _unreadBelow = 0;
+
   /// Row that gets the "Unread posts" divider above it; fixed when the feed opens.
   (int, int)? _firstUnread;
 
@@ -890,6 +894,8 @@ class TimelineViewState extends State<TimelineView> {
       unawaited(_loadNewer());
     }
     // A jumped timeline is only at the newest post once it has caught up with the live end.
+    final below = t.unreadBefore(newest.index, _marks) + t.pendingNew;
+    if (below != _unreadBelow) setState(() => _unreadBelow = below);
     final atNewest =
         newest.index == 0 &&
         newest.itemLeadingEdge >= -0.05 &&
@@ -1080,12 +1086,14 @@ class TimelineViewState extends State<TimelineView> {
             right: 16,
             bottom: 16,
             child: Badge.count(
-              count: t.pendingNew,
-              isLabelVisible: t.pendingNew > 0,
+              count: _unreadBelow,
+              isLabelVisible: _unreadBelow > 0,
               child: FloatingActionButton.small(
                 heroTag: null,
                 tooltip: t.pendingNew > 0
                     ? '${t.pendingNew} new post${t.pendingNew == 1 ? '' : 's'}'
+                    : _unreadBelow > 0
+                    ? '$_unreadBelow unread post${_unreadBelow == 1 ? '' : 's'}'
                     : 'Newest posts',
                 onPressed: _toNewest,
                 child: const Icon(Icons.keyboard_arrow_down),

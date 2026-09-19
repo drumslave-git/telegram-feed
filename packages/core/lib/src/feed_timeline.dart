@@ -317,6 +317,16 @@ final class FeedTimeline {
   static bool isUnread(TimelineItem item, Map<int, int> marks) =>
       item.head.messageId > (marks[item.chatId] ?? 0);
 
+  /// How many unread rows are newer than [index] (below it in the list): what the button
+  /// to the newest posts counts, together with [pendingNew].
+  int unreadBefore(int index, Map<int, int> marks) {
+    var n = 0;
+    for (var i = 0; i < index && i < _items.length; i++) {
+      if (isUnread(_items[i], marks)) n++;
+    }
+    return n;
+  }
+
   /// Index of the oldest loaded unread item, or -1 when nothing loaded is unread.
   int firstUnreadIndex(Map<int, int> marks) {
     for (var i = _items.length - 1; i >= 0; i--) {

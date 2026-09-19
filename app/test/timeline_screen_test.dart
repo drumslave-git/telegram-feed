@@ -194,7 +194,13 @@ void main() {
     final divider = tester.getTopLeft(find.text('Unread posts')).dy;
     expect(divider, lessThan(200)); // near the top of the 600 px window
     expect(divider, lessThan(tester.getTopLeft(find.text('post-21')).dy));
-    expect(find.byTooltip('Newest posts'), findsOneWidget);
+    // The button to the newest posts counts the unread ones below the reader: of the
+    // twenty unread posts, seven are on screen.
+    expect(find.byIcon(Icons.keyboard_arrow_down), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(Badge), matching: find.text('13')),
+      findsOneWidget,
+    );
     await unmount(tester);
   });
 
@@ -656,8 +662,14 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('one-40'), findsNothing);
-    // The button of a jumped timeline goes back to the live one.
-    await tester.tap(find.byTooltip('Newest posts'));
+    // The button of a jumped timeline goes back to the live one (the search bar has an
+    // arrow of its own for the next match).
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FloatingActionButton),
+        matching: find.byIcon(Icons.keyboard_arrow_down),
+      ),
+    );
     await settle(tester);
     await tester.pumpAndSettle();
     expect(find.text('one-40'), findsOneWidget);

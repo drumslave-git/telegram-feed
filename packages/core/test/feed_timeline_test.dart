@@ -237,6 +237,18 @@ void main() {
     },
   );
 
+  test('unreadBefore counts the unread rows below a position', () async {
+    final g = HistoryGateway({-1: series(-1, 10, start: 0, step: 10)});
+    final t = FeedTimeline(g, [-1], pageSize: 10);
+    await t.loadMore();
+    // Rows are newest first: ids 10..1, read up to id 6.
+    const marks = {-1: 6};
+    expect(t.unreadBefore(0, marks), 0); // at the newest post
+    expect(t.unreadBefore(3, marks), 3); // ids 10, 9, 8 are unread
+    expect(t.unreadBefore(t.items.length, marks), 4); // 10, 9, 8, 7
+    expect(t.unreadBefore(3, const {}), 3); // nothing read yet
+  });
+
   test('merges by date desc across sources and pages', () async {
     final g = HistoryGateway({
       -1: series(-1, 50, start: 0, step: 10), // dates 10..500
