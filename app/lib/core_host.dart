@@ -104,6 +104,8 @@ final class CoreHost implements AppHost {
 
     _subs.add(db.watchRules().listen((_) => refresh()));
     _subs.add(db.watchSourceChanges().listen((_) => refresh()));
+    // Feed filters decide which posts may notify (ARCHITECTURE 5.8).
+    _subs.add(db.watchFeeds().skip(1).listen((_) => refresh()));
   }
 
   /// Battery optimisation: without the exemption Android kills the service after a while.

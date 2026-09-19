@@ -149,4 +149,23 @@ void main() {
       await e.close();
     },
   );
+
+  test(
+    'a post every feed hides raises nothing; one feed that shows it is enough',
+    () {
+      const mediaOnly = FeedFilter(media: MediaPresence.withMedia);
+      final e = RuleEngine()
+        ..update(
+          rules: [rule(1, 'btc')],
+          watched: {-1, -2, -3},
+          filters: {
+            -1: [mediaOnly],
+            -2: [mediaOnly, FeedFilter.none],
+          },
+        );
+      expect(e.evaluate(post(-1, 1, 'btc up')), isNull);
+      expect(e.evaluate(post(-2, 1, 'btc up')), isNotNull);
+      expect(e.evaluate(post(-3, 1, 'btc up')), isNotNull); // no filter known
+    },
+  );
 }

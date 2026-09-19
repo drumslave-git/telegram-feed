@@ -283,4 +283,25 @@ void main() {
       },
     );
   });
+  test(
+    'feed filters: stored per feed, stamped as an edit, listed per channel',
+    () async {
+      var now = DateTime(2026, 1, 1);
+      final fdb = AppDatabase(NativeDatabase.memory(), clock: () => now);
+      final a = await fdb.createFeed('A');
+      final b = await fdb.createFeed('B');
+      await fdb.addSource(a.id, -1, title: 'One');
+      await fdb.addSource(b.id, -1, title: 'One');
+      await fdb.addSource(b.id, -2, title: 'Two');
+      now = DateTime(2026, 1, 2);
+      await fdb.setFeedFilter(a.id, '{"media":"withMedia"}');
+      final feeds = await fdb.allFeeds();
+      expect(feeds.first.filterJson, '{"media":"withMedia"}');
+      expect(feeds.first.updatedAt, DateTime(2026, 1, 2));
+      final byChat = await fdb.filtersByChat();
+      expect(byChat[-1], unorderedEquals(['{"media":"withMedia"}', null]));
+      expect(byChat[-2], [null]);
+      await fdb.close();
+    },
+  );
 }

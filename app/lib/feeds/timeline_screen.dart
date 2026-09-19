@@ -141,6 +141,9 @@ class _TimelineViewState extends State<TimelineView> {
   StreamSubscription<PostEvent>? _events;
   StreamSubscription<List<WatchedChannel>>? _sources;
   StreamSubscription<List<FeedReadMark>>? _marksSub;
+  StreamSubscription<Feed?>? _feedSub;
+  FeedFilter _filter = FeedFilter.none;
+  List<({int chatId, String title, String? username})> _sourceRows = const [];
   Map<int, String> _titles = const {};
   Map<int, String?> _usernames = const {};
   Map<int, int> _marks = const {};
@@ -152,6 +155,9 @@ class _TimelineViewState extends State<TimelineView> {
   bool _opening = true;
   int _initialIndex = 0;
   double _initialAlignment = 0;
+
+  /// False until the list has reported its first positions after opening.
+  bool _settled = true;
 
   /// Row that gets the "Unread posts" divider above it; fixed when the feed opens.
   (int, int)? _firstUnread;
@@ -181,6 +187,15 @@ class _TimelineViewState extends State<TimelineView> {
       _marks = await widget.db.readMarks(feed.id);
       if (mounted) setState(() {});
     });
+    _filter = FeedFilter.decode(feed.filterJson);
+    // The filter can change in the feed editor while this timeline is underneath.
+    _feedSub = widget.db.watchFeed(feed.id).listen((row) {
+      final next = FeedFilter.decode(row?.filterJson);
+      if (next == _filter) return;
+      _filter = next;
+      _timeline = null;
+      _setSources(_sourceRows);
+    });
   }
 
   Future<Map<int, int>> _loadMarks() async =>
@@ -190,6 +205,7 @@ class _TimelineViewState extends State<TimelineView> {
   void _setSources(
     List<({int chatId, String title, String? username})> sources,
   ) {
+    _sourceRows = sources;
     _titles = {for (final s in sources) s.chatId: s.title};
     _usernames = {for (final s in sources) s.chatId: s.username};
     final ids = sources.map((s) => s.chatId).toList();
@@ -200,7 +216,8 @@ class _TimelineViewState extends State<TimelineView> {
       return;
     }
     _events?.cancel();
-    final t = FeedTimeline(widget.gateway, ids);
+    final t = FeedTimeline(widget.gateway, ids, filter: _filter);
+    _firstUnread = null;
     _timeline = t;
     _events = widget.gateway.postEvents.listen((e) {
       final before = t.items.length;
@@ -208,9 +225,23 @@ class _TimelineViewState extends State<TimelineView> {
       if (changed || e is PostAdded) setState(() {});
       // A row added at the newest end shifts every index; stay glued to the newest post.
       if (t.atTop && t.items.length > before) _jumpToNewest();
+      if (e is PostAdded) _coverHidden();
     });
     setState(() => _opening = true);
     unawaited(_open(t));
+  }
+
+  /// Posts the filter hides count as read once everything before them is: otherwise a
+  /// channel that only posts hidden things would keep its feed marked as new forever.
+  void _coverHidden() {
+    final t = _timeline;
+    if (t == null || _filter.isEmpty) return;
+    for (final chat in t.chatIds) {
+      final mark = _marks[chat] ?? 0;
+      if (mark == 0 || !t.sortedDownTo(chat, mark)) continue;
+      final covered = t.coveredFrom(chat, mark);
+      if (covered > mark) _marker.cover(chat, covered);
+    }
   }
 
   int _indexOf(FeedTimeline t, int chatId, bool Function(TimelineItem) test) =>
@@ -282,18 +313,21 @@ class _TimelineViewState extends State<TimelineView> {
           _loading = false;
           _opening = false;
         });
-        WidgetsBinding.instance.addPostFrameCallback((_) => _settleAtNewest());
+        _settled = false;
+        _coverHidden();
       }
     }
   }
 
-  /// A few short unread posts do not fill the screen below the divider; the list would show
-  /// empty space under the newest post. Then the newest post goes to the bottom instead.
-  void _settleAtNewest() {
-    if (!mounted) return;
-    for (final p in _positions.itemPositions.value) {
-      if (p.index == 0 && p.itemLeadingEdge > 0.001) {
-        _jumpToNewest();
+  /// A few unread posts do not fill the screen below the divider: the list would show empty
+  /// space under the newest post, or cut off its last lines. When the newest post is (nearly)
+  /// on screen anyway, it goes to the bottom instead.
+  void _settleAtNewest(Iterable<ItemPosition> positions) {
+    for (final p in positions) {
+      if (p.index == 0 && p.itemLeadingEdge > -0.25 && p.itemLeadingEdge != 0) {
+        // Right away (positions are reported after layout, not during a build): a jump that
+        // waits for some later frame would rebuild the rows under the user's first tap.
+        if (_scrollCtl.isAttached) _scrollCtl.jumpTo(index: 0, alignment: 0);
         return;
       }
     }
@@ -314,6 +348,11 @@ class _TimelineViewState extends State<TimelineView> {
     final t = _timeline;
     final positions = _positions.itemPositions.value;
     if (t == null || positions.isEmpty || _opening) return;
+    if (!_settled) {
+      // First layout after opening.
+      _settled = true;
+      _settleAtNewest(positions);
+    }
     final items = t.items;
     var newest = positions.first;
     var oldestIndex = positions.first.index;
@@ -329,7 +368,10 @@ class _TimelineViewState extends State<TimelineView> {
       }
     }
     if (seen.isNotEmpty) {
-      _marker.seen(seen);
+      _marker.seen(
+        seen,
+        coveredUpTo: (item) => t.coveredFrom(item.chatId, item.head.messageId),
+      );
       // A single channel has no marks table to listen to; its dots clear here.
       if (widget.feed == null) {
         final chat = widget.channel!.chatId;
@@ -371,6 +413,7 @@ class _TimelineViewState extends State<TimelineView> {
     try {
       await t.loadMore();
       _error = null;
+      _coverHidden();
     } on TelegramException catch (e) {
       _error = e.message;
     } finally {
@@ -506,6 +549,7 @@ class _TimelineViewState extends State<TimelineView> {
     _events?.cancel();
     _sources?.cancel();
     _marksSub?.cancel();
+    _feedSub?.cancel();
     unawaited(_marker.dispose());
     super.dispose();
   }
@@ -557,7 +601,14 @@ class _TimelineViewState extends State<TimelineView> {
           )
         : items.isEmpty
         ? Center(
-            child: Text(_error == null ? 'No posts.' : 'Telegram: $_error'),
+            child: Text(
+              _error != null
+                  ? 'Telegram: $_error'
+                  : _filter.isEmpty
+                  ? 'No posts.'
+                  : 'No posts pass this feed\'s filter (${_filter.describe()}).',
+              textAlign: TextAlign.center,
+            ),
           )
         // Oldest at the top, newest at the bottom, like a chat in Telegram.
         : ScrollablePositionedList.builder(

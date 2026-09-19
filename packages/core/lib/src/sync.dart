@@ -61,6 +61,7 @@ final class SyncedFeed {
     required this.position,
     required this.updatedAt,
     required this.sources,
+    this.filter,
   });
   final String id;
   final String name;
@@ -68,12 +69,18 @@ final class SyncedFeed {
   final int updatedAt;
   final List<SyncedSource> sources;
 
+  /// `feeds.filter_json` as it is; absent for a feed that shows everything. A device on an
+  /// older version does not know the key: it keeps syncing, and the filter survives as long
+  /// as that device does not edit the feed.
+  final String? filter;
+
   Map<String, Object?> toJson() => {
     'id': id,
     'name': name,
     'position': position,
     'updatedAt': updatedAt,
     'sources': [for (final s in sources) s.toJson()],
+    if (filter != null) 'filter': filter,
   };
 
   static SyncedFeed fromJson(Map<String, Object?> m) => SyncedFeed(
@@ -85,6 +92,7 @@ final class SyncedFeed {
       for (final s in m['sources'] as List)
         SyncedSource.fromJson((s as Map).cast<String, Object?>()),
     ],
+    filter: m['filter'] as String?,
   );
 }
 
@@ -375,6 +383,7 @@ final class SyncEngine {
                 watched[s.chatId]?.username,
               ),
           ],
+          filter: f.filterJson,
         ),
       );
     }
@@ -431,6 +440,7 @@ final class SyncEngine {
           for (final s in f.sources)
             (chatId: s.chatId, title: s.title, username: s.username),
         ],
+        filterJson: f.filter,
       );
       changed++;
     }

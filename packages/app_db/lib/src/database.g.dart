@@ -77,6 +77,17 @@ class $FeedsTable extends Feeds with TableInfo<$FeedsTable, Feed> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _filterJsonMeta = const VerificationMeta(
+    'filterJson',
+  );
+  @override
+  late final GeneratedColumn<String> filterJson = GeneratedColumn<String>(
+    'filter_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -85,6 +96,7 @@ class $FeedsTable extends Feeds with TableInfo<$FeedsTable, Feed> {
     createdAt,
     syncId,
     updatedAt,
+    filterJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -137,6 +149,12 @@ class $FeedsTable extends Feeds with TableInfo<$FeedsTable, Feed> {
         updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
       );
     }
+    if (data.containsKey('filter_json')) {
+      context.handle(
+        _filterJsonMeta,
+        filterJson.isAcceptableOrUnknown(data['filter_json']!, _filterJsonMeta),
+      );
+    }
     return context;
   }
 
@@ -170,6 +188,10 @@ class $FeedsTable extends Feeds with TableInfo<$FeedsTable, Feed> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       ),
+      filterJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}filter_json'],
+      ),
     );
   }
 
@@ -189,6 +211,10 @@ class Feed extends DataClass implements Insertable<Feed> {
   /// covers the feed's name, position and list of sources.
   final String? syncId;
   final DateTime? updatedAt;
+
+  /// What the feed shows of its channels' posts: JSON of `core.FeedFilter`, null for
+  /// everything. `app_db` does not parse it. Part of the feed for sync.
+  final String? filterJson;
   const Feed({
     required this.id,
     required this.name,
@@ -196,6 +222,7 @@ class Feed extends DataClass implements Insertable<Feed> {
     required this.createdAt,
     this.syncId,
     this.updatedAt,
+    this.filterJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -209,6 +236,9 @@ class Feed extends DataClass implements Insertable<Feed> {
     }
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || filterJson != null) {
+      map['filter_json'] = Variable<String>(filterJson);
     }
     return map;
   }
@@ -225,6 +255,9 @@ class Feed extends DataClass implements Insertable<Feed> {
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(updatedAt),
+      filterJson: filterJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(filterJson),
     );
   }
 
@@ -240,6 +273,7 @@ class Feed extends DataClass implements Insertable<Feed> {
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       syncId: serializer.fromJson<String?>(json['syncId']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      filterJson: serializer.fromJson<String?>(json['filterJson']),
     );
   }
   @override
@@ -252,6 +286,7 @@ class Feed extends DataClass implements Insertable<Feed> {
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'syncId': serializer.toJson<String?>(syncId),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'filterJson': serializer.toJson<String?>(filterJson),
     };
   }
 
@@ -262,6 +297,7 @@ class Feed extends DataClass implements Insertable<Feed> {
     DateTime? createdAt,
     Value<String?> syncId = const Value.absent(),
     Value<DateTime?> updatedAt = const Value.absent(),
+    Value<String?> filterJson = const Value.absent(),
   }) => Feed(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -269,6 +305,7 @@ class Feed extends DataClass implements Insertable<Feed> {
     createdAt: createdAt ?? this.createdAt,
     syncId: syncId.present ? syncId.value : this.syncId,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    filterJson: filterJson.present ? filterJson.value : this.filterJson,
   );
   Feed copyWithCompanion(FeedsCompanion data) {
     return Feed(
@@ -278,6 +315,9 @@ class Feed extends DataClass implements Insertable<Feed> {
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       syncId: data.syncId.present ? data.syncId.value : this.syncId,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      filterJson: data.filterJson.present
+          ? data.filterJson.value
+          : this.filterJson,
     );
   }
 
@@ -289,14 +329,15 @@ class Feed extends DataClass implements Insertable<Feed> {
           ..write('position: $position, ')
           ..write('createdAt: $createdAt, ')
           ..write('syncId: $syncId, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('filterJson: $filterJson')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, name, position, createdAt, syncId, updatedAt);
+      Object.hash(id, name, position, createdAt, syncId, updatedAt, filterJson);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -306,7 +347,8 @@ class Feed extends DataClass implements Insertable<Feed> {
           other.position == this.position &&
           other.createdAt == this.createdAt &&
           other.syncId == this.syncId &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.filterJson == this.filterJson);
 }
 
 class FeedsCompanion extends UpdateCompanion<Feed> {
@@ -316,6 +358,7 @@ class FeedsCompanion extends UpdateCompanion<Feed> {
   final Value<DateTime> createdAt;
   final Value<String?> syncId;
   final Value<DateTime?> updatedAt;
+  final Value<String?> filterJson;
   const FeedsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -323,6 +366,7 @@ class FeedsCompanion extends UpdateCompanion<Feed> {
     this.createdAt = const Value.absent(),
     this.syncId = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.filterJson = const Value.absent(),
   });
   FeedsCompanion.insert({
     this.id = const Value.absent(),
@@ -331,6 +375,7 @@ class FeedsCompanion extends UpdateCompanion<Feed> {
     required DateTime createdAt,
     this.syncId = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.filterJson = const Value.absent(),
   }) : name = Value(name),
        position = Value(position),
        createdAt = Value(createdAt);
@@ -341,6 +386,7 @@ class FeedsCompanion extends UpdateCompanion<Feed> {
     Expression<DateTime>? createdAt,
     Expression<String>? syncId,
     Expression<DateTime>? updatedAt,
+    Expression<String>? filterJson,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -349,6 +395,7 @@ class FeedsCompanion extends UpdateCompanion<Feed> {
       if (createdAt != null) 'created_at': createdAt,
       if (syncId != null) 'sync_id': syncId,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (filterJson != null) 'filter_json': filterJson,
     });
   }
 
@@ -359,6 +406,7 @@ class FeedsCompanion extends UpdateCompanion<Feed> {
     Value<DateTime>? createdAt,
     Value<String?>? syncId,
     Value<DateTime?>? updatedAt,
+    Value<String?>? filterJson,
   }) {
     return FeedsCompanion(
       id: id ?? this.id,
@@ -367,6 +415,7 @@ class FeedsCompanion extends UpdateCompanion<Feed> {
       createdAt: createdAt ?? this.createdAt,
       syncId: syncId ?? this.syncId,
       updatedAt: updatedAt ?? this.updatedAt,
+      filterJson: filterJson ?? this.filterJson,
     );
   }
 
@@ -391,6 +440,9 @@ class FeedsCompanion extends UpdateCompanion<Feed> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (filterJson.present) {
+      map['filter_json'] = Variable<String>(filterJson.value);
+    }
     return map;
   }
 
@@ -402,7 +454,8 @@ class FeedsCompanion extends UpdateCompanion<Feed> {
           ..write('position: $position, ')
           ..write('createdAt: $createdAt, ')
           ..write('syncId: $syncId, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('filterJson: $filterJson')
           ..write(')'))
         .toString();
   }
@@ -2601,6 +2654,7 @@ typedef $$FeedsTableCreateCompanionBuilder = FeedsCompanion Function({
   required DateTime createdAt,
   Value<String?> syncId,
   Value<DateTime?> updatedAt,
+  Value<String?> filterJson,
 });
 typedef $$FeedsTableUpdateCompanionBuilder = FeedsCompanion Function({
   Value<int> id,
@@ -2609,6 +2663,7 @@ typedef $$FeedsTableUpdateCompanionBuilder = FeedsCompanion Function({
   Value<DateTime> createdAt,
   Value<String?> syncId,
   Value<DateTime?> updatedAt,
+  Value<String?> filterJson,
 });
 
 final class $$FeedsTableReferences
@@ -2687,6 +2742,11 @@ class $$FeedsTableFilterComposer extends Composer<_$AppDatabase, $FeedsTable> {
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get filterJson => $composableBuilder(
+    column: $table.filterJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2779,6 +2839,11 @@ class $$FeedsTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get filterJson => $composableBuilder(
+    column: $table.filterJson,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FeedsTableAnnotationComposer
@@ -2807,6 +2872,11 @@ class $$FeedsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get filterJson => $composableBuilder(
+    column: $table.filterJson,
+    builder: (column) => column,
+  );
 
   Expression<T> feedSourcesRefs<T extends Object>(
     Expression<T> Function($$FeedSourcesTableAnnotationComposer a) f,
@@ -2893,6 +2963,7 @@ class $$FeedsTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<String?> syncId = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<String?> filterJson = const Value.absent(),
               }) => FeedsCompanion(
                 id: id,
                 name: name,
@@ -2900,6 +2971,7 @@ class $$FeedsTableTableManager
                 createdAt: createdAt,
                 syncId: syncId,
                 updatedAt: updatedAt,
+                filterJson: filterJson,
               ),
           createCompanionCallback:
               ({
@@ -2909,6 +2981,7 @@ class $$FeedsTableTableManager
                 required DateTime createdAt,
                 Value<String?> syncId = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<String?> filterJson = const Value.absent(),
               }) => FeedsCompanion.insert(
                 id: id,
                 name: name,
@@ -2916,6 +2989,7 @@ class $$FeedsTableTableManager
                 createdAt: createdAt,
                 syncId: syncId,
                 updatedAt: updatedAt,
+                filterJson: filterJson,
               ),
           withReferenceMapper: (p0) => p0
               .map(

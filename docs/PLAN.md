@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 1 (before P4-3). **Next task:** F-10.
+**Current phase:** feedback round 1 (before P4-3). **Next task:** F-11.
 
 ## Phase 0 — Spikes
 
@@ -79,7 +79,7 @@ Founder feedback after using the debug release. Decisions taken the same day are
 - [x] F-7 Timeline runs oldest to newest like a Telegram chat and opens at the remembered position or at the first unread post. Reversed positioned list (index 0 = newest at the bottom), opening position decided before the list is built (notification post, remembered row, first unread under an `Unread posts` divider, newest), a post is read once its end was on screen, new posts wait on a badge button while the user reads older ones; the app-bar jump action is gone. Widget tests for each case, verified on the emulator, timeline goldens regenerated.
 - [x] F-8 Tabbed main screen: `+`, Feeds (the list of feeds), one tab per Telegram folder (its channels), All channels. `HomeScreen` with `ChannelList` (photo, newest post, time, unread count; search on All channels), gateway `chatFolders()` and richer `Channel`, `TimelineView` split from `TimelineScreen` so one channel opens as a timeline with Telegram's own read position. A tab per feed was built first; the founder replaced it with the single Feeds tab the same day. Verified on the emulator; `home.png` golden replaces `feeds.png`.
 - [x] F-9 Account section in Settings shows photo, name, username, phone, bio. `AccountHeader`: profile photo (initial until it loads), name with a Premium star, username, phone with `+`, bio from `getUserFullInfo`, Telegram ID; `UserInfo` gained `photo`, `bio`, `isPremium`. The F-8 gateway test for folders compared records holding lists and failed unnoticed; fixed here, and the whole `tool/ci.sh` now runs before every commit.
-- [ ] F-10 Per-feed content filters (media presence, media type, minimum video length, text length); they apply to the timeline and to rules.
+- [x] F-10 Per-feed content filters (media presence, media type, minimum video length, text length); they apply to the timeline and to rules. `FeedFilter` in `core` (media presence, media kinds, minimum video length, minimum length of text posts), `feeds.filter_json` (schema v5 with migration test), filtering in `FeedTimeline`, read marks pass over hidden posts (`coveredFrom`), the rule engine drops a post that every feed with its channel hides, the filter syncs with the feed, `Show` row and sheet in the feed editor. Opening now also settles at the newest post when the unread ones nearly fit the screen. Verified on the emulator.
 - [ ] F-11 Application icon.
 - [ ] F-12 Two login notices in the official app after one login.
 

@@ -2,6 +2,8 @@ import 'dart:collection';
 
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import 'feed_filter.dart';
+
 /// One row of the timeline: a post, or an album collapsed into its first post plus parts.
 final class TimelineItem {
   TimelineItem(this.head, [List<Post>? parts]) : parts = parts ?? [];
@@ -37,6 +39,9 @@ class _Source {
   int fromMessageId = 0; // 0 = newest
   final buffer = Queue<Post>();
   bool exhausted = false;
+
+  /// Oldest message id that went through the filter (shown or hidden); 0 before the first.
+  int oldestSorted = 0;
 }
 
 /// Merged, paginated, live timeline over several channels (ARCHITECTURE.md section 5.3).
@@ -50,7 +55,57 @@ final class FeedTimeline {
     List<int> chatIds, {
     this.pageSize = 30,
     this.historyLimit = 30,
+    this.filter = FeedFilter.none,
   }) : _sources = [for (final id in chatIds) _Source(id)];
+
+  /// What the feed shows. Hidden posts never become rows; [coveredFrom] lets read marks
+  /// pass over them.
+  final FeedFilter filter;
+
+  /// Message ids per chat that the filter hid, and that it let through (rows and posts
+  /// waiting in [pendingNew]).
+  // Sorted maps used as sets: only they can answer "the next id after this one".
+  final _hidden = <int, SplayTreeMap<int, void>>{};
+  final _shown = <int, SplayTreeMap<int, void>>{};
+
+  /// True when the post may be listed; records the verdict either way.
+  bool _sort(Post post) {
+    final ok = filter.allows(post);
+    ((ok ? _shown : _hidden)[post.chatId] ??= SplayTreeMap())[post.messageId] =
+        null;
+    return ok;
+  }
+
+  /// The newest message id of [chatId] that reading [fromId] also covers: the hidden posts
+  /// that follow it up to the next shown one. [fromId] itself when there are none.
+  ///
+  /// Only meaningful when everything newer than [fromId] is loaded; true for any row, and
+  /// for a read mark once [sortedDownTo] says so.
+  int coveredFrom(int chatId, int fromId) {
+    final hidden = _hidden[chatId];
+    if (hidden == null) return fromId;
+    final nextShown = _shown[chatId]?.firstKeyAfter(fromId);
+    var best = fromId;
+    for (
+      var h = hidden.firstKeyAfter(fromId);
+      h != null;
+      h = hidden.firstKeyAfter(h)
+    ) {
+      if (nextShown != null && h > nextShown) break;
+      best = h;
+    }
+    return best;
+  }
+
+  /// Whether every post of [chatId] newer than [messageId] has been through the filter.
+  bool sortedDownTo(int chatId, int messageId) {
+    for (final s in _sources) {
+      if (s.chatId != chatId) continue;
+      if (s.exhausted && s.buffer.isEmpty) return true;
+      return s.oldestSorted != 0 && s.oldestSorted <= messageId;
+    }
+    return false;
+  }
 
   final TelegramGateway gateway;
   final int pageSize;
@@ -114,7 +169,9 @@ final class FeedTimeline {
       }
       if (best == null) break;
       final post = best.buffer.removeFirst();
+      best.oldestSorted = post.messageId;
       if (!_seen.add((post.chatId, post.messageId))) continue;
+      if (!_sort(post)) continue;
       final last = _items.isEmpty ? null : _items.last;
       if (post.albumId != 0 &&
           last != null &&
@@ -136,6 +193,7 @@ final class FeedTimeline {
       case PostAdded(:final post):
         if (!chatIds.contains(post.chatId)) return false;
         if (!_seen.add((post.chatId, post.messageId))) return false;
+        if (!_sort(post)) return false;
         if (atTop) {
           _insertNew(post);
           return true;

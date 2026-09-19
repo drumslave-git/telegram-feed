@@ -229,4 +229,26 @@ void main() {
     expect(isSyncedSetting('ai.lastError'), isFalse);
     expect(isSyncedSetting('sync.lastSyncedAt'), isFalse);
   });
+
+  test('a feed filter travels with the feed', () async {
+    final feed = await phone.db.createFeed('Video');
+    await phone.sync();
+    await tablet.sync();
+
+    tick();
+    await phone.db.setFeedFilter(feed.id, '{"kinds":["video"]}');
+    await phone.sync();
+    await tablet.sync();
+    expect(
+      (await tablet.db.allFeeds()).single.filterJson,
+      '{"kinds":["video"]}',
+    );
+
+    tick();
+    final onTablet = (await tablet.db.allFeeds()).single;
+    await tablet.db.setFeedFilter(onTablet.id, null);
+    await tablet.sync();
+    await phone.sync();
+    expect((await phone.db.allFeeds()).single.filterJson, isNull);
+  });
 }

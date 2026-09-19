@@ -29,9 +29,18 @@ final class ReadMarker {
   Timer? _timer;
 
   /// Records items the user has seen. Cheap; the write happens after [debounce].
-  void seen(Iterable<TimelineItem> items) {
+  /// [coveredUpTo] names, per item, the newest message id reading it also covers: posts the
+  /// feed's filter hides right after it.
+  void seen(
+    Iterable<TimelineItem> items, {
+    int Function(TimelineItem item)? coveredUpTo,
+  }) {
     var changed = false;
     for (final item in items) {
+      final covered = coveredUpTo?.call(item) ?? 0;
+      if (covered > item.head.messageId) {
+        changed = cover(item.chatId, covered) || changed;
+      }
       for (final post in item.allPosts) {
         final max = _maxSeen[post.chatId] ?? 0;
         if (post.messageId > max) {
@@ -48,6 +57,20 @@ final class ReadMarker {
       _timer?.cancel();
       _timer = Timer(debounce, () => unawaited(flush()));
     }
+  }
+
+  /// Marks everything of [chatId] up to [messageId] read without it having been on screen
+  /// (posts a filter hides). Returns whether that moved anything.
+  bool cover(int chatId, int messageId) {
+    if (messageId <= (_maxSeen[chatId] ?? 0) &&
+        messageId <= (_reported[chatId] ?? 0)) {
+      return false;
+    }
+    if (messageId > (_maxSeen[chatId] ?? 0)) _maxSeen[chatId] = messageId;
+    (_pendingIds[chatId] ??= {}).add(messageId);
+    _timer?.cancel();
+    _timer = Timer(debounce, () => unawaited(flush()));
+    return true;
   }
 
   /// Writes what is pending now. Called on debounce and when the screen closes.

@@ -16,6 +16,7 @@ import 'package:telegram_gateway/tdlib_ffi.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'src/core_server.dart';
+import 'src/feed_filter.dart';
 import 'src/protocol.dart';
 import 'src/rule_engine.dart';
 
@@ -81,6 +82,12 @@ Future<void> coreIsolateMain(CoreBootstrap b) async {
       e.update(
         rules: specs,
         watched: {for (final w in await db.allWatched()) w.chatId},
+        filters: {
+          for (final entry in (await db.filtersByChat()).entries)
+            entry.key: [
+              for (final json in entry.value) FeedFilter.decode(json),
+            ],
+        },
       );
     };
     await refresh();

@@ -101,7 +101,7 @@ API credentials: `api_id` and `api_hash` come from `--dart-define=TG_API_ID=... 
 ### 5.1 Data model (Drift)
 
 ```
-feeds            (id, name, position, created_at)
+feeds            (id, name, position, created_at, sync_id, updated_at, filter_json?)
 feed_sources     (feed_id, chat_id, position, added_at)         -- PK (feed_id, chat_id)
 feed_read_marks  (feed_id, chat_id, last_read_message_id)       -- per feed AND per channel
 watched_channels (chat_id, title, username)
@@ -163,6 +163,16 @@ Feeds with their sources, rules and a whitelist of settings (theme, read-aloud p
 - A channel opens as `TimelineScreen(channel:)`: the same timeline with one source. It belongs to no feed, so its read marks are Telegram's own position (`last_read_inbox_message_id`); reading moves it through `viewMessages` when `syncReadToTelegram` is on and is not recorded otherwise.
 - The folders arrive from TDLib a moment after the screen is up. The `TabController` is replaced only when the set of folders changes, and the selected tab stays selected.
 
+### 5.8 Feed filters
+
+`feeds.filter_json` (schema v5) holds a `FeedFilter` (package `core`): media presence (any, with media, text only), a set of media kinds (photo, video, gif, audio, voice, document, other; empty = all), a minimum video length and a minimum length for posts without media. Null means everything. Unknown values from a newer version are ignored, broken JSON shows everything.
+
+- **Timeline.** `FeedTimeline` runs every post through the filter as it leaves a source's buffer or arrives live; hidden posts never become rows. Album parts are judged one by one.
+- **Read state.** Hidden posts must not stay unread forever, or a channel that only posts hidden things would keep its feed marked as new. The timeline remembers which ids it hid and which it showed per channel; `coveredFrom(chat, id)` is the newest id such that everything between is hidden. Reading a row covers the hidden posts after it, and hidden posts that directly follow the read mark are covered as soon as the source is loaded down to the mark. Covered ids go the same way as seen ones: `feed_read_marks`, and `viewMessages` when read sync is on. The feeds list's cheap unread bound cannot see content, so a feed may show as new until it is opened once.
+- **Rules.** The rule engine gets, per channel, the filters of all feeds that contain it (`filtersByChat`). A post that every one of them hides is dropped before the conditions are looked at; one feed that shows it is enough. The core re-reads them when a feed row changes.
+- **Editing.** The feed editor's "Show" row opens a sheet with the four controls; the row's subtitle is the filter in words.
+- **Sync.** The filter travels with the feed as the optional `filter` key of the snapshot. The file's format version stays 1: a device on an older version ignores the key and keeps syncing, and the filter survives as long as that device does not edit the feed.
+
 ## 6. Rules and notifications (phase 2)
 
 ### 6.1 Rule model
@@ -188,7 +198,7 @@ The editor is a visual builder (groups of terms with AND/OR toggles, NOT per ter
 On every `PostEvent.newMessage` for a watched channel:
 
 1. Extract text: message text, or media caption. Formatted entities are flattened to plain text. Nothing else is matched (no forward origin, no URLs beyond their visible text).
-2. Candidate rules = enabled global rules + enabled rules scoped to this `chat_id`, filtered by schedule against the local clock.
+2. Drop the post if every feed containing the channel hides it (section 5.8). Candidate rules = enabled global rules + enabled rules scoped to this `chat_id`, filtered by schedule against the local clock.
 3. Evaluate each condition. Collect matches.
 4. If none: stop. Otherwise: priority = max over matches, readAloud = any match.
 5. Emit a notification (section 6.3) and, if readAloud, enqueue for TTS (section 7).
@@ -309,3 +319,4 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-19 | Timeline in chat order (oldest on top), opens at the remembered position, else the first unread post | Founder feedback: same behaviour as a chat in Telegram; replaces newest-first and the jump-to-unread action |
 | 2026-09-19 | Main screen is a tab bar: `+`, Feeds (the list of feeds), one tab per Telegram folder listing its channels, All channels | Founder feedback; a tab per feed was built first and replaced the same day by the single Feeds tab, founder decision |
 | 2026-09-19 | Folder tabs and All channels show channels only | Founder decision; the app stays a channel reader, chatting is a non-goal |
+| 2026-09-19 | Feeds have content filters; they apply to the timeline and to rules (a post hidden by every feed with its channel does not notify) | Founder decision; refines "rules never per feed": rules stay per channel or global, filters only silence what no feed shows |

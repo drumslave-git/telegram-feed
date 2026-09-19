@@ -253,4 +253,60 @@ void main() {
       expect(t.apply(const PostsDeleted(chatId: -2, messageIds: [5])), isFalse);
     },
   );
+
+  group('filter', () {
+    const file = FileRef(id: 1, remoteId: 'r', size: 1);
+    Post photo(int id) => Post(
+      chatId: -1,
+      messageId: id,
+      date: id,
+      text: '',
+      media: const PhotoMedia(sizes: [file]),
+    );
+    Post text(int id) =>
+        Post(chatId: -1, messageId: id, date: id, text: 't$id');
+
+    test('hidden posts never become rows, live ones included', () async {
+      final gw = HistoryGateway({
+        -1: [text(5), photo(4), text(3), photo(2), text(1)],
+      });
+      final t = FeedTimeline(gw, [
+        -1,
+      ], filter: const FeedFilter(media: MediaPresence.withMedia));
+      await t.loadMore();
+      expect(t.items.map((i) => i.head.messageId), [4, 2]);
+      expect(t.apply(PostAdded(text(6))), isFalse);
+      expect(t.pendingNew, 0);
+      expect(t.apply(PostAdded(photo(7))), isTrue);
+      expect(t.items.first.head.messageId, 7);
+    });
+
+    test('reading a row covers the hidden posts that follow it', () async {
+      final gw = HistoryGateway({
+        -1: [text(6), text(5), photo(4), text(3), photo(2), text(1)],
+      });
+      final t = FeedTimeline(gw, [
+        -1,
+      ], filter: const FeedFilter(media: MediaPresence.withMedia));
+      await t.loadMore();
+      expect(t.coveredFrom(-1, 2), 3); // up to the next shown post (4)
+      expect(t.coveredFrom(-1, 4), 6); // everything newer is hidden
+      expect(t.coveredFrom(-1, 6), 6);
+      expect(t.sortedDownTo(-1, 1), isTrue);
+    });
+
+    test('a shown post waiting behind the button is not skipped', () async {
+      final gw = HistoryGateway({
+        -1: [photo(2)],
+      });
+      final t = FeedTimeline(gw, [
+        -1,
+      ], filter: const FeedFilter(media: MediaPresence.withMedia));
+      await t.loadMore();
+      t.atTop = false;
+      t.apply(PostAdded(photo(3))); // waits as pending
+      t.apply(PostAdded(text(4))); // hidden
+      expect(t.coveredFrom(-1, 2), 2);
+    });
+  });
 }

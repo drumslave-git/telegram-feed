@@ -97,7 +97,7 @@ void main() {
         .widgetList<ListTile>(find.byType(ListTile))
         .map((t) => (t.title as Text).data)
         .toList();
-    expect(titles, ['Alpha News']);
+    expect(titles, ['Show', 'Alpha News']); // the filter row, then the channels
     await unmount(tester);
   });
 

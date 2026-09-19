@@ -21,11 +21,12 @@ Not a replacement for the official Telegram app. Chats, calls, stories, and acco
 | Feed sources | Only channels the user is a member of (public or private). No search-and-join of unjoined channels. |
 | Feed view | Single chronological timeline laid out like a Telegram chat: oldest on top, newest at the bottom. Opens where the user left it earlier in the session, else at the first unread post, else at the newest |
 | Main screen | Tabs: `+` (new feed), "Feeds" with the list of feeds, one tab per Telegram chat folder listing the folder's channels, and "All channels". A feed or a channel opens as its own timeline. Channels only: groups, bots and private chats of a folder are not shown. |
+| Feed filters | Each feed can limit what it shows: posts with media, text only or both; media types; minimum video length; minimum length of text posts. A post hidden by every feed that contains its channel raises no rule notification either. |
 | Read state | Per feed with unread counter and badge; a post is read once it has been on screen down to its end; the feed opens at the first unread post under an "Unread posts" divider. Reading here marks the post read in official Telegram too; setting to turn off. |
 | Media | Full in-app playback: photos, video, voice and audio |
 | Interactions | Open in Telegram, share / copy link, react, comment (later phase) |
 | Rule expressiveness | Boolean (AND / OR / NOT, phrase, whole word, case sensitivity). AI semantic rules: a description in the user's words, checked by a model behind an OpenAI-compatible endpoint the user configures, with an optional keyword pre-filter |
-| Rule scope | Per channel, global, with optional schedules. Not per feed. |
+| Rule scope | Per channel, global, with optional schedules. Not per feed; but a post that every feed with its channel filters out does not notify. |
 | Rule actions | Priority level (silent / normal / urgent) and read aloud |
 | Rule text source | Post text and media captions only. Forward origin, edits, and link domains are not matched. |
 | Read aloud triggers | Automatic when a rule with read-aloud fires; "Listen" action on a notification. AI-generated podcast later. |
@@ -45,6 +46,7 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - I can add channels to a feed by picking from the channels I am a member of, with a search box over that list. Channels I have not joined cannot be added; joining happens in the official Telegram app.
 - I can add the same channel to several feeds.
 - I can remove a channel from a feed without leaving the channel in Telegram.
+- I can set what a feed shows: all posts, only posts with media or only text; which media types; videos from a minimum length; text posts from a minimum length. Hidden posts count as read, and my rules stay quiet about them unless another feed with the same channel shows them.
 - I can open a feed and see posts from all its channels in one chronological list, oldest on top and newest at the bottom as in a Telegram chat, with the channel name on every post.
 - The feed opens where I left it earlier in the session; otherwise at the first unread post, and at the newest post when everything is read.
 - I can scroll up indefinitely; older posts load as I scroll. Posts that arrive while I read older ones wait behind a button with their count.
@@ -94,7 +96,7 @@ Phase 2 adds **Rules list**, **Rule editor**, and **Read-aloud settings**.
 - Stories, calls, secret chats, Telegram Premium features.
 - Server-side session storage. The app never uploads the user's Telegram session anywhere.
 - Algorithmic ranking of the feed.
-- Per-feed rules. Rules attach to channels or to everything; feeds are only for reading.
+- Per-feed rules. Rules attach to channels or to everything. Feeds are for reading; their filters only keep rules quiet about posts no feed shows.
 
 ## 6. Phases
 

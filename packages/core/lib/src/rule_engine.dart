@@ -5,6 +5,8 @@ import 'package:app_db/app_db.dart' show Rule;
 import 'package:rules/rules.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import 'feed_filter.dart';
+
 /// Notification priority (ARCHITECTURE.md section 6.3). Order matters: max wins.
 enum RulePriority { silent, normal, urgent }
 
@@ -197,16 +199,32 @@ final class RuleEngine {
   final _cancels = StreamController<PostsDeleted>.broadcast();
   List<RuleSpec> _rules = const [];
   Set<int> _watched = const {};
+  Map<int, List<FeedFilter>> _filters = const {};
 
   Stream<RuleMatch> get matches => _matches.stream;
   Stream<PostsDeleted> get cancellations => _cancels.stream;
   List<RuleSpec> get rules => _rules;
   Set<int> get watched => _watched;
 
-  /// Replaces the rule set and the watched channels (called whenever the database changes).
-  void update({List<RuleSpec>? rules, Set<int>? watched}) {
+  /// Replaces the rule set, the watched channels and the feeds' filters (called whenever
+  /// the database changes). [filters] lists, per channel, the filter of every feed that
+  /// contains it.
+  void update({
+    List<RuleSpec>? rules,
+    Set<int>? watched,
+    Map<int, List<FeedFilter>>? filters,
+  }) {
     if (rules != null) _rules = List.unmodifiable(rules);
     if (watched != null) _watched = Set.unmodifiable(watched);
+    if (filters != null) _filters = Map.unmodifiable(filters);
+  }
+
+  /// A post that every feed with its channel hides is not worth a notification either
+  /// (founder decision 2026-09-19). One feed that shows it is enough.
+  bool _hiddenEverywhere(Post post) {
+    final filters = _filters[post.chatId];
+    if (filters == null || filters.isEmpty) return false;
+    return filters.every((f) => !f.allows(post));
   }
 
   /// Rules that apply to [chatId] right now.
@@ -224,6 +242,7 @@ final class RuleEngine {
   /// Evaluates one post; returns the match or null. Pure apart from the clock.
   RuleMatch? evaluate(Post post, {DateTime? now}) {
     if (!_watched.contains(post.chatId)) return null;
+    if (_hiddenEverywhere(post)) return null;
     final text = post.text;
     if (text.isEmpty) return null;
     final hits = [

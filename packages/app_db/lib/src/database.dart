@@ -26,6 +26,10 @@ class Feeds extends Table {
   /// covers the feed's name, position and list of sources.
   TextColumn get syncId => text().nullable().clientDefault(newSyncId)();
   DateTimeColumn get updatedAt => dateTime().nullable()();
+
+  /// What the feed shows of its channels' posts: JSON of `core.FeedFilter`, null for
+  /// everything. `app_db` does not parse it. Part of the feed for sync.
+  TextColumn get filterJson => text().nullable()();
 }
 
 class FeedSources extends Table {
@@ -151,7 +155,7 @@ class AppDatabase extends _$AppDatabase {
   final DateTime Function() _clock;
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -181,6 +185,7 @@ class AppDatabase extends _$AppDatabase {
           'WHERE sync_id IS NULL',
         );
       }
+      if (from < 5) await m.addColumn(feeds, feeds.filterJson);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -243,6 +248,30 @@ class AppDatabase extends _$AppDatabase {
       (update(feeds)..where((f) => f.id.equals(feedId))).write(
         FeedsCompanion(name: Value(name), updatedAt: Value(_clock())),
       );
+
+  /// Sets what the feed shows ([json] of `core.FeedFilter`, null for everything).
+  Future<void> setFeedFilter(int feedId, String? json) =>
+      (update(feeds)..where((f) => f.id.equals(feedId))).write(
+        FeedsCompanion(filterJson: Value(json), updatedAt: Value(_clock())),
+      );
+
+  Stream<Feed?> watchFeed(int feedId) =>
+      (select(feeds)..where((f) => f.id.equals(feedId))).watchSingleOrNull();
+
+  /// Per watched channel, the filters of the feeds that contain it (null = shows everything).
+  /// Rules stay quiet about a post only when every one of them hides it.
+  Future<Map<int, List<String?>>> filtersByChat() async {
+    final rows = await (select(
+      feedSources,
+    ).join([innerJoin(feeds, feeds.id.equalsExp(feedSources.feedId))])).get();
+    final out = <int, List<String?>>{};
+    for (final r in rows) {
+      (out[r.readTable(feedSources).chatId] ??= []).add(
+        r.readTable(feeds).filterJson,
+      );
+    }
+    return out;
+  }
 
   /// Rewrites positions so [orderedFeedIds] becomes the feed order.
   Future<void> reorderFeeds(List<int> orderedFeedIds) => transaction(() async {
@@ -494,6 +523,7 @@ class AppDatabase extends _$AppDatabase {
     required int position,
     required DateTime updatedAt,
     required List<({int chatId, String title, String? username})> sources,
+    String? filterJson,
   }) => transaction(() async {
     final existing = await (select(
       feeds,
@@ -507,6 +537,7 @@ class AppDatabase extends _$AppDatabase {
           createdAt: updatedAt,
           syncId: Value(syncId),
           updatedAt: Value(updatedAt),
+          filterJson: Value(filterJson),
         ),
       );
     } else {
@@ -516,6 +547,7 @@ class AppDatabase extends _$AppDatabase {
           name: Value(name),
           position: Value(position),
           updatedAt: Value(updatedAt),
+          filterJson: Value(filterJson),
         ),
       );
     }

@@ -1,4 +1,5 @@
 import 'package:app_db/app_db.dart';
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -92,6 +93,7 @@ class _FeedEditorScreenState extends State<FeedEditorScreen> {
               }
               return ReorderableListView.builder(
                 padding: const EdgeInsets.only(bottom: 88),
+                header: FeedFilterTile(db: widget.db, feedId: widget.feedId),
                 itemCount: sources.length,
                 onReorderItem: (from, to) {
                   final ids = sources.map((s) => s.chatId).toList();
@@ -122,6 +124,199 @@ class _FeedEditorScreenState extends State<FeedEditorScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+/// "Show" row of the feed editor: what the feed's filter lets through, and the sheet that
+/// edits it.
+class FeedFilterTile extends StatelessWidget {
+  const FeedFilterTile({super.key, required this.db, required this.feedId});
+  final AppDatabase db;
+  final int feedId;
+
+  @override
+  Widget build(BuildContext context) => StreamBuilder<Feed?>(
+    stream: db.watchFeed(feedId),
+    builder: (context, snap) {
+      final filter = FeedFilter.decode(snap.data?.filterJson);
+      return Column(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.filter_list),
+            title: const Text('Show'),
+            subtitle: Text(filter.describe()),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final edited = await showModalBottomSheet<FeedFilter>(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                showDragHandle: true,
+                builder: (_) => FeedFilterSheet(initial: filter),
+              );
+              if (edited != null && edited != filter) {
+                await db.setFeedFilter(feedId, edited.encode());
+              }
+            },
+          ),
+          const Divider(height: 1),
+        ],
+      );
+    },
+  );
+}
+
+/// Edits a [FeedFilter]; pops with the result on "Apply".
+class FeedFilterSheet extends StatefulWidget {
+  const FeedFilterSheet({super.key, required this.initial});
+  final FeedFilter initial;
+
+  @override
+  State<FeedFilterSheet> createState() => _FeedFilterSheetState();
+}
+
+class _FeedFilterSheetState extends State<FeedFilterSheet> {
+  late FeedFilter _f = widget.initial;
+
+  static const _kindLabels = {
+    MediaKind.photo: 'Photos',
+    MediaKind.video: 'Videos',
+    MediaKind.gif: 'GIFs',
+    MediaKind.audio: 'Audio',
+    MediaKind.voice: 'Voice messages',
+    MediaKind.document: 'Files',
+    MediaKind.other: 'Other (polls, stickers, ...)',
+  };
+  static const _videoLengths = [0, 30, 60, 120, 300, 600, 1800];
+  static const _textLengths = [0, 50, 100, 280, 500, 1000];
+
+  static String _duration(int s) => s == 0
+      ? 'Any length'
+      : s < 60
+      ? 'From $s s'
+      : 'From ${s ~/ 60} min';
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final mediaPossible = _f.media != MediaPresence.textOnly;
+    final textPossible = _f.media != MediaPresence.withMedia;
+    final videoPossible =
+        mediaPossible &&
+        (_f.kinds.isEmpty || _f.kinds.contains(MediaKind.video));
+    Widget label(String text) => Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Text(text, style: theme.textTheme.titleSmall),
+    );
+    return ListView(
+      shrinkWrap: true,
+      children: [
+        label('Posts'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: SegmentedButton<MediaPresence>(
+            segments: const [
+              ButtonSegment(value: MediaPresence.any, label: Text('All')),
+              ButtonSegment(
+                value: MediaPresence.withMedia,
+                label: Text('With media'),
+              ),
+              ButtonSegment(
+                value: MediaPresence.textOnly,
+                label: Text('Text only'),
+              ),
+            ],
+            selected: {_f.media},
+            onSelectionChanged: (s) =>
+                setState(() => _f = _f.copyWith(media: s.first)),
+          ),
+        ),
+        label('Media types (none selected = all)'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Wrap(
+            spacing: 8,
+            children: [
+              for (final kind in MediaKind.values)
+                FilterChip(
+                  label: Text(_kindLabels[kind]!),
+                  selected: _f.kinds.contains(kind),
+                  onSelected: !mediaPossible
+                      ? null
+                      : (on) => setState(
+                          () => _f = _f.copyWith(
+                            kinds: on
+                                ? {..._f.kinds, kind}
+                                : ({..._f.kinds}..remove(kind)),
+                          ),
+                        ),
+                ),
+            ],
+          ),
+        ),
+        ListTile(
+          enabled: videoPossible,
+          title: const Text('Video length'),
+          trailing: DropdownButton<int>(
+            value: _videoLengths.contains(_f.minVideoSeconds)
+                ? _f.minVideoSeconds
+                : 0,
+            onChanged: !videoPossible
+                ? null
+                : (v) =>
+                      setState(() => _f = _f.copyWith(minVideoSeconds: v ?? 0)),
+            items: [
+              for (final s in _videoLengths)
+                DropdownMenuItem(value: s, child: Text(_duration(s))),
+            ],
+          ),
+        ),
+        ListTile(
+          enabled: textPossible,
+          title: const Text('Text posts'),
+          trailing: DropdownButton<int>(
+            value: _textLengths.contains(_f.minTextLength)
+                ? _f.minTextLength
+                : 0,
+            onChanged: !textPossible
+                ? null
+                : (v) =>
+                      setState(() => _f = _f.copyWith(minTextLength: v ?? 0)),
+            items: [
+              for (final n in _textLengths)
+                DropdownMenuItem(
+                  value: n,
+                  child: Text(n == 0 ? 'Any length' : 'From $n characters'),
+                ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          child: Text(
+            'Posts this feed hides count as read, and rules stay quiet about them unless '
+            'another feed with the same channel shows them.',
+            style: theme.textTheme.bodySmall,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Row(
+            children: [
+              TextButton(
+                onPressed: () => setState(() => _f = FeedFilter.none),
+                child: const Text('Show everything'),
+              ),
+              const Spacer(),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, _f),
+                child: const Text('Apply'),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
