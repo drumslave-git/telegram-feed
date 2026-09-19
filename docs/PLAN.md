@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 5 (notifications, feed filters); rounds 1 to 4 and P4-1, P4-2 are closed. **Next task:** verify N-1 to N-3 on the emulator, then P4-3.
+**Current phase:** feedback round 5 (notifications, feed filters) is done and verified on the emulator; rounds 1 to 4 and P4-1, P4-2 are closed. **Next task:** P4-3 (AI-generated podcast from a feed).
 
 ## Phase 0 — Spikes
 
@@ -145,12 +145,32 @@ Found and fixed there: C-8.
 
 ## Feedback round 5 — notifications (founder, 2026-09-19)
 
-Founder decisions of the same day: "notify about every post" is a rule with an empty condition, not a second per-channel switch, so scope, priority, schedule and read-aloud carry over; the permanent service notification gets two settings, a minimal mode and a master switch for background watching.
+Founder decisions of the same day: "notify about every post" is a rule with an empty condition, not a second per-channel switch, so scope, priority, schedule and read-aloud carry over; the permanent service notification gets two settings, a minimal mode and a master switch for background watching (the minimal mode was dropped again in N-6 the same day, after the emulator showed Android ignores it).
 
 - [x] N-1 The group summary counts the posts Android still holds (`getActiveNotifications` for the group, plus the one being shown) instead of a tally that only ever grew, and a cancellation that empties a group takes the summary down with it. (7b0e0c4)
-- [x] N-2 The service notification is configurable: `service.minimalNotification` posts it on `core_min` at `IMPORTANCE_MIN` (no status-bar icon, bottom of the shade) instead of `core` at `LOW`, and `service.background` off keeps the service from starting at all, so the core runs in-process and rules only notify while the app is open. Both are read when the core is brought up and so apply at the next app start: the core cannot change host while TDLib is polling (ARCHITECTURE 8). Device-local, not synced. (e81ae65)
+- [x] N-2 The service notification is configurable: `service.minimalNotification` posts it on `core_min` at `IMPORTANCE_MIN` (no status-bar icon, bottom of the shade) instead of `core` at `LOW`, and `service.background` off keeps the service from starting at all, so the core runs in-process and rules only notify while the app is open. Both are read when the core is brought up and so apply at the next app start: the core cannot change host while TDLib is polling (ARCHITECTURE 8). Device-local, not synced. (e81ae65) The minimal half was dropped again in N-6 after the emulator showed it changes nothing; the background half stays and is verified below.
 - [x] N-3 A rule with no condition notifies about every post of its channels. The evaluator already matched `And([])`; the editor now saves it for plain rules too, says so under the condition, and the rules list shows "every post". (2e13123)
+
 - [x] N-4 A filtered feed shows the whole post: an album whose parts do not all pass is shown complete, with the caption that sits on the part a media-kind filter would drop. `FeedFilter.wholePost` (on for every feed, old filters included) and `mayShow`; `FeedTimeline` carries a hidden part into the row its siblings open (held per chat and album until that row exists); the rule engine and the search by words ask `mayShow` too, the shared media tabs stay strict; "Show the whole post" checkbox in the feed editor's Show sheet. (74b7498) Verified on the emulator (NewsFeed, 2026-09-19, light and dark): with the feed filtered to videos, a two-part post of Лачен пише keeps the picture beside the video and its caption, and a three-part post of INSIDER UA keeps the picture under its two videos; unchecking the box leaves the bare videos in both, and "Show everything" put the feed back as it was.
+
+- [x] N-5 Found while verifying N-2 on the emulator: switching background watching off killed the app on the very next start. Android restores the foreground service before Dart runs, the host stops it again, and the core it had spawned left its `td_receive` pump isolate polling, so the app's own core made TDLib abort the process ("Receive must not be called simultaneously from two different threads"; two tombstones). A core now hands TDLib back on a `shutdown` call of the port protocol (close the client, wait for `authorizationStateClosed`, kill the receive isolate and wait for its exit), the service's `onDestroy` waits for its `onStart` first, and `CoreHost` waits for the core's port to disappear before spawning one of its own. (95af990)
+- [x] N-6 Found in the same run: "Keep that notification minimal" changes nothing a user can see (Android raises a foreground service's channel to `IMPORTANCE_LOW` whatever is asked for, and a silent notification has had no status-bar icon since Android 12), and it only ever reached a service the app started itself. The switch, the setting and the `core_min` channel are gone (founder decision 2026-09-19); the Background section says instead what Android allows. (cb5c409)
+- [x] N-7 Found in the dry run of the N-3 rule ("16 of the last 20 posts match"): a post with no text at all never notified, because the evaluation drops such posts before the conditions. A post without text now passes exactly the rules with no condition, and what it carries takes the place of the text ("Photo", "Video", the file's name); the notification, the dry run and the rules list say so. (e4c0e8b)
+
+Verified on the emulator (2026-09-19, spare account, rule "Every post test" on INSIDER UA,
+deleted afterwards): the editor shows "No condition: every new post from this rule's
+channels notifies", saves without keywords, and the rules list reads "INSIDER UA · every
+post" (N-3); a new post of that channel raised a notification with the channel's name, the
+post's text and the Listen / Open in Telegram actions, and tapping it opened the feed at
+that post. The group summary read "1 new post" while one post was in the shade, and "1 new
+post" again for the next one after the first had been tapped away, where the old tally
+would have said 2; Android took the summary down with its last post (N-1). Background
+watching off left no permanent notification and started the core in-process, with the
+handover in the log (`core: handed TDLib back` → `service: core down` → the app's own
+`core: TDLib 1.8.67`) and no crash (N-5); the Background section now has one switch and the
+note about Android (N-6); the dry run says "20 of the last 20 posts match" with "Photo" and
+"Video" under the channel's name (N-7). Before N-6 the minimal mode was seen to post on
+`core_min` and to look exactly like `core` in the shade.
 
 ## Phase 4 — Extras
 
