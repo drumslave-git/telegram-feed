@@ -19,7 +19,7 @@ final class Notifier {
   Future<void> init() async {
     await _plugin.initialize(
       settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        android: AndroidInitializationSettings('ic_stat_feed'),
       ),
       onDidReceiveNotificationResponse: notificationActionEntryPoint,
       onDidReceiveBackgroundNotificationResponse: notificationActionEntryPoint,

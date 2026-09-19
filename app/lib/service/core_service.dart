@@ -36,6 +36,9 @@ CoreBootstrap coreBootstrap(({String support, String tdlib, String db}) p) =>
     );
 
 const coreServiceId = 1;
+
+/// Manifest meta-data that names the status bar icon of the service notification.
+const serviceIconMetaData = 'dev.telegramfeed.service.NOTIFICATION_ICON';
 const pauseButtonId = 'pause';
 const resumeButtonId = 'resume';
 
@@ -73,6 +76,7 @@ Future<bool> startCoreService() async {
     serviceTypes: [ForegroundServiceTypes.specialUse],
     notificationTitle: 'telegram-feed',
     notificationText: 'Starting…',
+    notificationIcon: const NotificationIcon(metaDataName: serviceIconMetaData),
     notificationButtons: const [
       NotificationButton(id: pauseButtonId, text: 'Pause'),
     ],

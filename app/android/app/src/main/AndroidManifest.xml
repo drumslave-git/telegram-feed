@@ -34,6 +34,10 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Status bar icon of the "Watching N channels" notification (core_service.dart) -->
+        <meta-data
+            android:name="dev.telegramfeed.service.NOTIFICATION_ICON"
+            android:resource="@drawable/ic_stat_feed" />
         <service
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
             android:foregroundServiceType="specialUse"
