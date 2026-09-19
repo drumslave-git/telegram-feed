@@ -6,6 +6,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../media/autoplay.dart';
+import '../media/video_downloads.dart';
 import '../media/video_sessions.dart';
 import '../media/video_stage.dart';
 import 'players.dart';
@@ -375,6 +376,14 @@ class _VideoViewState extends State<VideoView> {
                   ),
                 ),
               ],
+              Positioned(
+                left: 8,
+                top: 8,
+                child: VideoDownloadButton(
+                  file: _file,
+                  gateway: widget.gateway,
+                ),
+              ),
             ],
           ),
         ),

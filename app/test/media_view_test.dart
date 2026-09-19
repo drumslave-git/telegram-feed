@@ -92,6 +92,7 @@ class DownloadGateway extends ChannelsGateway {
 
   /// (file id, offset) of every [downloadFrom].
   final aimed = <(int, int)>[];
+  final priorities = <int>[];
   final cancelled = <int>[];
 
   @override
@@ -101,6 +102,7 @@ class DownloadGateway extends ChannelsGateway {
     int priority = 32,
   }) async {
     aimed.add((fileId, offset));
+    priorities.add(priority);
     return FileProgress(fileId: fileId, downloaded: 0, total: 100);
   }
 
@@ -331,6 +333,64 @@ void main() {
     await doubleTap(tester, at);
     expect(zoom.value.getMaxScaleOnAxis(), closeTo(1, 0.01));
     expect(find.byType(FullscreenVideoScreen), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('download button: size, progress, cancel, gone when complete', (
+    tester,
+  ) async {
+    FakeVideoPlatform.install();
+    await tester.pumpWidget(host(video));
+    await tester.pump();
+    expect(find.text('100 B'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Download'));
+    await tester.pump();
+    // The whole file from the start, below the priority of a playing video.
+    expect(gw.aimed, [(4, 0)]);
+    expect(gw.priorities, [16]);
+    gw.progress.add(const FileProgress(fileId: 4, downloaded: 40, total: 100));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('40 B / 100 B'), findsOneWidget);
+    expect(
+      tester
+          .widget<CircularProgressIndicator>(
+            find.byType(CircularProgressIndicator),
+          )
+          .value,
+      closeTo(0.4, 0.001),
+    );
+
+    await tester.tap(find.byTooltip('Cancel download'));
+    await tester.pump();
+    expect(gw.cancelled, [4]);
+    expect(find.text('100 B'), findsOneWidget);
+
+    // Again, and this time a video that plays meanwhile must not end the download.
+    await tester.tap(find.byTooltip('Download'));
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.play_arrow));
+    await startUp(tester);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(FullscreenVideoScreen), findsOneWidget);
+    // The viewer has the button too, in the same state.
+    expect(find.byTooltip('Cancel download'), findsOneWidget);
+    // No pumpAndSettle here: the progress ring never settles.
+    await tester.tap(find.byType(BackButton));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await startUp(tester);
+    expect(find.byType(FullscreenVideoScreen), findsNothing);
+    expect(gw.cancelled, [4]); // still only the cancel from before
+
+    gw.progress.add(
+      FileProgress(fileId: 4, downloaded: 100, total: 100, localPath: pngPath),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.byTooltip('Download'), findsNothing);
+    expect(find.byTooltip('Cancel download'), findsNothing);
     await unmount(tester);
   });
 

@@ -7,6 +7,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:video_player/video_player.dart';
 
 import 'media_server.dart';
+import 'video_downloads.dart';
 
 /// Playback of one video file. Lives outside the widget tree so that the inline player, the
 /// full-screen player and a list row that was rebuilt all drive the same player instead of
@@ -254,12 +255,16 @@ final class VideoSessions {
     _sessions.remove(s.file.id);
     _server.release(s.file.id);
     await s._dispose();
-    if (!s.file.isDownloaded) {
-      try {
-        await gateway.cancelDownload(s.file.id);
-      } on TelegramException catch (e) {
-        debugPrint('media: cancel ${s.file.id}: ${e.message}');
-      }
+    final downloads = VideoDownloads.of(gateway);
+    // A download the user asked for with the button goes on without the player.
+    if (s.file.isDownloaded || downloads.wants(s.file.id)) return;
+    // Watched to the end, the file is complete and the button can go.
+    await downloads.check(s.file);
+    if (downloads.phase(s.file) == DownloadPhase.done) return;
+    try {
+      await gateway.cancelDownload(s.file.id);
+    } on TelegramException catch (e) {
+      debugPrint('media: cancel ${s.file.id}: ${e.message}');
     }
   }
 }

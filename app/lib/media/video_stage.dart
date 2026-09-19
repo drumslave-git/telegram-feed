@@ -6,6 +6,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:video_player/video_player.dart';
 
 import '../feeds/media_view.dart' show formatDuration;
+import 'video_downloads.dart';
 import 'video_sessions.dart';
 import 'zoom.dart';
 
@@ -69,9 +70,13 @@ class VideoStage extends StatefulWidget {
     super.key,
     required this.session,
     this.poster,
+    this.actions = const [],
     this.onZoomChanged,
   });
   final VideoSession session;
+
+  /// Buttons at the right end of the top bar (download, picture-in-picture).
+  final List<Widget> actions;
 
   /// Shown until the first frame is ready (the post's thumbnail).
   final Widget? poster;
@@ -215,7 +220,7 @@ class _VideoStageState extends State<VideoStage> {
             IgnorePointer(child: _SeekHint(direction: _seekHint)),
           if (ready && _controls) SafeArea(child: _overlay(c)),
           // Leaving must work while the video still loads, too.
-          if (!ready || _controls) const _TopBar(),
+          if (!ready || _controls) _TopBar(actions: widget.actions),
         ],
       ),
     );
@@ -244,7 +249,7 @@ class _VideoStageState extends State<VideoStage> {
             ],
           ),
         ),
-        const _TopBar(),
+        _TopBar(actions: widget.actions),
       ],
     ),
   );
@@ -349,15 +354,22 @@ class _VideoStageState extends State<VideoStage> {
 
 /// Back arrow in the top left corner, where the official viewer has it.
 class _TopBar extends StatelessWidget {
-  const _TopBar();
+  const _TopBar({required this.actions});
+  final List<Widget> actions;
 
   @override
-  Widget build(BuildContext context) => const SafeArea(
+  Widget build(BuildContext context) => SafeArea(
     child: Align(
-      alignment: Alignment.topLeft,
+      alignment: Alignment.topCenter,
       child: Padding(
-        padding: EdgeInsets.all(4),
-        child: BackButton(color: Colors.white),
+        padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
+        child: Row(
+          children: [
+            const BackButton(color: Colors.white),
+            const Spacer(),
+            ...actions,
+          ],
+        ),
       ),
     ),
   );
@@ -468,6 +480,12 @@ class _FullscreenVideoScreenState extends State<FullscreenVideoScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.black,
-    body: VideoStage(session: _session, poster: widget.poster),
+    body: VideoStage(
+      session: _session,
+      poster: widget.poster,
+      actions: [
+        VideoDownloadButton(file: widget.video.file, gateway: widget.gateway),
+      ],
+    ),
   );
 }
