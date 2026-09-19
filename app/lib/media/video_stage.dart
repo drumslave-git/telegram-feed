@@ -1,13 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:video_player/video_player.dart';
 
 import '../feeds/media_view.dart' show formatDuration;
-import 'swipe_to_close.dart';
-import 'video_downloads.dart';
 import 'video_sessions.dart';
 import 'zoom.dart';
 
@@ -74,10 +70,14 @@ class VideoStage extends StatefulWidget {
     super.key,
     required this.session,
     this.poster,
+    this.title,
     this.actions = const [],
     this.onZoomChanged,
   });
   final VideoSession session;
+
+  /// Beside the back arrow: the position in the album.
+  final Widget? title;
 
   /// Buttons at the right end of the top bar (download, picture-in-picture).
   final List<Widget> actions;
@@ -246,7 +246,8 @@ class _VideoStageState extends State<VideoStage> {
           if (_speedBeforeHold != null) const IgnorePointer(child: _HoldHint()),
           if (ready && _controls) SafeArea(child: _overlay(c)),
           // Leaving must work while the video still loads, too.
-          if (!ready || _controls) _TopBar(actions: widget.actions),
+          if (!ready || _controls)
+            ViewerTopBar(title: widget.title, actions: widget.actions),
         ],
       ),
     );
@@ -274,7 +275,7 @@ class _VideoStageState extends State<VideoStage> {
             ],
           ),
         ),
-        _TopBar(actions: widget.actions),
+        ViewerTopBar(title: widget.title, actions: widget.actions),
       ],
     ),
   );
@@ -378,8 +379,9 @@ class _VideoStageState extends State<VideoStage> {
 }
 
 /// Back arrow in the top left corner, where the official viewer has it.
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.actions});
+class ViewerTopBar extends StatelessWidget {
+  const ViewerTopBar({super.key, this.title, this.actions = const []});
+  final Widget? title;
   final List<Widget> actions;
 
   @override
@@ -391,6 +393,7 @@ class _TopBar extends StatelessWidget {
         child: Row(
           children: [
             const BackButton(color: Colors.white),
+            ?title,
             const Spacer(),
             ...actions,
           ],
@@ -472,79 +475,6 @@ class _SeekHint extends StatelessWidget {
             '${_seekStep.inSeconds} s',
             style: const TextStyle(color: Colors.white),
           ),
-        ],
-      ),
-    ),
-  );
-}
-
-/// One video on the whole screen, in whatever orientation the device has. Opening it starts
-/// (or takes over) the file's session with sound; leaving hands the session back, which ends
-/// playback and streaming unless the video autoplays in its row.
-class FullscreenVideoScreen extends StatefulWidget {
-  const FullscreenVideoScreen({
-    super.key,
-    required this.video,
-    required this.gateway,
-    this.poster,
-  });
-  final VideoMedia video;
-  final TelegramGateway gateway;
-  final Widget? poster;
-
-  static Future<void> open(
-    BuildContext context, {
-    required VideoMedia video,
-    required TelegramGateway gateway,
-    Widget? poster,
-  }) => Navigator.of(context, rootNavigator: true).push(
-    PageRouteBuilder<void>(
-      // The timeline shows through while the video is dragged away.
-      opaque: false,
-      pageBuilder: (_, _, _) =>
-          FullscreenVideoScreen(video: video, gateway: gateway, poster: poster),
-      transitionsBuilder: (_, animation, _, child) =>
-          FadeTransition(opacity: animation, child: child),
-    ),
-  );
-
-  @override
-  State<FullscreenVideoScreen> createState() => _FullscreenVideoScreenState();
-}
-
-class _FullscreenVideoScreenState extends State<FullscreenVideoScreen> {
-  late final VideoSession _session;
-  bool _zoomed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _session = VideoSessions.of(widget.gateway).open(
-      widget.video.file,
-      loop: widget.video.isAnimation,
-    )..retainForViewer();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  }
-
-  @override
-  void dispose() {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    _session.releaseFromViewer();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.transparent,
-    body: SwipeToClose(
-      enabled: !_zoomed,
-      onClose: () => Navigator.of(context).maybePop(),
-      child: VideoStage(
-        session: _session,
-        poster: widget.poster,
-        onZoomChanged: (z) => setState(() => _zoomed = z),
-        actions: [
-          VideoDownloadButton(file: widget.video.file, gateway: widget.gateway),
         ],
       ),
     ),

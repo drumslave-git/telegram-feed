@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/media_view.dart';
 import 'package:telegram_feed/media/autoplay.dart';
+import 'package:telegram_feed/media/media_viewer.dart';
 import 'package:telegram_feed/media/video_stage.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -88,7 +89,7 @@ void main() {
       // A tap opens the viewer with sound on the same player.
       await tester.tap(find.byType(InlineVideo));
       await tester.pumpAndSettle();
-      expect(find.byType(FullscreenVideoScreen), findsOneWidget);
+      expect(find.byType(MediaViewerScreen), findsOneWidget);
       expect(platform.log, contains('volume 1 1.0'));
       expect(platform.sources, hasLength(1));
 

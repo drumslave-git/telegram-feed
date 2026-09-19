@@ -8,10 +8,10 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../media/media_viewer.dart';
 import 'feed_editor_screen.dart';
 import 'media_view.dart';
 import 'open_links.dart';
-import 'photo_viewer.dart';
 import 'read_marker.dart';
 import 'thread_screen.dart';
 
@@ -801,15 +801,15 @@ class PostCard extends StatelessWidget {
                 child: MediaView(
                   media: m,
                   gateway: gateway,
-                  onOpenPhoto: m is! PhotoMedia
+                  onOpen: m is! PhotoMedia && m is! VideoMedia
                       ? null
                       : () {
-                          final photos = media.whereType<PhotoMedia>().toList();
-                          PhotoViewerScreen.open(
+                          final items = MediaViewerScreen.viewable(media);
+                          MediaViewerScreen.open(
                             context,
-                            photos: photos,
+                            items: items,
                             gateway: gateway,
-                            initialIndex: photos.indexOf(m),
+                            initialIndex: items.indexOf(m),
                           );
                         },
                 ),

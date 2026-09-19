@@ -6,6 +6,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../media/autoplay.dart';
+import '../media/media_viewer.dart';
 import '../media/video_downloads.dart';
 import '../media/video_sessions.dart';
 import '../media/video_stage.dart';
@@ -18,25 +19,26 @@ class MediaView extends StatelessWidget {
     super.key,
     required this.media,
     required this.gateway,
-    this.onOpenPhoto,
+    this.onOpen,
   });
   final Media media;
   final TelegramGateway gateway;
 
-  /// Tap on a photo (the timeline opens the full-screen viewer).
-  final VoidCallback? onOpenPhoto;
+  /// Tap on a photo or a video: the timeline opens the viewer on the album of the post.
+  final VoidCallback? onOpen;
 
   @override
   Widget build(BuildContext context) => switch (media) {
     PhotoMedia(:final sizes) => PhotoView(
       file: _pickSize(sizes, MediaQuery.sizeOf(context).width),
       gateway: gateway,
-      onTap: onOpenPhoto,
+      onTap: onOpen,
     ),
     final VideoMedia video => VideoView(
       video: video,
       gateway: gateway,
       autoplay: AutoplayScope.of(context).allows(video),
+      onOpen: onOpen,
     ),
     AudioMedia(
       :final file,
@@ -305,11 +307,10 @@ class _VideoViewState extends State<VideoView> {
     final onOpen = widget.onOpen;
     if (onOpen != null) return onOpen();
     unawaited(
-      FullscreenVideoScreen.open(
+      MediaViewerScreen.open(
         context,
-        video: widget.video,
+        items: [widget.video],
         gateway: widget.gateway,
-        poster: _poster(BoxFit.contain),
       ),
     );
   }
@@ -343,14 +344,14 @@ class _VideoViewState extends State<VideoView> {
     super.dispose();
   }
 
-  Widget _poster(BoxFit fit) => widget.video.thumbnail == null
+  Widget _poster() => widget.video.thumbnail == null
       ? const ColoredBox(color: Colors.black26)
       : Downloaded(
           key: ValueKey(widget.video.thumbnail!.id),
           file: widget.video.thumbnail!,
           gateway: widget.gateway,
           placeholder: const ColoredBox(color: Colors.black26),
-          builder: (context, path) => Image.file(File(path), fit: fit),
+          builder: (context, path) => Image.file(File(path), fit: BoxFit.cover),
         );
 
   @override
@@ -376,9 +377,9 @@ class _VideoViewState extends State<VideoView> {
             fit: StackFit.expand,
             children: [
               if (session != null)
-                InlineVideo(session: session, poster: _poster(BoxFit.cover))
+                InlineVideo(session: session, poster: _poster())
               else ...[
-                _poster(BoxFit.cover),
+                _poster(),
                 Center(
                   child: IconButton.filled(
                     iconSize: 40,

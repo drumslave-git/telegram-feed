@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/media_view.dart';
+import 'package:telegram_feed/media/media_viewer.dart';
 import 'package:telegram_feed/media/video_stage.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -257,7 +258,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.play_arrow));
       await startUp(tester);
       await tester.pumpAndSettle();
-      expect(find.byType(FullscreenVideoScreen), findsOneWidget);
+      expect(find.byType(MediaViewerScreen), findsOneWidget);
       // Plays through the loopback server while TDLib downloads, not after.
       expect(gw.aimed, [(4, 0)]);
       expect(platform.sources.single.uri, startsWith('http://127.0.0.1:'));
@@ -271,7 +272,7 @@ void main() {
         () => Future<void>.delayed(const Duration(milliseconds: 30)),
       );
       await tester.pump();
-      expect(find.byType(FullscreenVideoScreen), findsNothing);
+      expect(find.byType(MediaViewerScreen), findsNothing);
       // No grace period: the player is gone and the download stopped with the viewer.
       expect(platform.log, containsAllInOrder(['pause 1', 'dispose 1']));
       expect(gw.cancelled, [4]);
@@ -332,7 +333,7 @@ void main() {
 
     await doubleTap(tester, at);
     expect(zoom.value.getMaxScaleOnAxis(), closeTo(1, 0.01));
-    expect(find.byType(FullscreenVideoScreen), findsOneWidget);
+    expect(find.byType(MediaViewerScreen), findsOneWidget);
     await unmount(tester);
   });
 
@@ -369,7 +370,7 @@ void main() {
 
     await tester.dragFrom(from, const Offset(0, 70));
     await tester.pumpAndSettle();
-    expect(find.byType(FullscreenVideoScreen), findsOneWidget);
+    expect(find.byType(MediaViewerScreen), findsOneWidget);
     expect(tester.getTopLeft(find.byType(VideoStage)).dy, 0);
 
     // Zoomed in, the same drag moves the picture instead.
@@ -380,13 +381,13 @@ void main() {
     final before = zoom.value.getTranslation().y;
     await tester.dragFrom(from, const Offset(0, 300));
     await tester.pumpAndSettle();
-    expect(find.byType(FullscreenVideoScreen), findsOneWidget);
+    expect(find.byType(MediaViewerScreen), findsOneWidget);
     expect(zoom.value.getTranslation().y, greaterThan(before + 100));
     await doubleTap(tester, from);
 
     await tester.dragFrom(from, const Offset(0, 300));
     await tester.pumpAndSettle();
-    expect(find.byType(FullscreenVideoScreen), findsNothing);
+    expect(find.byType(MediaViewerScreen), findsNothing);
     await unmount(tester);
   });
 
@@ -427,7 +428,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.play_arrow));
     await startUp(tester);
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(FullscreenVideoScreen), findsOneWidget);
+    expect(find.byType(MediaViewerScreen), findsOneWidget);
     // The viewer has the button too, in the same state as the row under it.
     expect(find.byTooltip('Cancel download'), findsNWidgets(2));
     // No pumpAndSettle here: the progress ring never settles.
@@ -435,7 +436,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     await startUp(tester);
-    expect(find.byType(FullscreenVideoScreen), findsNothing);
+    expect(find.byType(MediaViewerScreen), findsNothing);
     expect(gw.cancelled, [4]); // still only the cancel from before
 
     gw.progress.add(
