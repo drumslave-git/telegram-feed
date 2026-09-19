@@ -73,9 +73,9 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 
 ### Background watching
 - The app keeps a permanent "Watching N channels" notification while it watches channels for me, with a Pause action; that is what lets rules notify me when the app is closed.
-- I can make that notification minimal: no status bar icon, and it sits at the bottom of the shade. Android does not allow hiding it altogether.
+- That notification is as quiet as Android allows: silent, at the bottom of the shade, without a status bar icon. Android does not allow hiding it altogether or making it quieter.
 - I can turn background watching off entirely. The permanent notification then goes away, and rules only notify me while the app is open.
-- Both choices apply the next time the app starts, and they stay on this device instead of syncing to my others.
+- That choice applies the next time the app starts, and it stays on this device instead of syncing to my others.
 
 ### Read aloud
 - When a rule with read-aloud fires, the app speaks "New post in <channel>" followed by the post text, even with the screen off.

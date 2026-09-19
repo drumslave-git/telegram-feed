@@ -64,8 +64,6 @@ final class CoreHost implements AppHost {
   Future<void> _connect() async {
     final background =
         await db.setting(SettingKeys.backgroundWatching) != 'false';
-    final minimal =
-        await db.setting(SettingKeys.minimalServiceNotification) == 'true';
     if (!background && Platform.isAndroid) await _stopService();
     var port = IsolateNameServer.lookupPortByName(corePortName);
     if (port == null && Platform.isAndroid && background) {
@@ -73,7 +71,7 @@ final class CoreHost implements AppHost {
           NotificationPermission.granted) {
         await FlutterForegroundTask.requestNotificationPermission();
       }
-      if (await startCoreService(minimal: minimal)) {
+      if (await startCoreService()) {
         port = await _waitForPort(const Duration(seconds: 15));
         _inService = port != null;
         if (port == null) {

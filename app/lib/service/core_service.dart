@@ -43,13 +43,11 @@ const serviceIconMetaData = 'dev.telegramfeed.service.NOTIFICATION_ICON';
 const pauseButtonId = 'pause';
 const resumeButtonId = 'resume';
 
-/// Channels of the permanent service notification, one per prominence
-/// ([SettingKeys.minimalServiceNotification]). Android fixes a channel's importance when
-/// the channel is created and keeps it even if the channel is deleted and recreated, so
-/// the two levels are two channels, as for the urgent pair in [Notifier]. Which one is
-/// used is settled when the service starts.
+/// Channel of the permanent service notification. It is as quiet as Android allows: the
+/// channel of a foreground service is raised to `IMPORTANCE_LOW` whatever is asked for,
+/// so there is nothing below this. The `core_min` channel of an earlier build is deleted.
 const serviceChannel = 'core';
-const serviceChannelMinimal = 'core_min';
+const _retiredServiceChannel = 'core_min';
 
 /// Call once in `main()` of the UI. The communication port is registered here and nowhere
 /// else: registering it again would drop the one the app is already listening on.
@@ -58,20 +56,17 @@ void initCoreService() {
   _configureServiceNotification();
 }
 
-/// The service's notification options, settled again just before the service starts because
-/// [minimal] is only known once the database is open.
-void _configureServiceNotification({bool minimal = false}) {
+/// The service's notification options.
+void _configureServiceNotification() {
   FlutterForegroundTask.init(
     androidNotificationOptions: AndroidNotificationOptions(
-      channelId: minimal ? serviceChannelMinimal : serviceChannel,
+      channelId: serviceChannel,
       channelName: 'Watching channels',
       channelDescription:
           'Keeps the Telegram connection open for keyword rules',
       onlyAlertOnce: true,
-      channelImportance: minimal
-          ? NotificationChannelImportance.MIN
-          : NotificationChannelImportance.LOW,
-      priority: minimal ? NotificationPriority.MIN : NotificationPriority.LOW,
+      channelImportance: NotificationChannelImportance.LOW,
+      priority: NotificationPriority.LOW,
     ),
     iosNotificationOptions: const IOSNotificationOptions(
       showNotification: false,
@@ -87,21 +82,15 @@ void _configureServiceNotification({bool minimal = false}) {
 }
 
 /// Starts the service (idempotent). Returns false when Android refused.
-///
-/// [minimal] picks the notification's channel, so it only takes effect on a service that
-/// is not running yet: a live service would have to be restarted, and its core isolate
-/// cannot move while TDLib is polling (see `native_isolate.dart`).
-Future<bool> startCoreService({bool minimal = false}) async {
+Future<bool> startCoreService() async {
   if (await FlutterForegroundTask.isRunningService) return true;
-  _configureServiceNotification(minimal: minimal);
+  _configureServiceNotification();
   // One "Watching channels" row in the system settings, not two.
   await FlutterLocalNotificationsPlugin()
       .resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin
       >()
-      ?.deleteNotificationChannel(
-        channelId: minimal ? serviceChannel : serviceChannelMinimal,
-      );
+      ?.deleteNotificationChannel(channelId: _retiredServiceChannel);
   final r = await FlutterForegroundTask.startService(
     serviceId: coreServiceId,
     serviceTypes: [ForegroundServiceTypes.specialUse],
