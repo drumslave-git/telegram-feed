@@ -195,6 +195,16 @@ class _TimelineScreenState extends State<TimelineScreen> {
                 _onQuery('');
               },
             ),
+          IconButton(
+            tooltip: 'Jump to date',
+            icon: const Icon(Icons.calendar_month),
+            onPressed: () {
+              // The calendar takes over from the search, as in the official app.
+              final view = _view.currentState;
+              _closeSearch();
+              unawaited(view?.pickDate());
+            },
+          ),
         ],
       );
     }
@@ -410,6 +420,9 @@ class TimelineViewState extends State<TimelineView> {
   Timer? _highlightTimer;
   bool _loadingNewer = false;
 
+  /// Day the timeline jumped to from the calendar; it settles on its first post.
+  DateTime? _focusDay;
+
   /// Set by the button that leaves a jump: the rebuilt timeline opens at its newest post,
   /// not where it would open when the feed is entered.
   bool _openAtNewest = false;
@@ -558,6 +571,54 @@ class TimelineViewState extends State<TimelineView> {
     _setSources(_sourceRows);
   }
 
+  /// Opens the calendar and jumps to the day the reader picks, as in the official app.
+  Future<void> pickDate({DateTime? around}) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: around ?? now,
+      // Telegram itself is younger than this.
+      firstDate: DateTime(2013),
+      lastDate: now,
+      helpText: 'Jump to date',
+    );
+    if (picked == null || !mounted) return;
+    await jumpToDate(picked);
+  }
+
+  /// Opens the timeline at a day: every source starts at its newest post of that day (or
+  /// the newest older one), and the list settles on the first post of the day.
+  Future<void> jumpToDate(DateTime day) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final end = DateTime(day.year, day.month, day.day, 23, 59, 59);
+    Map<int, int> anchors;
+    try {
+      anchors = await anchorsForDate(widget.gateway, [
+        for (final s in _sourceRows) s.chatId,
+      ], end.millisecondsSinceEpoch ~/ 1000);
+    } on TelegramException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
+      return;
+    }
+    if (!mounted) return;
+    if (anchors.isEmpty) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Nothing here from ${formatDay(day)} or earlier.'),
+        ),
+      );
+      return;
+    }
+    _focusChat = null;
+    _focusMessage = null;
+    _focusDay = DateTime(day.year, day.month, day.day);
+    _anchors = anchors;
+    _highlightTimer?.cancel();
+    _highlight = null;
+    _timeline = null;
+    _setSources(_sourceRows);
+  }
+
   /// Back to the live timeline: rebuilt without anchors, at its newest post.
   void _toNewest() {
     final t = _timeline;
@@ -569,6 +630,7 @@ class TimelineViewState extends State<TimelineView> {
     _anchors = null;
     _focusChat = null;
     _focusMessage = null;
+    _focusDay = null;
     _openAtNewest = true;
     _highlightTimer?.cancel();
     _highlight = null;
@@ -615,6 +677,28 @@ class TimelineViewState extends State<TimelineView> {
       var index = -1;
       if (_openAtNewest) {
         _openAtNewest = false;
+        _initialIndex = 0;
+        _initialAlignment = 0;
+        _error = null;
+        return;
+      }
+      final day = _focusDay;
+      if (day != null) {
+        // The anchors are the last posts of that day; one page of newer ones goes above,
+        // then the list settles on the oldest row of the day, with the older one before it
+        // just off the top of the screen.
+        if (t.anchored) await t.loadNewer();
+        var first = -1;
+        for (var i = 0; i < t.items.length; i++) {
+          if (_dayOf(t.items[i]) == day) first = i;
+        }
+        if (first >= 0) {
+          _initialIndex = (first + 1).clamp(0, t.items.length);
+          _initialAlignment = 0.92;
+          _error = null;
+          return;
+        }
+        // Nothing was posted that day: the closest older post is the anchor itself.
         _initialIndex = 0;
         _initialAlignment = 0;
         _error = null;
@@ -1087,7 +1171,11 @@ class TimelineViewState extends State<TimelineView> {
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (newDay) ChatPill(formatDay(day)),
+                          if (newDay)
+                            ChatPill(
+                              formatDay(day),
+                              onTap: () => unawaited(pickDate(around: day)),
+                            ),
                           if (id == _firstUnread) const UnreadDivider(),
                           row,
                         ],

@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telegram_feed/feeds/post_card.dart' show ChatPill;
 import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_feed/feeds/timeline_search.dart';
 import 'package:telegram_feed/home/channel_list.dart';
@@ -660,6 +661,85 @@ void main() {
     await settle(tester);
     await tester.pumpAndSettle();
     expect(find.text('one-40'), findsOneWidget);
+    await unmount(tester);
+  });
+  testWidgets(
+    'jump to date: the calendar opens from a day pill and from search',
+    (tester) async {
+      // Three days of posts in two channels, 24 hours apart.
+      const day = 86400;
+      const base = 1700000000; // 2023-11-14 22:13 UTC
+      gw.histories[-1] = [
+        for (var i = 6; i >= 1; i--) post(-1, i, base + i * day ~/ 2, 'one-$i'),
+      ];
+      gw.histories[-2] = [
+        for (var i = 6; i >= 1; i--)
+          post(-2, i, base + i * day ~/ 2 + 60, 'two-$i'),
+      ];
+      await tester.runAsync(() async {
+        feed = await db.createFeed('Mix');
+        await db.addSource(feed.id, -1, title: 'One');
+        await db.addSource(feed.id, -2, title: 'Two');
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TimelineScreen(db: db, gateway: gw, feed: feed),
+        ),
+      );
+      await settle(tester);
+      await tester.pumpAndSettle();
+
+      // A day pill leads to the calendar; so does the button in the search bar.
+      await tester.tap(find.byType(ChatPill).first);
+      await tester.pumpAndSettle();
+      expect(find.byType(DatePickerDialog), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Search'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Jump to date'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DatePickerDialog), findsOneWidget);
+      // The search bar made way for the calendar.
+      expect(find.byTooltip('Search'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      // Jumping to the first day lands on its first post, with the older ones above it.
+      final first = DateTime.fromMillisecondsSinceEpoch(
+        (base + day ~/ 2) * 1000,
+      );
+      final state = tester.state<TimelineViewState>(find.byType(TimelineView));
+      await tester.runAsync(
+        () => state.jumpToDate(DateTime(first.year, first.month, first.day)),
+      );
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('one-1'), findsOneWidget);
+      expect(
+        find.text('one-6'),
+        findsNothing,
+      ); // the newest posts are far below
+      await unmount(tester);
+    },
+  );
+
+  testWidgets('jump to a date before the first post says so', (tester) async {
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Mix');
+      await db.addSource(feed.id, -1, title: 'One');
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+    final state = tester.state<TimelineViewState>(find.byType(TimelineView));
+    await tester.runAsync(() => state.jumpToDate(DateTime(1969, 1, 1)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Nothing here from'), findsOneWidget);
     await unmount(tester);
   });
 }

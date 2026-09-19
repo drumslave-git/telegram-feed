@@ -219,7 +219,10 @@ all of a feed's sources at once and obeys the feed's filter (founder decision 20
   explicitly; `initialScrollIndex` only counts for the first build.
 - **Dates.** `anchorsForDate` asks every source for the newest post sent no later than the
   chosen day (`getChatMessageByDate`, a 404 means the channel has nothing that old and it
-  contributes nothing at that point). The anchors are where the timeline starts.
+  contributes nothing at that point). The anchors are where the timeline starts. The calendar
+  opens from the search bar or from a day pill between the posts (`TimelineViewState.pickDate`,
+  `jumpToDate`); the timeline then settles on the first post of that day, and on a day without
+  posts on the closest older one. A date before everything the sources have only says so.
 
 ## 6. Rules and notifications (phase 2)
 

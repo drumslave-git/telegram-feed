@@ -76,29 +76,39 @@ Color peerColor(int id, Brightness brightness) {
 
 /// A centred label floating on the chat backdrop: the day, the beginning of the feed.
 class ChatPill extends StatelessWidget {
-  const ChatPill(this.label, {super.key});
+  const ChatPill(this.label, {super.key, this.onTap});
   final String label;
+
+  /// Day pills lead to the calendar; the other pills are labels only.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = ChatColors.of(context);
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-        decoration: BoxDecoration(
-          color: colors.pill,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: colors.onPill,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
+    final pill = Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: colors.pill,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: colors.onPill,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
         ),
       ),
+    );
+    return Center(
+      child: onTap == null
+          ? pill
+          : GestureDetector(
+              onTap: onTap,
+              behavior: HitTestBehavior.opaque,
+              child: pill,
+            ),
     );
   }
 }
