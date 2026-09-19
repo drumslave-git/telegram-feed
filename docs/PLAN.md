@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 4 (channels and feeds like the official app); rounds 1 to 3 and P4-1, P4-2 are closed. **Next task:** verify round 4 on the emulator, then P4-3.
+**Current phase:** feedback round 5 (notifications); rounds 1 to 4 and P4-1, P4-2 are closed. **Next task:** verify round 5 on the emulator, then P4-3.
 
 ## Phase 0 — Spikes
 
@@ -142,6 +142,14 @@ with its link and a copy button, and the tabs Media (a grid with the length on v
 opens the viewer at "1 of 30"), Files, Links (URL, text and day), Music, Voice. The feed's
 title opens the editor with the Channels tab and the same media tabs over all its channels.
 Found and fixed there: C-8.
+
+## Feedback round 5 — notifications (founder, 2026-09-19)
+
+Founder decisions of the same day: "notify about every post" is a rule with an empty condition, not a second per-channel switch, so scope, priority, schedule and read-aloud carry over; the permanent service notification gets two settings, a minimal mode and a master switch for background watching.
+
+- [x] N-1 The group summary counts the posts Android still holds (`getActiveNotifications` for the group, plus the one being shown) instead of a tally that only ever grew, and a cancellation that empties a group takes the summary down with it. (7b0e0c4)
+- [x] N-2 The service notification is configurable: `service.minimalNotification` posts it on `core_min` at `IMPORTANCE_MIN` (no status-bar icon, bottom of the shade) instead of `core` at `LOW`, and `service.background` off keeps the service from starting at all, so the core runs in-process and rules only notify while the app is open. Both are read when the core is brought up and so apply at the next app start: the core cannot change host while TDLib is polling (ARCHITECTURE 8). Device-local, not synced. (e81ae65)
+- [x] N-3 A rule with no condition notifies about every post of its channels. The evaluator already matched `And([])`; the editor now saves it for plain rules too, says so under the condition, and the rules list shows "every post". (2e13123)
 
 ## Phase 4 — Extras
 

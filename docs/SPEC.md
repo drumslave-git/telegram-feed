@@ -60,6 +60,7 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 ### Notification rules
 - I can create a rule scoped to one channel or to all channels the app watches.
 - A rule has a condition built from terms combined with AND / OR / NOT. Each term is a word or phrase with options: whole word, case sensitive.
+- I can leave the condition empty, and then the rule notifies me about every post of its channels. That is how I follow a channel completely, and it still takes a priority, a schedule and read-aloud.
 - A rule has a priority: silent (shows in tray only), normal, urgent (breaks through Do Not Disturb where the OS permits).
 - A rule can request read-aloud.
 - A rule can have a schedule: active only on selected weekdays between two times.
@@ -68,6 +69,13 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - Posts that match no rule produce no notification. The app does not replicate Telegram's own per-chat notifications.
 - Rules are evaluated on post text and media captions. Edited posts are not re-evaluated.
 - I can test a rule against recent posts of a channel to see what it would have matched.
+- Several posts from the same channel collapse into one row, and its "N new posts" counts only the ones still in the shade: what I swipe away or open stops counting, and a post deleted in Telegram takes its notification with it.
+
+### Background watching
+- The app keeps a permanent "Watching N channels" notification while it watches channels for me, with a Pause action; that is what lets rules notify me when the app is closed.
+- I can make that notification minimal: no status bar icon, and it sits at the bottom of the shade. Android does not allow hiding it altogether.
+- I can turn background watching off entirely. The permanent notification then goes away, and rules only notify me while the app is open.
+- Both choices apply the next time the app starts, and they stay on this device instead of syncing to my others.
 
 ### Read aloud
 - When a rule with read-aloud fires, the app speaks "New post in <channel>" followed by the post text, even with the screen off.
@@ -90,7 +98,7 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 5. **Search in a feed or a channel**: the magnifier in the app bar searches the posts of every channel of the feed at once, as one list of matches with the channel, the text and the date; a tap opens the timeline at that post, with arrows and a counter to step through the matches. What the feed hides is not found either. A calendar in the search bar, and a tap on any day label between the posts, jumps to a date.
 6. **Channel info**: opened from the channel's title — photo, name, subscribers, description, link, and tabs with the shared media of the channel: Media, Files, Links, Music, Voice. No mute and no leave: notifications are the app's own rules and the app never joins or leaves a channel.
 7. **Post view**: full post with media viewer, open in Telegram, share.
-8. **Settings**: account as a profile (photo, name, username, phone, bio, Telegram ID), logout, media autoplay, appearance, storage usage and cache clearing, about and licenses.
+8. **Settings**: account as a profile (photo, name, username, phone, bio, Telegram ID), logout, media autoplay, background watching, appearance, storage usage and cache clearing, about and licenses.
 
 Phase 2 adds **Rules list**, **Rule editor**, and **Read-aloud settings**.
 

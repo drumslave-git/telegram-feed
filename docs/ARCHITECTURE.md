@@ -252,6 +252,8 @@ rules (id, name, enabled, scope_kind {global, channel}, scope_chat_id?,
        schedule_json?, created_at, semantic_prompt?)
 ```
 
+A rule with no condition at all (`And([])`, which every post satisfies) notifies about every post of its channels; the editor saves that when both keyword editors are left empty, and the rules list shows it as "every post". Scope, priority, schedule, read-aloud and the feed-filter rule of section 5.8 apply to it like any other.
+
 Condition AST (package `rules`):
 
 ```
@@ -294,7 +296,9 @@ A rule may carry a description of what the post should be about (`rules.semantic
 | normal | DEFAULT | Sound and vibration per system settings |
 | urgent | HIGH + `bypassDnd` | Heads-up; DND bypass requires the user to grant notification-policy access, which the app requests when the first urgent rule is created. Android fixes a channel's DND bypass at creation, so the notifier posts on `posts_urgent` until access exists and then creates `posts_urgent_dnd` (and deletes the other); it re-checks before every urgent notification |
 
-Each notification: channel title, post excerpt, thumbnail if present, actions **Listen** and **Open in Telegram**. Tapping opens the post inside the first feed containing that channel. Notifications from the same channel are grouped.
+Each notification: channel title, post excerpt, actions **Listen** and **Open in Telegram**. Tapping opens the post inside the first feed containing that channel. Notifications from the same channel are grouped.
+
+The group summary's "N new posts" counts what `getActiveNotifications` still reports for that group, plus the post being shown; it is never a running tally, so posts the user swiped away or tapped, and posts deleted in Telegram, stop counting. When a cancellation empties a group the summary is cancelled with it.
 
 Android 13+ requires `POST_NOTIFICATIONS`; requested during onboarding of phase 2.
 
@@ -311,6 +315,7 @@ Android 13+ requires `POST_NOTIFICATIONS`; requested during onboarding of phase 
 ### Android (phase 1 and 2)
 
 - **Foreground service** via `flutter_foreground_task`, service type `specialUse` with `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` explaining the persistent Telegram connection. `dataSync` is not usable: Android 15+ caps it at 6 hours per day (spike P0-2). The app manifest declares the plugin's service itself. Persistent notification "Watching N channels" with a Pause action.
+- **Two settings govern that notification**, both read by `CoreHost._connect` when the core is brought up. `service.background` off keeps the service from starting at all (and stops one Android restored on boot): the core is then spawned in-process and rules only run while the app is open. The stop also settles later boots, because the plugin's `RebootReceiver` skips `autoRunOnBoot` for a service that was stopped deliberately. `service.minimalNotification` posts the service notification on channel `core_min` at `IMPORTANCE_MIN` instead of `core` at `LOW`, so Android drops the status-bar icon and collapses the row; as with the urgent pair in section 6.3, the two prominences must be two channels, and the unused one is deleted so the system settings show one row. Android never lets a foreground service drop its notification entirely. Both settings apply at the next app start, because the core cannot change host while it is running (next bullet); they stay on the device and are not synced.
 - The foreground task runs a Dart callback in its own Flutter engine. The **core isolate is spawned from that callback**, and it registers its `SendPort` with `IsolateNameServer` under a fixed name. The UI engine looks the port up on start and talks over it. Both engines are in the same process, so ports work across them (verified in spike P0-2).
 - **The core isolate is never respawned.** TDLib aborts the process if `td_receive` is called from two threads, and each isolate would start its own receive loop. After a logout TDLib closes its client (`AuthClosed`); the core isolate then creates a new client and gateway itself and `CoreServer.replaceGateway` swaps it in behind the same port, so UI clients just see the new auth states (verified on the emulator, P1-7).
 - **Plugins with platform-to-Dart callbacks (`flutter_tts`, `flutter_local_notifications`) cannot run in the core isolate**: Flutter routes platform messages to the root isolate only. The service engine's root isolate (the task handler, "service host") owns those plugins; `Notifier` and `TtsService` in `core` send it `notify` / `speak` commands over a port. Callback-free method-channel calls (e.g. `path_provider`) work from the core isolate via `BackgroundIsolateBinaryMessenger`.
@@ -382,6 +387,9 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-18 | Read-aloud queue never drops items; Listen requests go next | Found while dogfooding with busy channels; founder chose completeness over freshness |
 | 2026-09-18 | A channel added to a feed starts at Telegram's read position | Founder decision while dogfooding: the whole history used to count as unread |
 | 2026-09-17 | Web target dropped after the phase 3 build worked | Founder decision, Android only; the build stays in history at 87e10f3 |
+| 2026-09-19 | A rule with an empty condition means "every post" | Founder decision; one mechanism instead of a second per-channel notification switch, so scope, priority, schedule and read-aloud carry over |
+| 2026-09-19 | The service notification is configurable as minimal, and background watching can be turned off | Founder decision; Android forbids hiding a foreground service's notification outright |
+| 2026-09-19 | Those two settings apply at the next app start, not live | The core isolate cannot move between the service and the app engine while TDLib is polling (section 8); a live handoff would need `FfiTransport` to stop its receive isolate |
 | 2026-09-17 | Web stays on tdweb, built from source; no GramJS gateway | tdweb 1.8.67 self-built works end to end, npm 1.8.0 is dead (spike P0-4) |
 | 2026-09-19 | Videos play while they download, through a loopback HTTP server over TDLib's partial file | Founder feedback: the official app starts videos much sooner; keeps `video_player` instead of a player with a custom data source |
 | 2026-09-19 | Short videos autoplay muted; limits 60 s and 20 MB by default, adjustable in Settings | Founder feedback |
