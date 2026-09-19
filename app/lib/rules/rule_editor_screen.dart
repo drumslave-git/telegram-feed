@@ -74,7 +74,8 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
       try {
         final spec = RuleSpec.fromRow(r);
         if (_isMatchAll(spec.condition)) {
-          // AI rule without keywords: both editors start empty.
+          // Rule without keywords (every post, or every post sent to the AI): both
+          // editors start empty.
         } else {
           final m = BuilderModel.fromExpr(spec.condition);
           if (m != null) {
@@ -131,9 +132,11 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   }
 
   /// The condition from whichever editor is active, or null with an error shown.
+  ///
+  /// No keywords at all is a rule that matches every post in its scope: on an AI rule they
+  /// all go to the model, on a plain one they all notify. `And([])` is that condition.
   Expr? _condition() {
-    // An AI rule may have no keywords: every post in scope then goes to the model.
-    if (_isSemantic && _keywordsBlank) return const And([]);
+    if (_keywordsBlank) return const And([]);
     if (_textMode) {
       try {
         final e = RuleParser.parse(_text.text);
@@ -477,6 +480,14 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
             ],
           ),
           const SizedBox(height: 8),
+          if (!_isSemantic && _keywordsBlank)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'No condition: every new post from this rule\'s channels notifies. Add terms to notify only about some of them.',
+                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ),
           if (_textMode)
             TextField(
               controller: _text,

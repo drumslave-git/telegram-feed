@@ -85,7 +85,7 @@ class RulesScreen extends StatelessWidget {
                     child: Padding(
                       padding: EdgeInsets.all(32),
                       child: Text(
-                        'No rules yet. A rule watches your feeds\' channels for words and notifies you, optionally reading the post aloud.',
+                        'No rules yet. A rule watches your feeds\' channels and notifies you, optionally reading the post aloud: give it words to look for, or leave the condition empty to be notified about every post.',
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -136,11 +136,12 @@ class RulesScreen extends StatelessWidget {
     );
   }
 
-  /// Keyword condition, and for AI rules the description they check.
+  /// Keyword condition, and for AI rules the description they check. A rule with no
+  /// condition at all matches every post of its channels.
   static String _preview(Rule r) {
     final prompt = r.semanticPrompt?.trim() ?? '';
-    if (prompt.isEmpty) return _conditionPreview(r);
     final keywords = _conditionPreview(r);
+    if (prompt.isEmpty) return keywords.isEmpty ? 'every post' : keywords;
     return keywords.isEmpty ? 'AI: $prompt' : 'AI: $prompt · only if $keywords';
   }
 

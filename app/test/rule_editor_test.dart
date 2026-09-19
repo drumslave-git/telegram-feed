@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/ai/semantic_gate.dart';
 import 'package:telegram_feed/rules/rule_editor_screen.dart';
 import 'package:telegram_feed/rules/rules_screen.dart';
+import 'package:rules/rules.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'timeline_screen_test.dart' show TimelineGateway;
@@ -352,4 +353,49 @@ void main() {
       await unmount(tester);
     },
   );
+
+  testWidgets('a rule with no condition notifies about every post', (
+    tester,
+  ) async {
+    tall(tester);
+    await tester.pumpWidget(editor());
+    await settle(tester);
+    expect(find.textContaining('every new post'), findsOneWidget);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Name'),
+      'Everything',
+    );
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await settle(tester);
+    final rule = (await db.allRules()).single;
+    expect(
+      RuleSpec.fromRow(rule).condition,
+      isA<And>().having((a) => a.items, 'items', isEmpty),
+    );
+    await unmount(tester);
+
+    // The list says so rather than showing an empty condition.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RulesScreen(db: db, gateway: gw),
+      ),
+    );
+    await settle(tester);
+    expect(find.textContaining('All channels · every post'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('typing a term takes the every-post hint away', (tester) async {
+    tall(tester);
+    await tester.pumpWidget(editor());
+    await settle(tester);
+    expect(find.textContaining('every new post'), findsOneWidget);
+    await tester.tap(find.text('Text'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField).at(2), 'bitcoin');
+    await tester.pump();
+    expect(find.textContaining('every new post'), findsNothing);
+    await unmount(tester);
+  });
 }
