@@ -27,7 +27,9 @@ class SharedMediaTabs extends StatelessWidget {
   /// The feed's content filter; a channel of its own has none.
   final FeedFilter filter;
 
-  static const _tabs = <(String, HistoryFilter)>[
+  /// The tabs, in the order of the official app. The feed editor puts its own "Channels"
+  /// tab in front of them and builds the pages itself.
+  static const kinds = <(String, HistoryFilter)>[
     ('Media', HistoryFilter.photoAndVideo),
     ('Files', HistoryFilter.document),
     ('Links', HistoryFilter.url),
@@ -46,18 +48,18 @@ class SharedMediaTabs extends StatelessWidget {
       );
     }
     return DefaultTabController(
-      length: _tabs.length,
+      length: kinds.length,
       child: Column(
         children: [
           TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            tabs: [for (final (label, _) in _tabs) Tab(text: label)],
+            tabs: [for (final (label, _) in kinds) Tab(text: label)],
           ),
           Expanded(
             child: TabBarView(
               children: [
-                for (final (label, kind) in _tabs)
+                for (final (label, kind) in kinds)
                   SharedMediaTab(
                     key: ValueKey('$label:${chatIds.join(",")}'),
                     gateway: gateway,

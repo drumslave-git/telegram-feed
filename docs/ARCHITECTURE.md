@@ -227,6 +227,11 @@ all of a feed's sources at once and obeys the feed's filter (founder decision 20
   everything the tab has loaded; Files name the file before it is downloaded and carry the
   download control of the timeline; Links open in the browser; Music and Voice are the audio
   players of the timeline.
+- **A feed's info** is its editor (founder decision 2026-09-19): `FeedEditorScreen` has a
+  "Channels" tab with the sources, the filter row and the picker, and beside it the same five
+  media tabs over all of its channels at once, with the feed's filter. The tab's search starts
+  over when the channels or the filter change. The feed's title in the timeline opens it, like
+  a channel's title opens the channel info.
 - **Dates.** `anchorsForDate` asks every source for the newest post sent no later than the
   chosen day (`getChatMessageByDate`, a 404 means the channel has nothing that old and it
   contributes nothing at that point). The anchors are where the timeline starts. The calendar

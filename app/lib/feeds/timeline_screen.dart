@@ -169,6 +169,18 @@ class _TimelineScreenState extends State<TimelineScreen> {
     }
   }
 
+  void _openFeedEditor() => unawaited(
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => FeedEditorScreen(
+          db: widget.db,
+          gateway: widget.gateway,
+          feedId: widget.feed!.id,
+        ),
+      ),
+    ),
+  );
+
   PreferredSizeWidget _appBar(BuildContext context) {
     final theme = Theme.of(context);
     if (_searchOpen) {
@@ -213,7 +225,14 @@ class _TimelineScreenState extends State<TimelineScreen> {
     final channel = widget.channel;
     return AppBar(
       title: channel == null
-          ? Text(widget.feed!.name)
+          // The feed's editor is its info screen: its channels and their shared media.
+          ? InkWell(
+              onTap: _openFeedEditor,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(widget.feed!.name),
+              ),
+            )
           // A channel's title leads to its info, as in the official app.
           : InkWell(
               onTap: () => Navigator.of(context).push(
@@ -249,15 +268,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
           IconButton(
             tooltip: 'Edit feed',
             icon: const Icon(Icons.tune),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => FeedEditorScreen(
-                  db: widget.db,
-                  gateway: widget.gateway,
-                  feedId: widget.feed!.id,
-                ),
-              ),
-            ),
+            onPressed: _openFeedEditor,
           ),
       ],
     );

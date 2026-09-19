@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 4 (channels and feeds like the official app); rounds 1 to 3 and P4-1, P4-2 are closed. **Next task:** C-5.
+**Current phase:** feedback round 4 (channels and feeds like the official app); rounds 1 to 3 and P4-1, P4-2 are closed. **Next task:** C-6.
 
 ## Phase 0 — Spikes
 
@@ -121,8 +121,8 @@ Founder decisions of the same day: a feed is merged channels, so search, date na
 - [x] C-2 Merged search and merged media over a feed in `core`: a paged k-way merge over the sources that obeys `FeedFilter`, and the nearest post to a date across sources. `FeedSearch` (albums stay uncollapsed, `totalCount` is Telegram's upper bound until the search is exhausted) and `anchorsForDate`; ARCHITECTURE 5.10. (07c0efe)
 - [x] C-3 Search in the timeline: the app bar turns into a search field, results are rows with channel, snippet and date, a tap opens the timeline at the post, up and down step through the results with "3 of 47". Opening a result anchors the timeline at it (`jumpToPost`, `FeedTimeline.loadNewer`, gateway `historyAfter`), which C-4 reuses for dates; the corner button rebuilds the live timeline. Timeline goldens regenerated (the search action). (3397e41)
 - [x] C-4 Jump to date: a calendar in the search bar and on the day pill; the timeline opens at the nearest post of that day (in a feed, the nearest across sources). `pickDate` / `jumpToDate` settle on the first post of the day; a date before everything the sources have only reports that. (19b9b57)
-- [ ] C-5 Channel info screen: the app-bar title opens photo, name, @username, subscribers, description and the link, with the shared media tabs Media, Files, Links, Music and Voice.
-- [ ] C-6 The feed editor gains the same media tabs, merged over the sources and obeying the feed's filter.
+- [x] C-5 Channel info screen: the app-bar title opens photo, name, @username, subscribers, description and the link, with the shared media tabs Media, Files, Links, Music and Voice. `ChannelInfoScreen` + `SharedMediaTabs` (one `FeedSearch` per tab, media as a grid that opens the viewer over the whole tab). (1fe8594)
+- [x] C-6 The feed editor gains the same media tabs, merged over the sources and obeying the feed's filter. The editor is the feed's info screen: a "Channels" tab with sources, filter and picker, then Media, Files, Links, Music, Voice over all sources; the feed's title in the timeline opens it. Feed editor golden regenerated (the tab bar). (COMMIT)
 - [ ] C-7 Scroll-to-bottom button with the unread counter, as in the official app.
 
 - [-] Mute and leave in the channel info screen: the app has its own notification rules (founder decision 2026-09-19).

@@ -2,6 +2,8 @@ import 'package:app_db/app_db.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:core/core.dart';
+import 'package:telegram_feed/feeds/feed_editor_screen.dart';
 import 'package:telegram_feed/feeds/shared_media.dart';
 import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_feed/home/channel_info_screen.dart';
@@ -183,5 +185,69 @@ void main() {
     );
     await tester.pump();
     await db.close();
+  });
+  testWidgets('the feed editor shows the media of all its channels, filtered', (
+    tester,
+  ) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    late Feed feed;
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Mix');
+      await db.addSource(feed.id, -1, title: 'Alpha News');
+      await db.addSource(feed.id, -2, title: 'Beta Daily');
+    });
+    gw = MediaGateway({
+      -1: [post(5, 1700000500, media: photo)],
+      -2: [
+        Post(
+          chatId: -2,
+          messageId: 4,
+          date: 1700000400,
+          text: '',
+          media: video,
+        ),
+        Post(chatId: -2, messageId: 3, date: 1700000300, text: '', media: doc),
+      ],
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FeedEditorScreen(db: db, gateway: gw, feedId: feed.id),
+      ),
+    );
+    await settle(tester);
+    expect(find.text('Alpha News'), findsOneWidget); // the Channels tab
+
+    await tester.tap(find.text('Media'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pump();
+    // Both channels, merged: the photo of one and the video of the other.
+    expect(find.byType(MediaTile), findsNWidgets(2));
+
+    await tester.tap(find.text('Files'));
+    await settle(tester);
+    expect(find.text('report.pdf'), findsOneWidget);
+
+    // The feed's own filter applies here too.
+    await tester.runAsync(
+      () => db.setFeedFilter(
+        feed.id,
+        const FeedFilter(kinds: {MediaKind.photo}).encode(),
+      ),
+    );
+    await settle(tester);
+    await tester.tap(find.text('Media'));
+    await settle(tester);
+    expect(find.byType(MediaTile), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 30)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
   });
 }

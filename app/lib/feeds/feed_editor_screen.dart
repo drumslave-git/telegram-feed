@@ -4,9 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../home/channel_list.dart' show ChannelAvatar;
+import 'shared_media.dart';
 
-/// Edit a feed's sources: add joined channels from a searchable picker, remove, reorder.
-/// Only channels the account has joined can be added (SPEC section 7); the app never joins.
+/// The feed's own info screen (founder decision 2026-09-19): its channels — add from a
+/// searchable picker, remove, reorder — and, in the tabs beside them, the shared media of
+/// all its channels at once, filtered like the feed. Only channels the account has joined
+/// can be added (SPEC section 7); the app never joins.
 class FeedEditorScreen extends StatefulWidget {
   const FeedEditorScreen({
     super.key,
@@ -22,8 +25,27 @@ class FeedEditorScreen extends StatefulWidget {
   State<FeedEditorScreen> createState() => _FeedEditorScreenState();
 }
 
-class _FeedEditorScreenState extends State<FeedEditorScreen> {
+class _FeedEditorScreenState extends State<FeedEditorScreen>
+    with SingleTickerProviderStateMixin {
   late final Future<List<Channel>> _channels = widget.gateway.myChannels();
+
+  // Kept, not rebuilt: a fresh query stream on every build would make the screen
+  // resubscribe (and drift re-query) with every tab animation frame.
+  late final Stream<List<WatchedChannel>> _sourcesStream = widget.db
+      .watchSourceChannels(widget.feedId);
+  late final Stream<Feed?> _feedStream = widget.db.watchFeed(widget.feedId);
+
+  /// Channels, then the media tabs.
+  late final TabController _tab = TabController(
+    length: SharedMediaTabs.kinds.length + 1,
+    vsync: this,
+  )..addListener(() => setState(() {}));
+
+  @override
+  void dispose() {
+    _tab.dispose();
+    super.dispose();
+  }
 
   Future<void> _pick(List<WatchedChannel> current) async {
     final channels = await _channels;
@@ -60,9 +82,10 @@ class _FeedEditorScreenState extends State<FeedEditorScreen> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<WatchedChannel>>(
-      stream: widget.db.watchSourceChannels(widget.feedId),
+      stream: _sourcesStream,
       builder: (context, sourcesSnap) {
         final sources = sourcesSnap.data ?? const <WatchedChannel>[];
+        final chatIds = [for (final s in sources) s.chatId];
         return Scaffold(
           appBar: AppBar(
             title: FutureBuilder<FeedWithSources?>(
@@ -70,70 +93,122 @@ class _FeedEditorScreenState extends State<FeedEditorScreen> {
               builder: (context, s) =>
                   Text(s.data == null ? 'Feed' : 'Edit ${s.data!.feed.name}'),
             ),
+            bottom: TabBar(
+              controller: _tab,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              tabs: [
+                const Tab(text: 'Channels'),
+                for (final (label, _) in SharedMediaTabs.kinds)
+                  Tab(text: label),
+              ],
+            ),
           ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => _pick(sources),
-            icon: const Icon(Icons.add),
-            label: const Text('Add channel'),
-          ),
-          body: FutureBuilder<List<Channel>>(
-            future: _channels,
-            builder: (context, chSnap) {
-              final left = {
-                for (final c in chSnap.data ?? const <Channel>[])
-                  if (!c.isMember) c.chatId,
-              };
-              final photos = {
-                for (final c in chSnap.data ?? const <Channel>[])
-                  c.chatId: c.photo,
-              };
-              if (sources.isEmpty) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Text(
-                      'No channels yet. Add channels your Telegram account has joined.',
-                      textAlign: TextAlign.center,
+          // Adding a channel belongs to the list of channels.
+          floatingActionButton: _tab.index != 0
+              ? null
+              : FloatingActionButton.extended(
+                  onPressed: () => _pick(sources),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add channel'),
+                ),
+          body: TabBarView(
+            controller: _tab,
+            children: [
+              _channelsTab(sources),
+              for (final (label, kind) in SharedMediaTabs.kinds)
+                if (chatIds.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Text(
+                        'No channels yet.',
+                        textAlign: TextAlign.center,
+                      ),
                     ),
+                  )
+                else
+                  StreamBuilder<Feed?>(
+                    stream: _feedStream,
+                    builder: (context, feedSnap) {
+                      // The feed shows the same here as in its timeline; an edited filter
+                      // (or another channel) starts the tab's search over.
+                      final filter = FeedFilter.decode(
+                        feedSnap.data?.filterJson,
+                      );
+                      return SharedMediaTab(
+                        key: ValueKey(
+                          '$label:${chatIds.join(",")}:${filter.encode()}',
+                        ),
+                        gateway: widget.gateway,
+                        chatIds: chatIds,
+                        kind: kind,
+                        filter: filter,
+                      );
+                    },
                   ),
-                );
-              }
-              return ReorderableListView.builder(
-                padding: const EdgeInsets.only(bottom: 88),
-                header: FeedFilterTile(db: widget.db, feedId: widget.feedId),
-                itemCount: sources.length,
-                onReorderItem: (from, to) {
-                  final ids = sources.map((s) => s.chatId).toList();
-                  final id = ids.removeAt(from);
-                  ids.insert(to, id);
-                  widget.db.reorderSources(widget.feedId, ids);
-                },
-                itemBuilder: (context, i) {
-                  final s = sources[i];
-                  final hasLeft = left.contains(s.chatId);
-                  return ListTile(
-                    key: ValueKey(s.chatId),
-                    leading: ChannelAvatar(
-                      photo: photos[s.chatId],
-                      title: s.title,
-                      gateway: widget.gateway,
-                      radius: 20,
-                    ),
-                    title: Text(s.title),
-                    subtitle: hasLeft
-                        ? const Text('Left in Telegram; history stays readable')
-                        : (s.username == null ? null : Text('@${s.username}')),
-                    trailing: IconButton(
-                      tooltip: 'Remove',
-                      icon: const Icon(Icons.remove_circle_outline),
-                      onPressed: () =>
-                          widget.db.removeSource(widget.feedId, s.chatId),
-                    ),
-                  );
-                },
-              );
-            },
+            ],
           ),
+        );
+      },
+    );
+  }
+
+  Widget _channelsTab(List<WatchedChannel> sources) {
+    return FutureBuilder<List<Channel>>(
+      future: _channels,
+      builder: (context, chSnap) {
+        final left = {
+          for (final c in chSnap.data ?? const <Channel>[])
+            if (!c.isMember) c.chatId,
+        };
+        final photos = {
+          for (final c in chSnap.data ?? const <Channel>[]) c.chatId: c.photo,
+        };
+        if (sources.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Text(
+                'No channels yet. Add channels your Telegram account has joined.',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+        return ReorderableListView.builder(
+          padding: const EdgeInsets.only(bottom: 88),
+          header: FeedFilterTile(db: widget.db, feedId: widget.feedId),
+          itemCount: sources.length,
+          onReorderItem: (from, to) {
+            final ids = sources.map((s) => s.chatId).toList();
+            final id = ids.removeAt(from);
+            ids.insert(to, id);
+            widget.db.reorderSources(widget.feedId, ids);
+          },
+          itemBuilder: (context, i) {
+            final s = sources[i];
+            final hasLeft = left.contains(s.chatId);
+            return ListTile(
+              key: ValueKey(s.chatId),
+              leading: ChannelAvatar(
+                photo: photos[s.chatId],
+                title: s.title,
+                gateway: widget.gateway,
+                radius: 20,
+              ),
+              title: Text(s.title),
+              subtitle: hasLeft
+                  ? const Text('Left in Telegram; history stays readable')
+                  : (s.username == null ? null : Text('@${s.username}')),
+              trailing: IconButton(
+                tooltip: 'Remove',
+                icon: const Icon(Icons.remove_circle_outline),
+                onPressed: () =>
+                    widget.db.removeSource(widget.feedId, s.chatId),
+              ),
+            );
+          },
         );
       },
     );
