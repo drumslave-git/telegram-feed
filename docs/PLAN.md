@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 4 (channels and feeds like the official app); rounds 1 to 3 and P4-1, P4-2 are closed. **Next task:** C-4.
+**Current phase:** feedback round 4 (channels and feeds like the official app); rounds 1 to 3 and P4-1, P4-2 are closed. **Next task:** C-5.
 
 ## Phase 0 — Spikes
 
@@ -120,7 +120,7 @@ Founder decisions of the same day: a feed is merged channels, so search, date na
 - [x] C-1 Gateway: search in a channel (query and media filters, paging, total count), the post nearest a date, and channel info (description, subscribers, link), end to end through the core isolate. `searchHistory` pages like `history` because TDLib answers short pages, `messageIdByDate` turns a 404 into 0, `channelInfo` reads `getSupergroupFullInfo` and the chat's big photo. (b07a649)
 - [x] C-2 Merged search and merged media over a feed in `core`: a paged k-way merge over the sources that obeys `FeedFilter`, and the nearest post to a date across sources. `FeedSearch` (albums stay uncollapsed, `totalCount` is Telegram's upper bound until the search is exhausted) and `anchorsForDate`; ARCHITECTURE 5.10. (07c0efe)
 - [x] C-3 Search in the timeline: the app bar turns into a search field, results are rows with channel, snippet and date, a tap opens the timeline at the post, up and down step through the results with "3 of 47". Opening a result anchors the timeline at it (`jumpToPost`, `FeedTimeline.loadNewer`, gateway `historyAfter`), which C-4 reuses for dates; the corner button rebuilds the live timeline. Timeline goldens regenerated (the search action). (3397e41)
-- [ ] C-4 Jump to date: a calendar in the search bar and on the day pill; the timeline opens at the nearest post of that day (in a feed, the nearest across sources).
+- [x] C-4 Jump to date: a calendar in the search bar and on the day pill; the timeline opens at the nearest post of that day (in a feed, the nearest across sources). `pickDate` / `jumpToDate` settle on the first post of the day; a date before everything the sources have only reports that. (19b9b57)
 - [ ] C-5 Channel info screen: the app-bar title opens photo, name, @username, subscribers, description and the link, with the shared media tabs Media, Files, Links, Music and Voice.
 - [ ] C-6 The feed editor gains the same media tabs, merged over the sources and obeying the feed's filter.
 - [ ] C-7 Scroll-to-bottom button with the unread counter, as in the official app.

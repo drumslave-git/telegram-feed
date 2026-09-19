@@ -217,6 +217,16 @@ all of a feed's sources at once and obeys the feed's filter (founder decision 20
   and the button at the corner rebuilds the live timeline at its newest post. A rebuilt list
   keeps the scroll position of the old one, so an opening that is not the first also jumps
   explicitly; `initialScrollIndex` only counts for the first build.
+- **Channel info.** A channel's title in the timeline opens `ChannelInfoScreen`: photo, name,
+  subscribers, description and the link (`@username` for a public channel, the invite link for
+  a private one), and under it the shared media tabs. It has no mute and no leave: this app
+  notifies by its own rules and never joins or leaves a channel.
+- **The tabs** (`SharedMediaTabs`, `feeds/shared_media.dart`) are Media, Files, Links, Music
+  and Voice; each is a `FeedSearch` of its own with no query, paged as it is scrolled. Media
+  is a grid of cropped pictures with the length on videos, and a tap opens the viewer over
+  everything the tab has loaded; Files name the file before it is downloaded and carry the
+  download control of the timeline; Links open in the browser; Music and Voice are the audio
+  players of the timeline.
 - **Dates.** `anchorsForDate` asks every source for the newest post sent no later than the
   chosen day (`getChatMessageByDate`, a 404 means the channel has nothing that old and it
   contributes nothing at that point). The anchors are where the timeline starts. The calendar
@@ -381,3 +391,4 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-19 | Autoplay keeps the switch and limits of F-6; they are also reachable from the menu of a video post | Founder feedback round 3: the settings existed but were overlooked |
 | 2026-09-19 | Avatars sit in the bubble's title line, at the right end, in posts and comments; the share button beside the bubble is gone (sharing stays in the menu) | Founder decision the same day, after seeing the first version of round 3: the avatar column and the share button took too much width from text and pictures. Departs from the official app on purpose |
 | 2026-09-19 | Search, date navigation and shared media work over all of a feed's sources as one merged list and obey the feed's filter | Founder decision, feedback round 4: a feed is merged channels, so it searches exactly what it shows |
+| 2026-09-19 | The channel info screen has no mute and no leave | Founder decision, feedback round 4: notifications are the app's own rules, and only joined channels are sources |

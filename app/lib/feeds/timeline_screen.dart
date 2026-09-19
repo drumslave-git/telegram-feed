@@ -8,6 +8,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../home/channel_info_screen.dart';
 import '../settings/settings_screen.dart' show showAutoplaySettings;
 import 'feed_editor_screen.dart';
 import 'open_links.dart';
@@ -169,6 +170,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
   }
 
   PreferredSizeWidget _appBar(BuildContext context) {
+    final theme = Theme.of(context);
     if (_searchOpen) {
       return AppBar(
         leading: BackButton(onPressed: _closeSearch),
@@ -208,8 +210,35 @@ class _TimelineScreenState extends State<TimelineScreen> {
         ],
       );
     }
+    final channel = widget.channel;
     return AppBar(
-      title: Text(widget.feed?.name ?? widget.channel!.title),
+      title: channel == null
+          ? Text(widget.feed!.name)
+          // A channel's title leads to its info, as in the official app.
+          : InkWell(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ChannelInfoScreen(
+                    gateway: widget.gateway,
+                    channel: channel,
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(channel.title, style: theme.textTheme.titleLarge),
+                  if (channel.memberCount > 0)
+                    Text(
+                      '${formatCount(channel.memberCount)} subscribers',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
+            ),
       actions: [
         IconButton(
           tooltip: 'Search',

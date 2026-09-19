@@ -88,8 +88,9 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 3. **Feed editor**: name, ordered list of channels, add-channel sheet listing my joined channels with a search box.
 4. **Feed timeline**: infinite list of posts in chat order, drawn like the official app but with full-width bubbles (coloured channel name with the channel's avatar at the right end of that line, albums as a mosaic, formatted text with links, views and time in the corner with the unread dot beside the time, reactions, comments bar, day labels), "Unread posts" divider, button to the newest posts with the count of new ones. A tap on a post opens its menu: reactions, Open in Telegram, Comments, Share, Copy link, and on video posts the autoplay settings.
 5. **Search in a feed or a channel**: the magnifier in the app bar searches the posts of every channel of the feed at once, as one list of matches with the channel, the text and the date; a tap opens the timeline at that post, with arrows and a counter to step through the matches. What the feed hides is not found either. A calendar in the search bar, and a tap on any day label between the posts, jumps to a date.
-6. **Post view**: full post with media viewer, open in Telegram, share.
-7. **Settings**: account as a profile (photo, name, username, phone, bio, Telegram ID), logout, media autoplay, appearance, storage usage and cache clearing, about and licenses.
+6. **Channel info**: opened from the channel's title — photo, name, subscribers, description, link, and tabs with the shared media of the channel: Media, Files, Links, Music, Voice. No mute and no leave: notifications are the app's own rules and the app never joins or leaves a channel.
+7. **Post view**: full post with media viewer, open in Telegram, share.
+8. **Settings**: account as a profile (photo, name, username, phone, bio, Telegram ID), logout, media autoplay, appearance, storage usage and cache clearing, about and licenses.
 
 Phase 2 adds **Rules list**, **Rule editor**, and **Read-aloud settings**.
 

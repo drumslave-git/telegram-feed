@@ -1,0 +1,187 @@
+import 'package:app_db/app_db.dart';
+import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:telegram_feed/feeds/shared_media.dart';
+import 'package:telegram_feed/feeds/timeline_screen.dart';
+import 'package:telegram_feed/home/channel_info_screen.dart';
+import 'package:telegram_gateway/telegram_gateway.dart';
+
+import 'feeds_screen_test.dart' show ChannelsGateway;
+
+/// Histories answered by media kind, the way TDLib's search filters do.
+final class MediaGateway extends ChannelsGateway {
+  MediaGateway(this.histories, {List<Channel> channels = const []})
+    : super(channels);
+  final Map<int, List<Post>> histories;
+
+  @override
+  Future<List<Post>> history(
+    int chatId, {
+    int fromMessageId = 0,
+    int limit = 30,
+    bool onlyLocal = false,
+  }) async {
+    final all = histories[chatId] ?? const <Post>[];
+    return (fromMessageId == 0
+            ? all
+            : all.where((p) => p.messageId < fromMessageId))
+        .take(limit)
+        .toList();
+  }
+
+  @override
+  Future<ChannelInfo> channelInfo(int chatId) async => ChannelInfo(
+    chatId: chatId,
+    description: 'All the news that fits',
+    memberCount: 1234,
+    inviteLink: 'https://t.me/+private',
+  );
+
+  @override
+  Future<SearchPage> searchHistory(
+    int chatId, {
+    String query = '',
+    HistoryFilter filter = HistoryFilter.any,
+    int fromMessageId = 0,
+    int limit = 30,
+  }) async {
+    bool matches(Post p) {
+      final m = p.media;
+      return switch (filter) {
+        HistoryFilter.any => true,
+        HistoryFilter.photoAndVideo => m is PhotoMedia || m is VideoMedia,
+        HistoryFilter.document => m is DocumentMedia,
+        HistoryFilter.url => p.text.contains('http'),
+        HistoryFilter.audio => m is AudioMedia && !m.isVoice,
+        HistoryFilter.voice => m is AudioMedia && m.isVoice,
+      };
+    }
+
+    final all = [
+      for (final p in histories[chatId] ?? const <Post>[])
+        if (matches(p)) p,
+    ];
+    return SearchPage(posts: all, totalCount: all.length);
+  }
+}
+
+void main() {
+  /// The tiles keep a download spinner turning, so the tests step the clock by hand
+  /// instead of waiting for the tree to settle.
+  Future<void> settle(WidgetTester tester) async {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
+  const photo = PhotoMedia(
+    sizes: [FileRef(id: 1, remoteId: 'p', size: 10, width: 90, height: 90)],
+  );
+  const video = VideoMedia(
+    file: FileRef(id: 2, remoteId: 'v', size: 99),
+    durationSeconds: 754,
+    thumbnail: FileRef(id: 3, remoteId: 't', size: 5, width: 90, height: 90),
+  );
+  const doc = DocumentMedia(
+    file: FileRef(id: 4, remoteId: 'd', size: 20),
+    fileName: 'report.pdf',
+    mimeType: 'application/pdf',
+  );
+
+  Post post(int id, int date, {String text = '', Media? media}) =>
+      Post(chatId: -1, messageId: id, date: date, text: text, media: media);
+
+  late MediaGateway gw;
+  const channel = Channel(
+    chatId: -1,
+    title: 'Alpha News',
+    username: 'alpha',
+    memberCount: 1200,
+  );
+
+  setUp(() {
+    gw = MediaGateway(
+      {
+        -1: [
+          post(5, 1700000500, media: photo),
+          post(4, 1700000400, media: video),
+          post(3, 1700000300, media: doc),
+          post(2, 1700000200, text: 'read this https://example.org/story'),
+          post(1, 1700000100, text: 'plain'),
+        ],
+      },
+      channels: const [channel],
+    );
+  });
+
+  testWidgets('channel info: subscribers, description, link and media tabs', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChannelInfoScreen(gateway: gw, channel: channel),
+      ),
+    );
+    await settle(tester);
+
+    expect(find.text('Alpha News'), findsOneWidget);
+    // The full info replaces the count the channel list carried.
+    expect(find.text('1.2K subscribers'), findsOneWidget);
+    expect(find.text('All the news that fits'), findsOneWidget);
+    // A public channel is known by its username, not by the invite link.
+    expect(find.text('@alpha'), findsOneWidget);
+    expect(find.text('https://t.me/alpha'), findsOneWidget);
+
+    // Media: the photo and the video, the video with its length.
+    expect(find.byType(MediaTile), findsNWidgets(2));
+    expect(find.text('12:34'), findsOneWidget);
+
+    await tester.tap(find.text('Files'));
+    await settle(tester);
+    expect(find.text('report.pdf'), findsOneWidget);
+
+    await tester.tap(find.text('Links'));
+    await settle(tester);
+    expect(find.text('https://example.org/story'), findsOneWidget);
+    expect(find.byType(LinkRow), findsOneWidget);
+
+    await tester.tap(find.text('Voice'));
+    await settle(tester);
+    expect(find.text('Nothing here yet.'), findsOneWidget);
+  });
+
+  testWidgets('the channel title in the timeline opens the info screen', (
+    tester,
+  ) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, channel: channel),
+      ),
+    );
+    await settle(tester);
+
+    expect(find.text('1.2K subscribers'), findsOneWidget); // under the title
+    // The name is also on every bubble; the one in the app bar opens the info.
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.text('Alpha News'),
+      ),
+    );
+    await settle(tester);
+    expect(find.byType(ChannelInfoScreen), findsOneWidget);
+    expect(find.text('Channel info'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 30)),
+    );
+    await tester.pump();
+    await db.close();
+  });
+}
