@@ -13,8 +13,13 @@ Map<String, Object?> encodeMatch(RuleMatch m) =>
 /// Serves a [TelegramGateway] to any number of [CoreClient]s over ports. Runs in the core
 /// isolate.
 final class CoreServer {
-  CoreServer(TelegramGateway gateway, {this.log, this.engine, this.onRefresh})
-    : _gateway = gateway {
+  CoreServer(
+    TelegramGateway gateway, {
+    this.log,
+    this.engine,
+    this.onRefresh,
+    this.onShutdown,
+  }) : _gateway = gateway {
     _port.listen(_onMessage);
     _subscribe();
     final e = engine;
@@ -33,6 +38,14 @@ final class CoreServer {
 
   /// Re-reads rules and watched channels (the host owns the database).
   final Future<void> Function()? onRefresh;
+
+  /// Hands TDLib back: closes its client and stops its receive pump, so another core may
+  /// take over in this process (core handover, ARCHITECTURE 8). Run once, by [shutdown].
+  final Future<void> Function()? onShutdown;
+  bool _stopped = false;
+
+  /// True once the core has handed TDLib back and stopped serving.
+  bool get stopped => _stopped;
   StreamSubscription<RuleMatch>? _matchSub;
   StreamSubscription<PostEvent>? _engineSub;
   bool _paused = false;
@@ -127,6 +140,8 @@ final class CoreServer {
             (m['args'] as Map<Object?, Object?>?) ?? const {},
           );
           reply.send({'type': 'result', 'id': id, 'value': value});
+          // The caller waits for this answer, so the port only goes after it is sent.
+          if (_stopped) _port.close();
         } on TelegramException catch (e) {
           reply.send({
             'type': 'error',
@@ -140,6 +155,24 @@ final class CoreServer {
       default:
         log?.call('core: unknown message ${m['type']}');
     }
+  }
+
+  /// Stops serving and gives TDLib back through [onShutdown]. Idempotent.
+  Future<void> shutdown() async {
+    if (_stopped) return;
+    _stopped = true;
+    await _matchSub?.cancel();
+    await _engineSub?.cancel();
+    for (final s in _subs) {
+      await s.cancel();
+    }
+    _subs = [];
+    for (final s in _fileSubs.values) {
+      await s.cancel();
+    }
+    _fileSubs.clear();
+    _clients.clear();
+    await onShutdown?.call();
   }
 
   Future<Object?> _call(String method, Map<Object?, Object?> a) async {
@@ -226,6 +259,8 @@ final class CoreServer {
         _watchFile(a['fileId'] as int);
       case 'refresh':
         await onRefresh?.call();
+      case 'shutdown':
+        await shutdown();
       case 'setPaused':
         setPaused(a['paused'] as bool);
       case 'isPaused':

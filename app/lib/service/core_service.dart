@@ -141,8 +141,17 @@ class CoreServiceHandler extends TaskHandler {
 
   static void _log(String s) => debugPrint('service: $s');
 
+  /// The run of [onStart]; a destroy in the middle of it waits for it, or the core's
+  /// TDLib receive pump would outlive the service (ARCHITECTURE 8).
+  Future<void>? _starting;
+
   @override
-  Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
+  Future<void> onStart(DateTime timestamp, TaskStarter starter) {
+    final started = _starting = _start(starter);
+    return started;
+  }
+
+  Future<void> _start(TaskStarter starter) async {
     _log('onStart ($starter)');
     final paths = await appPaths();
     _db = AppDatabase(NativeDatabase(File(paths.db)));
@@ -296,13 +305,26 @@ class CoreServiceHandler extends TaskHandler {
   @override
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
     _log('onDestroy timeout=$isTimeout');
+    try {
+      await _starting?.timeout(const Duration(seconds: 10));
+    } on Object catch (e) {
+      _log('start unfinished at destroy: $e');
+    }
     await _pausedSub?.cancel();
     await _tts?.dispose();
+    // Give TDLib back before the isolate goes: its client has to drop the database lock
+    // and its receive pump has to stop, or the app's own core aborts the process.
+    try {
+      await _client?.shutdown().timeout(const Duration(seconds: 10));
+    } on Object catch (e) {
+      _log('core shutdown: $e');
+    }
     await _client?.close();
     IsolateNameServer.removePortNameMapping(notifierPortName);
     _actions.close();
     IsolateNameServer.removePortNameMapping(corePortName);
     _core?.kill(priority: Isolate.immediate);
     await _db?.close();
+    _log('core down');
   }
 }

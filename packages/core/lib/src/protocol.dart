@@ -12,7 +12,9 @@
 ///   {'type': 'event', 'stream': 'auth'|'posts'|'membership'|'files'|'matches'|'paused', 'data': Map}
 ///
 /// Calls beyond the gateway: 'refresh' (re-read rules and watched channels from the database),
-/// 'setPaused' {paused: bool} (stop/resume rule evaluation), 'isPaused'.
+/// 'setPaused' {paused: bool} (stop/resume rule evaluation), 'isPaused', 'shutdown' (close
+/// TDLib, stop its receive pump and stop serving, so another core may take over in this
+/// process; answered before the server's port goes).
 library;
 
 /// Name under which the core registers its port with `IsolateNameServer`.

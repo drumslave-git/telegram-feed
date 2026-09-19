@@ -102,6 +102,10 @@ final class CoreClient implements TelegramGateway {
   /// Asks the core to re-read rules and watched channels from the database.
   Future<void> refresh() => _call('refresh');
 
+  /// Asks the core to close TDLib and stop its receive pump, and waits for it. Only the
+  /// host taking a core down calls this (core handover, ARCHITECTURE 8).
+  Future<void> shutdown() async => await _call('shutdown');
+
   Future<void> setPaused(bool paused) => _call('setPaused', {'paused': paused});
 
   Future<bool> isPaused() async => (await _call('isPaused')) as bool;

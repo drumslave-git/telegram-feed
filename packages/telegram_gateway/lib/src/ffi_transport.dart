@@ -83,6 +83,8 @@ void _receiveLoop(List<Object> args) {
 final class _Receiver {
   static final _events = StreamController<Map<String, Object?>>.broadcast();
   static Future<void>? _started;
+  static Isolate? _isolate;
+  static ReceivePort? _inbox;
 
   static Stream<Map<String, Object?>> get events => _events.stream;
 
@@ -91,11 +93,33 @@ final class _Receiver {
     port.listen(
       (msg) => _events.add(jsonDecode(msg as String) as Map<String, Object?>),
     );
-    await Isolate.spawn(_receiveLoop, [
+    _isolate = await Isolate.spawn(_receiveLoop, [
       port.sendPort,
       TdJson._libraryPath,
     ], debugName: 'td_receive');
+    _inbox = port;
   }();
+
+  static Future<void> stop() async {
+    final starting = _started;
+    if (starting == null) return;
+    await starting; // a spawn in flight has to finish before it can be stopped
+    final isolate = _isolate;
+    _started = null;
+    _isolate = null;
+    if (isolate != null) {
+      final exited = ReceivePort();
+      isolate.addOnExitListener(exited.sendPort);
+      // The loop sits in td_receive; the kill lands when that returns, a second at most.
+      isolate.kill(priority: Isolate.immediate);
+      await exited.first
+          .timeout(const Duration(seconds: 3))
+          .catchError((Object _) => null);
+      exited.close();
+    }
+    _inbox?.close();
+    _inbox = null;
+  }
 }
 
 /// One TDLib client over the FFI.
@@ -131,4 +155,12 @@ final class FfiTransport implements TdTransport {
     // TDLib closes the client on `close`; the receive isolate keeps serving other clients.
     _td.send(clientId, const {'@type': 'close'});
   }
+
+  /// Stops the process-wide receive pump and waits for its isolate to be gone.
+  ///
+  /// `td_receive` may only be polled by one thread in the whole process: a second pump
+  /// makes TDLib abort ("Receive must not be called simultaneously from two different
+  /// threads"), which killed the app when the service's core was taken down and the app
+  /// spawned one of its own. A core that hands over leaves none behind (ARCHITECTURE 8).
+  static Future<void> stopReceiving() => _Receiver.stop();
 }

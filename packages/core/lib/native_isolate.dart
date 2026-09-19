@@ -92,13 +92,28 @@ Future<void> coreIsolateMain(CoreBootstrap b) async {
     };
     await refresh();
   }
-  final server = CoreServer(
+  late final CoreServer server;
+  var closing = false;
+  server = CoreServer(
     await _newGateway(b),
     log: (s) => print(s), // ignore: avoid_print
     engine: engine,
     onRefresh: refresh,
+    onShutdown: () async {
+      // Hand TDLib back: close the client so it drops the database lock, then stop the
+      // receive pump, so the next core in this process can start one of its own.
+      closing = true;
+      final gateway = server.gateway;
+      if (gateway is TdlibGateway) {
+        await gateway.closeAndWait();
+      } else {
+        await gateway.close();
+      }
+      await FfiTransport.stopReceiving();
+      print('core: handed TDLib back'); // ignore: avoid_print
+    },
   );
-  _watchForClose(server, b);
+  _watchForClose(server, b, () => closing);
   b.replyTo?.send(server.sendPort);
 }
 
@@ -123,13 +138,19 @@ Future<TdlibGateway> _newGateway(CoreBootstrap b) async {
   );
 }
 
-void _watchForClose(CoreServer server, CoreBootstrap b) {
+void _watchForClose(
+  CoreServer server,
+  CoreBootstrap b,
+  bool Function() closing,
+) {
   late StreamSubscription<AuthState> sub;
   sub = server.gateway.authState.listen((s) async {
     if (s is! AuthClosed) return;
     await sub.cancel();
+    // A close during the handover is the end of this core, not a logout to recover from.
+    if (closing()) return;
     await server.replaceGateway(await _newGateway(b));
-    _watchForClose(server, b);
+    _watchForClose(server, b, closing);
   });
 }
 

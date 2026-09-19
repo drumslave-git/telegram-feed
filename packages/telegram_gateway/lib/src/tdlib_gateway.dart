@@ -675,6 +675,28 @@ final class TdlibGateway implements TelegramGateway {
     partialPath: f.local?.path ?? '',
   );
 
+  /// Closes TDLib's client and waits until TDLib says it is closed, so the database lock
+  /// is free for the next client in this process (core handover, ARCHITECTURE 8). Falls
+  /// back to a plain [close] when TDLib stays silent.
+  Future<void> closeAndWait({
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    final closed = authState
+        .firstWhere((s) => s is AuthClosed)
+        .then<void>((_) {})
+        .timeout(
+          timeout,
+          onTimeout: () => log?.call('close: TDLib did not answer in time'),
+        );
+    try {
+      await _client.call(const td.Close());
+    } on TelegramException catch (e) {
+      log?.call('close: $e');
+    }
+    await closed;
+    await close();
+  }
+
   @override
   Future<void> close() async {
     await _sub.cancel();

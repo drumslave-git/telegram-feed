@@ -88,17 +88,41 @@ final class CoreHost implements AppHost {
   }
 
   /// Background watching is off, so the service must go even when Android brought it back
-  /// on boot. Waiting for it to be gone keeps its core isolate, and the TDLib receive
-  /// isolate with it, from overlapping with the one spawned in this engine.
+  /// on boot (it restores the service before Dart runs). Its core has to be really gone
+  /// first: `isRunningService` turning false says nothing about the core isolate, and the
+  /// TDLib receive pump it leaves behind aborts the process as soon as this engine starts
+  /// one of its own ("Receive must not be called simultaneously from two different
+  /// threads"). The service takes the core's port out of `IsolateNameServer` once its core
+  /// has handed TDLib back, so that mapping is the handshake; a core still registered
+  /// afterwards is shut down from here.
   Future<void> _stopService() async {
-    if (!await FlutterForegroundTask.isRunningService) return;
-    await FlutterForegroundTask.stopService();
-    final end = DateTime.now().add(const Duration(seconds: 5));
-    while (DateTime.now().isBefore(end) &&
-        await FlutterForegroundTask.isRunningService) {
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+    if (await FlutterForegroundTask.isRunningService) {
+      await FlutterForegroundTask.stopService();
+      final end = DateTime.now().add(const Duration(seconds: 15));
+      while (DateTime.now().isBefore(end) &&
+          (await FlutterForegroundTask.isRunningService ||
+              IsolateNameServer.lookupPortByName(corePortName) != null)) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
     }
+    await _shutdownForeignCore();
+  }
+
+  /// Shuts down a core that is still registered in this process and waits for it, so this
+  /// engine may spawn its own. Does nothing when there is none.
+  Future<void> _shutdownForeignCore() async {
+    final port = IsolateNameServer.lookupPortByName(corePortName);
     IsolateNameServer.removePortNameMapping(corePortName);
+    if (port == null) return;
+    debugPrint('core: a core is still registered; asking it to stand down');
+    try {
+      final client = await CoreClient.connect(port)
+          .timeout(const Duration(seconds: 5));
+      await client.shutdown().timeout(const Duration(seconds: 10));
+      await client.close();
+    } on Object catch (e) {
+      debugPrint('core: stand down failed: $e');
+    }
   }
 
   Future<SendPort?> _waitForPort(Duration timeout) async {

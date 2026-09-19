@@ -309,6 +309,37 @@ void main() {
       await sub.cancel();
     });
 
+    test('shutdown hands TDLib back, answers, then stops serving', () async {
+      var handedBack = 0;
+      final gw2 = FakeGateway();
+      final stopping = CoreServer(gw2, onShutdown: () async => handedBack++);
+      final other = await CoreClient.connect(stopping.sendPort);
+      final events = <PostEvent>[];
+      final sub = other.postEvents.listen(events.add);
+      await Future<void>.delayed(Duration.zero);
+
+      // The answer comes before the port goes, so the caller knows TDLib is free.
+      await other.shutdown();
+      expect(handedBack, 1);
+      expect(stopping.stopped, isTrue);
+
+      // Nothing is served afterwards, and the gateway's events no longer reach anyone.
+      gw2.postCtl.add(
+        const PostAdded(Post(chatId: -1, messageId: 1, date: 1, text: 'x')),
+      );
+      await expectLater(
+        other.refresh().timeout(const Duration(milliseconds: 200)),
+        throwsA(isA<TimeoutException>()),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(events, isEmpty);
+
+      await stopping.shutdown(); // idempotent
+      expect(handedBack, 1);
+      await sub.cancel();
+      await other.close();
+    });
+
     test('download streams progress then completes', () async {
       final progress = <FileProgress>[];
       final sub = client.fileProgress(9).listen(progress.add);
