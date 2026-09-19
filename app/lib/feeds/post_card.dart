@@ -122,6 +122,7 @@ class PostCard extends StatelessWidget {
     this.availableReactions,
     this.onOpenThread,
     this.onOpenLink,
+    this.onAutoplaySettings,
   });
   final TimelineItem item;
   final String channelTitle;
@@ -141,6 +142,9 @@ class PostCard extends StatelessWidget {
 
   /// Tap on a link, a mention or an e-mail address in the text.
   final void Function(String url)? onOpenLink;
+
+  /// Menu entry of posts with a video: the autoplay switch and limits.
+  final VoidCallback? onAutoplaySettings;
 
   bool get _hasMenu =>
       onOpenInTelegram != null ||
@@ -189,6 +193,13 @@ class PostCard extends StatelessWidget {
                 leading: const Icon(Icons.link),
                 title: const Text('Copy link'),
                 onTap: () => Navigator.pop(context, onCopyLink),
+              ),
+            if (onAutoplaySettings != null &&
+                item.allPosts.any((p) => p.media is VideoMedia))
+              ListTile(
+                leading: const Icon(Icons.play_circle_outline),
+                title: const Text('Video autoplay settings'),
+                onTap: () => Navigator.pop(context, onAutoplaySettings),
               ),
           ],
         ),

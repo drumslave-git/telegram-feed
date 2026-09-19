@@ -8,6 +8,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../settings/settings_screen.dart' show showAutoplaySettings;
 import 'feed_editor_screen.dart';
 import 'open_links.dart';
 import 'post_card.dart';
@@ -657,6 +658,8 @@ class _TimelineViewState extends State<TimelineView> {
                 onReact: (emoji, remove) => _react(item, emoji, remove),
                 availableReactions: () => _availableReactions(item),
                 onOpenLink: _openLink,
+                onAutoplaySettings: () =>
+                    showAutoplaySettings(context, widget.db),
                 // Only posts of channels with a discussion group have a thread.
                 onOpenThread: !item.head.canComment
                     ? null

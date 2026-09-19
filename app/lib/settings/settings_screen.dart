@@ -112,8 +112,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const Divider(),
-          const _Header('Media'),
-          _AutoplaySettings(db: widget.db),
+          const _Header('Video autoplay'),
+          AutoplaySettings(db: widget.db),
           const Divider(),
           const _Header('Rules'),
           StreamBuilder<String?>(
@@ -342,9 +342,10 @@ class AccountHeader extends StatelessWidget {
   }
 }
 
-/// Autoplay switch with its two limits (SettingKeys.autoplay*).
-class _AutoplaySettings extends StatelessWidget {
-  const _AutoplaySettings({required this.db});
+/// Autoplay switch with its two limits (SettingKeys.autoplay*). In Settings, and in a sheet
+/// the menu of a video post opens ([showAutoplaySettings]).
+class AutoplaySettings extends StatelessWidget {
+  const AutoplaySettings({super.key, required this.db});
   final AppDatabase db;
 
   static const _seconds = [15, 30, 60, 120, 300];
@@ -444,3 +445,27 @@ String formatBytes(int bytes) {
       ? '$bytes B'
       : '${v.toStringAsFixed(v >= 10 ? 0 : 1)} ${units[i]}';
 }
+
+/// The autoplay settings right where videos play: a sheet over the timeline.
+Future<void> showAutoplaySettings(BuildContext context, AppDatabase db) =>
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                'Video autoplay',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            AutoplaySettings(db: db),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
