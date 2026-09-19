@@ -51,6 +51,8 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - The feed opens where I left it earlier in the session; otherwise at the first unread post, and at the newest post when everything is read.
 - I can scroll up indefinitely; older posts load as I scroll. Posts that arrive while I read older ones wait behind a button with their count.
 - I can view photos inline, play video, voice, and audio without leaving the app.
+- A tap on a video plays it full screen at once, in the orientation I hold the phone. There I can seek, zoom with a double tap or a pinch and move the zoomed picture, hold a finger down for 2× speed, swipe down to close, swipe sideways through the photos and videos of the album, and shrink the video to a floating player. Leaving full screen stops the video and its download; short videos that autoplay in the timeline go on playing there without sound.
+- Every video has a download button in its top left corner that keeps the whole file in Telegram's cache, with progress and cancel.
 - Each feed shows an unread count. Posts are marked read once I have seen them down to their end.
 - Reading a post here also marks it read in the official Telegram app. A setting turns this off.
 - I can open the original post in the official Telegram app.

@@ -32,20 +32,11 @@ class MediaView extends StatelessWidget {
       gateway: gateway,
       onTap: onOpenPhoto,
     ),
-    VideoMedia(
-      :final file,
-      :final thumbnail,
-      :final durationSeconds,
-      :final isAnimation,
-    ) =>
-      VideoView(
-        file: file,
-        thumbnail: thumbnail,
-        durationSeconds: durationSeconds,
-        isAnimation: isAnimation,
-        gateway: gateway,
-        autoplay: AutoplayScope.of(context).allows(media as VideoMedia),
-      ),
+    final VideoMedia video => VideoView(
+      video: video,
+      gateway: gateway,
+      autoplay: AutoplayScope.of(context).allows(video),
+    ),
     AudioMedia(
       :final file,
       :final durationSeconds,
@@ -232,65 +223,75 @@ class PhotoView extends StatelessWidget {
   }
 }
 
-/// Thumbnail with a play button; plays inline on tap while TDLib downloads the file
-/// ([VideoSessions]). A session that is already running for the file is picked up again, so
-/// a row rebuilt by the list keeps playing.
+/// Thumbnail with a play button. A tap plays the video in the full-screen viewer at once, as
+/// the official app does; the timeline itself only shows muted autoplay ([AutoplayPolicy]),
+/// and a tap on that opens the viewer with sound too.
 class VideoView extends StatefulWidget {
   const VideoView({
     super.key,
-    required this.file,
-    required this.thumbnail,
-    required this.durationSeconds,
-    required this.isAnimation,
+    required this.video,
     required this.gateway,
     this.autoplay = false,
+    this.onOpen,
   });
-  final FileRef file;
-  final FileRef? thumbnail;
-  final int durationSeconds;
-  final bool isAnimation;
+  final VideoMedia video;
   final TelegramGateway gateway;
 
   /// Starts muted once most of it is visible ([AutoplayPolicy]).
   final bool autoplay;
+
+  /// Opens the viewer (the timeline pages through the post's album); by default the viewer
+  /// shows this video alone.
+  final VoidCallback? onOpen;
 
   @override
   State<VideoView> createState() => _VideoViewState();
 }
 
 class _VideoViewState extends State<VideoView> {
+  /// Only ever an autoplay session; a video started by a tap belongs to the viewer.
   VideoSession? _session;
 
   VideoSessions get _sessions => VideoSessions.of(widget.gateway);
+  FileRef get _file => widget.video.file;
 
   @override
   void initState() {
     super.initState();
-    _adopt(_sessions.find(widget.file.id));
+    _adopt(_sessions.find(_file.id));
   }
 
   @override
   void didUpdateWidget(VideoView old) {
     super.didUpdateWidget(old);
-    if (old.file.id != widget.file.id) {
+    if (old.video.file.id != _file.id) {
       _session?.release();
       _session = null;
-      _adopt(_sessions.find(widget.file.id));
+      _adopt(_sessions.find(_file.id));
     }
   }
 
   void _adopt(VideoSession? s) {
-    if (s == null) return;
+    if (s == null || !s.autoplay) return;
     s.retain();
     _session = s;
   }
 
-  void _play() => setState(
-    () => _adopt(_sessions.open(widget.file, loop: widget.isAnimation)),
-  );
+  void _open() {
+    final onOpen = widget.onOpen;
+    if (onOpen != null) return onOpen();
+    unawaited(
+      FullscreenVideoScreen.open(
+        context,
+        video: widget.video,
+        gateway: widget.gateway,
+        poster: _poster(BoxFit.contain),
+      ),
+    );
+  }
 
-  /// Autoplay starts when most of the video is on screen. Anything playing pauses once it
-  /// has left the screen, unless the full-screen view is showing it.
+  /// Autoplay starts when most of the video is on screen and pauses once little of it is
+  /// left, unless the viewer is showing it.
   void _onVisibility(VisibilityInfo info) {
     if (!mounted) return;
     final visible = info.visibleFraction;
@@ -298,19 +299,15 @@ class _VideoViewState extends State<VideoView> {
     if (s == null) {
       if (widget.autoplay && visible >= 0.6) {
         setState(
-          () => _adopt(_sessions.open(widget.file, loop: true, autoplay: true)),
+          () => _adopt(_sessions.open(_file, loop: true, autoplay: true)),
         );
       }
       return;
     }
     if (s.isShared) return;
-    if (s.autoplay && s.muted) {
-      if (visible >= 0.6) {
-        unawaited(s.play());
-      } else if (visible < 0.2) {
-        unawaited(s.pause());
-      }
-    } else if (visible == 0) {
+    if (visible >= 0.6) {
+      unawaited(s.play());
+    } else if (visible < 0.2) {
       unawaited(s.pause());
     }
   }
@@ -321,26 +318,25 @@ class _VideoViewState extends State<VideoView> {
     super.dispose();
   }
 
-  Widget _poster() => widget.thumbnail == null
+  Widget _poster(BoxFit fit) => widget.video.thumbnail == null
       ? const ColoredBox(color: Colors.black26)
       : Downloaded(
-          key: ValueKey(widget.thumbnail!.id),
-          file: widget.thumbnail!,
+          key: ValueKey(widget.video.thumbnail!.id),
+          file: widget.video.thumbnail!,
           gateway: widget.gateway,
           placeholder: const ColoredBox(color: Colors.black26),
-          builder: (context, path) => Image.file(File(path), fit: BoxFit.cover),
+          builder: (context, path) => Image.file(File(path), fit: fit),
         );
 
   @override
   Widget build(BuildContext context) {
-    final aspect = widget.file.width > 0 && widget.file.height > 0
-        ? widget.file.width / widget.file.height
+    final aspect = _file.width > 0 && _file.height > 0
+        ? _file.width / _file.height
         : 16 / 9;
-    final session = _session;
     return VisibilityDetector(
-      key: ValueKey(('video', widget.file.id, identityHashCode(this))),
+      key: ValueKey(('video', _file.id, identityHashCode(this))),
       onVisibilityChanged: _onVisibility,
-      child: _frame(aspect, session),
+      child: _frame(aspect, _session),
     );
   }
 
@@ -349,34 +345,39 @@ class _VideoViewState extends State<VideoView> {
       borderRadius: BorderRadius.circular(8),
       child: AspectRatio(
         aspectRatio: aspect.clamp(0.5, 2.5),
-        child: session != null
-            ? VideoStage(session: session, poster: _poster())
-            : Stack(
-                fit: StackFit.expand,
-                children: [
-                  _poster(),
-                  Center(
-                    child: IconButton.filled(
-                      iconSize: 40,
-                      tooltip: 'Play',
-                      onPressed: _play,
-                      icon: const Icon(Icons.play_arrow),
-                    ),
+        child: GestureDetector(
+          onTap: _open,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (session != null)
+                InlineVideo(session: session, poster: _poster(BoxFit.cover))
+              else ...[
+                _poster(BoxFit.cover),
+                Center(
+                  child: IconButton.filled(
+                    iconSize: 40,
+                    tooltip: 'Play',
+                    onPressed: _open,
+                    icon: const Icon(Icons.play_arrow),
                   ),
-                  Positioned(
-                    right: 8,
-                    bottom: 8,
-                    child: Chip(
-                      label: Text(
-                        widget.isAnimation
-                            ? 'GIF'
-                            : formatDuration(widget.durationSeconds),
-                      ),
-                      visualDensity: VisualDensity.compact,
+                ),
+                Positioned(
+                  right: 8,
+                  bottom: 8,
+                  child: Chip(
+                    label: Text(
+                      widget.video.isAnimation
+                          ? 'GIF'
+                          : formatDuration(widget.video.durationSeconds),
                     ),
+                    visualDensity: VisualDensity.compact,
                   ),
-                ],
-              ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

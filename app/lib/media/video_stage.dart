@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:video_player/video_player.dart';
 
 import '../feeds/media_view.dart' show formatDuration;
@@ -9,30 +10,72 @@ import 'video_sessions.dart';
 
 const _seekStep = Duration(seconds: 10);
 
-/// The picture of a [VideoSession] with its controls: tap shows or hides them, double tap on
-/// the left or right third seeks 10 seconds, double tap in the middle toggles full screen.
-///
-/// Used inline in the timeline and by [FullscreenVideoScreen]; both show the same session,
-/// so going full screen neither restarts nor re-downloads the video.
+/// The session's frames at the video's own aspect ratio.
+class VideoPicture extends StatelessWidget {
+  const VideoPicture(this.controller, {super.key});
+  final VideoPlayerController controller;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: AspectRatio(
+      aspectRatio: controller.value.aspectRatio,
+      child: VideoPlayer(controller),
+    ),
+  );
+}
+
+/// A video that autoplays in its timeline row: the picture without sound and without
+/// controls. Watching it properly happens in the viewer, which a tap on the row opens.
+class InlineVideo extends StatelessWidget {
+  const InlineVideo({super.key, required this.session, required this.poster});
+  final VideoSession session;
+  final Widget poster;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: session,
+    builder: (context, _) {
+      final c = session.controller;
+      final ready = c != null && c.value.isInitialized && session.error == null;
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          const ColoredBox(color: Colors.black),
+          if (ready) VideoPicture(c) else poster,
+          if (session.error == null && (!ready || c.value.isBuffering))
+            const Center(
+              child: CircularProgressIndicator(color: Colors.white70),
+            ),
+          if (ready && session.muted)
+            const Align(
+              alignment: Alignment.bottomRight,
+              child: Padding(
+                padding: EdgeInsets.all(8),
+                child: Icon(Icons.volume_off, color: Colors.white70, size: 20),
+              ),
+            ),
+        ],
+      );
+    },
+  );
+}
+
+/// The picture of a [VideoSession] with its controls, as the viewer shows it: tap shows or
+/// hides them, double tap on the left or right third seeks 10 seconds, double tap in the
+/// middle leaves the viewer.
 class VideoStage extends StatefulWidget {
-  const VideoStage({
-    super.key,
-    required this.session,
-    this.poster,
-    this.fullscreen = false,
-  });
+  const VideoStage({super.key, required this.session, this.poster});
   final VideoSession session;
 
   /// Shown until the first frame is ready (the post's thumbnail).
   final Widget? poster;
-  final bool fullscreen;
 
   @override
   State<VideoStage> createState() => _VideoStageState();
 }
 
 class _VideoStageState extends State<VideoStage> {
-  late bool _controls = !_s.autoplay;
+  bool _controls = true;
   Timer? _hide;
 
   /// Slider position while the user drags it; the player is asked once on release.
@@ -41,6 +84,8 @@ class _VideoStageState extends State<VideoStage> {
   /// -1 / +1 while the seek hint of that side is visible.
   int _seekHint = 0;
   Timer? _seekHintTimer;
+
+  TapDownDetails? _lastDoubleTap;
 
   VideoSession get _s => widget.session;
 
@@ -82,13 +127,6 @@ class _VideoStageState extends State<VideoStage> {
   }
 
   void _toggleControls() {
-    // A video that started by itself is silent; the first tap is "I want to watch this".
-    if (_s.autoplay && _s.muted) {
-      unawaited(_s.setMuted(false));
-      setState(() => _controls = true);
-      _scheduleHide();
-      return;
-    }
     setState(() => _controls = !_controls);
     if (_controls) _scheduleHide();
   }
@@ -100,7 +138,7 @@ class _VideoStageState extends State<VideoStage> {
     } else if (x > width * 2 / 3) {
       _seek(1);
     } else {
-      _toggleFullscreen();
+      _close();
     }
   }
 
@@ -113,13 +151,7 @@ class _VideoStageState extends State<VideoStage> {
     });
   }
 
-  void _toggleFullscreen() {
-    if (widget.fullscreen) {
-      Navigator.of(context).maybePop();
-    } else {
-      FullscreenVideoScreen.open(context, _s, poster: widget.poster);
-    }
-  }
+  void _close() => Navigator.of(context).maybePop();
 
   @override
   Widget build(BuildContext context) {
@@ -134,12 +166,7 @@ class _VideoStageState extends State<VideoStage> {
         children: [
           const ColoredBox(color: Colors.black),
           if (ready)
-            Center(
-              child: AspectRatio(
-                aspectRatio: c.value.aspectRatio,
-                child: VideoPlayer(c),
-              ),
-            )
+            VideoPicture(c)
           else if (widget.poster != null)
             widget.poster!,
           if (ready && _controls) const IgnorePointer(child: _Scrim()),
@@ -157,49 +184,41 @@ class _VideoStageState extends State<VideoStage> {
                 child: CircularProgressIndicator(color: Colors.white70),
               ),
             ),
-          if (ready && _s.muted && !_controls)
-            const IgnorePointer(
-              child: Align(
-                alignment: Alignment.bottomRight,
-                child: Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Icon(
-                    Icons.volume_off,
-                    color: Colors.white70,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ),
           if (_seekHint != 0)
             IgnorePointer(child: _SeekHint(direction: _seekHint)),
-          if (ready && _controls) _overlay(c),
+          if (ready && _controls) SafeArea(child: _overlay(c)),
+          // Leaving must work while the video still loads, too.
+          if (!ready || _controls) const _TopBar(),
         ],
       ),
     );
   }
 
-  TapDownDetails? _lastDoubleTap;
-
   Widget _error(String message) => ColoredBox(
     color: Colors.black,
-    child: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'Cannot play this video: $message',
-              textAlign: TextAlign.center,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70),
-            ),
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Cannot play this video: $message',
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ),
+              TextButton(onPressed: _s.retry, child: const Text('Try again')),
+            ],
           ),
-          TextButton(onPressed: _s.retry, child: const Text('Try again')),
-        ],
-      ),
+        ),
+        const _TopBar(),
+      ],
     ),
   );
 
@@ -292,17 +311,6 @@ class _VideoStageState extends State<VideoStage> {
                   icon: Icon(_s.muted ? Icons.volume_off : Icons.volume_up),
                   onPressed: () => _s.setMuted(!_s.muted),
                 ),
-                IconButton(
-                  tooltip: widget.fullscreen
-                      ? 'Leave full screen'
-                      : 'Full screen',
-                  icon: Icon(
-                    widget.fullscreen
-                        ? Icons.fullscreen_exit
-                        : Icons.fullscreen,
-                  ),
-                  onPressed: _toggleFullscreen,
-                ),
               ],
             ),
           ),
@@ -310,6 +318,22 @@ class _VideoStageState extends State<VideoStage> {
       ),
     );
   }
+}
+
+/// Back arrow in the top left corner, where the official viewer has it.
+class _TopBar extends StatelessWidget {
+  const _TopBar();
+
+  @override
+  Widget build(BuildContext context) => const SafeArea(
+    child: Align(
+      alignment: Alignment.topLeft,
+      child: Padding(
+        padding: EdgeInsets.all(4),
+        child: BackButton(color: Colors.white),
+      ),
+    ),
+  );
 }
 
 /// Darkens the top and bottom so the white controls stay readable on bright video.
@@ -362,20 +386,29 @@ class _SeekHint extends StatelessWidget {
   );
 }
 
-/// The session's video on the whole screen: system bars hidden, landscape for wide videos.
+/// One video on the whole screen, in whatever orientation the device has. Opening it starts
+/// (or takes over) the file's session with sound; leaving hands the session back, which ends
+/// playback and streaming unless the video autoplays in its row.
 class FullscreenVideoScreen extends StatefulWidget {
-  const FullscreenVideoScreen({super.key, required this.session, this.poster});
-  final VideoSession session;
+  const FullscreenVideoScreen({
+    super.key,
+    required this.video,
+    required this.gateway,
+    this.poster,
+  });
+  final VideoMedia video;
+  final TelegramGateway gateway;
   final Widget? poster;
 
   static Future<void> open(
-    BuildContext context,
-    VideoSession session, {
+    BuildContext context, {
+    required VideoMedia video,
+    required TelegramGateway gateway,
     Widget? poster,
   }) => Navigator.of(context, rootNavigator: true).push(
     PageRouteBuilder<void>(
       pageBuilder: (_, _, _) =>
-          FullscreenVideoScreen(session: session, poster: poster),
+          FullscreenVideoScreen(video: video, gateway: gateway, poster: poster),
       transitionsBuilder: (_, animation, _, child) =>
           FadeTransition(opacity: animation, child: child),
     ),
@@ -386,35 +419,28 @@ class FullscreenVideoScreen extends StatefulWidget {
 }
 
 class _FullscreenVideoScreenState extends State<FullscreenVideoScreen> {
+  late final VideoSession _session;
+
   @override
   void initState() {
     super.initState();
-    widget.session.retain();
+    _session = VideoSessions.of(widget.gateway).open(
+      widget.video.file,
+      loop: widget.video.isAnimation,
+    )..retainForViewer();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    final aspect = widget.session.controller?.value.aspectRatio ?? 1;
-    if (aspect > 1.1) {
-      SystemChrome.setPreferredOrientations(const [
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    }
   }
 
   @override
   void dispose() {
-    SystemChrome.setPreferredOrientations(const []);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    widget.session.release();
+    _session.releaseFromViewer();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.black,
-    body: VideoStage(
-      session: widget.session,
-      poster: widget.poster,
-      fullscreen: true,
-    ),
+    body: VideoStage(session: _session, poster: widget.poster),
   );
 }

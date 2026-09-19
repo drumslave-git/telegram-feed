@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** 4 (extras); feedback round 1 is closed. **Next task:** P4-3.
+**Current phase:** 4 (extras); feedback round 2 (video viewer) in progress. **Next task:** V-1.
 
 ## Phase 0 — Spikes
 
@@ -82,6 +82,17 @@ Founder feedback after using the debug release. Decisions taken the same day are
 - [x] F-10 Per-feed content filters (media presence, media type, minimum video length, text length); they apply to the timeline and to rules. `FeedFilter` in `core` (media presence, media kinds, minimum video length, minimum length of text posts), `feeds.filter_json` (schema v5 with migration test), filtering in `FeedTimeline`, read marks pass over hidden posts (`coveredFrom`), the rule engine drops a post that every feed with its channel hides, the filter syncs with the feed, `Show` row and sheet in the feed editor. Opening now also settles at the newest post when the unread ones nearly fit the screen. Verified on the emulator. (086a32a)
 - [x] F-11 Application icon: three channels merging into one feed, white on a blue-to-teal gradient. Adaptive icon as vector XML (foreground, gradient background, monochrome layer for themed icons), PNGs for launchers without adaptive icons rendered by `app/tool/generate_icons.dart` (preview in `docs/icon.png`), and `ic_stat_feed` as the status bar icon of the service and post notifications. Seen on the emulator in the app drawer and the notification shade. (c3356ca)
 - [-] F-12 Two login notices in the official app after one login: the founder logged in once and Telegram's Devices list shows one telegram-feed session, so the app created a single authorization. Nothing in the code opens a second one (one TDLib database, one core isolate; a second instance could not lock the database). Why Telegram showed two notices was not established; to be reopened if two sessions ever show up.
+
+## Feedback round 2 — video viewer like the official app (founder, 2026-09-19)
+
+Founder decisions of the same day: the download button fills Telegram's cache (no gallery export); an autoplayed video goes back to muted autoplay after full screen, any other video is paused and its streaming cancelled; swipe to close, hold for 2×, picture-in-picture and album paging belong to this round.
+
+- [ ] V-1 A tap plays in full screen at once, in the orientation the device has (nothing is forced). Leaving full screen pauses the video and cancels its streaming download; an autoplayed video returns to muted autoplay. Inline controls go away, the timeline only shows posters and muted autoplay.
+- [ ] V-2 Zoom in full screen: double tap in the middle zooms in and out, pinch zooms, a drag moves the zoomed picture; the edges keep the 10 s seek.
+- [ ] V-3 Download button in the top left corner of a video (timeline and viewer): size, progress ring, tap again cancels. The download goes to Telegram's cache and survives leaving full screen.
+- [ ] V-4 Swipe down or up closes the viewer with a fading background; holding a finger on the video plays at 2× while held.
+- [ ] V-5 One viewer for photos and videos: swiping sideways pages through the album of the post.
+- [ ] V-6 Picture-in-picture: a mini player floating over the timeline, and Android's system PiP window when the app is left while a video plays.
 
 ## Phase 4 — Extras
 

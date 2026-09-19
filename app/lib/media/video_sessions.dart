@@ -134,6 +134,37 @@ final class VideoSession extends ChangeNotifier {
     _idle = Timer(VideoSessions.gracePeriod, () => _owner._close(this));
   }
 
+  /// The full-screen viewer shows this session: with sound and playing. Called from widget
+  /// lifecycle methods, so the player is only touched once the frame is done (listeners
+  /// rebuild widgets).
+  void retainForViewer() {
+    retain();
+    scheduleMicrotask(() async {
+      if (_disposed) return;
+      if (_muted) await setMuted(false);
+      await play();
+    });
+  }
+
+  /// The viewer is done with the session. A video that autoplays in its row goes back to
+  /// playing there without sound; anything else stops at once and its streaming download is
+  /// cancelled, as the official app does.
+  void releaseFromViewer() {
+    if (_disposed) return;
+    _holders--;
+    final backToRow = autoplay && _holders > 0;
+    scheduleMicrotask(() async {
+      if (_disposed) return;
+      if (backToRow) {
+        await setMuted(true);
+        await play();
+      } else if (_holders <= 0) {
+        await pause();
+        await _owner._close(this);
+      }
+    });
+  }
+
   Future<void> _dispose() async {
     _disposed = true;
     _idle?.cancel();

@@ -62,14 +62,7 @@ void main() {
             const SizedBox(
               height: 900,
             ), // pushes the video below the 600 px window
-            VideoView(
-              file: v.file,
-              thumbnail: null,
-              durationSeconds: v.durationSeconds,
-              isAnimation: false,
-              gateway: gw,
-              autoplay: autoplay,
-            ),
+            VideoView(video: v, gateway: gw, autoplay: autoplay),
             const SizedBox(height: 900),
           ],
         ),
@@ -92,11 +85,22 @@ void main() {
       expect(platform.log, containsAllInOrder(['volume 1 0.0', 'play 1']));
       expect(find.byIcon(Icons.volume_off), findsOneWidget);
 
-      // First tap: sound on, controls shown.
-      await tester.tap(find.byType(VideoStage));
-      await tester.pump(const Duration(milliseconds: 400));
+      // A tap opens the viewer with sound on the same player.
+      await tester.tap(find.byType(InlineVideo));
+      await tester.pumpAndSettle();
+      expect(find.byType(FullscreenVideoScreen), findsOneWidget);
       expect(platform.log, contains('volume 1 1.0'));
-      expect(find.byTooltip('Sound off'), findsOneWidget);
+      expect(platform.sources, hasLength(1));
+
+      // Leaving it: muted autoplay in the row again, nothing is cancelled.
+      platform.log.clear();
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      await startUp(tester);
+      expect(platform.log, containsAllInOrder(['volume 1 0.0', 'play 1']));
+      expect(platform.log, isNot(contains('dispose 1')));
+      expect(gw.cancelled, isEmpty);
+      expect(find.byIcon(Icons.volume_off), findsOneWidget);
 
       platform.log.clear();
       await tester.drag(find.byType(ListView), const Offset(0, -700));
