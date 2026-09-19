@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/timeline_screen.dart';
+import 'package:telegram_feed/home/channel_list.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'feeds_screen_test.dart' show ChannelsGateway;
@@ -92,8 +93,12 @@ void main() {
     expect(y('one-old'), lessThan(y('two-mid')));
     expect(y('two-mid'), lessThan(y('one-newest')));
     expect(find.text('One'), findsNWidgets(2)); // both posts of channel One
-    expect(find.byTooltip('Open in Telegram'), findsNWidgets(3));
+    expect(find.byType(PostCard), findsNWidgets(3));
+    // Every row has the avatar of its channel (initials here: the fake has no photos).
+    expect(find.byType(ChannelAvatar), findsNWidgets(3));
     expect(find.text('Beginning of the feed'), findsOneWidget);
+    // Posts of 1970 in a feed read today: one day label above the oldest of them.
+    expect(find.text('January 1, 1970'), findsOneWidget);
 
     gw.posts.add(PostAdded(post(-2, 9, 900, 'two-live')));
     await settle(tester);
@@ -304,7 +309,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('reactions: chips show counts, tap toggles, picker adds', (
+  testWidgets('reactions: pills show counts, tap toggles, the menu adds', (
     tester,
   ) async {
     gw.histories[-1] = [
@@ -337,13 +342,15 @@ void main() {
     await settle(tester);
     expect(gw.reactions.last, '-1/3 +👍');
 
-    await tester.tap(find.byIcon(Icons.add_reaction_outlined));
+    // A tap on the bubble opens the menu, with the emoji the channel allows on top.
+    await tester.tap(find.text('hot take'));
     await settle(tester);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('🔥').last);
+    expect(find.text('Open in Telegram'), findsOneWidget);
+    await tester.tap(find.text('👍'));
     await settle(tester);
     await tester.pumpAndSettle();
-    expect(gw.reactions.last, '-1/3 +🔥');
+    expect(gw.reactions.last, '-1/3 +👍');
     await unmount(tester);
   });
 
@@ -397,13 +404,17 @@ void main() {
     );
     await settle(tester);
 
-    await tester.tap(find.byTooltip('More'));
+    // The round button beside the bubble, and the same action in the menu.
+    await tester.tap(find.byTooltip('Share'));
+    await tester.pumpAndSettle();
+    expect(shared, ['News|News\n\nshareable\n\nhttps://t.me/news/5']);
+    await tester.longPress(find.text('shareable'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Share'));
     await tester.pumpAndSettle();
-    expect(shared, ['News|News\n\nshareable\n\nhttps://t.me/news/5']);
+    expect(shared, hasLength(2));
 
-    await tester.tap(find.byTooltip('More'));
+    await tester.tap(find.text('shareable'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Copy link'));
     await tester.pumpAndSettle();

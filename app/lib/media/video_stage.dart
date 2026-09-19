@@ -27,9 +27,17 @@ class VideoPicture extends StatelessWidget {
 /// A video that autoplays in its timeline row: the picture without sound and without
 /// controls. Watching it properly happens in the viewer, which a tap on the row opens.
 class InlineVideo extends StatelessWidget {
-  const InlineVideo({super.key, required this.session, required this.poster});
+  const InlineVideo({
+    super.key,
+    required this.session,
+    required this.poster,
+    this.cover = false,
+  });
   final VideoSession session;
   final Widget poster;
+
+  /// Crops the picture into the box (a cell of an album) instead of fitting it inside.
+  final bool cover;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -41,7 +49,19 @@ class InlineVideo extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           const ColoredBox(color: Colors.black),
-          if (ready) VideoPicture(c) else poster,
+          if (!ready)
+            poster
+          else if (cover)
+            FittedBox(
+              fit: BoxFit.cover,
+              clipBehavior: Clip.hardEdge,
+              child: SizedBox.fromSize(
+                size: c.value.size,
+                child: VideoPlayer(c),
+              ),
+            )
+          else
+            VideoPicture(c),
           if (session.error == null && (!ready || c.value.isBuffering))
             const Center(
               child: CircularProgressIndicator(color: Colors.white70),

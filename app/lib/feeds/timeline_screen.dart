@@ -8,12 +8,13 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import '../media/media_viewer.dart';
 import 'feed_editor_screen.dart';
-import 'media_view.dart';
 import 'open_links.dart';
+import 'post_card.dart';
 import 'read_marker.dart';
 import 'thread_screen.dart';
+
+export 'post_card.dart' show PostCard;
 
 /// A timeline with its own app bar: a feed opened from a notification, or one channel
 /// opened from a folder tab or the channel list.
@@ -146,6 +147,9 @@ class _TimelineViewState extends State<TimelineView> {
   List<({int chatId, String title, String? username})> _sourceRows = const [];
   Map<int, String> _titles = const {};
   Map<int, String?> _usernames = const {};
+
+  /// Channel photos for the avatars beside the posts.
+  Map<int, FileRef?> _photos = const {};
   Map<int, int> _marks = const {};
   bool _loading = false;
   String? _error;
@@ -171,6 +175,7 @@ class _TimelineViewState extends State<TimelineView> {
     final feed = widget.feed;
     if (feed == null) {
       final c = widget.channel!;
+      _photos = {c.chatId: c.photo};
       _marks = {c.chatId: c.lastReadMessageId};
       _setSources([(chatId: c.chatId, title: c.title, username: c.username)]);
       return;
@@ -187,6 +192,7 @@ class _TimelineViewState extends State<TimelineView> {
       _marks = await widget.db.readMarks(feed.id);
       if (mounted) setState(() {});
     });
+    unawaited(_loadPhotos());
     _filter = FeedFilter.decode(feed.filterJson);
     // The filter can change in the feed editor while this timeline is underneath.
     _feedSub = widget.db.watchFeed(feed.id).listen((row) {
@@ -196,6 +202,18 @@ class _TimelineViewState extends State<TimelineView> {
       _timeline = null;
       _setSources(_sourceRows);
     });
+  }
+
+  /// The database keeps titles only; the photos come from Telegram's chat list. Rows show
+  /// initials until they are here.
+  Future<void> _loadPhotos() async {
+    try {
+      final channels = await widget.gateway.myChannels();
+      if (!mounted) return;
+      setState(() => _photos = {for (final c in channels) c.chatId: c.photo});
+    } on TelegramException {
+      // Initials stay.
+    }
   }
 
   Future<Map<int, int>> _loadMarks() async =>
@@ -504,44 +522,9 @@ class _TimelineViewState extends State<TimelineView> {
     }
   }
 
-  Future<void> _pickReaction(TimelineItem item) async {
-    final messenger = ScaffoldMessenger.of(context);
-    List<String> emoji;
-    try {
-      emoji = await widget.gateway.availableReactions(
-        item.chatId,
-        item.head.messageId,
-      );
-    } on TelegramException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
-      return;
-    }
-    if (!mounted) return;
-    if (emoji.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('This channel does not allow reactions.')),
-      );
-      return;
-    }
-    final chosen = await showModalBottomSheet<String>(
-      context: context,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final e in emoji)
-              ActionChip(
-                label: Text(e, style: const TextStyle(fontSize: 22)),
-                onPressed: () => Navigator.pop(context, e),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (chosen != null) await _react(item, chosen, false);
-  }
+  /// Emoji for the post menu; a failure is reported by the menu itself.
+  Future<List<String>> _availableReactions(TimelineItem item) =>
+      widget.gateway.availableReactions(item.chatId, item.head.messageId);
 
   @override
   void dispose() {
@@ -560,7 +543,12 @@ class _TimelineViewState extends State<TimelineView> {
     final items = t?.items ?? const <TimelineItem>[];
     return Stack(
       children: [
-        Positioned.fill(child: _body(context, t, items)),
+        Positioned.fill(
+          child: ColoredBox(
+            color: ChatColors.of(context).background,
+            child: _body(context, t, items),
+          ),
+        ),
         if (t != null && !_opening && !t.atTop)
           Positioned(
             right: 16,
@@ -580,6 +568,11 @@ class _TimelineViewState extends State<TimelineView> {
           ),
       ],
     );
+  }
+
+  static DateTime _dayOf(TimelineItem item) {
+    final d = DateTime.fromMillisecondsSinceEpoch(item.head.date * 1000);
+    return DateTime(d.year, d.month, d.day);
   }
 
   Widget _body(
@@ -620,11 +613,21 @@ class _TimelineViewState extends State<TimelineView> {
             itemCount: items.length + 1,
             itemBuilder: (context, i) {
               if (i == items.length) {
+                // The list builds this row a little before it scrolls into view: time to
+                // fetch older posts. Without it the spinner would turn for ever off screen
+                // when the rows end just short of it. After an error only scrolling retries.
+                if (!t.exhausted && _error == null) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) unawaited(_loadMore());
+                  });
+                }
                 return Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(10),
                   child: Center(
                     child: t.exhausted
-                        ? const Text('Beginning of the feed')
+                        ? const ChatPill('Beginning of the feed')
+                        : _error != null
+                        ? ChatPill('Telegram: $_error')
                         : const SizedBox(
                             height: 24,
                             width: 24,
@@ -638,13 +641,14 @@ class _TimelineViewState extends State<TimelineView> {
               final card = PostCard(
                 item: item,
                 channelTitle: _titles[item.chatId] ?? '',
+                channelPhoto: _photos[item.chatId],
                 gateway: widget.gateway,
                 unread: FeedTimeline.isUnread(item, _marks),
                 onOpenInTelegram: () => _openInTelegram(item),
                 onShare: () => _share(item),
                 onCopyLink: () => _copyLink(item),
                 onReact: (emoji, remove) => _react(item, emoji, remove),
-                onPickReaction: () => _pickReaction(item),
+                availableReactions: () => _availableReactions(item),
                 // Only posts of channels with a discussion group have a thread.
                 onOpenThread: !item.head.canComment
                     ? null
@@ -658,14 +662,22 @@ class _TimelineViewState extends State<TimelineView> {
                         ),
                       ),
               );
+              // The day goes above its first post: the row after this one is older.
+              final day = _dayOf(item);
+              final newDay =
+                  i == items.length - 1 || _dayOf(items[i + 1]) != day;
               return KeyedSubtree(
                 key: ValueKey(id),
-                child: id == _firstUnread
-                    ? Column(
+                child: !newDay && id != _firstUnread
+                    ? card
+                    : Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [const UnreadDivider(), card],
-                      )
-                    : card,
+                        children: [
+                          if (newDay) ChatPill(formatDay(day)),
+                          if (id == _firstUnread) const UnreadDivider(),
+                          card,
+                        ],
+                      ),
               );
             },
           );
@@ -680,9 +692,9 @@ class UnreadDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.symmetric(vertical: 4),
-      color: scheme.secondaryContainer,
+      color: scheme.secondaryContainer.withValues(alpha: 0.85),
       alignment: Alignment.center,
       child: Text(
         'Unread posts',
@@ -691,203 +703,4 @@ class UnreadDivider extends StatelessWidget {
       ),
     );
   }
-}
-
-/// One timeline row: channel, date, inline media, text.
-class PostCard extends StatelessWidget {
-  const PostCard({
-    super.key,
-    required this.item,
-    required this.channelTitle,
-    required this.gateway,
-    this.unread = false,
-    this.onOpenInTelegram,
-    this.onShare,
-    this.onCopyLink,
-    this.onReact,
-    this.onPickReaction,
-    this.onOpenThread,
-  });
-  final TimelineItem item;
-  final String channelTitle;
-  final TelegramGateway gateway;
-  final bool unread;
-  final VoidCallback? onOpenInTelegram;
-  final VoidCallback? onShare;
-  final VoidCallback? onCopyLink;
-
-  /// Tap on an existing reaction chip: adds it, or removes it when already chosen.
-  final void Function(String emoji, bool remove)? onReact;
-  final VoidCallback? onPickReaction;
-  final VoidCallback? onOpenThread;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final date = DateTime.fromMillisecondsSinceEpoch(item.head.date * 1000);
-    // Albums: parts in message order (oldest first) so the layout matches Telegram.
-    final media = [
-      for (final p in item.allPosts.reversed)
-        if (p.media != null) p.media!,
-    ];
-    return Card(
-      margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                if (unread)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: Icon(
-                      Icons.circle,
-                      size: 8,
-                      color: theme.colorScheme.primary,
-                      semanticLabel: 'unread',
-                    ),
-                  ),
-                Expanded(
-                  child: Text(
-                    channelTitle,
-                    style: theme.textTheme.labelLarge,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Text(_formatDate(date), style: theme.textTheme.labelSmall),
-                if (onOpenInTelegram != null)
-                  IconButton(
-                    tooltip: 'Open in Telegram',
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.open_in_new, size: 18),
-                    onPressed: onOpenInTelegram,
-                  ),
-                if (onShare != null || onCopyLink != null)
-                  PopupMenuButton<VoidCallback>(
-                    tooltip: 'More',
-                    icon: const Icon(Icons.more_vert, size: 18),
-                    padding: EdgeInsets.zero,
-                    onSelected: (action) => action(),
-                    itemBuilder: (context) => [
-                      if (onShare != null)
-                        PopupMenuItem(
-                          value: onShare,
-                          child: const ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(Icons.share_outlined),
-                            title: Text('Share'),
-                          ),
-                        ),
-                      if (onCopyLink != null)
-                        PopupMenuItem(
-                          value: onCopyLink,
-                          child: const ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(Icons.link),
-                            title: Text('Copy link'),
-                          ),
-                        ),
-                    ],
-                  ),
-              ],
-            ),
-            for (final m in media.take(10))
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: MediaView(
-                  media: m,
-                  gateway: gateway,
-                  onOpen: m is! PhotoMedia && m is! VideoMedia
-                      ? null
-                      : () {
-                          final items = MediaViewerScreen.viewable(media);
-                          MediaViewerScreen.open(
-                            context,
-                            items: items,
-                            gateway: gateway,
-                            initialIndex: items.indexOf(m),
-                          );
-                        },
-                ),
-              ),
-            if (media.length > 10)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  '+${media.length - 10} more',
-                  style: theme.textTheme.labelSmall,
-                ),
-              ),
-            if (item.text.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  item.text,
-                  maxLines: 12,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            if (item.head.editDate > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text('edited', style: theme.textTheme.labelSmall),
-              ),
-            if (onReact != null || item.head.reactions.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    for (final r in item.head.reactions)
-                      FilterChip(
-                        label: Text('${r.emoji} ${r.count}'),
-                        selected: r.chosen,
-                        visualDensity: VisualDensity.compact,
-                        onSelected: onReact == null
-                            ? null
-                            : (_) => onReact!(r.emoji, r.chosen),
-                      ),
-                    if (onPickReaction != null)
-                      ActionChip(
-                        label: const Icon(
-                          Icons.add_reaction_outlined,
-                          size: 18,
-                        ),
-                        visualDensity: VisualDensity.compact,
-                        onPressed: onPickReaction,
-                      ),
-                    if (onOpenThread != null)
-                      ActionChip(
-                        avatar: const Icon(Icons.forum_outlined, size: 18),
-                        label: Text(
-                          item.head.replyCount > 0
-                              ? '${item.head.replyCount} comment${item.head.replyCount == 1 ? '' : 's'}'
-                              : 'Comments',
-                        ),
-                        visualDensity: VisualDensity.compact,
-                        onPressed: onOpenThread,
-                      ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-String _formatDate(DateTime d) {
-  final now = DateTime.now();
-  String two(int n) => n.toString().padLeft(2, '0');
-  final time = '${two(d.hour)}:${two(d.minute)}';
-  if (d.year == now.year && d.month == now.month && d.day == now.day) {
-    return time;
-  }
-  return '${d.year}-${two(d.month)}-${two(d.day)} $time';
 }

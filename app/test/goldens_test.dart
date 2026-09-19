@@ -212,6 +212,35 @@ void main() {
             durationSeconds: 754,
           ),
         ),
+        // An album: three videos without posters (flat cells), laid out as a mosaic.
+        for (final (i, size) in const [
+          (600, 900),
+          (800, 800),
+          (900, 600),
+        ].indexed)
+          Post(
+            chatId: -2,
+            messageId: 150 - i,
+            date: 1700003000,
+            text: i == 2 ? 'Album caption' : '',
+            albumId: 77,
+            views: 12400,
+            editDate: 1700003500,
+            reactions: const [
+              Reaction(emoji: '+', count: 1200, chosen: true),
+              Reaction(emoji: '-', count: 3),
+            ],
+            media: VideoMedia(
+              file: FileRef(
+                id: 10 + i,
+                remoteId: 'a$i',
+                size: 100,
+                width: size.$1,
+                height: size.$2,
+              ),
+              durationSeconds: 61,
+            ),
+          ),
       ],
     });
     for (final (mode, name) in [
@@ -225,6 +254,11 @@ void main() {
         ),
       );
       await _settle(tester);
+      // The switch to the dark theme is animated (200 ms); without letting it finish the
+      // "dark" image shows the light theme. Widgets that animate their own colours
+      // (avatars) only start once the new theme is there, hence the second pump.
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/$name.png'),

@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 3 (posts like the official app), then 4 (extras). **Next task:** R-2.
+**Current phase:** feedback round 3 (posts like the official app), then 4 (extras). **Next task:** R-4.
 
 ## Phase 0 — Spikes
 
@@ -100,9 +100,9 @@ Verified on the emulator (NewsFeed, 2026-09-19): a tap opens the viewer at once 
 
 Founder decisions of the same day: the unread dot sits next to the time in a reserved slot, so nothing moves when a post becomes read; a feed made from a folder is a one-time copy of its channels; autoplay keeps the settings of F-6 (they were overlooked), they only become easier to find.
 
-- [x] R-1 Long press on a folder tab offers "Create feed from folder": a feed with the folder's name and its current channels, in the folder's order, each starting at Telegram's read position; the Feeds tab comes up with an Open action. (R1HASH)
-- [ ] R-2 Posts look like the official app: bubbles on a chat background, channel avatar beside the bubble, coloured channel name, views / edited / time in the bottom right corner with the unread dot in a reserved slot, reaction pills, a comments bar, a share button beside the bubble, date pills between days, the other actions in a menu on tap or long press.
-- [ ] R-3 Albums as Telegram's mosaic (its grouped layout algorithm) instead of one full-width picture under the other.
+- [x] R-1 Long press on a folder tab offers "Create feed from folder": a feed with the folder's name and its current channels, in the folder's order, each starting at Telegram's read position; the Feeds tab comes up with an Open action. (7b3703e)
+- [x] R-2 Posts look like the official app: bubbles on a tinted chat background, the channel's avatar beside the bubble, coloured channel name (Telegram's seven peer colours), views / edited / time in the bottom right corner on the last line of the text (`BubbleText`, a render object of its own) or on top of the pictures when nothing follows them, the unread dot in a reserved slot beside the time, reaction pills, a comments bar, a round share button beside the bubble, day pills between days; a tap or long press on the bubble opens the menu (reactions strip, Open in Telegram, Comments, Share, Copy link). `PostCard` moved to `feeds/post_card.dart`. Older posts are now fetched as soon as the loading row is built: with the shorter rows its spinner could end up just off screen and turn for ever. (R23HASH)
+- [x] R-3 Albums as Telegram's mosaic: `layoutAlbum` ports the grouped layout of the official apps (hand-made arrangements for two to four pictures, row splitting for more), `AlbumMosaic` crops photos and videos into the cells (`MediaView.fill`), audio and documents stay a list. The timeline goldens got an album; the dark golden had never been dark (it was captured before the theme animation ran), fixed in the test. (R23HASH)
 - [ ] R-4 Formatted text: bold, italic, underline, strikethrough, code, quotes, spoilers, links, mentions and hashtags (`Post.entities`).
 - [ ] R-5 Avatars everywhere else: comment authors and the post in the thread view, feed editor, channel picker, rule scope picker.
 - [ ] R-6 Autoplay settings are easier to find.

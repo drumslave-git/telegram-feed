@@ -20,6 +20,8 @@ class MediaView extends StatelessWidget {
     required this.media,
     required this.gateway,
     this.onOpen,
+    this.fill = false,
+    this.radius = 8,
   });
   final Media media;
   final TelegramGateway gateway;
@@ -27,18 +29,29 @@ class MediaView extends StatelessWidget {
   /// Tap on a photo or a video: the timeline opens the viewer on the album of the post.
   final VoidCallback? onOpen;
 
+  /// A cell of an album mosaic: the picture is cropped into the box the parent gives it
+  /// instead of taking the height of its own proportions.
+  final bool fill;
+
+  /// Corner radius of photos and videos; 0 inside a bubble, which clips them itself.
+  final double radius;
+
   @override
   Widget build(BuildContext context) => switch (media) {
     PhotoMedia(:final sizes) => PhotoView(
       file: _pickSize(sizes, MediaQuery.sizeOf(context).width),
       gateway: gateway,
       onTap: onOpen,
+      fill: fill,
+      radius: radius,
     ),
     final VideoMedia video => VideoView(
       video: video,
       gateway: gateway,
       autoplay: AutoplayScope.of(context).allows(video),
       onOpen: onOpen,
+      fill: fill,
+      radius: radius,
     ),
     AudioMedia(
       :final file,
@@ -191,40 +204,53 @@ class PhotoView extends StatelessWidget {
     required this.file,
     required this.gateway,
     this.onTap,
+    this.fill = false,
+    this.radius = 8,
   });
   final FileRef file;
   final TelegramGateway gateway;
   final VoidCallback? onTap;
+  final bool fill;
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
     final aspect = file.width > 0 && file.height > 0
         ? file.width / file.height
         : 4 / 3;
+    final picture = Downloaded(
+      file: file,
+      gateway: gateway,
+      placeholder: const ColoredBox(
+        color: Colors.black12,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      builder: (context, path) => Image.file(
+        File(path),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        gaplessPlayback: true,
+      ),
+    );
     return GestureDetector(
       onTap: onTap,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: AspectRatio(
-          aspectRatio: aspect.clamp(0.5, 2.5),
-          child: Downloaded(
-            file: file,
-            gateway: gateway,
-            placeholder: const ColoredBox(
-              color: Colors.black12,
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            builder: (context, path) => Image.file(
-              File(path),
-              fit: BoxFit.cover,
-              gaplessPlayback: true,
-            ),
-          ),
-        ),
+        borderRadius: BorderRadius.circular(radius),
+        child: fill
+            ? SizedBox.expand(child: picture)
+            : AspectRatio(
+                aspectRatio: aspect.clamp(mediaMinAspect, mediaMaxAspect),
+                child: picture,
+              ),
       ),
     );
   }
 }
+
+/// Proportions a single photo or video may take in a row; beyond them it is cropped.
+const mediaMinAspect = 0.65;
+const mediaMaxAspect = 2.5;
 
 /// Thumbnail with a play button. A tap plays the video in the full-screen viewer at once, as
 /// the official app does; the timeline itself only shows muted autoplay ([AutoplayPolicy]),
@@ -236,9 +262,15 @@ class VideoView extends StatefulWidget {
     required this.gateway,
     this.autoplay = false,
     this.onOpen,
+    this.fill = false,
+    this.radius = 8,
   });
   final VideoMedia video;
   final TelegramGateway gateway;
+
+  /// See [MediaView.fill] and [MediaView.radius].
+  final bool fill;
+  final double radius;
 
   /// Starts muted once most of it is visible ([AutoplayPolicy]).
   final bool autoplay;
@@ -351,7 +383,12 @@ class _VideoViewState extends State<VideoView> {
           file: widget.video.thumbnail!,
           gateway: widget.gateway,
           placeholder: const ColoredBox(color: Colors.black26),
-          builder: (context, path) => Image.file(File(path), fit: BoxFit.cover),
+          builder: (context, path) => Image.file(
+            File(path),
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+          ),
         );
 
   @override
@@ -367,54 +404,99 @@ class _VideoViewState extends State<VideoView> {
   }
 
   Widget _frame(double aspect, VideoSession? session) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: AspectRatio(
-        aspectRatio: aspect.clamp(0.5, 2.5),
-        child: GestureDetector(
-          onTap: _open,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (session != null)
-                InlineVideo(session: session, poster: _poster())
-              else ...[
-                _poster(),
-                Center(
-                  child: IconButton.filled(
-                    iconSize: 40,
-                    tooltip: 'Play',
-                    onPressed: _open,
-                    icon: const Icon(Icons.play_arrow),
-                  ),
-                ),
-                Positioned(
-                  right: 8,
-                  bottom: 8,
-                  child: Chip(
-                    label: Text(
-                      widget.video.isAnimation
-                          ? 'GIF'
-                          : formatDuration(widget.video.durationSeconds),
-                    ),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-              ],
-              Positioned(
-                left: 8,
-                top: 8,
-                child: VideoDownloadButton(
-                  file: _file,
-                  gateway: widget.gateway,
-                ),
+    final fill = widget.fill;
+    final content = GestureDetector(
+      onTap: _open,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (session != null)
+            InlineVideo(session: session, poster: _poster(), cover: fill)
+          else ...[
+            _poster(),
+            Center(
+              child: _PlayBadge(size: fill ? 40 : 56, onPressed: _open),
+            ),
+            Positioned(
+              right: 6,
+              bottom: 6,
+              child: MediaBadge(
+                widget.video.isAnimation
+                    ? 'GIF'
+                    : formatDuration(widget.video.durationSeconds),
               ),
-            ],
-          ),
-        ),
+            ),
+          ],
+          // Too much for a small cell of an album; the viewer has the button as well.
+          if (!fill)
+            Positioned(
+              left: 8,
+              top: 8,
+              child: VideoDownloadButton(file: _file, gateway: widget.gateway),
+            ),
+        ],
       ),
     );
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(widget.radius),
+      child: fill
+          ? SizedBox.expand(child: content)
+          : AspectRatio(
+              aspectRatio: aspect.clamp(mediaMinAspect, mediaMaxAspect),
+              child: content,
+            ),
+    );
   }
+}
+
+/// The round, see-through play button of the official app.
+class _PlayBadge extends StatelessWidget {
+  const _PlayBadge({required this.size, required this.onPressed});
+  final double size;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: 'Play',
+    child: Material(
+      color: Colors.black45,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPressed,
+        child: SizedBox.square(
+          dimension: size,
+          child: Icon(Icons.play_arrow, color: Colors.white, size: size * 0.6),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Small dark label on top of a picture: the length of a video, the time of a post.
+class MediaBadge extends StatelessWidget {
+  const MediaBadge(this.label, {super.key, this.child});
+  final String label;
+
+  /// Replaces the plain [label] (a footer with icons).
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Colors.black54,
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      child:
+          child ??
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+    ),
+  );
 }
 
 /// Play/pause row for voice messages and audio files.
