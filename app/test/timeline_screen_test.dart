@@ -3,7 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:telegram_feed/feeds/post_card.dart' show ChatPill;
+import 'package:telegram_feed/feeds/post_card.dart' show ChatPill, PostCard;
 import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_feed/feeds/timeline_search.dart';
 import 'package:telegram_feed/home/channel_list.dart';
@@ -553,6 +553,31 @@ void main() {
       await tester.runAsync(() => db.setting(SettingKeys.autoplay)),
       'false',
     );
+    await unmount(tester);
+  });
+
+  testWidgets('the newest post keeps its distance from the bottom edge', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      feed = await db.createFeed('P');
+      await db.addSource(feed.id, -1, title: 'One');
+      await db.markRead(feed.id, -1, 3); // opens at the newest post
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+
+    final screen = tester.getSize(find.byType(MaterialApp)).height;
+    final lowest = tester
+        .widgetList<PostCard>(find.byType(PostCard))
+        .map((c) => tester.getRect(find.byWidget(c)).bottom)
+        .reduce((a, b) => a > b ? a : b);
+    // The card's own 3 px would leave the bubble all but touching the edge.
+    expect(screen - lowest, greaterThanOrEqualTo(8));
     await unmount(tester);
   });
 

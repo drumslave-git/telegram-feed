@@ -1163,6 +1163,11 @@ class TimelineViewState extends State<TimelineView> {
         // Oldest at the top, newest at the bottom, like a chat in Telegram.
         : ScrollablePositionedList.builder(
             reverse: true,
+            // Room under the newest post: index 0 sits at the bottom edge of the screen,
+            // where the bubble would otherwise touch the edge (and the gesture bar).
+            padding: EdgeInsets.only(
+              bottom: 8 + MediaQuery.paddingOf(context).bottom,
+            ),
             initialScrollIndex: _initialIndex.clamp(0, items.length),
             initialAlignment: _initialAlignment,
             itemScrollController: _scrollCtl,
