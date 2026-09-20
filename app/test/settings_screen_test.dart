@@ -91,9 +91,13 @@ void main() {
     expect(find.text('Reads a lot'), findsOneWidget);
     expect(find.text('Telegram ID 9'), findsOneWidget);
     expect(find.text('A'), findsOneWidget); // initial while there is no photo
+    // The screen has grown a lot (accounts, lock, sounds, downloads), so the scroll steps
+    // have to be bigger than they were.
+    // The screen has grown a lot (accounts, lock, sounds, downloads), so the steps are
+    // bigger than they were.
     await tester.scrollUntilVisible(
       find.text('3.5 MB'),
-      200,
+      600,
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('3.5 MB'), findsOneWidget);
@@ -104,6 +108,11 @@ void main() {
     await settle(tester);
     expect(find.text('512 KB'), findsOneWidget);
     expect(find.textContaining('0 cached files'), findsOneWidget);
+
+    // Back to the top: the reading switch is far above, and a widget the list has scrolled
+    // past is no longer in the tree.
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 4000));
+    await tester.pumpAndSettle();
 
     // Reading toggle writes the setting.
     final readSync = find.widgetWithText(

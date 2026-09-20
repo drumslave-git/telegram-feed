@@ -7,12 +7,15 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../ai/semantic_gate.dart';
 import '../feeds/text_scale.dart';
+import '../host/accounts.dart';
 import '../feeds/timeline_screen.dart';
 import '../home/channel_list.dart' show ChannelAvatar;
 import '../home/home_placeholder.dart';
+import '../service/core_service.dart' show appPaths;
 import '../media/auto_download.dart';
 import '../media/autoplay.dart';
 import 'ai_settings_screen.dart';
+import 'accounts_screen.dart';
 import 'app_lock.dart';
 import '../sync/sync_controller.dart';
 import '../sync/sync_settings_screen.dart';
@@ -62,6 +65,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _clearing = false);
     }
+  }
+
+  /// The accounts of this device (H-35). The store lives beside the databases, since it
+  /// says which of them to open.
+  Future<void> _openAccounts(BuildContext context) async {
+    final switched = AccountSwitch.of(context)?.onSwitched;
+    final paths = await appPaths();
+    if (!context.mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AccountsScreen(
+          store: AccountStore(paths.support),
+          onSwitched: switched,
+        ),
+      ),
+    );
   }
 
   /// The chat with oneself, read like any channel. A feed cannot hold it: it is not a
@@ -127,6 +146,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 v ? 'true' : 'false',
               ),
             ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.switch_account),
+            title: const Text('Accounts'),
+            subtitle: const Text(
+              'Up to four, each with its own feeds and rules',
+            ),
+            onTap: () => unawaited(_openAccounts(context)),
           ),
           StreamBuilder<String?>(
             stream: widget.db.watchSetting(SettingKeys.lockEnabled),

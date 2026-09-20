@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-35 (several Telegram accounts).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-36 (the new feed button moves into the Feeds tab).
 
 ## Phase 0 — Spikes
 
@@ -401,8 +401,16 @@ after it has faded goes to the post underneath, as it should (H-2).
   in. `LockGate` sits above the navigator, so no screen and no notification tap goes round it,
   and locks again when the app has rested longer than the chosen timeout (at once, a minute,
   five minutes, an hour). The TDLib database is untouched: the lock is the app's own.
-- [ ] H-35 Several Telegram accounts, up to four as in the official app: one TDLib database and
-  one core per account, feeds and rules belonging to an account, and a switcher.
+- [x] H-35 Several Telegram accounts, up to four as in the official app. `AccountStore`
+  (`accounts.json` beside the databases, since it says which of them to open) holds the
+  accounts and the one in use; `appPaths([accountId])` gives each account its own TDLib
+  directory and its own app database, and account 1 keeps the paths the app has always used,
+  so an install that predates this finds its data where it left it. The UI host and the
+  service host both read the active account, so they open the same one. Switching takes the
+  host down — core, database and sync with it — and brings a new one up on the other
+  account's paths (`AccountSwitch` hands the root's switch down to the Accounts screen), so
+  an account without a session lands on the login screen. Removing an account deletes its
+  TDLib data and its database; the last one cannot be removed.
 
 ### Founder's own three, after the comparison (2026-09-20)
 

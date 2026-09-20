@@ -15,13 +15,26 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../ai/semantic_gate.dart';
 import '../credentials.dart';
+import '../host/accounts.dart';
 import 'notifier.dart';
 import 'tts_service.dart';
 
-/// Paths shared by the UI host and the service host.
-Future<({String support, String tdlib, String db})> appPaths() async {
+/// Paths shared by the UI host and the service host. Each account has its own TDLib
+/// database and its own app database (H-35); account 1 keeps the paths the app has always
+/// used, so an install that predates several accounts finds its data where it left it.
+/// Without an [accountId] the account the switcher last chose is used, which is how the
+/// service host and the UI host end up on the same one.
+Future<({String support, String tdlib, String db})> appPaths([
+  int? accountId,
+]) async {
   final support = (await getApplicationSupportDirectory()).path;
-  return (support: support, tdlib: '$support/tdlib', db: '$support/app.sqlite');
+  final id = accountId ?? await AccountStore(support).activeId();
+  final suffix = id <= 1 ? '' : '-$id';
+  return (
+    support: support,
+    tdlib: '$support/tdlib$suffix',
+    db: '$support/app$suffix.sqlite',
+  );
 }
 
 CoreBootstrap coreBootstrap(({String support, String tdlib, String db}) p) =>

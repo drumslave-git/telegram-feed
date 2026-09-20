@@ -14,7 +14,7 @@ Not a replacement for the official Telegram app. Chats, calls, stories, and acco
 | Topic | Decision |
 |---|---|
 | Platforms | Android. iOS is not on the roadmap: without a persistent background service it cannot deliver real-time rule notifications on-device. A web build was completed in phase 3 and dropped on 2026-09-17 (ARCHITECTURE.md decision log). |
-| Telegram access | User account via MTProto (TDLib), session lives on-device |
+| Telegram access | User account via MTProto (TDLib), session lives on-device. Up to four accounts on a device, each with its own session, feeds and rules; switching restarts the watcher on the other account |
 | UI framework | Flutter |
 | Audience | Public product, open source |
 | Monetization | None; open source under GPL-3.0, maybe donations later |

@@ -420,6 +420,23 @@ Android 13+ requires `POST_NOTIFICATIONS`; requested during onboarding of phase 
 - Audio focus: request transient focus with ducking; release on queue drain. Never speak during a phone call (check `audio_session` / telephony state).
 - The "Listen" action and auto-read use the same path; the only difference is that a Listen request is spoken right after the current utterance instead of at the end of the queue. The queue never drops items, however far it is behind (founder decision 2026-09-18).
 
+## 7a. Several accounts (H-35)
+
+`AccountStore` keeps `accounts.json` in the support directory — outside every per-account
+database, because it says which of them to open — with the accounts (id, label) and the one
+in use, at most four as in the official app. `appPaths([accountId])` derives that account's
+TDLib directory and app database from the id; account 1 keeps `tdlib/` and `app.sqlite`, the
+paths every earlier build used, so an upgrade finds its data. Both hosts call `appPaths()`
+without an id and so land on the active account.
+
+Switching is a restart of the host, not a second core: the root (`main.dart`, now stateful)
+disposes the host — which closes the core client, the database and sync — writes the new
+active id and starts a fresh host, and everything under `MaterialApp` rebuilds. An account
+with no session of its own therefore shows the login screen. `AccountSwitch` is how a screen
+deep in Settings asks the root for that. Removing an account deletes its TDLib directory and
+its database file; the last account cannot be removed, since the app would have nothing to
+open.
+
 ## 8. Platform notes
 
 ### Android (phase 1 and 2)

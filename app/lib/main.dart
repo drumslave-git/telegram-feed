@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'auth/login_screens.dart';
 import 'home/home_screen.dart';
+import 'host/accounts.dart';
 import 'host/app_host.dart';
 import 'feeds/text_scale.dart';
 import 'media/audio_bar.dart';
@@ -21,26 +22,45 @@ void main() {
   runApp(const TelegramFeedApp());
 }
 
-class TelegramFeedApp extends StatelessWidget {
+class TelegramFeedApp extends StatefulWidget {
   const TelegramFeedApp({super.key, this.host});
 
   /// Injected in tests; the real app starts its own.
   final Future<AppHost>? host;
 
   @override
+  State<TelegramFeedApp> createState() => _TelegramFeedAppState();
+}
+
+class _TelegramFeedAppState extends State<TelegramFeedApp> {
+  late Future<AppHost> _host = _start(widget.host);
+
+  Future<AppHost> _start(Future<AppHost>? given) =>
+      (given ?? startAppHost()).then(
+        (h) async {
+          if (given == null) await attachLaunchHandlers(h);
+          return h;
+        },
+        onError: (Object e, StackTrace st) {
+          debugPrint('host start failed: $e');
+          Error.throwWithStackTrace(e, st);
+        },
+      );
+
+  /// Another account: the host that holds this one's core and database goes down, and a new
+  /// one comes up on the other account's paths (H-35). Everything above rebuilds, so an
+  /// account with no session of its own lands on the login screen.
+  Future<void> _switchAccount() async {
+    final old = await _host;
+    await old.dispose();
+    if (!mounted) return;
+    setState(() => _host = _start(null));
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final h = (host ?? startAppHost()).then(
-      (h) async {
-        if (host == null) await attachLaunchHandlers(h);
-        return h;
-      },
-      onError: (Object e, StackTrace st) {
-        debugPrint('host start failed: $e\n$st');
-        Error.throwWithStackTrace(e, st);
-      },
-    );
     return FutureBuilder<AppHost>(
-      future: h,
+      future: _host,
       builder: (context, snap) => StreamBuilder<String?>(
         stream: snap.data?.db.watchSetting(SettingKeys.themeMode),
         builder: (context, mode) => MaterialApp(
@@ -77,7 +97,10 @@ class TelegramFeedApp extends StatelessWidget {
                     ),
                   ),
           ),
-          home: _Root(host: h),
+          home: AccountSwitch(
+            onSwitched: _switchAccount,
+            child: _Root(host: _host),
+          ),
         ),
       ),
     );
