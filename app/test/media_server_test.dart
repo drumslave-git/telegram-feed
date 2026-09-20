@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/media/media_server.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import 'feeds_screen_test.dart' show ChannelsGateway;
+import 'fixtures.dart';
 
 /// A TDLib stand-in: the "download" writes the real bytes into a sparse partial file, one
 /// block per [step], starting at the offset it was last aimed at.

@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-38 (feed positioning tested thoroughly on fixture data).
+**Current phase:** feedback round 7 (founder, 2026-09-20) is closed, with rounds 1 to 6 and P4-1, P4-2. **Next task:** none open; round 7 is closed. Waiting for the founder's next round.
 
 ## Phase 0 — Spikes
 
@@ -421,10 +421,18 @@ after it has faded goes to the post underneath, as it should (H-2).
   off (a checkbox beside the member count), the bar at the foot of the sheet counts what is
   ticked, and "Add" puts them all in the feed in one go, each one starting at Telegram's own
   read position. A tap on a ticked channel takes it off again.
-- [ ] H-38 Feed positioning is tested thoroughly on fixture data instead of real channels: where
-  a feed opens for every read state, what resuming the app from the background does to it, what
-  a new post while reading does, and the read marks that follow. Fixture posts and channels live
-  in the tests, so nothing depends on the spare account.
+- [x] H-38 Feed positioning is tested thoroughly on fixture data instead of real channels. The
+  fixture data of the whole suite moved into `app/test/fixtures.dart` — the fake gateway (it used
+  to sit in two test files that twenty others imported), fixture channels and histories that page,
+  `arrive` for a post that comes in now and `arrivedUnseen` for one that came in while the app was
+  down, and the pump helpers. `app/test/feed_positioning_test.dart` then covers, on a database in a
+  file so that closing and reopening it is a restart of the app: where a feed opens for every read
+  state (nothing read, read to a point, read through, one unread channel of two, the same channel
+  with a mark per feed, a channel timeline on Telegram's own read position), reading that moves the
+  marks and the next session that starts where it left, the app resting in the background and
+  coming back without moving the reader, posts arriving while it rested or while the reader reads
+  older ones, posts that came in while the app was down, the divider that stays where it was, and
+  marks that never move backwards.
 
 Dropped in this round (founder decision 2026-09-20, from the same comparison): polls and
 quizzes; giveaways, invoices and paid media as cards; selecting part of a post's text by hand;

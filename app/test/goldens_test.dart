@@ -14,7 +14,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'login_flow_test.dart' show ScriptedGateway;
 import 'settings_screen_test.dart' show SettingsGateway;
-import 'timeline_screen_test.dart' show TimelineGateway;
+import 'fixtures.dart';
 
 const _phone = Size(412, 915); // Pixel-class portrait
 

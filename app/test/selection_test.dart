@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import 'timeline_screen_test.dart' show TimelineGateway;
+import 'fixtures.dart';
 
 void main() {
   late AppDatabase db;

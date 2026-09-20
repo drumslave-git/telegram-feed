@@ -12,7 +12,7 @@ import 'package:telegram_feed/home/channel_list.dart' show ChannelAvatar;
 import 'package:telegram_feed/media/media_viewer.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import 'feeds_screen_test.dart' show ChannelsGateway;
+import 'fixtures.dart';
 
 /// Histories answered by media kind, the way TDLib's search filters do.
 final class MediaGateway extends ChannelsGateway {

@@ -7,7 +7,7 @@ import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_feed/settings/settings_screen.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import 'feeds_screen_test.dart' show ChannelsGateway;
+import 'fixtures.dart';
 
 class SettingsGateway extends ChannelsGateway {
   SettingsGateway() : super(const []);

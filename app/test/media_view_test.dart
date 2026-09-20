@@ -10,7 +10,7 @@ import 'package:telegram_feed/media/video_stage.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'fake_video_platform.dart';
-import 'feeds_screen_test.dart' show ChannelsGateway;
+import 'fixtures.dart';
 
 /// 1x1 transparent PNG.
 const onePixelPng = [

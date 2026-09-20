@@ -12,7 +12,7 @@ import 'package:telegram_feed/rules/rules_screen.dart';
 import 'package:rules/rules.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import 'timeline_screen_test.dart' show TimelineGateway;
+import 'fixtures.dart';
 
 void main() {
   late AppDatabase db;

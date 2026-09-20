@@ -10,7 +10,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'fake_video_platform.dart';
 import 'media_view_test.dart' show onePixelPng;
-import 'timeline_screen_test.dart' show TimelineGateway;
+import 'fixtures.dart';
 
 void main() {
   late AppDatabase db;

@@ -6,7 +6,7 @@ import 'package:telegram_feed/feeds/feed_editor_screen.dart';
 import 'package:telegram_feed/home/channel_list.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import 'feeds_screen_test.dart' show ChannelsGateway;
+import 'fixtures.dart';
 
 void main() {
   late AppDatabase db;

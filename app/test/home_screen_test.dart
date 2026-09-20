@@ -8,7 +8,7 @@ import 'package:telegram_feed/home/channel_list.dart';
 import 'package:telegram_feed/home/home_screen.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import 'timeline_screen_test.dart' show TimelineGateway;
+import 'fixtures.dart';
 
 // Drift does real I/O, so every step runs under tester.runAsync (real clock).
 void main() {

@@ -7,7 +7,7 @@ import 'package:telegram_feed/feeds/thread_screen.dart';
 import 'package:telegram_feed/home/channel_list.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import 'feeds_screen_test.dart' show ChannelsGateway;
+import 'fixtures.dart';
 
 class ThreadGateway extends ChannelsGateway {
   ThreadGateway({this.hasThread = true}) : super(const []);

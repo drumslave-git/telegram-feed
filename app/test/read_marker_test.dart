@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/read_marker.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import 'feeds_screen_test.dart' show ChannelsGateway;
+import 'fixtures.dart';
 
 class ViewedGateway extends ChannelsGateway {
   ViewedGateway() : super(const []);
