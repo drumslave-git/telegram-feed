@@ -3,7 +3,7 @@ import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import '../home/channel_list.dart' show ChannelAvatar;
+import '../home/channel_list.dart' show ChannelAvatar, FeedTags;
 import 'shared_media.dart';
 
 /// The feed's own info screen (founder decision 2026-09-19): its channels — add from a
@@ -49,6 +49,7 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
 
   Future<void> _pick(List<WatchedChannel> current) async {
     final channels = await _channels;
+    final tags = await widget.db.feedNamesByChat();
     if (!mounted) return;
     final taken = current.map((c) => c.chatId).toSet();
     final picked = await showModalBottomSheet<Channel>(
@@ -58,6 +59,7 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
       builder: (_) => ChannelPicker(
         channels: channels.where((c) => !taken.contains(c.chatId)).toList(),
         gateway: widget.gateway,
+        feedsByChat: tags,
       ),
     );
     if (picked != null) {
@@ -422,11 +424,19 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
 
 /// Searchable list of joined channels; pops with the chosen [Channel].
 class ChannelPicker extends StatefulWidget {
-  const ChannelPicker({super.key, required this.channels, this.gateway});
+  const ChannelPicker({
+    super.key,
+    required this.channels,
+    this.gateway,
+    this.feedsByChat = const {},
+  });
   final List<Channel> channels;
 
   /// Downloads the channel photos; without it the rows show no picture.
   final TelegramGateway? gateway;
+
+  /// Names of the feeds each channel is already in ([AppDatabase.feedNamesByChat]).
+  final Map<int, List<String>> feedsByChat;
 
   @override
   State<ChannelPicker> createState() => _ChannelPickerState();
@@ -434,6 +444,8 @@ class ChannelPicker extends StatefulWidget {
 
 class _ChannelPickerState extends State<ChannelPicker> {
   String _query = '';
+
+  List<String> _tagsOf(Channel c) => widget.feedsByChat[c.chatId] ?? const [];
 
   @override
   Widget build(BuildContext context) {
@@ -495,9 +507,23 @@ class _ChannelPickerState extends State<ChannelPicker> {
                                 radius: 20,
                               ),
                         title: Text(c.title),
-                        subtitle: c.username == null
+                        isThreeLine:
+                            c.username != null && _tagsOf(c).isNotEmpty,
+                        subtitle: c.username == null && _tagsOf(c).isEmpty
                             ? null
-                            : Text('@${c.username}'),
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (c.username != null)
+                                    Text('@${c.username}'),
+                                  if (_tagsOf(c).isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: FeedTags(names: _tagsOf(c)),
+                                    ),
+                                ],
+                              ),
                         trailing: c.memberCount > 0
                             ? Text('${c.memberCount}')
                             : null,

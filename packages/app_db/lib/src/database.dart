@@ -317,6 +317,21 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// The names of the feeds each source channel belongs to, in feed order: the tags the
+  /// channel lists show.
+  Future<Map<int, List<String>>> feedNamesByChat() async {
+    final q = select(feedSources).join([
+      innerJoin(feeds, feeds.id.equalsExp(feedSources.feedId)),
+    ])..orderBy([OrderingTerm.asc(feeds.position)]);
+    final out = <int, List<String>>{};
+    for (final r in await q.get()) {
+      (out[r.readTable(feedSources).chatId] ??= []).add(
+        r.readTable(feeds).name,
+      );
+    }
+    return out;
+  }
+
   /// Feeds that contain [chatId] as a source, in feed order (notification tap target).
   Future<List<Feed>> feedsContaining(int chatId) async {
     final q =

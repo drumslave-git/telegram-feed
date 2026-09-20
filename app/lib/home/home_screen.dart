@@ -35,6 +35,9 @@ class _HomeScreenState extends State<HomeScreen>
   Timer? _reload;
   List<Channel> _channels = const [];
   List<ChatFolder> _folders = const [];
+  Map<int, List<String>> _feedTags = const {};
+  StreamSubscription<void>? _tagSources;
+  StreamSubscription<void>? _tagFeeds;
   String? _error;
 
   /// Feeds, the folders, All channels.
@@ -50,6 +53,10 @@ class _HomeScreenState extends State<HomeScreen>
       _reload?.cancel();
       _reload = Timer(const Duration(seconds: 3), _loadChannels);
     });
+    // The tags say which feeds a channel is in: they change with the feeds and with their
+    // sources, which the feeds screen and the editor write.
+    _tagSources = widget.db.watchSourceChanges().listen((_) => _loadTags());
+    _tagFeeds = widget.db.watchFeeds().listen((_) => _loadTags());
     unawaited(_loadChannels());
   }
 
@@ -58,6 +65,8 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.removeObserver(this);
     _reload?.cancel();
     _posts?.cancel();
+    _tagSources?.cancel();
+    _tagFeeds?.cancel();
     _feeds.dispose();
     _tabCtl.dispose();
     super.dispose();
@@ -67,6 +76,11 @@ class _HomeScreenState extends State<HomeScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Folders and read counters may have changed in the official app meanwhile.
     if (state == AppLifecycleState.resumed) unawaited(_loadChannels());
+  }
+
+  Future<void> _loadTags() async {
+    final tags = await widget.db.feedNamesByChat();
+    if (mounted) setState(() => _feedTags = tags);
   }
 
   Future<void> _loadChannels() async {
@@ -335,6 +349,7 @@ class _HomeScreenState extends State<HomeScreen>
     final byId = {for (final c in _channels) c.chatId: c};
     return ChannelList(
       key: ValueKey(folder == null ? 'all' : 'folder:${folder.id}'),
+      feedsByChat: _feedTags,
       channels: folder == null
           ? _channels
           : [for (final id in folder.channelIds) ?byId[id]],

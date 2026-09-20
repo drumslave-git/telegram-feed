@@ -75,6 +75,18 @@ void main() {
     expect(await db.feedsContaining(-9), isEmpty);
   });
 
+  test('feedNamesByChat: the tags of each channel, in feed order', () async {
+    final a = await db.createFeed('A');
+    final b = await db.createFeed('B');
+    await db.addSource(b.id, -1, title: 'One');
+    await db.addSource(a.id, -1, title: 'One');
+    await db.addSource(a.id, -2, title: 'Two');
+    expect(await db.feedNamesByChat(), {
+      -1: ['A', 'B'],
+      -2: ['A'],
+    });
+  });
+
   test('watchSourceChannels joins titles in position order', () async {
     final a = await db.createFeed('A');
     await db.addSource(a.id, -1, title: 'One');

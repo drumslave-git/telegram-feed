@@ -245,6 +245,42 @@ void main() {
     },
   );
 
+  testWidgets('channel rows are tagged with the feeds the channel is in', (
+    tester,
+  ) async {
+    late Feed news;
+    await tester.runAsync(() async {
+      news = await db.createFeed('News');
+      await db.addSource(news.id, -2, title: 'Two');
+      final tech = await db.createFeed('Tech');
+      await db.addSource(tech.id, -2, title: 'Two');
+    });
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.tap(find.text('Work'));
+    await tester.pumpAndSettle();
+
+    final tags = find.descendant(
+      of: find.widgetWithText(ChannelTile, 'Two'),
+      matching: find.byType(FeedTags),
+    );
+    expect(tester.widget<FeedTags>(tags).names, ['News', 'Tech']);
+    // The channel in no feed has no tags.
+    expect(
+      find.descendant(
+        of: find.widgetWithText(ChannelTile, 'One'),
+        matching: find.byType(FeedTags),
+      ),
+      findsNothing,
+    );
+
+    // Renaming a feed changes the tag without leaving the screen.
+    await tester.runAsync(() => db.renameFeed(news.id, 'Daily'));
+    await settle(tester);
+    expect(tester.widget<FeedTags>(tags).names, ['Daily', 'Tech']);
+    await unmount(tester);
+  });
+
   testWidgets('long press on a folder tab creates a feed from its channels', (
     tester,
   ) async {

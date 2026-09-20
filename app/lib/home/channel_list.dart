@@ -16,6 +16,7 @@ class ChannelList extends StatefulWidget {
     this.searchable = false,
     this.onRefresh,
     this.emptyText = 'No channels here.',
+    this.feedsByChat = const {},
   });
   final List<Channel> channels;
   final TelegramGateway gateway;
@@ -23,6 +24,9 @@ class ChannelList extends StatefulWidget {
   final bool searchable;
   final Future<void> Function()? onRefresh;
   final String emptyText;
+
+  /// Names of the feeds each channel belongs to, by chat id ([AppDatabase.feedNamesByChat]).
+  final Map<int, List<String>> feedsByChat;
 
   @override
   State<ChannelList> createState() => _ChannelListState();
@@ -67,6 +71,7 @@ class _ChannelListState extends State<ChannelList>
               key: ValueKey(shown[i].chatId),
               channel: shown[i],
               gateway: widget.gateway,
+              feeds: widget.feedsByChat[shown[i].chatId] ?? const [],
               onTap: () => widget.onOpen(shown[i]),
             ),
           );
@@ -99,25 +104,40 @@ class ChannelTile extends StatelessWidget {
     required this.channel,
     required this.gateway,
     required this.onTap,
+    this.feeds = const [],
   });
   final Channel channel;
   final TelegramGateway gateway;
   final VoidCallback onTap;
 
+  /// Names of the feeds this channel is in; shown as tags under the newest post.
+  final List<String> feeds;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final c = channel;
+    final preview = c.lastMessageText.isEmpty
+        ? null
+        : Text(c.lastMessageText, maxLines: 1, overflow: TextOverflow.ellipsis);
     return ListTile(
       onTap: onTap,
+      isThreeLine: preview != null && feeds.isNotEmpty,
       leading: ChannelAvatar(photo: c.photo, title: c.title, gateway: gateway),
       title: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: c.lastMessageText.isEmpty
+      subtitle: preview == null && feeds.isEmpty
           ? null
-          : Text(
-              c.lastMessageText,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ?preview,
+                if (feeds.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: FeedTags(names: feeds),
+                  ),
+              ],
             ),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -141,6 +161,40 @@ class ChannelTile extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// The feeds a channel belongs to, as small chips. Channel lists carry them so that it is
+/// visible at a glance what a channel is already read in.
+class FeedTags extends StatelessWidget {
+  const FeedTags({super.key, required this.names});
+  final List<String> names;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        for (final n in names)
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.secondaryContainer,
+              borderRadius: const BorderRadius.all(Radius.circular(6)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              child: Text(
+                n,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSecondaryContainer,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

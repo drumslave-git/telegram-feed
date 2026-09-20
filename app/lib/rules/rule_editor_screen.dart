@@ -8,7 +8,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../notifications/notification_policy.dart';
 import '../ai/semantic_gate.dart';
-import '../home/channel_list.dart' show ChannelAvatar;
+import '../home/channel_list.dart' show ChannelAvatar, FeedTags;
 import 'rule_builder_model.dart';
 
 /// Create or edit one rule: visual builder or text form, scope, priority, read-aloud,
@@ -62,6 +62,9 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   /// Channel photos for the scope list; the database only keeps titles.
   Map<int, FileRef?> _photos = const {};
 
+  /// The feeds each channel is in, as tags in the scope list.
+  Map<int, List<String>> _feedTags = const {};
+
   @override
   void initState() {
     super.initState();
@@ -100,6 +103,9 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     }
     widget.db.allWatched().then((c) {
       if (mounted) setState(() => _channels = c);
+    });
+    widget.db.feedNamesByChat().then((t) {
+      if (mounted) setState(() => _feedTags = t);
     });
     widget.gateway.myChannels().then((channels) {
       if (!mounted) return;
@@ -429,6 +435,18 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                       Flexible(
                         child: Text(c.title, overflow: TextOverflow.ellipsis),
                       ),
+                      if (_feedTags[c.chatId] case final tags?
+                          when tags.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        // One line only here: the chips shrink rather than overflow.
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: FeedTags(names: tags),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
