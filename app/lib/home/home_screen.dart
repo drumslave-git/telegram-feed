@@ -159,6 +159,21 @@ class _HomeScreenState extends State<HomeScreen>
     await _editFeed(feed.id);
   }
 
+  /// Tabs carry their own padding, because the bar's `labelPadding` is set to zero: a
+  /// folder tab's long press then covers the whole tab instead of its label alone. A
+  /// folder named with one emoji is a few pixels wide, and its menu was next to
+  /// impossible to call; [_tabMinWidth] keeps such a tab a comfortable target.
+  static const _tabLabelPadding = EdgeInsets.symmetric(horizontal: 16);
+  static const _tabMinWidth = 72.0;
+
+  Widget _tabLabel(Widget child) => ConstrainedBox(
+    constraints: const BoxConstraints(minWidth: _tabMinWidth),
+    child: Padding(
+      padding: _tabLabelPadding,
+      child: Center(widthFactor: 1, child: child),
+    ),
+  );
+
   /// Long press on a folder tab: a feed with the folder's name and the channels it has now.
   /// A one-time copy; afterwards the feed is edited like any other.
   Future<void> _folderMenu(ChatFolder folder, Offset at) async {
@@ -385,6 +400,7 @@ class _HomeScreenState extends State<HomeScreen>
                   controller: _tabCtl,
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
+                  labelPadding: EdgeInsets.zero,
                   tabs: [
                     ListenableBuilder(
                       listenable: _feeds,
@@ -393,16 +409,18 @@ class _HomeScreenState extends State<HomeScreen>
                             .where((f) => _feeds.newSourcesOf(f.id) > 0)
                             .length;
                         return Tab(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text('Feeds'),
-                              if (fresh > 0)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 6),
-                                  child: Badge.count(count: fresh),
-                                ),
-                            ],
+                          child: _tabLabel(
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text('Feeds'),
+                                if (fresh > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 6),
+                                    child: Badge.count(count: fresh),
+                                  ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -412,9 +430,9 @@ class _HomeScreenState extends State<HomeScreen>
                         behavior: HitTestBehavior.opaque,
                         onLongPressStart: (d) =>
                             _folderMenu(f, d.globalPosition),
-                        child: Tab(text: f.title),
+                        child: Tab(child: _tabLabel(Text(f.title))),
                       ),
-                    const Tab(text: 'All channels'),
+                    Tab(child: _tabLabel(const Text('All channels'))),
                   ],
                 ),
               ),

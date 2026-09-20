@@ -71,9 +71,20 @@ void main() {
     ); // the channel reload debounce
   }
 
+  /// The label of every tab: tabs carry their own padding, so their text sits a few
+  /// widgets deep inside the [Tab].
   List<String> tabs(WidgetTester tester) => [
-    for (final t in tester.widgetList<Tab>(find.byType(Tab)))
-      t.text ?? ((t.child! as Row).children.first as Text).data!,
+    for (final tab in find.byType(Tab).evaluate())
+      tester
+          .widget<Text>(
+            find
+                .descendant(
+                  of: find.byWidget(tab.widget),
+                  matching: find.byType(Text),
+                )
+                .first,
+          )
+          .data!,
   ];
 
   testWidgets('tabs: Feeds, then folders with channels, then All channels', (
@@ -307,6 +318,38 @@ void main() {
     // Back on the Feeds tab, with the new feed listed.
     expect(find.widgetWithText(ListTile, 'Work'), findsOneWidget);
     expect(find.textContaining('created with 2 channels'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('the long press covers the whole tab, not just its label', (
+    tester,
+  ) async {
+    // A folder named with one emoji: its label is a few pixels wide, so the menu has to
+    // answer a press anywhere in the tab.
+    gw = TimelineGateway(
+      {
+        -1: [post(-1, 100, 'one-post')],
+      },
+      channels: const [Channel(chatId: -1, title: 'One')],
+      folders: const [
+        ChatFolder(id: 5, title: '🙂', channelIds: [-1]),
+      ],
+    );
+    await tester.pumpWidget(app());
+    await settle(tester);
+
+    final tab = find.ancestor(of: find.text('🙂'), matching: find.byType(Tab));
+    final box = tester.getRect(tab);
+    expect(box.width, greaterThanOrEqualTo(72));
+    final glyph = tester.getRect(find.text('🙂'));
+    // Between the tab's left edge and the label: nothing of the text is here.
+    await tester.longPressAt(
+      Offset((box.left + glyph.left) / 2, box.center.dy),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Create feed from folder'), findsOneWidget);
+    await tester.tapAt(Offset.zero); // dismiss the menu
+    await tester.pumpAndSettle();
     await unmount(tester);
   });
 

@@ -167,6 +167,7 @@ Feeds with their sources, rules and a whitelist of settings (theme, read-aloud p
 - A channel opens as `TimelineScreen(channel:)`: the same timeline with one source. It belongs to no feed, so its read marks are Telegram's own position (`last_read_inbox_message_id`); reading moves it through `viewMessages` when `syncReadToTelegram` is on and is not recorded otherwise.
 - The folders arrive from TDLib a moment after the screen is up. The `TabController` is replaced only when the set of folders changes, and the selected tab stays selected.
 - A long press on a folder tab offers "Create feed from folder": a feed with the folder's name and the channels it has at that moment, in the folder's order, each starting at Telegram's read position. It is a one-time copy; the feed does not follow the folder afterwards.
+- Every tab carries its own padding (the bar's `labelPadding` is zero) and is at least 72 px wide, so the long press covers the whole tab: a folder named with one emoji has a label a few pixels wide, and its menu could otherwise hardly be called.
 
 ### 5.9 Posts and comments look like the official app
 

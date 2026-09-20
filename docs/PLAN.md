@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 6 (folder channels, viewer, saving, padding, feed tags) is done and verified on the emulator; rounds 1 to 5 and P4-1, P4-2 are closed. **Next task:** P4-3 (AI-generated podcast from a feed).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-2 (the day of the topmost post floats over the timeline).
 
 ## Phase 0 — Spikes
 
@@ -198,6 +198,13 @@ bottom edge and from the gesture bar (G-4); the channels of the Real News tab ea
 "NewsFeed" tag under their preview (G-5). The channel picker and the rule scope list list
 every joined channel of the account, which is not a screen to capture, so widget tests cover
 their tags instead.
+
+## Feedback round 7 (founder, 2026-09-20)
+
+- [x] H-1 The menu of a folder tab could hardly be called when the folder's name is a single
+  emoji: the long press only covered the label, which is a few pixels wide. Tabs carry their
+  own padding now (`labelPadding` of the bar is zero) and a minimum width of 72 px, so the
+  press is answered anywhere in the tab.
 
 ## Phase 4 — Extras
 
