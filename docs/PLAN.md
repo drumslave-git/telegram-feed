@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-26 (media filters in the search bar).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-27 (search inside a comment thread).
 
 ## Phase 0 — Spikes
 
@@ -359,8 +359,9 @@ after it has faded goes to the post underneath, as it should (H-2).
   Telegram's token), the magnifier in the app bar, the results as the same rows the feed search
   uses — each naming its channel — and a tap that opens that channel at the post. (Reopened
   from round 4.)
-- [ ] H-26 Media filters in the search bar: photos, videos, links, files, music, voice, the
-  way the info screens' tabs already ask TDLib.
+- [x] H-26 Media filters in the search bar: chips for Everything, Media, Links, Files, Music
+  and Voice under the field, in the feed and channel search and in the home search alike. A
+  chip on its own is a search too ("every file of my channels"), and the words travel with it.
 - [ ] H-27 Search inside a comment thread.
 - [ ] H-28 The search bar remembers the last queries and offers them when it opens.
 

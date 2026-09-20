@@ -91,4 +91,29 @@ void main() {
     expect(find.textContaining('Nothing found'), findsOneWidget);
     await unmount(tester);
   });
+
+  testWidgets('a chip narrows the search to a kind of post', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(db: db, gateway: gw),
+      ),
+    );
+    await settle(tester);
+    await tester.tap(find.byTooltip('Search posts'));
+    await tester.pumpAndSettle();
+    expect(find.text('Everything'), findsOneWidget);
+    expect(find.text('Links'), findsOneWidget);
+
+    // A kind alone is a search: no words needed.
+    await tester.tap(find.text('Files'));
+    await settle(tester);
+    expect(gw.globalQueries.last, startsWith('|HistoryFilter.document'));
+
+    // With words, the kind travels with them.
+    await tester.enterText(find.byType(TextField), 'needle');
+    await tester.pump(const Duration(milliseconds: 400));
+    await settle(tester);
+    expect(gw.globalQueries.last, startsWith('needle|HistoryFilter.document'));
+    await unmount(tester);
+  });
 }

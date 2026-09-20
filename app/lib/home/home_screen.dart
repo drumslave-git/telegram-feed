@@ -52,6 +52,7 @@ class _HomeScreenState extends State<HomeScreen>
   final _queryCtl = TextEditingController();
   Timer? _debounce;
   GlobalSearchSession? _session;
+  HistoryFilter _searchFilter = HistoryFilter.any;
 
   @override
   void initState() {
@@ -98,7 +99,14 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() {
       _searchOpen = false;
       _session = null;
+      _searchFilter = HistoryFilter.any;
     });
+  }
+
+  void _setSearchFilter(HistoryFilter filter) {
+    if (filter == _searchFilter) return;
+    setState(() => _searchFilter = filter);
+    unawaited(_startSearch(_queryCtl.text));
   }
 
   void _onQuery(String value) {
@@ -111,11 +119,16 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _startSearch(String value) async {
     final query = value.trim();
-    if (query.isEmpty) {
+    // A kind of post on its own is a search too: "every file of my channels".
+    if (query.isEmpty && _searchFilter == HistoryFilter.any) {
       setState(() => _session = null);
       return;
     }
-    final session = GlobalSearchSession(gateway: widget.gateway, query: query);
+    final session = GlobalSearchSession(
+      gateway: widget.gateway,
+      query: query,
+      filter: _searchFilter,
+    );
     setState(() => _session = session);
     await session.loadMore();
     if (mounted && identical(_session, session)) setState(() {});
@@ -625,6 +638,13 @@ class _HomeScreenState extends State<HomeScreen>
               },
             ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: SearchFilterChips(
+            filter: _searchFilter,
+            onChanged: _setSearchFilter,
+          ),
+        ),
       ),
       body: SearchResults(
         results: session?.results ?? const [],

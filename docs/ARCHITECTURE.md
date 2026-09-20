@@ -269,6 +269,10 @@ The home screen searches every channel at once (H-25): `searchAllChannels` asks 
 returns, and drops anything that is not a channel of this account. The results use the same
 rows as the feed search, and a tap opens that channel's timeline at the post.
 
+`SearchFilterChips` sits under both search fields (H-26) and maps to the `HistoryFilter` the
+gateway already knows: Everything, Media, Links, Files, Music, Voice. A chip with no words is
+a search of its own, so "every file of my channels" needs no query.
+
 A feed is merged channels, so everything the official app offers inside one channel runs over
 all of a feed's sources at once and obeys the feed's filter (founder decision 2026-09-19).
 

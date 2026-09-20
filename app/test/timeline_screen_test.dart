@@ -63,6 +63,9 @@ final class TimelineGateway extends ChannelsGateway {
     bool remove = false,
   }) async => reactions.add('$chatId/$messageId ${remove ? '-' : '+'}$emoji');
 
+  /// Every search of one channel: "query|filter".
+  final searches = <String>[];
+
   @override
   Future<SearchPage> searchHistory(
     int chatId, {
@@ -71,6 +74,7 @@ final class TimelineGateway extends ChannelsGateway {
     int fromMessageId = 0,
     int limit = 30,
   }) async {
+    searches.add('$query|$filter');
     final all = [
       for (final p in histories[chatId] ?? const <Post>[])
         if (query.isEmpty || p.text.toLowerCase().contains(query.toLowerCase()))
@@ -706,6 +710,39 @@ void main() {
       ),
       findsOneWidget,
     );
+    await unmount(tester);
+  });
+
+  testWidgets('the search chips narrow a feed search to a kind of post', (
+    tester,
+  ) async {
+    gw.histories[-1] = [
+      post(-1, 3, 300, 'the needle'),
+      post(-1, 1, 100, 'hay'),
+    ];
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Chips');
+      await db.addSource(feed.id, -1, title: 'One');
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pumpAndSettle();
+    expect(find.text('Media'), findsOneWidget);
+
+    // A kind alone searches, with no words at all.
+    await tester.tap(find.text('Voice'));
+    await settle(tester);
+    expect(gw.searches.last, '|HistoryFilter.voice');
+
+    await tester.enterText(find.byType(TextField), 'needle');
+    await tester.pump(const Duration(milliseconds: 400));
+    await settle(tester);
+    expect(gw.searches.last, 'needle|HistoryFilter.voice');
     await unmount(tester);
   });
 

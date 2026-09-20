@@ -5,6 +5,48 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import '../home/channel_list.dart' show ChannelAvatar, formatListDate;
 import 'post_card.dart' show peerColor;
 
+/// The chips under a search bar: what kind of post to look for, as the official app offers
+/// inside its search. "Everything" is the plain text search.
+class SearchFilterChips extends StatelessWidget {
+  const SearchFilterChips({
+    super.key,
+    required this.filter,
+    required this.onChanged,
+  });
+  final HistoryFilter filter;
+  final ValueChanged<HistoryFilter> onChanged;
+
+  static const _labels = {
+    HistoryFilter.any: 'Everything',
+    HistoryFilter.photoAndVideo: 'Media',
+    HistoryFilter.url: 'Links',
+    HistoryFilter.document: 'Files',
+    HistoryFilter.audio: 'Music',
+    HistoryFilter.voice: 'Voice',
+  };
+
+  static String labelOf(HistoryFilter f) => _labels[f] ?? f.name;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    child: Row(
+      children: [
+        for (final entry in _labels.entries)
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: ChoiceChip(
+              label: Text(entry.value),
+              selected: filter == entry.key,
+              onSelected: (_) => onChanged(entry.key),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
 /// Everything a search row needs about the channel a post came from.
 typedef ChannelLook = ({String title, FileRef? photo});
 

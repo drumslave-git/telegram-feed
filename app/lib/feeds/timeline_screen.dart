@@ -61,6 +61,9 @@ class _TimelineScreenState extends State<TimelineScreen> {
   SearchSession? _session;
   bool _searchOpen = false;
 
+  /// What kind of post the search looks for (H-26).
+  HistoryFilter _searchFilter = HistoryFilter.any;
+
   /// True while the results cover the timeline; false once a result was opened.
   bool _listOpen = false;
 
@@ -110,7 +113,20 @@ class _TimelineScreenState extends State<TimelineScreen> {
       _listOpen = false;
       _session = null;
       _current = -1;
+      _searchFilter = HistoryFilter.any;
     });
+  }
+
+  /// A chip was chosen: the same words, looked for among that kind of post. With no words
+  /// yet, a kind alone lists what the channels have of it.
+  void _setSearchFilter(HistoryFilter filter) {
+    if (filter == _searchFilter) return;
+    setState(() {
+      _searchFilter = filter;
+      _listOpen = true;
+      _current = -1;
+    });
+    unawaited(_startSearch(_queryCtl.text));
   }
 
   void _onQuery(String value) {
@@ -127,7 +143,8 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
   Future<void> _startSearch(String value) async {
     final query = value.trim();
-    if (query.isEmpty) {
+    // A kind of post on its own is a search too: "every video of this feed".
+    if (query.isEmpty && _searchFilter == HistoryFilter.any) {
       setState(() => _session = null);
       return;
     }
@@ -135,6 +152,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
       gateway: widget.gateway,
       chatIds: _sources.chatIds,
       query: query,
+      filter: _searchFilter,
       feedFilter: _sources.filter,
     );
     setState(() {
@@ -315,6 +333,14 @@ class _TimelineScreenState extends State<TimelineScreen> {
             },
           ),
         ],
+        // The kinds of post to look for, under the field as in the official app.
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: SearchFilterChips(
+            filter: _searchFilter,
+            onChanged: _setSearchFilter,
+          ),
+        ),
       );
     }
     final channel = widget.channel;
