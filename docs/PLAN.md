@@ -239,7 +239,13 @@ after it has faded goes to the post underneath, as it should (H-2).
   colour, the picture wide or as a small square as TDLib asks, above or below the card's words,
   the card itself above or below the post's text, a play badge and the length on a video link.
   A tap anywhere on it opens the link. A preview is not `Post.media`, so a post with a link
-  stays a text post for a feed's filters.
+  stays a text post for a feed's filters. (ce93ce8) Verified on the emulator (2026-09-20,
+  NewsFeed): searching the feed for "youtube" and opening a result of STERNENKO shows the post
+  with its own text and link and, under it, the card — thumbnail with the play badge, "YouTube"
+  in the channel's green, the video's title in bold and its description, on the tinted block
+  with the accent bar; a live stream has no length, so no length badge; a tap on the card handed
+  the link to the YouTube app. Light and dark are in the timeline goldens, which gained a
+  picture-less card.
 - [ ] H-4 "Forwarded from" header: the forward origin (channel, hidden sender, user) in the
   gateway model and above the text, as in the official app. Channels repost each other
   constantly and the app shows such a post as the channel's own.
