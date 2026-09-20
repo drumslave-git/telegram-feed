@@ -115,11 +115,14 @@ class ChatPill extends StatelessWidget {
   }
 }
 
+/// What a double tap sends until the reader has reacted with something else.
+const defaultQuickReaction = '\u{1F44D}';
+
 /// One timeline row, looking like a post in the official app, except that the bubble has
 /// the whole width: the channel's name with its photo at the right end of that line, the
 /// media (albums as a mosaic), the text, views and time in the bottom right corner,
-/// reactions and the comments bar. A tap or a long press on the bubble opens the menu with
-/// reactions and actions, sharing among them.
+/// reactions and the comments bar. A long press on the bubble opens the menu with reactions
+/// and actions, sharing among them; a double tap sends the quick reaction.
 class PostCard extends StatelessWidget {
   const PostCard({
     super.key,
@@ -140,6 +143,7 @@ class PostCard extends StatelessWidget {
     this.onAutoplaySettings,
     this.onOpenForward,
     this.onOpenReply,
+    this.onQuickReact,
   });
   final TimelineItem item;
   final String channelTitle;
@@ -174,6 +178,9 @@ class PostCard extends StatelessWidget {
 
   /// Tap on the quote block: jumps to the post this one answers.
   final VoidCallback? onOpenReply;
+
+  /// Double tap on the bubble: sends the quick reaction, as the official app does.
+  final VoidCallback? onQuickReact;
 
   bool get _hasMenu =>
       onOpenInTelegram != null ||
@@ -274,6 +281,7 @@ class PostCard extends StatelessWidget {
       onOpenLink: onOpenLink,
       onOpenForward: onOpenForward,
       onOpenReply: onOpenReply,
+      onQuickReact: onQuickReact,
     );
     // The bubble has the row to itself: the channel's photo sits in its title line and
     // sharing is in the menu, so nothing beside it takes width from text and pictures.
@@ -292,7 +300,9 @@ class PostCard extends StatelessWidget {
             ),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
-              onTap: _hasMenu ? () => _menu(context) : null,
+              // A long press opens the menu, as in the official app: a plain tap cannot do
+              // that and leave room for the double tap that sends the quick reaction,
+              // because the menu would swallow the second tap.
               onLongPress: _hasMenu ? () => _menu(context) : null,
               // Text alone makes a bubble as wide as it needs; media fills the row, and so
               // does a link preview, whose card and picture would otherwise be squeezed into
@@ -492,6 +502,7 @@ class _Bubble extends StatelessWidget {
     required this.onOpenLink,
     required this.onOpenForward,
     required this.onOpenReply,
+    required this.onQuickReact,
   });
   final TimelineItem item;
   final List<Media> media;
@@ -504,6 +515,7 @@ class _Bubble extends StatelessWidget {
   final void Function(String url)? onOpenLink;
   final VoidCallback? onOpenForward;
   final VoidCallback? onOpenReply;
+  final VoidCallback? onQuickReact;
 
   static const _side = 10.0;
 
@@ -566,6 +578,14 @@ class _Bubble extends StatelessWidget {
     final footerUnderCard =
         card != null && !preview!.aboveText && reactions.isEmpty;
 
+    /// The quick reaction is sent by a double tap on the words, and on the pictures of a
+    /// post that has none. A recognizer over the whole bubble would hold the gesture arena
+    /// for 300 ms and make every tap inside it — a reaction pill, the comments bar, a
+    /// picture — answer late.
+    Widget quickReactable(Widget child) => onQuickReact == null
+        ? child
+        : GestureDetector(onDoubleTap: onQuickReact, child: child);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -600,16 +620,20 @@ class _Bubble extends StatelessWidget {
           ),
         if (pictures != null)
           footerOnMedia
-              ? Stack(
-                  children: [
-                    pictures,
-                    Positioned(
-                      right: 6,
-                      bottom: 6,
-                      child: MediaBadge('', child: footer),
-                    ),
-                  ],
+              ? quickReactable(
+                  Stack(
+                    children: [
+                      pictures,
+                      Positioned(
+                        right: 6,
+                        bottom: 6,
+                        child: MediaBadge('', child: footer),
+                      ),
+                    ],
+                  ),
                 )
+              : text.isEmpty
+              ? quickReactable(pictures)
               : pictures,
         for (final m in other)
           Padding(
@@ -620,9 +644,11 @@ class _Bubble extends StatelessWidget {
         if (text.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(_side, 6, _side, 6),
-            child: reactions.isEmpty && !footerUnderCard
-                ? BubbleText(text: _text(context, text), footer: footer)
-                : _text(context, text),
+            child: quickReactable(
+              reactions.isEmpty && !footerUnderCard
+                  ? BubbleText(text: _text(context, text), footer: footer)
+                  : _text(context, text),
+            ),
           ),
         if (card != null && !preview!.aboveText) card,
         if (reactions.isNotEmpty)

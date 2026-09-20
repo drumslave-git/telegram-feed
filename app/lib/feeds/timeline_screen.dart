@@ -438,6 +438,11 @@ class TimelineViewState extends State<TimelineView> {
 
   /// Every channel the account follows, by chat id: the forwarded-from line opens one.
   Map<int, Channel> _known = const {};
+
+  /// Emoji a double tap sends; the reader's last one, a thumbs up until they react once.
+  /// Read once when the timeline opens and kept up to date by reacting here: watching the
+  /// setting would tie every channel timeline to a database stream it otherwise never needs.
+  String _quick = defaultQuickReaction;
   Map<int, int> _marks = const {};
   bool _loading = false;
   String? _error;
@@ -495,6 +500,7 @@ class TimelineViewState extends State<TimelineView> {
     _focusChat = widget.focusChatId;
     _focusMessage = widget.focusMessageId;
     _positions.itemPositions.addListener(_onPositions);
+    unawaited(_loadQuickReaction());
     final feed = widget.feed;
     if (feed == null) {
       final c = widget.channel!;
@@ -1213,9 +1219,29 @@ class TimelineViewState extends State<TimelineView> {
         emoji,
         remove: remove,
       );
+      // The one reacted with last is the one a double tap sends, as in the official app.
+      if (!remove) {
+        if (mounted) setState(() => _quick = emoji);
+        await widget.db.setSetting(SettingKeys.quickReaction, emoji);
+      }
     } on TelegramException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
     }
+  }
+
+  Future<void> _loadQuickReaction() async {
+    final emoji = await widget.db.setting(SettingKeys.quickReaction);
+    if (mounted && emoji != null && emoji.isNotEmpty) {
+      setState(() => _quick = emoji);
+    }
+  }
+
+  /// Double tap on a post: the quick reaction, added or taken back again. A channel that
+  /// does not allow that emoji says so through Telegram's own answer.
+  Future<void> _quickReact(TimelineItem item) async {
+    final emoji = _quick;
+    final chosen = item.head.reactions.any((r) => r.emoji == emoji && r.chosen);
+    await _react(item, emoji, chosen);
   }
 
   /// Emoji for the post menu; a failure is reported by the menu itself.
@@ -1381,6 +1407,7 @@ class TimelineViewState extends State<TimelineView> {
                 onOpenReply: item.textPost.replyTo == null
                     ? null
                     : () => _openReply(item),
+                onQuickReact: () => unawaited(_quickReact(item)),
                 // Only posts of channels with a discussion group have a thread.
                 onOpenThread: !item.head.canComment
                     ? null

@@ -127,6 +127,9 @@ abstract final class SettingKeys {
   /// How much bigger or smaller the text of posts and comments is drawn, as a factor
   /// between 0.8 and 1.6 ('1.0' by default).
   static const postTextScale = 'appearance.postTextScale';
+
+  /// Emoji a double tap on a post sends; the last one reacted with, a thumbs up at first.
+  static const quickReaction = 'reactions.quick';
   static const syncReadToTelegram =
       'syncReadToTelegram'; // 'true' | 'false', default true
 

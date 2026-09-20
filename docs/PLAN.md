@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-9 (double tap for the quick reaction).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-10 (stickers and video notes).
 
 ## Phase 0 — Spikes
 
@@ -269,8 +269,13 @@ after it has faded goes to the post underneath, as it should (H-2).
   platform, so screens slide in and a drag from the left edge closes them, as everywhere in the
   official app. A drag anywhere else still belongs to the screen, and the media viewer has a
   route of its own and keeps its swipe down to close.
-- [ ] H-9 Double tap on a post sends the quick reaction (thumbs up by default, the last used
-  one afterwards), as in the official app.
+- [x] H-9 Double tap on a post sends the quick reaction: a thumbs up until the reader reacts
+  with something else from the menu, which then becomes the quick one (`reactions.quick`). A
+  second double tap takes it back. Two things followed from Flutter's gesture arena: the menu
+  now opens on a long press only, because a plain tap would swallow the second tap of the
+  double one (as it does in the official app); and the recognizer sits on the post's words, or
+  on the pictures of a post without words, not on the whole bubble — a recognizer there holds
+  the arena for 300 ms and made every reaction pill, comments bar and picture answer late.
 - [ ] H-10 Stickers and video notes: static and animated stickers (TGS and WebM) and round
   video messages, which land as "unsupported content" today.
 - [ ] H-11 Custom emoji in a post's text: the entity the app drops today, drawn as the emoji's

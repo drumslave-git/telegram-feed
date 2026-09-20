@@ -50,7 +50,7 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.text('the words of the post'));
+    await tester.longPress(find.text('the words of the post'));
     await tester.pumpAndSettle();
     expect(find.text('Copy text'), findsOneWidget);
     await tester.tap(find.text('Copy text'));
@@ -80,7 +80,7 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.byType(PostCard));
+    await tester.longPress(find.byType(PostCard));
     await tester.pumpAndSettle();
     expect(find.text('Copy text'), findsNothing);
     expect(find.text('Copy link'), findsOneWidget);

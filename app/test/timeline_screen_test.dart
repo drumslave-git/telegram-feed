@@ -401,8 +401,8 @@ void main() {
     await settle(tester);
     expect(gw.reactions.last, '-1/3 +👍');
 
-    // A tap on the bubble opens the menu, with the emoji the channel allows on top.
-    await tester.tap(find.text('hot take'));
+    // A long press on the bubble opens the menu, with the emoji the channel allows on top.
+    await tester.longPress(find.text('hot take'));
     await settle(tester);
     await tester.pumpAndSettle();
     expect(find.text('Open in Telegram'), findsOneWidget);
@@ -471,7 +471,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(shared, ['News|News\n\nshareable\n\nhttps://t.me/news/5']);
 
-    await tester.tap(find.text('shareable'));
+    await tester.longPress(find.text('shareable'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Copy link'));
     await tester.pumpAndSettle();
@@ -481,7 +481,7 @@ void main() {
     // The snack bar covers the post until it has gone.
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('shareable'));
+    await tester.longPress(find.text('shareable'));
     await tester.pumpAndSettle();
     // The menu scrolls: its last entries are below the fold on a short screen.
     await tester.ensureVisible(find.text('Save to Saved Messages'));
@@ -531,14 +531,14 @@ void main() {
     );
     await settle(tester);
 
-    await tester.tap(find.text('just text'));
+    await tester.longPress(find.text('just text'));
     await tester.pumpAndSettle();
     expect(find.text('Copy link'), findsOneWidget);
     expect(find.text('Video autoplay settings'), findsNothing);
     await tester.tapAt(const Offset(10, 10)); // the barrier closes the menu
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('with a video'));
+    await tester.longPress(find.text('with a video'));
     await tester.pumpAndSettle();
     // The menu scrolls; its last entry is below the fold on this small screen.
     await tester.ensureVisible(find.text('Video autoplay settings'));
