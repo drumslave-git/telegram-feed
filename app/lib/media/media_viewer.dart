@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -12,9 +13,10 @@ import 'video_sessions.dart';
 import 'video_stage.dart';
 import 'zoom.dart';
 
-/// The photos and videos of one post on the whole screen, in whatever orientation the device
-/// has: swipe sideways through the album, pinch or double tap to zoom, drag down or up to
-/// close. The video of the page in front plays with sound; turning the page or leaving hands
+/// The photos and videos on the whole screen, in whatever orientation the device has: swipe
+/// sideways through everything the timeline holds — the post's own album and the pictures of
+/// the posts around it, older ones loading as the reader goes (H-21) — pinch or double tap
+/// to zoom, drag down or up to close. The video of the page in front plays with sound; turning the page or leaving hands
 /// its session back, which ends playback and streaming unless the video autoplays in its row
 /// or moved on into the [MiniPlayer].
 class MediaViewerScreen extends StatefulWidget {
@@ -23,12 +25,17 @@ class MediaViewerScreen extends StatefulWidget {
     required this.items,
     required this.gateway,
     this.initialIndex = 0,
+    this.onNeedOlder,
   });
 
   /// [PhotoMedia] and [VideoMedia] only, see [viewable].
   final List<Media> items;
   final TelegramGateway gateway;
   final int initialIndex;
+
+  /// Asked for more media when the reader reaches the older end: the timeline loads its
+  /// next page and answers with everything it has, this list included.
+  final Future<List<Media>> Function()? onNeedOlder;
 
   /// What of a post's media the viewer can show, in the order of the post.
   static List<Media> viewable(Iterable<Media> media) => [
@@ -42,6 +49,7 @@ class MediaViewerScreen extends StatefulWidget {
     required List<Media> items,
     required TelegramGateway gateway,
     int initialIndex = 0,
+    Future<List<Media>> Function()? onNeedOlder,
   }) => Navigator.of(context, rootNavigator: true).push(
     PageRouteBuilder<void>(
       // The timeline shows through while the page is dragged away.
@@ -50,6 +58,7 @@ class MediaViewerScreen extends StatefulWidget {
         items: items,
         gateway: gateway,
         initialIndex: initialIndex,
+        onNeedOlder: onNeedOlder,
       ),
       transitionsBuilder: (_, animation, _, child) =>
           FadeTransition(opacity: animation, child: child),
@@ -63,6 +72,12 @@ class MediaViewerScreen extends StatefulWidget {
 class _MediaViewerScreenState extends State<MediaViewerScreen> {
   late final _pages = PageController(initialPage: widget.initialIndex);
   late int _index = widget.initialIndex;
+
+  /// Everything the viewer can page through: what it opened with, and what the timeline
+  /// hands over as the reader goes past the older end.
+  late List<Media> _items = widget.items;
+  bool _loadingOlder = false;
+  bool _noMoreOlder = false;
 
   /// Paging and swipe-to-close are off while a page is zoomed in, so a drag pans it instead.
   bool _zoomed = false;
@@ -80,7 +95,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     MiniPlayer.show(
       context,
       session: session,
-      items: widget.items,
+      items: _items,
       index: _index,
       gateway: widget.gateway,
     );
@@ -98,9 +113,27 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     if (zoomed != _zoomed) setState(() => _zoomed = zoomed);
   }
 
+  /// Near the older end (the last page): ask the timeline for its next page of posts.
+  Future<void> _loadOlder() async {
+    final ask = widget.onNeedOlder;
+    if (ask == null || _loadingOlder || _noMoreOlder) return;
+    _loadingOlder = true;
+    try {
+      final more = await ask();
+      if (!mounted) return;
+      if (more.length <= _items.length) {
+        _noMoreOlder = true;
+        return;
+      }
+      setState(() => _items = more);
+    } finally {
+      _loadingOlder = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final items = widget.items;
+    final items = _items;
     final counter = items.length > 1
         ? Text(
             '${_index + 1} of ${items.length}',
@@ -116,10 +149,14 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
           controller: _pages,
           physics: _zoomed ? const NeverScrollableScrollPhysics() : null,
           itemCount: items.length,
-          onPageChanged: (i) => setState(() {
-            _index = i;
-            _zoomed = false;
-          }),
+          onPageChanged: (i) {
+            setState(() {
+              _index = i;
+              _zoomed = false;
+            });
+            // One page short of the end: the next ones are on their way.
+            if (i >= items.length - 2) unawaited(_loadOlder());
+          },
           itemBuilder: (context, i) => switch (items[i]) {
             final VideoMedia video => _VideoPage(
               key: ValueKey(video.file.id),

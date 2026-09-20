@@ -159,6 +159,14 @@ the app's `builder`, under the navigator, so the bar stands under every screen w
 something plays and the sound survives scrolling away, opening another screen or logging
 into a thread.
 
+### 5.5b The media viewer
+
+The viewer (`MediaViewerScreen`) pages through everything the timeline holds, not one post's
+album: the card asks the timeline for its media (`_viewerMedia`, newest first, the feed's
+filter already applied because it walks the loaded rows) and opens at the tapped one. Two
+pages from the older end it calls `onNeedOlder`, which pages the timeline and hands the list
+back grown; a list that does not grow means the end.
+
 ### 5.6 Video playback
 
 - **Playing while downloading.** A video starts as soon as its first bytes are there, as in the official app. `MediaServer` (UI isolate) is an HTTP server on the loopback interface; the player (`video_player`, ExoPlayer) opens `http://127.0.0.1:<port>/<secret>/<fileId>` and asks for byte ranges. Bytes TDLib already has are read from its partial file, where they sit at their final offsets; for a range that is not there yet the download is aimed at it (`downloadFile` with `offset`) and the response waits. Seeking and MP4 files with the index at the end are the same case: another range. The newest request decides where TDLib downloads. Response headers are written at once through a detached socket, because dart:io holds them back until the first body byte and the player's read timeout would run meanwhile. The path contains a random token, since other apps can reach the port; the port closes when nothing plays. A finished file is played from disk without the server; a file without a known size is downloaded whole first.

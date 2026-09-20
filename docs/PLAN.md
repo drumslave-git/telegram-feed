@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-21 (the viewer pages through all the media).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-22 (caption and share in the viewer).
 
 ## Phase 0 — Spikes
 
@@ -331,8 +331,11 @@ after it has faded goes to the post underneath, as it should (H-2).
   (`AudioBarHost` in the app's builder, so it survives every route): the name, the position
   and length, play or pause, the speed and a cross that stops it. The sound is the session's,
   not the post's, so scrolling away or leaving the screen does not cut it off.
-- [ ] H-21 The viewer pages through all the media of the channel, or of the feed, instead of
-  the post's own album only.
+- [x] H-21 The viewer pages through the media of the whole timeline instead of the post's own
+  album: the card hands it every picture and video the timeline holds, newest first, opened at
+  the one that was tapped, and the viewer asks for more when the reader comes within two pages
+  of the older end — which pages the timeline itself, so the feed's filter and its channels are
+  obeyed without a second kind of search.
 - [ ] H-22 The viewer shows the caption, the channel and the time, with share and save on it.
 - [ ] H-23 Saving a photo or a video into the phone's gallery (`MediaStore`, with the
   permission it needs). Replaces the round 2 decision that the download button only fills

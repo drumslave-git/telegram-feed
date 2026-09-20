@@ -13,6 +13,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../home/channel_info_screen.dart';
 import '../home/connection_title.dart';
+import '../media/media_viewer.dart';
 import '../settings/settings_screen.dart' show showAutoplaySettings;
 import 'feed_editor_screen.dart';
 import 'open_links.dart';
@@ -1385,6 +1386,29 @@ class TimelineViewState extends State<TimelineView> {
     }
   }
 
+  /// Every picture and video the timeline holds, newest first: what the viewer pages
+  /// through, so a tap on one picture walks the whole feed and not only its post.
+  List<Media> _viewerMedia() => [
+    for (final item in _timeline?.items ?? const <TimelineItem>[])
+      ...MediaViewerScreen.viewable([
+        for (final p in item.allPosts.reversed)
+          if (p.media != null) p.media!,
+      ]),
+  ];
+
+  /// The viewer reached the older end: one more page of posts, and all the media again.
+  Future<List<Media>> _moreViewerMedia() async {
+    await _loadMore();
+    return _viewerMedia();
+  }
+
+  /// The viewer's list and its paging, for the test of H-21.
+  @visibleForTesting
+  List<Media> viewerMediaForTest() => _viewerMedia();
+
+  @visibleForTesting
+  Future<List<Media>> moreViewerMediaForTest() => _moreViewerMedia();
+
   /// Picks a row, or lets it go; the screen above follows the count and shows its own bar.
   void toggleSelected(TimelineItem item) {
     final id = (item.chatId, item.rowId);
@@ -1614,6 +1638,8 @@ class TimelineViewState extends State<TimelineView> {
                     ? null
                     : () => _openReply(item),
                 onQuickReact: () => unawaited(_quickReact(item)),
+                onViewerMedia: _viewerMedia,
+                onMoreViewerMedia: _moreViewerMedia,
                 onSelect: () => toggleSelected(item),
                 selecting: _selected.isNotEmpty,
                 selected: _selected.contains(id),

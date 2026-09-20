@@ -147,6 +147,8 @@ class PostCard extends StatelessWidget {
     this.onSelect,
     this.selecting = false,
     this.selected = false,
+    this.onViewerMedia,
+    this.onMoreViewerMedia,
   });
   final TimelineItem item;
   final String channelTitle;
@@ -192,6 +194,13 @@ class PostCard extends StatelessWidget {
   /// else in it answers.
   final bool selecting;
   final bool selected;
+
+  /// All the media the timeline holds, for the viewer to page through; without it the
+  /// viewer shows the post's own album alone.
+  final List<Media> Function()? onViewerMedia;
+
+  /// Loads the timeline's next page and answers with all of its media again.
+  final Future<List<Media>> Function()? onMoreViewerMedia;
 
   bool get _hasMenu =>
       onOpenInTelegram != null ||
@@ -300,6 +309,8 @@ class PostCard extends StatelessWidget {
       onOpenForward: onOpenForward,
       onOpenReply: onOpenReply,
       onQuickReact: onQuickReact,
+      onViewerMedia: onViewerMedia,
+      onMoreViewerMedia: onMoreViewerMedia,
     );
     // The bubble has the row to itself: the channel's photo sits in its title line and
     // sharing is in the menu, so nothing beside it takes width from text and pictures.
@@ -552,6 +563,8 @@ class _Bubble extends StatelessWidget {
     required this.onOpenForward,
     required this.onOpenReply,
     required this.onQuickReact,
+    required this.onViewerMedia,
+    required this.onMoreViewerMedia,
   });
   final TimelineItem item;
   final List<Media> media;
@@ -565,6 +578,8 @@ class _Bubble extends StatelessWidget {
   final VoidCallback? onOpenForward;
   final VoidCallback? onOpenReply;
   final VoidCallback? onQuickReact;
+  final List<Media> Function()? onViewerMedia;
+  final Future<List<Media>> Function()? onMoreViewerMedia;
 
   static const _side = 10.0;
 
@@ -592,12 +607,19 @@ class _Bubble extends StatelessWidget {
       color: footerOnMedia ? Colors.white : scheme.onSurfaceVariant,
     );
 
-    void open(Media m) => MediaViewerScreen.open(
-      context,
-      items: visual,
-      gateway: gateway,
-      initialIndex: visual.indexOf(m),
-    );
+    void open(Media m) {
+      // The viewer pages through the media of the whole timeline when it can (H-21), so
+      // this post's album is only where it starts.
+      final around = onViewerMedia?.call() ?? visual;
+      final items = around.contains(m) ? around : visual;
+      MediaViewerScreen.open(
+        context,
+        items: items,
+        gateway: gateway,
+        initialIndex: items.indexOf(m),
+        onNeedOlder: onMoreViewerMedia,
+      );
+    }
 
     Widget? pictures;
     if (visual.length == 1) {
