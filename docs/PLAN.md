@@ -322,6 +322,17 @@ after it has faded goes to the post underneath, as it should (H-2).
 - [ ] H-35 Several Telegram accounts, up to four as in the official app: one TDLib database and
   one core per account, feeds and rules belonging to an account, and a switcher.
 
+### Founder's own three, after the comparison (2026-09-20)
+
+- [ ] H-36 "New feed" belongs inside the Feeds tab, not in the tab bar: the `+` leaves the bar
+  and becomes an action of the feeds list itself.
+- [ ] H-37 The channel picker of a feed takes several channels at once: check them off and add
+  them in one go.
+- [ ] H-38 Feed positioning is tested thoroughly on fixture data instead of real channels: where
+  a feed opens for every read state, what resuming the app from the background does to it, what
+  a new post while reading does, and the read marks that follow. Fixture posts and channels live
+  in the tests, so nothing depends on the spare account.
+
 Dropped in this round (founder decision 2026-09-20, from the same comparison): polls and
 quizzes; giveaways, invoices and paid media as cards; selecting part of a post's text by hand;
 translating a post; the waveform of a voice message; voice transcription; swiping a channel
