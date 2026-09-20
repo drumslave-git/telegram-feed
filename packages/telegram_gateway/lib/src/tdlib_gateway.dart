@@ -73,6 +73,9 @@ final class TdlibGateway implements TelegramGateway {
   final _openThreads = <(int, int)>{};
   final _senders = <String, map.Sender>{};
 
+  /// Words and thumbnail of posts that other posts answer, by "chat/message".
+  final _replied = <String, ({String text, PhotoMedia? photo})>{};
+
   @override
   Stream<AuthState> get authState async* {
     yield _auth;
@@ -520,7 +523,37 @@ final class TdlibGateway implements TelegramGateway {
     return map.post(
       m,
       forwardedFrom: origin == null ? null : await _named(origin),
+      replyTo: await _reply(m),
     );
+  }
+
+  /// The post a post answers. TDLib hands over the words only when the answered post is in
+  /// another chat; inside the channel it gives the ids alone, so the post itself is fetched
+  /// once and kept (its words and its thumbnail never change for this purpose).
+  Future<ReplyTarget?> _reply(td.Message m) async {
+    var target = map.replyTarget(m);
+    if (target == null) return null;
+    final origin = map.replyOrigin(m);
+    if (origin != null) {
+      target = target.withTitle((await _named(origin)).title);
+    }
+    if (target.text.isNotEmpty || target.messageId == 0) return target;
+    final key = '${target.chatId}/${target.messageId}';
+    final known = _replied[key];
+    if (known != null) return target.withText(known.text, photo: known.photo);
+    try {
+      final answered = await _client.call(
+        td.GetMessage(chatId: target.chatId, messageId: target.messageId),
+      );
+      final words = map.preview(answered.content);
+      final photo = map.replyPhoto(answered.content);
+      // A session reads a bounded number of posts, but not an unbounded number of them.
+      if (_replied.length > 500) _replied.clear();
+      _replied[key] = (text: words, photo: photo);
+      return target.withText(words, photo: photo);
+    } on TelegramException {
+      return target; // the answered post is gone or out of reach
+    }
   }
 
   Future<List<Post>> _posts(Iterable<td.Message> messages) async {

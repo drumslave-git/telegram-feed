@@ -51,6 +51,8 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - I can open a feed and see posts from all its channels in one chronological list, oldest on top and newest at the bottom as in a Telegram chat, with the channel name on every post.
 - The feed opens where I left it earlier in the session; otherwise at the first unread post, and at the newest post when everything is read.
 - I can scroll up indefinitely; older posts load as I scroll. Posts that arrive while I read older ones wait behind a button with their count.
+- A post that answers an earlier post shows that post above its text — the quote the author
+  picked, or the beginning of what it said — and a tap takes me to it.
 - A post one channel forwarded from another says so above its text, with the original
   channel's name; a tap opens the original post when I follow that channel too.
 - A post whose text carries a link shows the site's card under it (or over it, as Telegram says): the site, the title, the description and the picture, with a play badge when the link is a video. A tap on the card opens the link in the browser or in the app that handles it.

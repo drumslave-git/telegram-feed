@@ -137,6 +137,7 @@ class PostCard extends StatelessWidget {
     this.onOpenLink,
     this.onAutoplaySettings,
     this.onOpenForward,
+    this.onOpenReply,
   });
   final TimelineItem item;
   final String channelTitle;
@@ -165,6 +166,9 @@ class PostCard extends StatelessWidget {
 
   /// Tap on the "Forwarded from" line: opens the original post where the app can.
   final VoidCallback? onOpenForward;
+
+  /// Tap on the quote block: jumps to the post this one answers.
+  final VoidCallback? onOpenReply;
 
   bool get _hasMenu =>
       onOpenInTelegram != null ||
@@ -257,6 +261,7 @@ class PostCard extends StatelessWidget {
       onOpenThread: onOpenThread,
       onOpenLink: onOpenLink,
       onOpenForward: onOpenForward,
+      onOpenReply: onOpenReply,
     );
     // The bubble has the row to itself: the channel's photo sits in its title line and
     // sharing is in the menu, so nothing beside it takes width from text and pictures.
@@ -363,6 +368,101 @@ class ForwardedFrom extends StatelessWidget {
   }
 }
 
+/// The post a post answers, as a quote block above the text: the accent bar, whose post it
+/// was, and a line of what it said, with a small square of its picture. A tap jumps to it.
+class RepliedPost extends StatelessWidget {
+  const RepliedPost({
+    super.key,
+    required this.reply,
+    required this.colorId,
+    required this.channelTitle,
+    required this.gateway,
+    this.onTap,
+  });
+  final ReplyTarget reply;
+
+  /// Chat id of the channel the post is in; picks the accent colour.
+  final int colorId;
+
+  /// Name for a reply inside the channel, where TDLib names nobody.
+  final String channelTitle;
+  final TelegramGateway gateway;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = peerColor(colorId, scheme.brightness);
+    final name = reply.title.isEmpty ? channelTitle : reply.title;
+    final photo = reply.photo;
+    final block = Material(
+      color: accent.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(6),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(left: BorderSide(color: accent, width: 3)),
+          ),
+          padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (photo != null) ...[
+                SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: PhotoView(
+                    file: photo.sizes.first,
+                    gateway: gateway,
+                    onTap: onTap,
+                    fill: true,
+                    radius: 4,
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: accent,
+                      ),
+                    ),
+                    Text(
+                      reply.text.isEmpty ? 'Post' : reply.text,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: scheme.onSurfaceVariant,
+                        // A quote the author picked out of the post is set apart.
+                        fontStyle: reply.manualQuote
+                            ? FontStyle.italic
+                            : FontStyle.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return block;
+  }
+}
+
 class _Bubble extends StatelessWidget {
   const _Bubble({
     required this.item,
@@ -375,6 +475,7 @@ class _Bubble extends StatelessWidget {
     required this.onOpenThread,
     required this.onOpenLink,
     required this.onOpenForward,
+    required this.onOpenReply,
   });
   final TimelineItem item;
   final List<Media> media;
@@ -386,6 +487,7 @@ class _Bubble extends StatelessWidget {
   final VoidCallback? onOpenThread;
   final void Function(String url)? onOpenLink;
   final VoidCallback? onOpenForward;
+  final VoidCallback? onOpenReply;
 
   static const _side = 10.0;
 
@@ -467,6 +569,17 @@ class _Bubble extends StatelessWidget {
             child: ForwardedFrom(
               origin: item.head.forwardedFrom!,
               onTap: onOpenForward,
+            ),
+          ),
+        if (item.textPost.replyTo != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(_side, 0, _side, 5),
+            child: RepliedPost(
+              reply: item.textPost.replyTo!,
+              colorId: item.chatId,
+              channelTitle: channelTitle,
+              gateway: gateway,
+              onTap: onOpenReply,
             ),
           ),
         if (pictures != null)

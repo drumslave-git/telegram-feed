@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-5 (reply and quote preview).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-6 (copying text out of a post).
 
 ## Phase 0 — Spikes
 
@@ -251,8 +251,12 @@ after it has faded goes to the post underneath, as it should (H-2).
   the sender cache of the comments — one request per origin and session — and drawn under the
   title line as the official app does, signature and all. A tap opens the original post when the
   account follows that channel, and says so when it does not.
-- [ ] H-5 Reply and quote preview: a post that answers an earlier post of the channel shows the
-  quoted post above its text, tappable to jump to it (`jumpToPost` already exists).
+- [x] H-5 Reply and quote preview: `ReplyTarget` from TDLib's `reply_to` (the answered post's
+  chat and id, the quote the author picked, the words of the post otherwise, a thumbnail of its
+  media, and whose post it was for a reply across chats). Inside the channel TDLib gives the ids
+  alone, so the gateway fetches the answered post once and keeps its words. `RepliedPost` draws
+  the quote block above the text; a tap jumps to that post in the timeline, or opens the channel
+  it belongs to when the account follows it.
 - [ ] H-6 Copying text out of a post: "Copy text" in the post menu and the official app's copy
   button in the corner of a monospace block.
 - [ ] H-7 Text size for posts: a slider in Settings' Appearance section that scales the post

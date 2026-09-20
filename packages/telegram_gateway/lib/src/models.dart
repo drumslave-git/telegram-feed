@@ -278,6 +278,58 @@ final class DocumentMedia extends Media {
   final FileRef? thumbnail;
 }
 
+/// The post a post answers (TDLib's `message.reply_to`), as the official app shows it above
+/// the text: whose post it was and a line of what it said, or the quote the author picked.
+final class ReplyTarget {
+  const ReplyTarget({
+    required this.chatId,
+    required this.messageId,
+    this.title = '',
+    this.text = '',
+    this.manualQuote = false,
+    this.photo,
+  });
+
+  /// The post answered. [chatId] is the post's own chat for a reply inside the channel.
+  final int chatId;
+  final int messageId;
+
+  /// Whose post it is; empty for a reply inside the same channel, where the channel's own
+  /// name is the answer.
+  final String title;
+
+  /// The quote, or the beginning of what the answered post said (a media label when it had
+  /// no words). Plain text: the block is one tap target.
+  final String text;
+
+  /// The author picked these words out of the post instead of answering all of it.
+  final bool manualQuote;
+
+  /// Thumbnail of the answered post's media, when it had any.
+  final PhotoMedia? photo;
+
+  ReplyTarget withTitle(String title) => ReplyTarget(
+    chatId: chatId,
+    messageId: messageId,
+    title: title,
+    text: text,
+    manualQuote: manualQuote,
+    photo: photo,
+  );
+
+  ReplyTarget withText(String text, {PhotoMedia? photo}) => ReplyTarget(
+    chatId: chatId,
+    messageId: messageId,
+    title: title,
+    text: text,
+    manualQuote: manualQuote,
+    photo: photo ?? this.photo,
+  );
+
+  @override
+  String toString() => 'ReplyTarget($chatId/$messageId, "$text")';
+}
+
 /// Where a forwarded post came from (TDLib's `message.forward_info`): the line the official
 /// app draws above the post, "Forwarded from `<name>`". The gateway fills [title] from
 /// the id.
@@ -520,6 +572,7 @@ final class Post {
     this.entities = const [],
     this.linkPreview,
     this.forwardedFrom,
+    this.replyTo,
   });
   final int chatId;
   final int messageId;
@@ -554,6 +607,9 @@ final class Post {
 
   /// Where the post was forwarded from, if it was.
   final ForwardOrigin? forwardedFrom;
+
+  /// The post this one answers, if it answers one.
+  final ReplyTarget? replyTo;
 
   @override
   String toString() => 'Post($chatId/$messageId, ${text.length} chars)';

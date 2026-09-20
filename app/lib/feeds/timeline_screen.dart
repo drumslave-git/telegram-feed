@@ -1099,6 +1099,48 @@ class TimelineViewState extends State<TimelineView> {
     );
   }
 
+  /// Tap on the quote block: to the post this one answers. Inside the timeline's own
+  /// channels that is a jump; a post of another channel opens that channel, when the account
+  /// follows it.
+  void _openReply(TimelineItem item) {
+    final reply = item.textPost.replyTo;
+    if (reply == null || reply.messageId == 0) return;
+    final t = _timeline;
+    if (t != null && t.chatIds.contains(reply.chatId)) {
+      unawaited(
+        jumpToPost(
+          chatId: reply.chatId,
+          messageId: reply.messageId,
+          // The answered post is older than the one answering it.
+          date: item.head.date,
+        ),
+      );
+      return;
+    }
+    final channel = _known[reply.chatId];
+    if (channel == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('That post is in a channel you do not follow.'),
+        ),
+      );
+      return;
+    }
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TimelineScreen(
+            db: widget.db,
+            gateway: widget.gateway,
+            channel: channel,
+            focusChatId: reply.chatId,
+            focusMessageId: reply.messageId,
+          ),
+        ),
+      ),
+    );
+  }
+
   /// A link in a post: whatever app handles it, the browser for web pages.
   Future<void> _openLink(String url) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -1328,6 +1370,9 @@ class TimelineViewState extends State<TimelineView> {
                 onOpenForward: item.head.forwardedFrom == null
                     ? null
                     : () => _openForward(item),
+                onOpenReply: item.textPost.replyTo == null
+                    ? null
+                    : () => _openReply(item),
                 // Only posts of channels with a discussion group have a thread.
                 onOpenThread: !item.head.canComment
                     ? null

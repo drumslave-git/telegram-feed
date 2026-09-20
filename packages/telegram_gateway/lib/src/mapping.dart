@@ -123,7 +123,7 @@ String preview(td.MessageContent? c) {
   };
 }
 
-Post post(td.Message m, {ForwardOrigin? forwardedFrom}) {
+Post post(td.Message m, {ForwardOrigin? forwardedFrom, ReplyTarget? replyTo}) {
   final (text, media) = content(m.content);
   return Post(
     chatId: m.chatId,
@@ -141,7 +141,63 @@ Post post(td.Message m, {ForwardOrigin? forwardedFrom}) {
     entities: entities(formattedText(m.content)),
     linkPreview: linkPreview(m.content),
     forwardedFrom: forwardedFrom ?? forwardOrigin(m),
+    replyTo: replyTo ?? replyTarget(m),
   );
+}
+
+/// The post a post answers. A reply inside the same channel carries nothing but the ids, so
+/// the gateway fetches that post for its words; a reply to another chat comes with the
+/// origin and the content already.
+ReplyTarget? replyTarget(td.Message m) {
+  // Stories are out of scope (SPEC 5), and so is answering one.
+  if (m.replyTo is! td.MessageReplyToMessage) return null;
+  final r = m.replyTo! as td.MessageReplyToMessage;
+  return ReplyTarget(
+    chatId: r.chatId == 0 ? m.chatId : r.chatId,
+    messageId: r.messageId,
+    title: switch (r.origin) {
+      td.MessageOriginHiddenUser(:final senderName) => senderName,
+      _ => '',
+    },
+    text: r.quote?.text?.text ?? (r.content == null ? '' : preview(r.content)),
+    manualQuote: r.quote?.isManual ?? false,
+    photo: replyPhoto(r.content),
+  );
+}
+
+/// Thumbnail of the answered post's media, for the little square in the block.
+PhotoMedia? replyPhoto(td.MessageContent? c) {
+  if (c == null) return null;
+  final (_, media) = content(c);
+  return switch (media) {
+    PhotoMedia(:final sizes) when sizes.isNotEmpty => PhotoMedia(sizes: sizes),
+    VideoMedia(:final thumbnail) when thumbnail != null => PhotoMedia(
+      sizes: [thumbnail],
+    ),
+    DocumentMedia(:final thumbnail) when thumbnail != null => PhotoMedia(
+      sizes: [thumbnail],
+    ),
+    _ => null,
+  };
+}
+
+/// The origin of a reply to a post of another chat, for the gateway to name. A reply inside
+/// the channel has none: its own name is the answer.
+ForwardOrigin? replyOrigin(td.Message m) {
+  if (m.replyTo is! td.MessageReplyToMessage) return null;
+  return switch ((m.replyTo! as td.MessageReplyToMessage).origin) {
+    td.MessageOriginChannel(:final chatId, :final messageId) => ForwardOrigin(
+      chatId: chatId,
+      messageId: messageId,
+    ),
+    td.MessageOriginChat(:final senderChatId) => ForwardOrigin(
+      chatId: senderChatId,
+    ),
+    td.MessageOriginUser(:final senderUserId) => ForwardOrigin(
+      userId: senderUserId,
+    ),
+    _ => null,
+  };
 }
 
 /// Origin of a forwarded post, with the ids the gateway turns into a name.

@@ -243,6 +243,18 @@ Map<String, Object?> encodePost(Post p) => {
           'signature': p.forwardedFrom!.signature,
           'hidden': p.forwardedFrom!.hidden,
         },
+  'replyTo': p.replyTo == null
+      ? null
+      : {
+          'chatId': p.replyTo!.chatId,
+          'messageId': p.replyTo!.messageId,
+          'title': p.replyTo!.title,
+          'text': p.replyTo!.text,
+          'manualQuote': p.replyTo!.manualQuote,
+          'photo': p.replyTo!.photo == null
+              ? null
+              : encodeMedia(p.replyTo!.photo!),
+        },
 };
 
 Map<String, Object?> encodeLinkPreview(LinkPreview p) => {
@@ -368,6 +380,19 @@ Post decodePost(Map<Object?, Object?> m) => Post(
       userId: (o['userId'] as int?) ?? 0,
       signature: (o['signature'] as String?) ?? '',
       hidden: (o['hidden'] as bool?) ?? false,
+    ),
+    _ => null,
+  },
+  replyTo: switch (m['replyTo']) {
+    final Map<Object?, Object?> r => ReplyTarget(
+      chatId: (r['chatId'] as int?) ?? 0,
+      messageId: (r['messageId'] as int?) ?? 0,
+      title: (r['title'] as String?) ?? '',
+      text: (r['text'] as String?) ?? '',
+      manualQuote: (r['manualQuote'] as bool?) ?? false,
+      photo: r['photo'] == null
+          ? null
+          : decodeMedia(r['photo'] as Map<Object?, Object?>) as PhotoMedia,
     ),
     _ => null,
   },
