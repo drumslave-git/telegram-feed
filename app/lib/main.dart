@@ -6,6 +6,7 @@ import 'auth/login_screens.dart';
 import 'home/home_screen.dart';
 import 'host/app_host.dart';
 import 'feeds/text_scale.dart';
+import 'media/audio_bar.dart';
 import 'media/autoplay.dart';
 import 'media/system_pip.dart';
 import 'notifications/open_post.dart';
@@ -61,7 +62,11 @@ class TelegramFeedApp extends StatelessWidget {
                 ? child!
                 : AutoplayScope(
                     db: snap.data!.db,
-                    child: PostTextScale(db: snap.data!.db, child: child!),
+                    child: PostTextScale(
+                      db: snap.data!.db,
+                      // Under every screen while a voice message or a song plays.
+                      child: AudioBarHost(child: child!),
+                    ),
                   ),
           ),
           home: _Root(host: h),

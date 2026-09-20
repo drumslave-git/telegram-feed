@@ -154,7 +154,10 @@ Feeds with their sources, rules and a whitelist of settings (theme, read-aloud p
 and music open in it, so only one sound is ever heard and a post that scrolls away keeps
 playing. It sits behind an `AudioEngine` interface — `just_audio` in the app, a fake in the
 tests — and holds the track, whether it plays, the position and the speed (1×, 1.5×, 2×) as
-notifiers, which the row in the post and the player bar both follow.
+notifiers, which the row in the post and the player bar both follow. `AudioBarHost` sits in
+the app's `builder`, under the navigator, so the bar stands under every screen while
+something plays and the sound survives scrolling away, opening another screen or logging
+into a thread.
 
 ### 5.6 Video playback
 

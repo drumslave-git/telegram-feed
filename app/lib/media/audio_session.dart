@@ -150,12 +150,13 @@ class AudioSessions {
     return next;
   }
 
-  /// Stops, and forgets what was playing: the bar goes away with it.
+  /// Stops, and forgets what was playing: the bar goes away at once, and the engine is let
+  /// go afterwards.
   Future<void> stop() async {
-    await _release();
     track.value = null;
     playing.value = false;
     position.value = Duration.zero;
+    await _release();
   }
 
   Future<void> _release() async {

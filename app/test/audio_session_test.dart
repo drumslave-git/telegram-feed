@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/players.dart';
+import 'package:telegram_feed/media/audio_bar.dart';
 import 'package:telegram_feed/media/audio_session.dart';
 
 /// An engine that answers without a plugin, and records what it was asked to do.
@@ -141,5 +142,62 @@ void main() {
     // Take the row down before the session, so nothing listens to a closed stream.
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(sessions.stop);
+  });
+
+  testWidgets('the bar shows what plays and keeps it playing off screen', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AudioBarHost(
+          sessions: sessions,
+          child: const Scaffold(body: Center(child: Text('the screen'))),
+        ),
+      ),
+    );
+    await tester.pump();
+    // Nothing plays: no bar at all.
+    expect(find.byType(AudioBar), findsNothing);
+
+    await sessions.play(
+      const AudioTrack(
+        path: '/a.ogg',
+        label: 'Voice message',
+        durationSeconds: 30,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(AudioBar), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AudioBar),
+        matching: find.text('Voice message'),
+      ),
+      findsOneWidget,
+    );
+    // The row of the post is nowhere in sight, and the sound goes on.
+    expect(find.byType(AudioPlayerWidget), findsNothing);
+    expect(sessions.playing.value, isTrue);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AudioBar),
+        matching: find.byTooltip('Pause'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(engine.calls.last, 'pause');
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AudioBar),
+        matching: find.byTooltip('Stop'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(AudioBar), findsNothing);
+    expect(sessions.track.value, isNull);
   });
 }

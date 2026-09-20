@@ -59,7 +59,8 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
   channel's name; a tap opens the original post when I follow that channel too.
 - A post whose text carries a link shows the site's card under it (or over it, as Telegram says): the site, the title, the description and the picture, with a play badge when the link is a video. A tap on the card opens the link in the browser or in the app that handles it.
 - I can view photos inline, play video, voice, and audio without leaving the app. Voice and
-  music can be dragged to seek and played faster (1x, 1.5x, 2x).
+  music can be dragged to seek and played faster (1x, 1.5x, 2x), and a bar at the bottom keeps
+  them playing while I scroll on or open another screen.
 - Stickers are drawn, animated ones included, and a round video message plays where it is.
 - A tap on a video plays it full screen at once, in the orientation I hold the phone, from the beginning when the timeline was autoplaying it. There I can seek, zoom with a double tap or a pinch and move the zoomed picture, hold a finger down for 2× speed, swipe down to close, swipe sideways through the photos and videos of the album, and shrink the video to a floating player. Leaving full screen stops the video and its download; short videos that autoplay in the timeline go on playing there without sound.
 - Every video has a download button in its top left corner that keeps the whole file in Telegram's cache, with progress and cancel. Saving a photo or a video into the phone's gallery is decided and planned (PLAN.md H-23).

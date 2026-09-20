@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-20 (the player bar that keeps playing).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-21 (the viewer pages through all the media).
 
 ## Phase 0 — Spikes
 
@@ -327,8 +327,10 @@ after it has faded goes to the post underneath, as it should (H-2).
   moved out of the widget into `AudioSessions`, the app's one player, behind an `AudioEngine`
   interface (`just_audio` in the app, a fake in the tests, as `Speaker` does for read-aloud).
   The row shows play or pause, a slider, the position and the length, and the speed button.
-- [ ] H-20 A player bar keeps the audio playing when the post leaves the screen and when the
-  screen is left, with pause and close, as the official app's does.
+- [x] H-20 A player bar under every screen while a voice message or a song plays
+  (`AudioBarHost` in the app's builder, so it survives every route): the name, the position
+  and length, play or pause, the speed and a cross that stops it. The sound is the session's,
+  not the post's, so scrolling away or leaving the screen does not cut it off.
 - [ ] H-21 The viewer pages through all the media of the channel, or of the feed, instead of
   the post's own album only.
 - [ ] H-22 The viewer shows the caption, the channel and the time, with share and save on it.
