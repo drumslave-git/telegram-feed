@@ -21,6 +21,7 @@ void main() {
         title: 'Alpha News',
         username: 'alpha',
         memberCount: 10,
+        lastReadMessageId: 500,
       ),
       Channel(
         chatId: -2,
@@ -81,7 +82,11 @@ void main() {
     await tester.enterText(find.byType(TextField), 'bet');
     await tester.pump();
     expect(find.text('Alpha News'), findsNothing);
+    // Ticked off, then added: the picker takes several at once (H-37).
     await tester.tap(find.text('Beta Daily'));
+    await tester.pump();
+    expect(find.text('1 channel ticked'), findsOneWidget);
+    await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
     await settle(tester);
     expect(find.text('Beta Daily'), findsOneWidget);
@@ -101,6 +106,8 @@ void main() {
     ); // only the list entry behind the sheet
     expect(find.text('Alpha News'), findsOneWidget);
     await tester.tap(find.text('Alpha News'));
+    await tester.pump();
+    await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
     await settle(tester);
 
@@ -180,6 +187,53 @@ void main() {
     await tester.pumpWidget(app());
     await settle(tester);
     expect(find.textContaining('Left in Telegram'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('the picker adds several channels in one go', (tester) async {
+    await tester.runAsync(() async {
+      feedId = (await db.createFeed('Tech')).id;
+    });
+    await tester.pumpWidget(app());
+    await settle(tester);
+
+    await tester.tap(find.text('Add channel'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    // Nothing ticked: the button waits.
+    expect(find.text('Tick the channels to add'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Add'))
+          .enabled,
+      isFalse,
+    );
+
+    await tester.tap(find.text('Alpha News'));
+    await tester.tap(find.text('Beta Daily'));
+    await tester.pump();
+    expect(find.text('2 channels ticked'), findsOneWidget);
+
+    // A second tap takes one off again.
+    await tester.tap(find.text('Beta Daily'));
+    await tester.pump();
+    expect(find.text('1 channel ticked'), findsOneWidget);
+    await tester.tap(find.text('Beta Daily'));
+    await tester.pump();
+
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+    await settle(tester);
+
+    final sources = (await tester.runAsync(
+      () => db.watchSourceChannels(feedId).first,
+    ))!;
+    expect(sources.map((s) => s.title), ['Alpha News', 'Beta Daily']);
+    // Each one starts at Telegram's own read position.
+    expect(await tester.runAsync(() => db.readMarks(feedId)), {
+      -1: 500,
+      -2: 700,
+    });
     await unmount(tester);
   });
 }

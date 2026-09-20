@@ -112,7 +112,7 @@ watched_channels (chat_id, title, username)
 
 ### 5.2 Sources
 
-Only channels the account is already a member of can be added. The picker lists `myChannels()` with a local search box. The app never calls `joinChat`, `leaveChat`, `searchPublicChat`, or changes Telegram-side mute or folder settings. Because every source is a joined chat, TDLib delivers `updateNewMessage` for all of them and no polling is needed.
+Only channels the account is already a member of can be added. The picker lists `myChannels()` with a local search box, and channels are ticked off and added in one press (H-37), each one starting at Telegram's own read position. The app never calls `joinChat`, `leaveChat`, `searchPublicChat`, or changes Telegram-side mute or folder settings. Because every source is a joined chat, TDLib delivers `updateNewMessage` for all of them and no polling is needed.
 
 If the user leaves a channel in the official app, `membershipEvents` reports it. The source stays in its feeds but is shown as "left" with an option to remove it; history already in TDLib's local database remains readable until then.
 

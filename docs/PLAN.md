@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-37 (the channel picker takes several channels at once).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-38 (feed positioning tested thoroughly on fixture data).
 
 ## Phase 0 — Spikes
 
@@ -417,8 +417,10 @@ after it has faded goes to the post underneath, as it should (H-2).
 - [x] H-36 "New feed" belongs inside the Feeds tab: the `+` left the tab bar, which now
   carries tabs only, and became a floating button that stands on the Feeds tab and nowhere
   else. The home golden was regenerated.
-- [ ] H-37 The channel picker of a feed takes several channels at once: check them off and add
-  them in one go.
+- [x] H-37 The channel picker of a feed takes several channels at once: a tap ticks a channel
+  off (a checkbox beside the member count), the bar at the foot of the sheet counts what is
+  ticked, and "Add" puts them all in the feed in one go, each one starting at Telegram's own
+  read position. A tap on a ticked channel takes it off again.
 - [ ] H-38 Feed positioning is tested thoroughly on fixture data instead of real channels: where
   a feed opens for every read state, what resuming the app from the background does to it, what
   a new post while reading does, and the read marks that follow. Fixture posts and channels live

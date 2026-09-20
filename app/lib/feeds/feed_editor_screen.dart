@@ -52,7 +52,7 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
     final tags = await widget.db.feedNamesByChat();
     if (!mounted) return;
     final taken = current.map((c) => c.chatId).toSet();
-    final picked = await showModalBottomSheet<Channel>(
+    final picked = await showModalBottomSheet<List<Channel>>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -62,20 +62,20 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
         feedsByChat: tags,
       ),
     );
-    if (picked != null) {
+    for (final channel in picked ?? const <Channel>[]) {
       await widget.db.addSource(
         widget.feedId,
-        picked.chatId,
-        title: picked.title,
-        username: picked.username,
+        channel.chatId,
+        title: channel.title,
+        username: channel.username,
       );
       // The feed starts where Telegram's own read position is, so the channel's backlog
       // does not count as unread here (ARCHITECTURE 5.4).
-      if (picked.lastReadMessageId > 0) {
+      if (channel.lastReadMessageId > 0) {
         await widget.db.markRead(
           widget.feedId,
-          picked.chatId,
-          picked.lastReadMessageId,
+          channel.chatId,
+          channel.lastReadMessageId,
         );
       }
     }
@@ -445,7 +445,14 @@ class ChannelPicker extends StatefulWidget {
 class _ChannelPickerState extends State<ChannelPicker> {
   String _query = '';
 
+  /// The channels ticked off so far, by chat id: several go in at once (H-37).
+  final _picked = <int>{};
+
   List<String> _tagsOf(Channel c) => widget.feedsByChat[c.chatId] ?? const [];
+
+  void _toggle(Channel c) => setState(() {
+    if (!_picked.remove(c.chatId)) _picked.add(c.chatId);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -524,13 +531,47 @@ class _ChannelPickerState extends State<ChannelPicker> {
                                     ),
                                 ],
                               ),
-                        trailing: c.memberCount > 0
-                            ? Text('${c.memberCount}')
-                            : null,
-                        onTap: () => Navigator.pop(context, c),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (c.memberCount > 0) Text('${c.memberCount}'),
+                            Checkbox(
+                              value: _picked.contains(c.chatId),
+                              onChanged: (_) => _toggle(c),
+                            ),
+                          ],
+                        ),
+                        onTap: () => _toggle(c),
                       );
                     },
                   ),
+          ),
+          // What was ticked goes in together, as one button press.
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _picked.isEmpty
+                          ? 'Tick the channels to add'
+                          : '${_picked.length} channel${_picked.length == 1 ? '' : 's'} ticked',
+                    ),
+                  ),
+                  FilledButton(
+                    onPressed: _picked.isEmpty
+                        ? null
+                        : () => Navigator.pop(context, [
+                            for (final c in widget.channels)
+                              if (_picked.contains(c.chatId)) c,
+                          ]),
+                    child: const Text('Add'),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
