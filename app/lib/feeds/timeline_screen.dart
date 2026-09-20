@@ -67,6 +67,9 @@ class _TimelineScreenState extends State<TimelineScreen> {
   int _current = -1;
   bool _jumping = false;
 
+  /// How many rows the timeline has picked; over zero the bar of H-17 takes the app bar.
+  int _selected = 0;
+
   /// What the timeline reads, handed up by [TimelineView] as it loads.
   TimelineSources _sources = (
     chatIds: const [],
@@ -185,8 +188,95 @@ class _TimelineScreenState extends State<TimelineScreen> {
     ),
   );
 
+  /// What the reader picked, and what can be done with it: the official app's own set,
+  /// minus forwarding to a chat, which this app does not do.
+  PreferredSizeWidget _selectionBar() => AppBar(
+    leading: IconButton(
+      tooltip: 'Cancel',
+      icon: const Icon(Icons.close),
+      onPressed: () => _view.currentState?.clearSelection(),
+    ),
+    title: Text('$_selected selected'),
+    actions: [
+      IconButton(
+        tooltip: 'Copy text',
+        icon: const Icon(Icons.content_copy),
+        onPressed: () => unawaited(_copySelected()),
+      ),
+      IconButton(
+        tooltip: 'Share',
+        icon: const Icon(Icons.share),
+        onPressed: () => unawaited(_shareSelected()),
+      ),
+      IconButton(
+        tooltip: 'Save to Saved Messages',
+        icon: const Icon(Icons.bookmark_add_outlined),
+        onPressed: () => unawaited(_saveSelected()),
+      ),
+    ],
+  );
+
+  List<TimelineItem> get _picked =>
+      _view.currentState?.selectedItems ?? const [];
+
+  Future<void> _copySelected() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final items = _picked;
+    final text = [
+      for (final i in items)
+        if (i.text.isNotEmpty) i.text,
+    ].join(String.fromCharCode(10) + String.fromCharCode(10));
+    await Clipboard.setData(ClipboardData(text: text));
+    _view.currentState?.clearSelection();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          '${items.length} post${items.length == 1 ? '' : 's'} copied',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _shareSelected() async {
+    final items = _picked;
+    final view = _view.currentState;
+    final parts = [for (final i in items) view?.shareTextOf(i) ?? i.text];
+    _view.currentState?.clearSelection();
+    await widget.share(
+      parts.join(String.fromCharCode(10) + String.fromCharCode(10)),
+      subject: widget.feed?.name ?? widget.channel?.title ?? '',
+    );
+  }
+
+  Future<void> _saveSelected() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final items = _picked;
+    final byChat = <int, List<int>>{};
+    for (final i in items) {
+      byChat.putIfAbsent(i.chatId, () => []).addAll([
+        for (final p in i.allPosts) p.messageId,
+      ]);
+    }
+    _view.currentState?.clearSelection();
+    try {
+      for (final entry in byChat.entries) {
+        await widget.gateway.saveToSavedMessages(entry.key, entry.value);
+      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            '${items.length} post${items.length == 1 ? '' : 's'} saved to Saved Messages',
+          ),
+        ),
+      );
+    } on TelegramException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
+    }
+  }
+
   PreferredSizeWidget _appBar(BuildContext context) {
     final theme = Theme.of(context);
+    if (_selected > 0) return _selectionBar();
     if (_searchOpen) {
       return AppBar(
         leading: BackButton(onPressed: _closeSearch),
@@ -295,6 +385,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                   key: _view,
                   db: widget.db,
                   gateway: widget.gateway,
+                  onSelectionChanged: (n) => setState(() => _selected = n),
                   feed: widget.feed,
                   channel: widget.channel,
                   focusChatId: widget.focusChatId,
@@ -368,12 +459,16 @@ class TimelineView extends StatefulWidget {
     this.focusMessageId,
     this.share = shareWithSystemSheet,
     this.onSources,
+    this.onSelectionChanged,
   }) : assert((feed == null) != (channel == null));
   final AppDatabase db;
   final TelegramGateway gateway;
 
   /// Reports the channels, the filter and the photos as they are loaded, for the search.
   final ValueChanged<TimelineSources>? onSources;
+
+  /// How many rows are picked, so the screen can put up the selection bar.
+  final ValueChanged<int>? onSelectionChanged;
 
   /// A feed of ours: sources and read marks come from the database.
   final Feed? feed;
@@ -442,6 +537,10 @@ class TimelineViewState extends State<TimelineView> {
 
   /// Every channel the account follows, by chat id: the forwarded-from line opens one.
   Map<int, Channel> _known = const {};
+
+  /// Rows the reader picked, by (chat id, row id). Empty means the timeline is reading,
+  /// not selecting.
+  final _selected = <(int, int)>{};
 
   /// The channel's pinned post, shown in a bar over the timeline. A feed mixes channels,
   /// so it has no such bar (founder decision, round 7).
@@ -1170,6 +1269,16 @@ class TimelineViewState extends State<TimelineView> {
     username: _usernames[item.chatId],
   );
 
+  /// The post as it goes out to another app: the channel, the words and the link. Used for
+  /// one post and for a selection of them.
+  String shareTextOf(TimelineItem item) {
+    final link = _shareLink(item);
+    final title = _titles[item.chatId] ?? '';
+    return link == null
+        ? item.text
+        : shareText(channelTitle: title, text: item.head.text, link: link);
+  }
+
   Future<void> _share(TimelineItem item) async {
     final link = _shareLink(item);
     if (link == null) {
@@ -1237,6 +1346,30 @@ class TimelineViewState extends State<TimelineView> {
     } on TelegramException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
     }
+  }
+
+  /// Picks a row, or lets it go; the screen above follows the count and shows its own bar.
+  void toggleSelected(TimelineItem item) {
+    final id = (item.chatId, item.rowId);
+    setState(() {
+      if (!_selected.remove(id)) _selected.add(id);
+    });
+    widget.onSelectionChanged?.call(_selected.length);
+  }
+
+  void clearSelection() {
+    if (_selected.isEmpty) return;
+    setState(_selected.clear);
+    widget.onSelectionChanged?.call(0);
+  }
+
+  /// The rows the reader picked, oldest first, as the actions want them.
+  List<TimelineItem> get selectedItems {
+    final items = _timeline?.items ?? const <TimelineItem>[];
+    return [
+      for (final i in items.reversed)
+        if (_selected.contains((i.chatId, i.rowId))) i,
+    ];
   }
 
   Future<void> _loadPinned() async {
@@ -1444,6 +1577,9 @@ class TimelineViewState extends State<TimelineView> {
                     ? null
                     : () => _openReply(item),
                 onQuickReact: () => unawaited(_quickReact(item)),
+                onSelect: () => toggleSelected(item),
+                selecting: _selected.isNotEmpty,
+                selected: _selected.contains(id),
                 // Only posts of channels with a discussion group have a thread.
                 onOpenThread: !item.head.canComment
                     ? null

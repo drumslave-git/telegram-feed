@@ -483,6 +483,8 @@ void main() {
 
     await tester.longPress(find.text('shareable'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Copy link'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Copy link'));
     await tester.pumpAndSettle();
     expect(copied, 'https://t.me/news/5');

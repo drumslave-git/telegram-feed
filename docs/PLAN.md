@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-17 (selecting several posts).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-18 (t.me links open in our own timeline).
 
 ## Phase 0 — Spikes
 
@@ -311,8 +311,11 @@ after it has faded goes to the post underneath, as it should (H-2).
   of its own over the core port, and `ConnectionTitle` under the title of the home screen and of
   every timeline — "Connecting…", "Waiting for network…", "Connecting to proxy…", "Updating…",
   and nothing at all once it is ready.
-- [ ] H-17 Selecting several posts: a long press starts a selection, then save, share or copy
-  all of them at once. (Reopened from round 4.)
+- [x] H-17 Selecting several posts: "Select" in the post menu starts it, every tap then picks
+  or drops a row (the row answers nothing else while the timeline selects, and carries a tick),
+  and the app bar becomes "N selected" with Copy text, Share and Save to Saved Messages, each
+  over every picked post, oldest first. Forwarding to a chat stays out: this app does not write
+  to chats. (Reopened from round 4.)
 - [ ] H-18 A t.me link inside a post that points at a channel the account follows opens in our
   own timeline instead of the browser, post id and all.
 

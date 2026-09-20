@@ -144,6 +144,9 @@ class PostCard extends StatelessWidget {
     this.onOpenForward,
     this.onOpenReply,
     this.onQuickReact,
+    this.onSelect,
+    this.selecting = false,
+    this.selected = false,
   });
   final TimelineItem item;
   final String channelTitle;
@@ -182,11 +185,20 @@ class PostCard extends StatelessWidget {
   /// Double tap on the bubble: sends the quick reaction, as the official app does.
   final VoidCallback? onQuickReact;
 
+  /// "Select" in the menu, and every tap while the timeline is selecting.
+  final VoidCallback? onSelect;
+
+  /// The timeline is choosing posts: a tap anywhere on the row picks this one, and nothing
+  /// else in it answers.
+  final bool selecting;
+  final bool selected;
+
   bool get _hasMenu =>
       onOpenInTelegram != null ||
       onShare != null ||
       onCopyLink != null ||
       onCopyText != null ||
+      onSelect != null ||
       onSave != null ||
       availableReactions != null;
 
@@ -227,6 +239,12 @@ class PostCard extends StatelessWidget {
                   leading: const Icon(Icons.share_outlined),
                   title: const Text('Share'),
                   onTap: () => Navigator.pop(context, onShare),
+                ),
+              if (onSelect != null)
+                ListTile(
+                  leading: const Icon(Icons.checklist),
+                  title: const Text('Select'),
+                  onTap: () => Navigator.pop(context, onSelect),
                 ),
               if (onCopyText != null && item.text.isNotEmpty)
                 ListTile(
@@ -286,7 +304,7 @@ class PostCard extends StatelessWidget {
     // The bubble has the row to itself: the channel's photo sits in its title line and
     // sharing is in the menu, so nothing beside it takes width from text and pictures.
     // Everything in it follows the reader's text size.
-    return PostTextScale.wrap(
+    final card = PostTextScale.wrap(
       context,
       Padding(
         padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
@@ -314,6 +332,37 @@ class PostCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+    if (!selecting) return card;
+    // While the timeline selects, the row answers nothing but the tap that picks it.
+    return Stack(
+      children: [
+        card,
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onSelect,
+            child: ColoredBox(
+              color: selected
+                  ? Theme.of(context).colorScheme.primary
+                        .withValues(alpha: 0.18)
+                  : Colors.transparent,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Icon(
+                    selected
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
