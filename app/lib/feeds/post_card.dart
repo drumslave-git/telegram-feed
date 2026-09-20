@@ -9,6 +9,7 @@ import 'bubble_text.dart';
 import 'formatted_text.dart';
 import 'link_preview.dart';
 import 'media_view.dart';
+import 'text_scale.dart';
 
 /// Colours of the chat the official app draws: a tinted backdrop with bubbles on it.
 final class ChatColors {
@@ -276,26 +277,30 @@ class PostCard extends StatelessWidget {
     );
     // The bubble has the row to itself: the channel's photo sits in its title line and
     // sharing is in the menu, so nothing beside it takes width from text and pictures.
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Material(
-          color: colors.bubble,
-          elevation: 0.5,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(14)),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: _hasMenu ? () => _menu(context) : null,
-            onLongPress: _hasMenu ? () => _menu(context) : null,
-            // Text alone makes a bubble as wide as it needs; media fills the row, and so
-            // does a link preview, whose card and picture would otherwise be squeezed into
-            // the width of the words above it.
-            child: media.isEmpty && item.textPost.linkPreview == null
-                ? IntrinsicWidth(child: bubble)
-                : SizedBox(width: double.infinity, child: bubble),
+    // Everything in it follows the reader's text size.
+    return PostTextScale.wrap(
+      context,
+      Padding(
+        padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Material(
+            color: colors.bubble,
+            elevation: 0.5,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(14)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: _hasMenu ? () => _menu(context) : null,
+              onLongPress: _hasMenu ? () => _menu(context) : null,
+              // Text alone makes a bubble as wide as it needs; media fills the row, and so
+              // does a link preview, whose card and picture would otherwise be squeezed into
+              // the width of the words above it.
+              child: media.isEmpty && item.textPost.linkPreview == null
+                  ? IntrinsicWidth(child: bubble)
+                  : SizedBox(width: double.infinity, child: bubble),
+            ),
           ),
         ),
       ),

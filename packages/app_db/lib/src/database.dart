@@ -123,6 +123,10 @@ final class FeedWithSources {
 /// Setting keys used by the app (values are strings; parse at the call site).
 abstract final class SettingKeys {
   static const themeMode = 'themeMode'; // 'system' | 'light' | 'dark'
+
+  /// How much bigger or smaller the text of posts and comments is drawn, as a factor
+  /// between 0.8 and 1.6 ('1.0' by default).
+  static const postTextScale = 'appearance.postTextScale';
   static const syncReadToTelegram =
       'syncReadToTelegram'; // 'true' | 'false', default true
 

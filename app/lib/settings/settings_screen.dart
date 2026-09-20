@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../ai/semantic_gate.dart';
+import '../feeds/text_scale.dart';
 import '../home/channel_list.dart' show ChannelAvatar;
 import '../home/home_placeholder.dart';
 import '../media/autoplay.dart';
@@ -217,6 +218,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onSelectionChanged: (s) =>
                       widget.db.setSetting(SettingKeys.themeMode, s.first),
                 ),
+              );
+            },
+          ),
+          StreamBuilder<String?>(
+            stream: widget.db.watchSetting(SettingKeys.postTextScale),
+            builder: (context, snap) {
+              final factor = PostTextScale.parse(snap.data);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.format_size),
+                    title: const Text('Text size in posts'),
+                    subtitle: Text('${(factor * 100).round()} %'),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Slider(
+                      value: factor,
+                      min: PostTextScale.min,
+                      max: PostTextScale.max,
+                      // 5 % steps: the slider lands on round numbers.
+                      divisions:
+                          ((PostTextScale.max - PostTextScale.min) / 0.05)
+                              .round(),
+                      label: '${(factor * 100).round()} %',
+                      onChanged: (v) => widget.db.setSetting(
+                        SettingKeys.postTextScale,
+                        v.toStringAsFixed(2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: MediaQuery(
+                      data: MediaQuery.of(context)
+                          .copyWith(textScaler: TextScaler.linear(factor)),
+                      child: Text(
+                        'A post is drawn at this size.',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ),
+                  ),
+                ],
               );
             },
           ),

@@ -106,7 +106,7 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 5. **Search in a feed or a channel**: the magnifier in the app bar searches the posts of every channel of the feed at once, as one list of matches with the channel, the text and the date; a tap opens the timeline at that post, with arrows and a counter to step through the matches. What the feed hides is not found either. A calendar in the search bar, and a tap on any day label between the posts, jumps to a date.
 6. **Channel info**: opened from the channel's title — photo, name, subscribers, description, link, and tabs with the shared media of the channel: Media, Files, Links, Music, Voice. No mute and no leave: notifications are the app's own rules and the app never joins or leaves a channel.
 7. **Post view**: full post with media viewer, open in Telegram, share.
-8. **Settings**: account as a profile (photo, name, username, phone, bio, Telegram ID), logout, media autoplay, background watching, appearance, storage usage and cache clearing, about and licenses.
+8. **Settings**: account as a profile (photo, name, username, phone, bio, Telegram ID), logout, media autoplay, background watching, appearance (theme and the text size of posts), storage usage and cache clearing, about and licenses.
 
 Phase 2 adds **Rules list**, **Rule editor**, and **Read-aloud settings**.
 

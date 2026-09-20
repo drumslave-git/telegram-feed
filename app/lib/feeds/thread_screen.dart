@@ -8,6 +8,7 @@ import 'bubble_text.dart';
 import 'formatted_text.dart';
 import 'open_links.dart';
 import 'post_card.dart';
+import 'text_scale.dart';
 
 /// Comments on a post from the channel's discussion group, with a reply composer.
 class ThreadScreen extends StatefulWidget {
@@ -171,74 +172,78 @@ class _ThreadScreenState extends State<ThreadScreen> {
               : 'Comments · ${widget.channelTitle}',
         ),
       ),
-      body: ColoredBox(
-        color: colors.background,
-        child: Column(
-          children: [
-            Expanded(
-              child: _noThread
-                  ? const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(32),
-                        child: Text(
-                          'This channel has no discussion group, so posts cannot be commented on.',
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    )
-                  : _error != null && _comments.isEmpty
-                  ? Center(child: Text('Telegram: $_error'))
-                  : ListView.builder(
-                      controller: _scroll,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemCount: _comments.length + 2,
-                      itemBuilder: (context, i) {
-                        if (i == 0) return _header();
-                        if (i == _comments.length + 1) {
-                          return _comments.isEmpty && !_loading
-                              ? const ChatPill('No comments yet.')
-                              : const SizedBox(height: 8);
-                        }
-                        return CommentBubble(
-                          comment: _comments[i - 1],
-                          gateway: widget.gateway,
-                          onOpenLink: _openLink,
-                        );
-                      },
-                    ),
-            ),
-            if (_thread != null)
-              Material(
-                color: Theme.of(context).colorScheme.surface,
-                child: SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _composer,
-                            minLines: 1,
-                            maxLines: 4,
-                            decoration: const InputDecoration(
-                              hintText: 'Write a comment',
-                              isDense: true,
-                            ),
-                            onSubmitted: (_) => _send(),
+      // The comments follow the reader's text size, like the posts.
+      body: PostTextScale.wrap(
+        context,
+        ColoredBox(
+          color: colors.background,
+          child: Column(
+            children: [
+              Expanded(
+                child: _noThread
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Text(
+                            'This channel has no discussion group, so posts cannot be commented on.',
+                            textAlign: TextAlign.center,
                           ),
                         ),
-                        IconButton(
-                          tooltip: 'Send',
-                          icon: const Icon(Icons.send),
-                          onPressed: _sending ? null : _send,
-                        ),
-                      ],
+                      )
+                    : _error != null && _comments.isEmpty
+                    ? Center(child: Text('Telegram: $_error'))
+                    : ListView.builder(
+                        controller: _scroll,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: _comments.length + 2,
+                        itemBuilder: (context, i) {
+                          if (i == 0) return _header();
+                          if (i == _comments.length + 1) {
+                            return _comments.isEmpty && !_loading
+                                ? const ChatPill('No comments yet.')
+                                : const SizedBox(height: 8);
+                          }
+                          return CommentBubble(
+                            comment: _comments[i - 1],
+                            gateway: widget.gateway,
+                            onOpenLink: _openLink,
+                          );
+                        },
+                      ),
+              ),
+              if (_thread != null)
+                Material(
+                  color: Theme.of(context).colorScheme.surface,
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _composer,
+                              minLines: 1,
+                              maxLines: 4,
+                              decoration: const InputDecoration(
+                                hintText: 'Write a comment',
+                                isDense: true,
+                              ),
+                              onSubmitted: (_) => _send(),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Send',
+                            icon: const Icon(Icons.send),
+                            onPressed: _sending ? null : _send,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
