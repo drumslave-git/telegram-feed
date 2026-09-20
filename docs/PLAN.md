@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-8 (swipe back).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-9 (double tap for the quick reaction).
 
 ## Phase 0 — Spikes
 
@@ -265,9 +265,10 @@ after it has faded goes to the post underneath, as it should (H-2).
   navigator and hands the factor to every post card and to the comments through a `MediaQuery`
   of their own, so the rest of the app keeps the system's text size. Kept in `settings`
   (`appearance.postTextScale`) and synced like the theme.
-- [ ] H-8 Swipe back: an edge swipe closes any screen, as it does everywhere in the official
-  app. Every route of the app, and it must not fight the viewer's swipe to close or the
-  timeline's own gestures.
+- [x] H-8 Swipe back: the app's themes carry `CupertinoPageTransitionsBuilder` for every
+  platform, so screens slide in and a drag from the left edge closes them, as everywhere in the
+  official app. A drag anywhere else still belongs to the screen, and the media viewer has a
+  route of its own and keeps its swipe down to close.
 - [ ] H-9 Double tap on a post sends the quick reaction (thumbs up by default, the last used
   one afterwards), as in the official app.
 - [ ] H-10 Stickers and video notes: static and animated stickers (TGS and WebM) and round

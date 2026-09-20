@@ -171,6 +171,11 @@ Feeds with their sources, rules and a whitelist of settings (theme, read-aloud p
 
 ### 5.9 Posts and comments look like the official app
 
+Screens use `CupertinoPageTransitionsBuilder` on every platform (`appPageTransitions` in
+`main.dart`): they slide in and a drag from the left edge pops them, the gesture the official
+app has everywhere. The media viewer keeps its own see-through route and its swipe down.
+
+
 A timeline row (`PostCard`, `feeds/post_card.dart`) is drawn like a post in the official Android app, with one deliberate difference: nothing stands beside the bubble, so text and pictures get the whole width. A bubble on a tinted backdrop (`ChatColors`) starts with its title line (`BubbleTitle`): the channel's name in one of Telegram's seven peer colours (`peerColor`, by id) and the channel's photo, small, at the right end of that line. Then media edge to edge, the text, reaction pills and a comments bar; day pills stand between days. There is no share button beside the bubble; sharing is in the menu.
 
 - Views, "edited" and the time sit in the bottom right corner. `BubbleText` is a render object of its own that puts this footer on the last line of the text when there is room and on a line of its own otherwise; with reactions the pills use the full width and the footer takes the free end of the last row; with nothing under the pictures it lies on top of them.

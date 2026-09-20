@@ -1,4 +1,5 @@
 import 'package:app_db/app_db.dart';
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 
 import 'auth/login_screens.dart';
@@ -42,11 +43,16 @@ class TelegramFeedApp extends StatelessWidget {
         builder: (context, mode) => MaterialApp(
           navigatorKey: navigatorKey,
           title: 'telegram-feed',
-          theme: ThemeData(colorSchemeSeed: Colors.blue, useMaterial3: true),
+          theme: ThemeData(
+            colorSchemeSeed: Colors.blue,
+            useMaterial3: true,
+            pageTransitionsTheme: appPageTransitions,
+          ),
           darkTheme: ThemeData(
             colorSchemeSeed: Colors.blue,
             brightness: Brightness.dark,
             useMaterial3: true,
+            pageTransitionsTheme: appPageTransitions,
           ),
           themeMode: themeModeFrom(mode.data),
           // Above the navigator, so every route's media sees the autoplay settings.
@@ -64,6 +70,16 @@ class TelegramFeedApp extends StatelessWidget {
     );
   }
 }
+
+/// Screens slide in and can be dragged back from the left edge, as everywhere in the
+/// official app. Flutter's Cupertino transition carries that gesture; the viewer has a
+/// route of its own and keeps its swipe down to close.
+final appPageTransitions = PageTransitionsTheme(
+  builders: {
+    for (final platform in TargetPlatform.values)
+      platform: const CupertinoPageTransitionsBuilder(),
+  },
+);
 
 ThemeMode themeModeFrom(String? value) => switch (value) {
   'light' => ThemeMode.light,
