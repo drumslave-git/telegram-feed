@@ -145,6 +145,7 @@ Map<String, Object?> encodeMedia(Media m) => switch (m) {
     :final durationSeconds,
     :final thumbnail,
     :final isAnimation,
+    :final isVideoNote,
   ) =>
     {
       'kind': 'video',
@@ -152,6 +153,7 @@ Map<String, Object?> encodeMedia(Media m) => switch (m) {
       'duration': durationSeconds,
       'thumbnail': _fileOrNull(thumbnail),
       'isAnimation': isAnimation,
+      'isVideoNote': isVideoNote,
     },
   AudioMedia(
     :final file,
@@ -167,6 +169,23 @@ Map<String, Object?> encodeMedia(Media m) => switch (m) {
       'title': title,
       'performer': performer,
       'isVoice': isVoice,
+    },
+  StickerMedia(
+    :final file,
+    :final format,
+    :final width,
+    :final height,
+    :final emoji,
+    :final thumbnail,
+  ) =>
+    {
+      'kind': 'sticker',
+      'file': encodeFileRef(file),
+      'format': format.name,
+      'width': width,
+      'height': height,
+      'emoji': emoji,
+      'thumbnail': _fileOrNull(thumbnail),
     },
   DocumentMedia(
     :final file,
@@ -195,6 +214,15 @@ Media decodeMedia(Map<Object?, Object?> m) => switch (m['kind']) {
     durationSeconds: m['duration'] as int,
     thumbnail: _decodeFileOrNull(m['thumbnail']),
     isAnimation: m['isAnimation'] as bool,
+    isVideoNote: (m['isVideoNote'] as bool?) ?? false,
+  ),
+  'sticker' => StickerMedia(
+    file: decodeFileRef(m['file'] as Map<Object?, Object?>),
+    format: StickerFormat.values.byName(m['format'] as String),
+    width: (m['width'] as int?) ?? 0,
+    height: (m['height'] as int?) ?? 0,
+    emoji: (m['emoji'] as String?) ?? '',
+    thumbnail: _decodeFileOrNull(m['thumbnail']),
   ),
   'audio' => AudioMedia(
     file: decodeFileRef(m['file'] as Map<Object?, Object?>),

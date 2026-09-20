@@ -241,6 +241,7 @@ final class VideoMedia extends Media {
     required this.durationSeconds,
     this.thumbnail,
     this.isAnimation = false,
+    this.isVideoNote = false,
   });
   final FileRef file;
   final int durationSeconds;
@@ -248,6 +249,34 @@ final class VideoMedia extends Media {
 
   /// GIF-like animation (`messageAnimation`).
   final bool isAnimation;
+
+  /// A round video message (`messageVideoNote`), drawn as a circle.
+  final bool isVideoNote;
+}
+
+/// How a sticker is drawn: a picture, a Lottie animation or a small video.
+enum StickerFormat { webp, tgs, webm }
+
+/// A sticker (`messageSticker`). Animated ones are Lottie inside gzip (`tgs`) or WebM.
+final class StickerMedia extends Media {
+  const StickerMedia({
+    required this.file,
+    required this.format,
+    this.width = 0,
+    this.height = 0,
+    this.emoji = '',
+    this.thumbnail,
+  });
+  final FileRef file;
+  final StickerFormat format;
+  final int width;
+  final int height;
+
+  /// The emoji the sticker stands for; read aloud and search use it.
+  final String emoji;
+
+  /// Still picture of the sticker, shown until the file is there.
+  final FileRef? thumbnail;
 }
 
 final class AudioMedia extends Media {

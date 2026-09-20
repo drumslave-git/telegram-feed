@@ -115,9 +115,15 @@ String preview(td.MessageContent? c) {
   if (text.isNotEmpty) return text.replaceAll(RegExp(r'\s+'), ' ');
   return switch (media) {
     PhotoMedia() => 'Photo',
-    VideoMedia(:final isAnimation) => isAnimation ? 'GIF' : 'Video',
+    VideoMedia(:final isAnimation, :final isVideoNote) =>
+      isVideoNote
+          ? 'Video message'
+          : isAnimation
+          ? 'GIF'
+          : 'Video',
     AudioMedia(:final isVoice) => isVoice ? 'Voice message' : 'Audio',
     DocumentMedia(:final fileName) => fileName,
+    StickerMedia(:final emoji) => emoji.isEmpty ? 'Sticker' : '$emoji Sticker',
     UnsupportedMedia(:final tdType) => tdType.replaceFirst('message', ''),
     null => '',
   };
@@ -466,6 +472,38 @@ List<String> availableEmoji(td.AvailableReactions a) => [
         isVoice: true,
       ),
     ),
+  td.MessageSticker(:final sticker) when sticker?.sticker != null => (
+    sticker!.emoji,
+    StickerMedia(
+      file: fileRef(
+        sticker.sticker!,
+        width: sticker.width,
+        height: sticker.height,
+      ),
+      format: switch (sticker.format) {
+        td.StickerFormatTgs() => StickerFormat.tgs,
+        td.StickerFormatWebm() => StickerFormat.webm,
+        _ => StickerFormat.webp,
+      },
+      width: sticker.width,
+      height: sticker.height,
+      emoji: sticker.emoji,
+      thumbnail: thumbRef(sticker.thumbnail),
+    ),
+  ),
+  td.MessageVideoNote(:final videoNote) when videoNote?.video != null => (
+    '',
+    VideoMedia(
+      file: fileRef(
+        videoNote!.video!,
+        width: videoNote.length,
+        height: videoNote.length,
+      ),
+      durationSeconds: videoNote.duration,
+      thumbnail: thumbRef(videoNote.thumbnail),
+      isVideoNote: true,
+    ),
+  ),
   td.MessageDocument(:final document, :final caption)
       when document?.document != null =>
     (

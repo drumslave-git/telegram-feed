@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:video_player/video_player.dart';
 
 import 'media_view.dart' show formatDuration;
 
@@ -85,6 +89,67 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
           ),
         );
       },
+    );
+  }
+}
+
+/// A small silent video that plays over and over: WebM stickers and animated emoji. No
+/// controls, nothing to tap — as in the official app.
+class LoopingVideo extends StatefulWidget {
+  const LoopingVideo({
+    super.key,
+    required this.path,
+    required this.width,
+    required this.height,
+  });
+  final String path;
+  final double width;
+  final double height;
+
+  @override
+  State<LoopingVideo> createState() => _LoopingVideoState();
+}
+
+class _LoopingVideoState extends State<LoopingVideo> {
+  VideoPlayerController? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_start());
+  }
+
+  Future<void> _start() async {
+    final c = VideoPlayerController.file(File(widget.path));
+    try {
+      await c.initialize();
+      await c.setLooping(true);
+      await c.setVolume(0);
+      await c.play();
+    } on Object {
+      await c.dispose();
+      return;
+    }
+    if (!mounted) {
+      await c.dispose();
+      return;
+    }
+    setState(() => _controller = c);
+  }
+
+  @override
+  void dispose() {
+    unawaited(_controller?.dispose());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _controller;
+    return SizedBox(
+      width: widget.width,
+      height: widget.height,
+      child: c == null ? const SizedBox.shrink() : VideoPlayer(c),
     );
   }
 }

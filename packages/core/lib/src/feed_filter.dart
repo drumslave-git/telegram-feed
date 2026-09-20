@@ -16,6 +16,8 @@ MediaKind? mediaKindOf(Media? m) => switch (m) {
     isAnimation ? MediaKind.gif : MediaKind.video,
   AudioMedia(:final isVoice) => isVoice ? MediaKind.voice : MediaKind.audio,
   DocumentMedia() => MediaKind.document,
+  // A sticker is neither a picture nor a film; a feed of photos should not show one.
+  StickerMedia() => MediaKind.other,
   UnsupportedMedia() => MediaKind.other,
 };
 

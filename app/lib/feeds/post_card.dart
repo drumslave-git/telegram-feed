@@ -524,9 +524,11 @@ class _Bubble extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final visual = MediaViewerScreen.viewable(media);
+    // Everything the viewer does not take stands in the bubble as its own row: audio,
+    // documents, stickers and round video messages.
     final other = [
       for (final m in media)
-        if (m is! PhotoMedia && m is! VideoMedia) m,
+        if (!visual.contains(m)) m,
     ];
     final reactions = item.head.reactions;
     final text = item.text;

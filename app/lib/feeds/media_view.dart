@@ -11,6 +11,7 @@ import '../media/video_downloads.dart';
 import '../media/video_sessions.dart';
 import '../media/video_stage.dart';
 import 'players.dart';
+import 'sticker_view.dart';
 
 /// Renders one post's media inline. Files are TDLib-managed: [gateway.download] returns the
 /// local path and [gateway.fileProgress] reports progress while it downloads.
@@ -44,6 +45,29 @@ class MediaView extends StatelessWidget {
       onTap: onOpen,
       fill: fill,
       radius: radius,
+    ),
+    // A sticker keeps its own size, so it must not be stretched by the bubble.
+    final StickerMedia sticker => Align(
+      alignment: Alignment.centerLeft,
+      child: StickerView(sticker: sticker, gateway: gateway),
+    ),
+    // A round video message: the same player, clipped to a circle as in the official app.
+    final VideoMedia video when video.isVideoNote => Align(
+      alignment: Alignment.centerLeft,
+      child: ClipOval(
+        child: SizedBox(
+          width: videoNoteSide,
+          height: videoNoteSide,
+          child: VideoView(
+            video: video,
+            gateway: gateway,
+            autoplay: AutoplayScope.of(context).allows(video),
+            onOpen: onOpen,
+            fill: true,
+            radius: 0,
+          ),
+        ),
+      ),
     ),
     final VideoMedia video => VideoView(
       video: video,
@@ -247,6 +271,9 @@ class PhotoView extends StatelessWidget {
     );
   }
 }
+
+/// Side of a round video message, as the official app draws one.
+const videoNoteSide = 200.0;
 
 /// Proportions a single photo or video may take in a row; beyond them it is cropped.
 const mediaMinAspect = 0.65;

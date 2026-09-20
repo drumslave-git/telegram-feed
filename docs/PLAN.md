@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-10 (stickers and video notes).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-11 (custom emoji in a post's text).
 
 ## Phase 0 — Spikes
 
@@ -276,8 +276,13 @@ after it has faded goes to the post underneath, as it should (H-2).
   double one (as it does in the official app); and the recognizer sits on the post's words, or
   on the pictures of a post without words, not on the whole bubble — a recognizer there holds
   the arena for 300 ms and made every reaction pill, comments bar and picture answer late.
-- [ ] H-10 Stickers and video notes: static and animated stickers (TGS and WebM) and round
-  video messages, which land as "unsupported content" today.
+- [x] H-10 Stickers and round video messages: `StickerMedia` (file, format, size, the emoji it
+  stands for, a still thumbnail) and `VideoMedia.isVideoNote`. `StickerView` draws a `webp`
+  sticker as a picture, a `tgs` one through Lottie (Telegram's gzipped Lottie, `lottie` added to
+  the app), and a `webm` one as a silent looping video, all at their own proportions instead of
+  the bubble's width; a round video message is the ordinary player clipped to a circle. Neither
+  opens the media viewer, and both carry a name for read-aloud, search and rule notifications
+  ("A Sticker", "Video message"). A sticker counts as `other` for a feed's media filters.
 - [ ] H-11 Custom emoji in a post's text: the entity the app drops today, drawn as the emoji's
   own picture (animated ones as their static thumbnail unless cheap to animate).
 - [ ] H-12 Pinned post bar at the top of a channel, tappable to jump to it. In a feed of many

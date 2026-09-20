@@ -33,7 +33,8 @@ class MediaViewerScreen extends StatefulWidget {
   /// What of a post's media the viewer can show, in the order of the post.
   static List<Media> viewable(Iterable<Media> media) => [
     for (final m in media)
-      if (m is PhotoMedia || m is VideoMedia) m,
+      // A sticker is not a picture to open, and a round video message plays where it is.
+      if (m is PhotoMedia || (m is VideoMedia && !m.isVideoNote)) m,
   ];
 
   static Future<void> open(
