@@ -12,6 +12,7 @@ import 'media/autoplay.dart';
 import 'media/system_pip.dart';
 import 'notifications/open_post.dart';
 import 'rules/rules_screen.dart';
+import 'settings/app_lock.dart';
 import 'settings/settings_screen.dart';
 
 void main() {
@@ -68,7 +69,10 @@ class TelegramFeedApp extends StatelessWidget {
                       child: PostTextScale(
                         db: snap.data!.db,
                         // Under every screen while a voice message or a song plays.
-                        child: AudioBarHost(child: child!),
+                        // The lock sits above every screen the navigator builds.
+                        child: AudioBarHost(
+                          child: LockGate(db: snap.data!.db, child: child!),
+                        ),
                       ),
                     ),
                   ),

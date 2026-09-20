@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-34 (the app lock).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-35 (several Telegram accounts).
 
 ## Phase 0 — Spikes
 
@@ -395,8 +395,12 @@ after it has faded goes to the post underneath, as it should (H-2).
   adds no suffix, so an older install keeps the channels it has, and a chosen sound makes a
   channel of its own while the ones of earlier choices are deleted. The service reads the
   settings when it brings the watcher up, as the background switch does.
-- [ ] H-34 App lock: a PIN or the device's biometrics on the app, with a timeout, as the
-  official app's passcode lock. The TDLib database stays as it is; the lock is ours.
+- [x] H-34 App lock: a PIN of at least four digits, kept as a salted SHA-256 hash in the
+  keystore beside the AI key (never as itself), with the device's own fingerprint or face
+  offered first where the reader allows it (`local_auth`) and the PIN always there as the way
+  in. `LockGate` sits above the navigator, so no screen and no notification tap goes round it,
+  and locks again when the app has rested longer than the chosen timeout (at once, a minute,
+  five minutes, an hour). The TDLib database is untouched: the lock is the app's own.
 - [ ] H-35 Several Telegram accounts, up to four as in the official app: one TDLib database and
   one core per account, feeds and rules belonging to an account, and a switcher.
 

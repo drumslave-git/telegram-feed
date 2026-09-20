@@ -13,6 +13,7 @@ import '../home/home_placeholder.dart';
 import '../media/auto_download.dart';
 import '../media/autoplay.dart';
 import 'ai_settings_screen.dart';
+import 'app_lock.dart';
 import '../sync/sync_controller.dart';
 import '../sync/sync_settings_screen.dart';
 import 'read_aloud_screen.dart';
@@ -124,6 +125,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onChanged: (v) => widget.db.setSetting(
                 SettingKeys.syncReadToTelegram,
                 v ? 'true' : 'false',
+              ),
+            ),
+          ),
+          StreamBuilder<String?>(
+            stream: widget.db.watchSetting(SettingKeys.lockEnabled),
+            builder: (context, snap) => ListTile(
+              leading: const Icon(Icons.lock_outline),
+              title: const Text('App lock'),
+              subtitle: Text(
+                snap.data == 'true'
+                    ? 'A PIN is asked for when the app has rested'
+                    : 'Off: anyone holding the phone can read your channels',
+              ),
+              onTap: () => unawaited(
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => AppLockScreen(db: widget.db),
+                  ),
+                ),
               ),
             ),
           ),

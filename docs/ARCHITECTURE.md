@@ -453,6 +453,13 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 
 ## 10. Privacy and security
 
+The app has a lock of its own (H-34, `settings/app_lock.dart`): a PIN kept as a salted
+SHA-256 hash in the keystore (`PinStore`, the same storage as the AI key) and, where the
+reader allows it, the device's fingerprint or face through `local_auth`, with the PIN always
+available. `LockGate` sits in the app's builder above the navigator and re-locks when the app
+has rested longer than `lock.timeoutSeconds`. Nothing of TDLib's own database is encrypted by
+this: it keeps people out of the app, not out of the file system.
+
 - The TDLib database is stored in the app's private storage, encrypted with a key held in the platform keystore (`flutter_secure_storage`), passed to TDLib as `database_encryption_key`.
 - Nothing leaves the device except Telegram traffic, with two opt-in exceptions. Google Drive sync (section 5.5) stores feeds, rules and some settings in the user's own Drive, in a folder only this app can read. And: AI semantic rules (section 6.4) send the text of the posts they check to the endpoint the user configured. No rule of that kind, no request.
 - No analytics, no crash reporting by default. Optional opt-in crash reporting (Sentry) may come later; it must never include message content.

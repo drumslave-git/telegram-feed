@@ -131,6 +131,16 @@ abstract final class SettingKeys {
   /// Emoji a double tap on a post sends; the last one reacted with, a thumbs up at first.
   static const quickReaction = 'reactions.quick';
 
+  /// The app asks for a PIN when it has rested; 'true' | 'false', default false. The PIN
+  /// itself lives in the keystore, never here.
+  static const lockEnabled = 'lock.enabled';
+
+  /// How long the app may rest before it asks again, in seconds ('0' asks at once).
+  static const lockTimeout = 'lock.timeoutSeconds';
+
+  /// The device's own fingerprint or face is offered first; 'true' | 'false', default false.
+  static const lockBiometrics = 'lock.biometrics';
+
   /// Sound of the notifications of normal and urgent rules: a content uri from Android's
   /// own picker, or '' for the system default. Silent rules stay silent.
   static const normalSound = 'notifications.normal.sound';
