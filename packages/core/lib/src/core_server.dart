@@ -109,6 +109,9 @@ final class CoreServer {
       gateway.comments.listen(
         (c) => _broadcast(CoreStream.comments, encodeComment(c)),
       ),
+      gateway.connection.listen(
+        (c) => _broadcast(CoreStream.connection, {'status': c.name}),
+      ),
     ];
   }
 

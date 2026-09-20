@@ -159,6 +159,12 @@ Feeds with their sources, rules and a whitelist of settings (theme, read-aloud p
 
 ### 5.7 Main screen
 
+`ConnectionTitle` sits in the app bar of the home screen and of every timeline: it listens to
+the gateway's `connection` stream (TDLib's `updateConnectionState`, carried over the core port
+as `CoreStream.connection`) and puts "Connecting…", "Waiting for network…", "Connecting to
+proxy…" or "Updating…" under the title until TDLib is ready.
+
+
 `HomeScreen` is a tab bar: `+`, "Feeds", the Telegram chat folders, "All channels".
 
 - The Feeds tab lists the feeds with the number of channels that have new posts (`FeedsController`); the tab label counts the feeds that have any. A tap opens the feed as `TimelineScreen(feed:)`, dragging reorders, the row's menu leads to its channels, rename and delete. `+` creates a feed and goes straight to its channel editor.

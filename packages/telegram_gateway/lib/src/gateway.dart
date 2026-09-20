@@ -77,6 +77,10 @@ abstract interface class TelegramGateway {
   /// Stops a download nobody waits for any more; what is on disk stays.
   Future<void> cancelDownload(int fileId);
 
+  /// TDLib's connection, so a screen can say "Connecting..." instead of looking empty.
+  /// The first value is what it is now.
+  Stream<ConnectionStatus> get connection;
+
   /// The post pinned in a channel, or null when it has none. The official app shows it in
   /// a bar over the timeline.
   Future<Post?> pinnedPost(int chatId);

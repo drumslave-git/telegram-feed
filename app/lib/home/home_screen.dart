@@ -9,6 +9,7 @@ import '../feeds/feeds_screen.dart' show FeedsController;
 import '../feeds/mark_read.dart';
 import '../feeds/timeline_screen.dart';
 import 'channel_info_screen.dart';
+import 'connection_title.dart';
 import 'channel_list.dart';
 
 /// The main screen: `+`, the "Feeds" tab (list of feeds), one tab per Telegram folder (its
@@ -556,7 +557,10 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('telegram-feed'),
+        title: ConnectionTitle(
+          gateway: widget.gateway,
+          title: const Text('telegram-feed'),
+        ),
         actions: widget.actions,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(kTextTabBarHeight),

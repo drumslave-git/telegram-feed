@@ -21,4 +21,13 @@ library;
 const corePortName = 'telegram_feed.core';
 
 /// Named streams pushed to every subscribed client.
-enum CoreStream { auth, posts, membership, files, matches, paused, comments }
+enum CoreStream {
+  auth,
+  posts,
+  membership,
+  files,
+  matches,
+  paused,
+  comments,
+  connection,
+}

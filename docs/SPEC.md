@@ -66,6 +66,7 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - Each feed shows an unread count. Posts are marked read once I have seen them down to their end.
 - Reading a post here also marks it read in the official Telegram app. A setting turns this off.
 - I can close any screen with a swipe from the left edge.
+- When the app cannot reach Telegram it says so under the title, instead of looking empty.
 - I can copy a post's text from its menu, and a block of code with the button at its end.
 - I can open the original post in the official Telegram app.
 

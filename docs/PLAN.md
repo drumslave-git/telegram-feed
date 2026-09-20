@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-16 (the connection status).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-17 (selecting several posts).
 
 ## Phase 0 — Spikes
 
@@ -307,8 +307,10 @@ after it has faded goes to the post underneath, as it should (H-2).
   one channel), "Channel info", and "Add to a feed", which lists the reader's feeds, greys out
   the ones the channel is already in, and adds it starting at Telegram's read position as the
   feed editor does.
-- [ ] H-16 Connection status: TDLib's `updateConnectionState` in the app bar ("Connecting…",
-  "Waiting for network", "Updating…"), so a dead connection does not look like an empty feed.
+- [x] H-16 Connection status: `ConnectionStatus` from TDLib's `updateConnectionState`, a stream
+  of its own over the core port, and `ConnectionTitle` under the title of the home screen and of
+  every timeline — "Connecting…", "Waiting for network…", "Connecting to proxy…", "Updating…",
+  and nothing at all once it is ready.
 - [ ] H-17 Selecting several posts: a long press starts a selection, then save, share or copy
   all of them at once. (Reopened from round 4.)
 - [ ] H-18 A t.me link inside a post that points at a channel the account follows opens in our

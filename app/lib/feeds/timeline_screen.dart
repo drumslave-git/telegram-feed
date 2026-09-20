@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../home/channel_info_screen.dart';
+import '../home/connection_title.dart';
 import '../settings/settings_screen.dart' show showAutoplaySettings;
 import 'feed_editor_screen.dart';
 import 'open_links.dart';
@@ -227,40 +228,43 @@ class _TimelineScreenState extends State<TimelineScreen> {
     }
     final channel = widget.channel;
     return AppBar(
-      title: channel == null
-          // The feed's editor is its info screen: its channels and their shared media.
-          ? InkWell(
-              onTap: _openFeedEditor,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(widget.feed!.name),
-              ),
-            )
-          // A channel's title leads to its info, as in the official app.
-          : InkWell(
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => ChannelInfoScreen(
-                    gateway: widget.gateway,
-                    channel: channel,
+      title: ConnectionTitle(
+        gateway: widget.gateway,
+        title: channel == null
+            // The feed's editor is its info screen: its channels and their shared media.
+            ? InkWell(
+                onTap: _openFeedEditor,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(widget.feed!.name),
+                ),
+              )
+            // A channel's title leads to its info, as in the official app.
+            : InkWell(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ChannelInfoScreen(
+                      gateway: widget.gateway,
+                      channel: channel,
+                    ),
                   ),
                 ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(channel.title, style: theme.textTheme.titleLarge),
-                  if (channel.memberCount > 0)
-                    Text(
-                      '${formatCount(channel.memberCount)} subscribers',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(channel.title, style: theme.textTheme.titleLarge),
+                    if (channel.memberCount > 0)
+                      Text(
+                        '${formatCount(channel.memberCount)} subscribers',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
+      ),
       actions: [
         IconButton(
           tooltip: 'Search',

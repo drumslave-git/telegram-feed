@@ -30,6 +30,10 @@ final class CoreClient implements TelegramGateway {
   final _fileCtl = StreamController<FileProgress>.broadcast();
   final _matchCtl = StreamController<MatchEvent>.broadcast();
   final _commentCtl = StreamController<Comment>.broadcast();
+  final _connectionCtl = StreamController<ConnectionStatus>.broadcast();
+
+  /// What the core last said about TDLib's connection.
+  var _connection = ConnectionStatus.connecting;
   final _pausedCtl = StreamController<bool>.broadcast();
   AuthState _auth = const AuthStarting();
   int _seq = 0;
@@ -69,6 +73,11 @@ final class CoreClient implements TelegramGateway {
             _pausedCtl.add(data['paused'] as bool);
           case 'comments':
             _commentCtl.add(decodeComment(data));
+          case 'connection':
+            _connection = ConnectionStatus.values.byName(
+              data['status']! as String,
+            );
+            _connectionCtl.add(_connection);
         }
     }
   }
@@ -109,6 +118,12 @@ final class CoreClient implements TelegramGateway {
   Future<void> setPaused(bool paused) => _call('setPaused', {'paused': paused});
 
   Future<bool> isPaused() async => (await _call('isPaused')) as bool;
+
+  @override
+  Stream<ConnectionStatus> get connection async* {
+    yield _connection;
+    yield* _connectionCtl.stream;
+  }
 
   @override
   Stream<PostEvent> get postEvents => _postCtl.stream;

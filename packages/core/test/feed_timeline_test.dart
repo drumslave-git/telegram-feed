@@ -155,6 +155,15 @@ final class HistoryGateway implements TelegramGateway {
   @override
   Future<void> closeThread(Thread thread) async {}
 
+  /// Ready, unless a test says otherwise.
+  final connectionStatus = StreamController<ConnectionStatus>.broadcast();
+
+  @override
+  Stream<ConnectionStatus> get connection async* {
+    yield ConnectionStatus.ready;
+    yield* connectionStatus.stream;
+  }
+
   @override
   Future<Post?> pinnedPost(int chatId) async => null;
   @override

@@ -73,6 +73,10 @@ final class TdlibGateway implements TelegramGateway {
   final _openThreads = <(int, int)>{};
   final _senders = <String, map.Sender>{};
 
+  /// What TDLib last said about its connection.
+  var _connection = ConnectionStatus.connecting;
+  final _connectionCtl = StreamController<ConnectionStatus>.broadcast();
+
   /// Stickers of custom emoji already asked for, by id: they never change.
   final _customEmoji = <String, StickerMedia>{};
 
@@ -152,6 +156,18 @@ final class TdlibGateway implements TelegramGateway {
         }
       case td.UpdateChatFolders(:final chatFolders):
         _folders = chatFolders;
+      case td.UpdateConnectionState(:final state):
+        _connection = switch (state) {
+          td.ConnectionStateWaitingForNetwork() =>
+            ConnectionStatus.waitingForNetwork,
+          td.ConnectionStateConnectingToProxy() =>
+            ConnectionStatus.connectingToProxy,
+          td.ConnectionStateConnecting() => ConnectionStatus.connecting,
+          td.ConnectionStateUpdating() => ConnectionStatus.updating,
+          td.ConnectionStateReady() => ConnectionStatus.ready,
+          null => _connection,
+        };
+        _connectionCtl.add(_connection);
       case td.UpdateFile(:final file):
         if (file != null) _fileCtl.add(_progress(file));
       default:
@@ -709,6 +725,12 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
+  Stream<ConnectionStatus> get connection async* {
+    yield _connection;
+    yield* _connectionCtl.stream;
+  }
+
+  @override
   Future<Post?> pinnedPost(int chatId) async {
     try {
       final m = await _client.call(td.GetChatPinnedMessage(chatId: chatId));
@@ -867,5 +889,6 @@ final class TdlibGateway implements TelegramGateway {
     await _memberCtl.close();
     await _fileCtl.close();
     await _commentCtl.close();
+    await _connectionCtl.close();
   }
 }

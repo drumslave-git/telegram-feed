@@ -2,6 +2,16 @@
 library;
 
 /// Authorization state machine as the UI needs it.
+/// What TDLib says about its connection (`updateConnectionState`), for the line the
+/// official app shows instead of the title while it is not [ready].
+enum ConnectionStatus {
+  waitingForNetwork,
+  connecting,
+  connectingToProxy,
+  updating,
+  ready,
+}
+
 sealed class AuthState {
   const AuthState();
 }
