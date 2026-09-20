@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-33 (sound and vibration per rule priority).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-34 (the app lock).
 
 ## Phase 0 — Spikes
 
@@ -388,9 +388,13 @@ after it has faded goes to the post underneath, as it should (H-2).
   and names — a tap opens one in the official app, since this app never joins a channel — and a
   QR action that shows the channel's link as a code, drawn with the `qr_flutter` the QR login
   already uses.
-- [ ] H-33 Sound and vibration per rule priority: what the silent, normal and urgent channels
-  use, picked in Read-aloud's neighbourhood in Settings. Android fixes a channel's sound when
-  it is created, so changing it re-creates the channel under a new id.
+- [x] H-33 Sound and vibration per rule priority: a Settings section where normal and urgent
+  rules each get a sound from Android's own picker (`tf/notifications.pickSound`, through
+  `startActivityForResult`) and a vibration switch; silent rules stay silent. Android fixes a
+  channel's sound at creation, so the choice is part of the channel id — the default choice
+  adds no suffix, so an older install keeps the channels it has, and a chosen sound makes a
+  channel of its own while the ones of earlier choices are deleted. The service reads the
+  settings when it brings the watcher up, as the background switch does.
 - [ ] H-34 App lock: a PIN or the device's biometrics on the app, with a timeout, as the
   official app's passcode lock. The TDLib database stays as it is; the lock is ours.
 - [ ] H-35 Several Telegram accounts, up to four as in the official app: one TDLib database and

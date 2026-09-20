@@ -26,7 +26,27 @@ final class Notifier {
   /// chat's group summary after a cancellation.
   final _lastPerChat = <int, NotificationPlan>{};
 
-  Future<void> init() async {
+  /// Sound and vibration the reader chose per priority (H-33). Android fixes a channel's
+  /// sound when it is created, so a change means a channel under a new id and the old one
+  /// deleted; [_tagOf] turns the choice into that id.
+  NotificationSounds _sounds = const NotificationSounds();
+
+  /// Channel ids in use, by the logical priority of the plan.
+  final _actual = <String, String>{};
+
+  /// The suffix a choice gives a channel id. The default choice adds nothing, so an app
+  /// that was installed before this setting keeps the channels it has, and only a reader
+  /// who picks a sound gets new ones.
+  String _suffixOf(String? sound, bool vibrate) {
+    if ((sound ?? '').isEmpty && vibrate) return '';
+    final words = '${sound ?? ''}|$vibrate';
+    return '_${words.hashCode.toUnsigned(20).toRadixString(36)}';
+  }
+
+  Future<void> init({
+    NotificationSounds sounds = const NotificationSounds(),
+  }) async {
+    _sounds = sounds;
     await _plugin.initialize(
       settings: const InitializationSettings(
         android: AndroidInitializationSettings(notificationIcon),
@@ -49,15 +69,41 @@ final class Notifier {
         enableVibration: false,
       ),
     );
+    _actual[channelSilent] = channelSilent;
+    final normalId =
+        channelNormal + _suffixOf(sounds.normalSound, sounds.normalVibrate);
     await android.createNotificationChannel(
-      const AndroidNotificationChannel(
-        channelNormal,
+      AndroidNotificationChannel(
+        normalId,
         'Posts',
         description: 'Rules with normal priority',
         importance: Importance.defaultImportance,
+        sound: (sounds.normalSound ?? '').isEmpty
+            ? null
+            : UriAndroidNotificationSound(sounds.normalSound!),
+        enableVibration: sounds.normalVibrate,
       ),
     );
+    _actual[channelNormal] = normalId;
     await _ensureUrgentChannel();
+    // One row per priority in the system settings: the channels of earlier choices go.
+    await _deleteStaleChannels(android);
+  }
+
+  /// Channels of sounds the reader has moved on from; the ids in use are kept.
+  Future<void> _deleteStaleChannels(
+    AndroidFlutterLocalNotificationsPlugin android,
+  ) async {
+    final keep = {..._actual.values, channelSilent, _urgentChannel};
+    final existing = await android.getNotificationChannels() ?? const [];
+    for (final channel in existing) {
+      final id = channel.id;
+      if (keep.contains(id)) continue;
+      if (!id.startsWith(channelNormal) && !id.startsWith(channelUrgent)) {
+        continue;
+      }
+      await android.deleteNotificationChannel(channelId: id);
+    }
   }
 
   /// Which urgent channel to post on. Re-checked before every urgent notification so that
@@ -69,29 +115,45 @@ final class Notifier {
         >();
     if (android == null) return channelUrgent;
     final bypass = await android.hasNotificationPolicyAccess() ?? false;
-    if (bypass == _urgentBypassesDnd) return _urgentChannel;
+    if (bypass == _urgentBypassesDnd && _actual[channelUrgent] != null) {
+      return _urgentChannel;
+    }
+    _urgentBypassesDnd = bypass;
+    final id = _urgentChannel;
     await android.createNotificationChannel(
       AndroidNotificationChannel(
-        bypass ? channelUrgentDnd : channelUrgent,
+        id,
         'Urgent posts',
         description: bypass
             ? 'Rules with urgent priority; bypasses Do Not Disturb'
             : 'Rules with urgent priority',
         importance: Importance.high,
         bypassDnd: bypass,
+        sound: (_sounds.urgentSound ?? '').isEmpty
+            ? null
+            : UriAndroidNotificationSound(_sounds.urgentSound!),
+        enableVibration: _sounds.urgentVibrate,
       ),
     );
+    _actual[channelUrgent] = id;
     // One "Urgent posts" row in the system settings, not two.
+    final suffix = _suffixOf(_sounds.urgentSound, _sounds.urgentVibrate);
     await android.deleteNotificationChannel(
-      channelId: bypass ? channelUrgent : channelUrgentDnd,
+      channelId: (bypass ? channelUrgent : channelUrgentDnd) + suffix,
     );
-    _urgentBypassesDnd = bypass;
-    return _urgentChannel;
+    return id;
   }
 
   bool? _urgentBypassesDnd;
-  String get _urgentChannel =>
-      (_urgentBypassesDnd ?? false) ? channelUrgentDnd : channelUrgent;
+
+  /// The urgent channel in use: the Do-Not-Disturb one when policy access was granted, and
+  /// the sound the reader chose in its id, since Android fixes it at creation.
+  String get _urgentChannel {
+    final base = (_urgentBypassesDnd ?? false)
+        ? channelUrgentDnd
+        : channelUrgent;
+    return base + _suffixOf(_sounds.urgentSound, _sounds.urgentVibrate);
+  }
 
   static Importance _importanceOf(String planChannel) => switch (planChannel) {
     channelSilent => Importance.low,
@@ -108,7 +170,8 @@ final class Notifier {
   Future<void> show(NotificationPlan plan) async {
     final channelId = plan.channelId == channelUrgent
         ? await _ensureUrgentChannel()
-        : plan.channelId;
+        // The reader's sound is in the channel's id, so the plan's priority is looked up.
+        : _actual[plan.channelId] ?? plan.channelId;
     await _plugin.show(
       id: plan.id,
       title: plan.title,
@@ -201,7 +264,9 @@ final class Notifier {
     }
     await _showSummary(
       plan,
-      plan.channelId == channelUrgent ? _urgentChannel : plan.channelId,
+      plan.channelId == channelUrgent
+          ? _urgentChannel
+          : _actual[plan.channelId] ?? plan.channelId,
       live.length,
     );
   }

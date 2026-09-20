@@ -5,6 +5,8 @@ import android.app.PictureInPictureParams
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.RingtoneManager
+import android.net.Uri
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.content.res.Configuration
@@ -23,6 +25,9 @@ class MainActivity : FlutterActivity() {
     // Picture-in-picture: Dart arms it while a video plays in the viewer or the mini player
     // (system_pip.dart); leaving the app then turns the activity into the floating window.
     private var pipChannel: MethodChannel? = null
+
+    /** Waiting for the system sound picker (H-33). */
+    private var soundPick: MethodChannel.Result? = null
     private var pipArmed = false
     private var pipAspect = Rational(16, 9)
 
@@ -38,6 +43,30 @@ class MainActivity : FlutterActivity() {
                     "openPolicyAccessSettings" -> {
                         startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
                         result.success(null)
+                    }
+                    // The system's own sound picker (H-33): an empty answer means the
+                    // default, and a cancelled picker answers with what was there before.
+                    "pickSound" -> {
+                        if (soundPick != null) {
+                            result.error("busy", "a picker is already open", null)
+                        } else {
+                            soundPick = result
+                            val current = call.argument<String>("current")
+                            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                putExtra(
+                                    RingtoneManager.EXTRA_RINGTONE_TYPE,
+                                    RingtoneManager.TYPE_NOTIFICATION,
+                                )
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Notification sound")
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                                putExtra(
+                                    RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
+                                    if (current.isNullOrEmpty()) null else Uri.parse(current),
+                                )
+                            }
+                            startActivityForResult(intent, SOUND_PICK_REQUEST)
+                        }
                     }
                     else -> result.notImplemented()
                 }
@@ -135,6 +164,15 @@ class MainActivity : FlutterActivity() {
         return uri.toString()
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != SOUND_PICK_REQUEST) return
+        val pending = soundPick ?: return
+        soundPick = null
+        val uri = data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+        pending.success(uri?.toString() ?: "")
+    }
+
     private fun pipSupported() =
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
@@ -169,5 +207,9 @@ class MainActivity : FlutterActivity() {
     override fun onPictureInPictureModeChanged(isInPip: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPip, newConfig)
         pipChannel?.invokeMethod("pipChanged", isInPip)
+    }
+
+    private companion object {
+        const val SOUND_PICK_REQUEST = 7301
     }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../ai/semantic_gate.dart';
@@ -149,6 +150,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(),
           const _Header('Automatic downloads'),
           AutoDownloadSettings(db: widget.db),
+          const Divider(),
+          const _Header('Notification sounds'),
+          NotificationSoundSettings(db: widget.db),
           const Divider(),
           const _Header('Background'),
           StreamBuilder<String?>(
@@ -649,6 +653,109 @@ class AutoDownloadSettings extends StatelessWidget {
         child: Text(
           'Videos follow the autoplay limits above; files and voice messages always wait '
           'for a tap.',
+        ),
+      ),
+    ],
+  );
+}
+
+/// The sound and the vibration of the notifications of normal and urgent rules (H-33).
+/// Silent rules stay silent, and Android fixes a channel's sound when it is created, so a
+/// change here takes effect when the watcher is next brought up — the same rule as the
+/// background switch.
+class NotificationSoundSettings extends StatelessWidget {
+  const NotificationSoundSettings({
+    super.key,
+    required this.db,
+    this.channel = const MethodChannel('tf/notifications'),
+  });
+  final AppDatabase db;
+
+  /// The channel that opens Android's own sound picker; tests hand in their own.
+  final MethodChannel channel;
+
+  Future<void> _pick(BuildContext context, String key) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final picked = await channel.invokeMethod<String>('pickSound', {
+        'current': await db.setting(key) ?? '',
+      });
+      if (picked != null) await db.setSetting(key, picked);
+    } on PlatformException catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('No sound picker: ${e.message}')),
+      );
+    } on MissingPluginException {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No sound picker on this device.')),
+      );
+    }
+  }
+
+  Widget _rows({
+    required String title,
+    required String soundKey,
+    required String vibrateKey,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      StreamBuilder<String?>(
+        stream: db.watchSetting(soundKey),
+        builder: (context, snap) {
+          final sound = snap.data ?? '';
+          return ListTile(
+            leading: const Icon(Icons.notifications_active_outlined),
+            title: Text('$title: sound'),
+            subtitle: Text(
+              sound.isEmpty ? 'The system default' : _soundName(sound),
+            ),
+            trailing: sound.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Use the default',
+                    icon: const Icon(Icons.restart_alt),
+                    onPressed: () => db.setSetting(soundKey, ''),
+                  ),
+            onTap: () => unawaited(_pick(context, soundKey)),
+          );
+        },
+      ),
+      StreamBuilder<String?>(
+        stream: db.watchSetting(vibrateKey),
+        builder: (context, snap) => SwitchListTile(
+          value: snap.data != 'false',
+          title: Text('$title: vibrate'),
+          onChanged: (v) => db.setSetting(vibrateKey, '$v'),
+        ),
+      ),
+    ],
+  );
+
+  /// The last part of the uri, which is as much of a name as Android gives us here.
+  static String _soundName(String uri) {
+    final parts = uri.split('/');
+    return parts.isEmpty ? uri : 'Sound ${parts.last}';
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _rows(
+        title: 'Normal rules',
+        soundKey: SettingKeys.normalSound,
+        vibrateKey: SettingKeys.normalVibrate,
+      ),
+      _rows(
+        title: 'Urgent rules',
+        soundKey: SettingKeys.urgentSound,
+        vibrateKey: SettingKeys.urgentVibrate,
+      ),
+      const Padding(
+        padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: Text(
+          'Silent rules stay silent. Android fixes a sound when it creates the channel, so '
+          'a change here takes effect the next time the app starts.',
         ),
       ),
     ],

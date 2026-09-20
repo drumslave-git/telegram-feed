@@ -169,7 +169,16 @@ class CoreServiceHandler extends TaskHandler {
       _paused = p;
       unawaited(_updateNotification());
     });
-    await _notifier.init();
+    await _notifier.init(
+      sounds: NotificationSounds(
+        normalSound: await _db!.setting(SettingKeys.normalSound),
+        urgentSound: await _db!.setting(SettingKeys.urgentSound),
+        normalVibrate:
+            (await _db!.setting(SettingKeys.normalVibrate)) != 'false',
+        urgentVibrate:
+            (await _db!.setting(SettingKeys.urgentVibrate)) != 'false',
+      ),
+    );
     final tts = TtsService(db: _db!, speaker: FlutterTtsSpeaker());
     try {
       await tts.init();

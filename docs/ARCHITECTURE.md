@@ -382,6 +382,14 @@ A rule may carry a description of what the post should be about (`rules.semantic
 
 ### 6.3 Notifications
 
+Sound and vibration per priority (H-33): the reader picks a sound with Android's own picker
+(`tf/notifications.pickSound`, an activity result) and a vibration switch, per normal and
+urgent rules; silent rules stay silent. Android fixes a channel's sound when it creates the
+channel, so the choice is part of the channel id: the default adds no suffix (an older
+install keeps `posts_normal` and `posts_urgent`), any other choice gets a suffix derived
+from it, and channels of earlier choices are deleted so the system settings show one row per
+priority. The service host reads the four settings when it brings the notifier up.
+
 `flutter_local_notifications` with three Android notification channels, created once:
 
 | App priority | Android channel importance | Behaviour |

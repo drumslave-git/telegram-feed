@@ -93,3 +93,31 @@ final class NotificationPlan {
     );
   }
 }
+
+/// What the notifications of normal and urgent rules sound like (H-33): a sound uri from
+/// Android's own picker (empty or null for the system default) and whether they vibrate.
+/// Silent rules stay silent, so they have no choice of their own.
+class NotificationSounds {
+  const NotificationSounds({
+    this.normalSound,
+    this.urgentSound,
+    this.normalVibrate = true,
+    this.urgentVibrate = true,
+  });
+  final String? normalSound;
+  final String? urgentSound;
+  final bool normalVibrate;
+  final bool urgentVibrate;
+
+  @override
+  bool operator ==(Object other) =>
+      other is NotificationSounds &&
+      other.normalSound == normalSound &&
+      other.urgentSound == urgentSound &&
+      other.normalVibrate == normalVibrate &&
+      other.urgentVibrate == urgentVibrate;
+
+  @override
+  int get hashCode =>
+      Object.hash(normalSound, urgentSound, normalVibrate, urgentVibrate);
+}

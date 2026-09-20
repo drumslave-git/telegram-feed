@@ -131,6 +131,15 @@ abstract final class SettingKeys {
   /// Emoji a double tap on a post sends; the last one reacted with, a thumbs up at first.
   static const quickReaction = 'reactions.quick';
 
+  /// Sound of the notifications of normal and urgent rules: a content uri from Android's
+  /// own picker, or '' for the system default. Silent rules stay silent.
+  static const normalSound = 'notifications.normal.sound';
+  static const urgentSound = 'notifications.urgent.sound';
+
+  /// Whether those notifications vibrate; 'true' | 'false', default true.
+  static const normalVibrate = 'notifications.normal.vibrate';
+  static const urgentVibrate = 'notifications.urgent.vibrate';
+
   /// The last words searched for, newest first, as a JSON list of strings.
   static const recentSearches = 'search.recent';
 

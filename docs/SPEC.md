@@ -81,6 +81,9 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - A rule has a condition built from terms combined with AND / OR / NOT. Each term is a word or phrase with options: whole word, case sensitive.
 - I can leave the condition empty, and then the rule notifies me about every post of its channels. That is how I follow a channel completely, and it still takes a priority, a schedule and read-aloud.
 - A rule has a priority: silent (shows in tray only), normal, urgent (breaks through Do Not Disturb where the OS permits).
+- I can choose the sound and the vibration of normal and urgent notifications; silent ones
+  stay silent. A change takes effect the next time the app starts, because Android fixes a
+  notification channel's sound when it creates it.
 - A rule can request read-aloud.
 - A rule can have a schedule: active only on selected weekdays between two times.
 - A rule can be enabled or disabled without deleting it.
