@@ -295,6 +295,8 @@ final class CoreServer {
         await gateway.closeThread(
           decodeThread(a['thread'] as Map<Object?, Object?>),
         );
+      case 'archivedChannels':
+        return (await gateway.archivedChannels()).map(encodeChannel).toList();
       case 'savedMessages':
         return encodeChannel(await gateway.savedMessages());
       case 'searchThread':

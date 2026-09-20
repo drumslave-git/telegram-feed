@@ -77,6 +77,10 @@ abstract interface class TelegramGateway {
   /// Stops a download nobody waits for any more; what is on disk stays.
   Future<void> cancelDownload(int fileId);
 
+  /// Channels the account archived in Telegram. They stay out of the ordinary lists
+  /// (founder decision, round 6) and have a place of their own (H-30).
+  Future<List<Channel>> archivedChannels();
+
   /// The chat with oneself, as a channel the timeline can read: what the post menu saves
   /// into (SPEC 3, "Save to Saved Messages").
   Future<Channel> savedMessages();

@@ -731,6 +731,17 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
+  Future<List<Channel>> archivedChannels() async {
+    final out = <Channel>[];
+    for (final id in await _chatIdsOf(const td.ChatListArchive())) {
+      final channel = await _channelOf(id);
+      if (channel != null) out.add(channel);
+    }
+    log?.call('archivedChannels: ${out.length} channels');
+    return out;
+  }
+
+  @override
   Future<Channel> savedMessages() async {
     final me = _myId ??= (await _client.call(const td.GetMe())).id;
     final chat = await _client.call(

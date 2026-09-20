@@ -25,6 +25,12 @@ final class TimelineGateway extends ChannelsGateway {
   Post? pinned;
   final pinnedAsked = <int>[];
 
+  /// Channels the account archived, for the Archive row of H-30.
+  List<Channel> archived = const [];
+
+  @override
+  Future<List<Channel>> archivedChannels() async => archived;
+
   /// Queries the search over every channel was asked, with their offsets.
   final globalQueries = <String>[];
 

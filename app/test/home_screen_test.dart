@@ -340,6 +340,31 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('All channels carries the Archive, which lists what is in it', (
+    tester,
+  ) async {
+    gw.archived = const [Channel(chatId: -9, title: 'Put Away')];
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.tap(find.text('All channels'));
+    await tester.pumpAndSettle();
+    expect(find.text('Archive'), findsOneWidget);
+    // A folder tab has no such row.
+    await tester.tap(find.text('Work'));
+    await tester.pumpAndSettle();
+    expect(find.text('Archive'), findsNothing);
+
+    await tester.tap(find.text('All channels'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Archive'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ChannelTile, 'Put Away'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await unmount(tester);
+  });
+
   testWidgets('a channel row has a menu: read, info, add to a feed', (
     tester,
   ) async {

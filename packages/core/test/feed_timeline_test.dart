@@ -165,6 +165,8 @@ final class HistoryGateway implements TelegramGateway {
   }
 
   @override
+  Future<List<Channel>> archivedChannels() async => const [];
+  @override
   Future<Channel> savedMessages() async =>
       const Channel(chatId: 42, title: 'Saved Messages');
   @override

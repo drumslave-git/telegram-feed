@@ -694,6 +694,35 @@ class _HomeScreenState extends State<HomeScreen>
     return folder.channelIds.where(unread.contains).length;
   }
 
+  /// The channels the account archived in Telegram, behind a row of their own at the top of
+  /// All channels, as the official app keeps its Archive above the chat list.
+  Future<void> _openArchive() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    List<Channel> archived;
+    try {
+      archived = await widget.gateway.archivedChannels();
+    } on TelegramException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
+      return;
+    }
+    await navigator.push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('Archive')),
+          body: ChannelList(
+            channels: archived,
+            feedsByChat: _feedTags,
+            gateway: widget.gateway,
+            onOpen: _openChannel,
+            onMenu: _channelMenu,
+            emptyText: 'No archived channels.',
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _channelsTab(ChatFolder? folder) {
     final byId = {for (final c in _channels) c.chatId: c};
     return ChannelList(
@@ -712,6 +741,15 @@ class _HomeScreenState extends State<HomeScreen>
                 ? 'No channels yet. Join channels in Telegram and they show up here.'
                 : 'Telegram: $_error')
           : 'No channels in this folder.',
+      // Only All channels carries it, as the official app carries its Archive.
+      header: folder != null
+          ? null
+          : ListTile(
+              leading: const Icon(Icons.archive_outlined),
+              title: const Text('Archive'),
+              subtitle: const Text('Channels you archived in Telegram'),
+              onTap: () => unawaited(_openArchive()),
+            ),
     );
   }
 

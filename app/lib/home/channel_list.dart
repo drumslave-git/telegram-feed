@@ -14,6 +14,7 @@ class ChannelList extends StatefulWidget {
     required this.gateway,
     required this.onOpen,
     this.onMenu,
+    this.header,
     this.searchable = false,
     this.onRefresh,
     this.emptyText = 'No channels here.',
@@ -25,6 +26,9 @@ class ChannelList extends StatefulWidget {
 
   /// Long press on a row: the menu of H-15, at the point the finger was on.
   final void Function(Channel channel, Offset at)? onMenu;
+
+  /// A row above the channels, which the list scrolls with them (the Archive of H-30).
+  final Widget? header;
   final bool searchable;
   final Future<void> Function()? onRefresh;
   final String emptyText;
@@ -70,17 +74,21 @@ class _ChannelListState extends State<ChannelList>
           )
         : ListView.builder(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            itemCount: shown.length,
-            itemBuilder: (context, i) => ChannelTile(
-              key: ValueKey(shown[i].chatId),
-              channel: shown[i],
-              gateway: widget.gateway,
-              feeds: widget.feedsByChat[shown[i].chatId] ?? const [],
-              onTap: () => widget.onOpen(shown[i]),
-              onMenu: widget.onMenu == null
-                  ? null
-                  : (at) => widget.onMenu!(shown[i], at),
-            ),
+            itemCount: shown.length + (widget.header == null ? 0 : 1),
+            itemBuilder: (context, row) {
+              if (widget.header != null && row == 0) return widget.header!;
+              final i = widget.header == null ? row : row - 1;
+              return ChannelTile(
+                key: ValueKey(shown[i].chatId),
+                channel: shown[i],
+                gateway: widget.gateway,
+                feeds: widget.feedsByChat[shown[i].chatId] ?? const [],
+                onTap: () => widget.onOpen(shown[i]),
+                onMenu: widget.onMenu == null
+                    ? null
+                    : (at) => widget.onMenu!(shown[i], at),
+              );
+            },
           );
     if (widget.onRefresh != null) {
       list = RefreshIndicator(onRefresh: widget.onRefresh!, child: list);
