@@ -11,8 +11,10 @@ class ViewedGateway extends ChannelsGateway {
   ViewedGateway() : super(const []);
   final viewed = <String>[];
   @override
-  Future<void> markViewed(int chatId, List<int> messageIds) async =>
-      viewed.add('$chatId:${messageIds.join(',')}');
+  Future<void> markViewed(int chatId, List<int> messageIds) async {
+    markedViewed[chatId] = messageIds;
+    viewed.add('$chatId:${messageIds.join(',')}');
+  }
 }
 
 TimelineItem item(int chat, int id, {List<int> parts = const []}) =>

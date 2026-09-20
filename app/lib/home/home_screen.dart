@@ -6,6 +6,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../feeds/feed_editor_screen.dart';
 import '../feeds/feeds_screen.dart' show FeedsController;
+import '../feeds/mark_read.dart';
 import '../feeds/timeline_screen.dart';
 import 'channel_list.dart';
 
@@ -195,9 +196,39 @@ class _HomeScreenState extends State<HomeScreen>
             title: Text('Create feed from folder'),
           ),
         ),
+        PopupMenuItem(
+          value: 'read',
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.done_all),
+            title: Text('Mark all read'),
+          ),
+        ),
       ],
     );
     if (choice == 'feed') await _createFeedFromFolder(folder);
+    if (choice == 'read') await _markChannelsRead(folder.channelIds);
+  }
+
+  /// Everything in these channels counts as read, here and in Telegram.
+  Future<void> _markChannelsRead(Iterable<int> chatIds) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final moved = await MarkRead(
+      db: widget.db,
+      gateway: widget.gateway,
+    ).channels(chatIds);
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          moved == 0
+              ? 'Nothing to mark read.'
+              : '$moved channel${moved == 1 ? '' : 's'} marked read.',
+        ),
+      ),
+    );
+    await _loadChannels();
   }
 
   Future<void> _createFeedFromFolder(ChatFolder folder) async {
@@ -244,6 +275,25 @@ class _HomeScreenState extends State<HomeScreen>
     if (name != null && name.isNotEmpty && name != f.name) {
       await widget.db.renameFeed(f.id, name);
     }
+  }
+
+  /// Every channel of the feed up to its newest post, as the official app's action does.
+  Future<void> _markFeedRead(Feed f) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final moved = await MarkRead(
+      db: widget.db,
+      gateway: widget.gateway,
+    ).feed(f.id);
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          moved == 0
+              ? 'Nothing to mark read in "${f.name}".'
+              : '"${f.name}" marked read.',
+        ),
+      ),
+    );
   }
 
   Future<void> _deleteFeed(Feed f) async {
@@ -342,12 +392,17 @@ class _HomeScreenState extends State<HomeScreen>
                     onSelected: (v) => switch (v) {
                       'channels' => _editFeed(f.id),
                       'rename' => _renameFeed(f),
+                      'read' => _markFeedRead(f),
                       'delete' => _deleteFeed(f),
                       _ => null,
                     },
                     itemBuilder: (context) => const [
                       PopupMenuItem(value: 'channels', child: Text('Channels')),
                       PopupMenuItem(value: 'rename', child: Text('Rename')),
+                      PopupMenuItem(
+                        value: 'read',
+                        child: Text('Mark all read'),
+                      ),
                       PopupMenuItem(value: 'delete', child: Text('Delete')),
                     ],
                   ),

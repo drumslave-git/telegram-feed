@@ -66,8 +66,13 @@ class ChannelsGateway implements TelegramGateway {
   @override
   Future<ChannelInfo> channelInfo(int chatId) async =>
       ChannelInfo(chatId: chatId);
+
+  /// What the app told Telegram to count as read, per chat.
+  final markedViewed = <int, List<int>>{};
+
   @override
-  Future<void> markViewed(int chatId, List<int> messageIds) async {}
+  Future<void> markViewed(int chatId, List<int> messageIds) async =>
+      markedViewed[chatId] = messageIds;
   @override
   Future<void> saveToSavedMessages(int chatId, List<int> messageIds) async =>
       saved.add('$chatId:${messageIds.join(",")}');

@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-13 (mark everything read).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-14 (unread counts on the folder tabs).
 
 ## Phase 0 — Spikes
 
@@ -297,8 +297,10 @@ after it has faded goes to the post underneath, as it should (H-2).
 
 ### Reading flow and the lists
 
-- [ ] H-13 Mark everything read: one action for a feed, a channel and a folder, which moves the
-  feed's marks and Telegram's own read position when read sync is on.
+- [x] H-13 Mark everything read: `MarkRead` moves the marks of a feed's channels (or of a
+  folder's channels in every feed that holds them) to the newest post each channel has, and
+  tells Telegram the same through `markViewed` unless read sync is off. "Mark all read" sits in
+  the feed's row menu and in the long-press menu of a folder tab; H-15 adds it to a channel row.
 - [ ] H-14 Unread counts on the folder tabs, the way the Feeds tab already carries a badge.
 - [ ] H-15 Long press on a channel row opens a menu: mark as read, channel info, add to a feed.
 - [ ] H-16 Connection status: TDLib's `updateConnectionState` in the app bar ("Connecting…",

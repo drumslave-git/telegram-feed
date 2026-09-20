@@ -132,6 +132,7 @@ Nothing is persisted by the timeline itself; TDLib's message database makes re-f
 
 ### 5.4 Read state
 
+- "Mark all read" (`MarkRead`, `feeds/mark_read.dart`) is the one action that moves marks without reading: for a feed it sets every source's mark to that channel's newest post (`Channel.lastMessageId`), for a folder or a single channel it does the same in every feed that holds it, and it calls `markViewed` so Telegram agrees — unless `syncReadToTelegram` is off. It is in the feed's row menu, the folder tab's long-press menu and a channel row's menu.
 - `feed_read_marks` stores, per feed and per channel, the newest message id the user has scrolled past. When a channel is added to a feed the mark starts at Telegram's own read position for it (`chat.last_read_inbox_message_id`), so the backlog is not unread.
 - Unread count for a feed = Σ over its sources of messages with id > mark. Computed from TDLib (`getChatHistory` with `only_local`, or `chat.lastMessage.id` compared to the mark for a cheap upper bound) and refreshed on `postEvents`.
 - A post is read once its end has been on screen, as in Telegram. Marking is debounced and calls `markViewed` on TDLib so the official Telegram app agrees. Setting `syncReadToTelegram`, default on; when off, only `feed_read_marks` is updated.
