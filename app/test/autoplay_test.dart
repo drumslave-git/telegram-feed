@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/media_view.dart';
 import 'package:telegram_feed/media/autoplay.dart';
 import 'package:telegram_feed/media/media_viewer.dart';
+import 'package:telegram_feed/media/video_sessions.dart';
 import 'package:telegram_feed/media/video_stage.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -86,11 +87,16 @@ void main() {
       expect(platform.log, containsAllInOrder(['volume 1 0.0', 'play 1']));
       expect(find.byIcon(Icons.volume_off), findsOneWidget);
 
-      // A tap opens the viewer with sound on the same player.
+      // A tap opens the viewer with sound on the same player, and the video the row was
+      // playing somewhere in the middle starts over.
+      final session = VideoSessions.of(gw).find(9)!;
+      await tester.runAsync(() => session.seekBy(const Duration(seconds: 30)));
+      platform.log.clear();
       await tester.tap(find.byType(InlineVideo));
       await tester.pumpAndSettle();
       expect(find.byType(MediaViewerScreen), findsOneWidget);
       expect(platform.log, contains('volume 1 1.0'));
+      expect(platform.log, contains('seek 1 0'));
       expect(platform.sources, hasLength(1));
 
       // Leaving it: muted autoplay in the row again, nothing is cancelled.

@@ -153,11 +153,16 @@ final class VideoSession extends ChangeNotifier {
   /// lifecycle methods, so the player is only touched once the frame is done (listeners
   /// rebuild widgets).
   void retainForViewer() {
+    // A video the timeline autoplayed is somewhere in the middle of itself; opening it
+    // starts it over (founder decision 2026-09-20). Taking the session over from the mini
+    // player or the system window is not an opening: there [_viewerHolds] is already up.
+    final fromRow = autoplay && _viewerHolds == 0;
     retain();
     _viewerHolds++;
     scheduleMicrotask(() async {
       if (_disposed) return;
       if (_muted) await setMuted(false);
+      if (fromRow) await _controller?.seekTo(Duration.zero);
       await play();
       _owner._syncForeground();
     });
