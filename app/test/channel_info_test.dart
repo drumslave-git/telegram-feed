@@ -2,6 +2,7 @@ import 'package:app_db/app_db.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:core/core.dart';
 import 'package:telegram_feed/feeds/feed_editor_screen.dart';
 import 'package:telegram_feed/feeds/shared_media.dart';
@@ -15,6 +16,12 @@ import 'feeds_screen_test.dart' show ChannelsGateway;
 
 /// Histories answered by media kind, the way TDLib's search filters do.
 final class MediaGateway extends ChannelsGateway {
+  /// What Telegram suggests as similar (H-32).
+  List<Channel> similar = const [];
+
+  @override
+  Future<List<Channel>> similarChannels(int chatId) async => similar;
+
   MediaGateway(this.histories, {List<Channel> channels = const []})
     : super(channels);
   final Map<int, List<Post>> histories;
@@ -295,5 +302,33 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.text('This channel has no photo.'), findsOneWidget);
+  });
+
+  testWidgets('similar channels and the QR code are in the info screen', (
+    tester,
+  ) async {
+    gw.similar = const [
+      Channel(chatId: -7, title: 'Beta Daily', username: 'beta'),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChannelInfoScreen(gateway: gw, channel: channel),
+      ),
+    );
+    await settle(tester);
+
+    expect(find.text('Similar channels'), findsOneWidget);
+    expect(find.text('Beta Daily'), findsOneWidget);
+
+    // The media tabs keep a spinner turning, so the frames are pumped by hand.
+    await tester.tap(find.byTooltip('QR code'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(QrImageView), findsOneWidget);
+    expect(find.text('https://t.me/alpha'), findsWidgets);
+    await tester.tap(find.text('Close'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(QrImageView), findsNothing);
   });
 }

@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-32 (similar channels and the QR code).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-33 (sound and vibration per rule priority).
 
 ## Phase 0 — Spikes
 
@@ -383,8 +383,11 @@ after it has faded goes to the post underneath, as it should (H-2).
 - [x] H-31 A tap on the channel photo in the info screen opens it on the whole screen, in the
   media viewer with the channel's name on it; a channel without a photo says so. The avatars in
   the lists and in the bubbles stay small targets and keep leading where they led.
-- [ ] H-32 Similar channels and the channel's QR code in the info screen (both come from
-  Telegram).
+- [x] H-32 Similar channels and the QR code in the info screen: `similarChannels(chatId)` over
+  TDLib's suggestions (an error where it has none means no section), drawn as a row of photos
+  and names — a tap opens one in the official app, since this app never joins a channel — and a
+  QR action that shows the channel's link as a code, drawn with the `qr_flutter` the QR login
+  already uses.
 - [ ] H-33 Sound and vibration per rule priority: what the silent, normal and urgent channels
   use, picked in Read-aloud's neighbourhood in Settings. Android fixes a channel's sound when
   it is created, so changing it re-creates the channel under a new id.

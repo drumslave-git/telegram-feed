@@ -731,6 +731,23 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
+  Future<List<Channel>> similarChannels(int chatId) async {
+    try {
+      final chats = await _client.call(td.GetChatSimilarChats(chatId: chatId));
+      final out = <Channel>[];
+      for (final id in chats.chatIds) {
+        final channel = await _channelOf(id);
+        if (channel != null) out.add(channel);
+      }
+      return out;
+    } on TelegramException catch (e) {
+      // Telegram answers with an error for channels it has no suggestions for.
+      log?.call('getChatSimilarChats($chatId): $e');
+      return const [];
+    }
+  }
+
+  @override
   Future<List<Channel>> archivedChannels() async {
     final out = <Channel>[];
     for (final id in await _chatIdsOf(const td.ChatListArchive())) {

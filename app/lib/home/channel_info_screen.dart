@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -37,6 +38,7 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
   void initState() {
     super.initState();
     unawaited(_load());
+    unawaited(_loadSimilar());
   }
 
   Future<void> _load() async {
@@ -84,6 +86,49 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
     );
   }
 
+  /// Channels Telegram suggests; loaded once with the info.
+  List<Channel> _similar = const [];
+
+  Future<void> _loadSimilar() async {
+    try {
+      final similar = await widget.gateway.similarChannels(
+        widget.channel.chatId,
+      );
+      if (mounted) setState(() => _similar = similar);
+    } on TelegramException {
+      // No suggestions, no section.
+    }
+  }
+
+  /// The channel's link as a QR code, which the official app shows for sharing it.
+  void _showQr(String link) => unawaited(
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(widget.channel.title),
+        content: SizedBox(
+          width: 240,
+          height: 280,
+          child: Column(
+            children: [
+              Expanded(
+                child: QrImageView(data: link, backgroundColor: Colors.white),
+              ),
+              const SizedBox(height: 8),
+              Text(link, textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final channel = widget.channel;
@@ -91,7 +136,17 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
     final members = info?.memberCount ?? channel.memberCount;
     final link = _link;
     return Scaffold(
-      appBar: AppBar(title: const Text('Channel info')),
+      appBar: AppBar(
+        title: const Text('Channel info'),
+        actions: [
+          if (link != null)
+            IconButton(
+              tooltip: 'QR code',
+              icon: const Icon(Icons.qr_code),
+              onPressed: () => _showQr(link),
+            ),
+        ],
+      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -161,6 +216,57 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
                 onPressed: () => unawaited(_copyLink(link)),
               ),
             ),
+          if (_similar.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              child: Text(
+                'Similar channels',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+            ),
+            SizedBox(
+              height: 104,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: _similar.length,
+                itemBuilder: (context, i) {
+                  final c = _similar[i];
+                  // The app never joins a channel, so a suggestion opens in Telegram.
+                  final url = (c.username ?? '').isEmpty
+                      ? null
+                      : 'https://t.me/${c.username}';
+                  return SizedBox(
+                    width: 88,
+                    child: InkWell(
+                      onTap: url == null
+                          ? null
+                          : () => unawaited(launchFirst([Uri.tryParse(url)])),
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 6),
+                          ChannelAvatar(
+                            photo: c.photo,
+                            title: c.title,
+                            gateway: widget.gateway,
+                            radius: 24,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            c.title,
+                            maxLines: 2,
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
           const Divider(height: 1),
           Expanded(
             child: SharedMediaTabs(

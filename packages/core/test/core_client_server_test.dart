@@ -187,6 +187,8 @@ final class FakeGateway implements TelegramGateway {
   }
 
   @override
+  Future<List<Channel>> similarChannels(int chatId) async => const [];
+  @override
   Future<List<Channel>> archivedChannels() async => const [];
   @override
   Future<Channel> savedMessages() async =>

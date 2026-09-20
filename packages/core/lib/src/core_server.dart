@@ -295,6 +295,10 @@ final class CoreServer {
         await gateway.closeThread(
           decodeThread(a['thread'] as Map<Object?, Object?>),
         );
+      case 'similarChannels':
+        return (await gateway.similarChannels(a['chatId'] as int))
+            .map(encodeChannel)
+            .toList();
       case 'archivedChannels':
         return (await gateway.archivedChannels()).map(encodeChannel).toList();
       case 'savedMessages':

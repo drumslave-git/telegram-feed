@@ -290,6 +290,13 @@ final class CoreClient implements TelegramGateway {
       _call('closeThread', {'thread': encodeThread(thread)});
 
   @override
+  Future<List<Channel>> similarChannels(int chatId) async => [
+    for (final c
+        in (await _call('similarChannels', {'chatId': chatId})) as List)
+      decodeChannel(c as Map<Object?, Object?>),
+  ];
+
+  @override
   Future<List<Channel>> archivedChannels() async => [
     for (final c in (await _call('archivedChannels')) as List)
       decodeChannel(c as Map<Object?, Object?>),
