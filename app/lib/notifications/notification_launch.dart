@@ -19,7 +19,9 @@ final class NotificationLaunch {
   Future<void> attach() async {
     await _plugin.initialize(
       settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        // The same icon as the service's notifier: this initialisation writes the
+        // plugin's default icon into shared preferences, where it outlives the isolate.
+        android: AndroidInitializationSettings(notificationIcon),
       ),
       onDidReceiveNotificationResponse: _onResponse,
       onDidReceiveBackgroundNotificationResponse: notificationActionEntryPoint,

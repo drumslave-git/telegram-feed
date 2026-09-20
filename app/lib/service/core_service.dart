@@ -262,6 +262,12 @@ class CoreServiceHandler extends TaskHandler {
       notificationText: _paused
           ? 'Paused: rules are not evaluated'
           : 'Watching $n channel${n == 1 ? '' : 's'}',
+      // Named again on every update: Android restores a running service with the content
+      // saved when it was started, which may come from a build that had no icon of its own
+      // and so fell back to the launcher icon, in colour.
+      notificationIcon: const NotificationIcon(
+        metaDataName: serviceIconMetaData,
+      ),
       notificationButtons: [
         _paused
             ? const NotificationButton(id: resumeButtonId, text: 'Resume')

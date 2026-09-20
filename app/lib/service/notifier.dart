@@ -8,6 +8,12 @@ import 'notification_plan.dart';
 
 export 'notification_plan.dart';
 
+/// White glyph on transparency, the way Android wants a status bar icon: the system tints
+/// it like every other app's. It is named on every notification, not left to the plugin's
+/// default, because that default lives in shared preferences and the isolate that
+/// initialises last would decide it.
+const notificationIcon = 'ic_stat_feed';
+
 /// Posts notifications for rule matches. Lives in the service host isolate (plugins with
 /// platform callbacks cannot run in the core isolate, spike P0-2).
 final class Notifier {
@@ -23,7 +29,7 @@ final class Notifier {
   Future<void> init() async {
     await _plugin.initialize(
       settings: const InitializationSettings(
-        android: AndroidInitializationSettings('ic_stat_feed'),
+        android: AndroidInitializationSettings(notificationIcon),
       ),
       onDidReceiveNotificationResponse: notificationActionEntryPoint,
       onDidReceiveBackgroundNotificationResponse: notificationActionEntryPoint,
@@ -112,6 +118,7 @@ final class Notifier {
         android: AndroidNotificationDetails(
           channelId,
           channelId,
+          icon: notificationIcon,
           importance: _importanceOf(plan.channelId),
           priority: _priorityOf(plan.channelId),
           groupKey: plan.groupKey,
@@ -149,6 +156,7 @@ final class Notifier {
       android: AndroidNotificationDetails(
         channelId,
         channelId,
+        icon: notificationIcon,
         importance: _importanceOf(plan.channelId),
         priority: _priorityOf(plan.channelId),
         groupKey: plan.groupKey,

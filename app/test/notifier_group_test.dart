@@ -27,6 +27,7 @@ void main() {
   /// What Android reports as still showing, each with the group it belongs to.
   late List<({int id, String group})> live;
   late List<({int id, String body})> shown;
+  late List<String> icons;
   late List<int> cancelled;
 
   ({int id, String group}) mine(int id) => (id: id, group: 'chat-$chatId');
@@ -36,6 +37,7 @@ void main() {
     AndroidFlutterLocalNotificationsPlugin.registerWith();
     live = [];
     shown = [];
+    icons = [];
     cancelled = [];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
@@ -56,6 +58,9 @@ void main() {
             case 'show':
               final m = call.arguments as Map;
               shown.add((id: m['id'] as int, body: m['body'] as String));
+              icons.add(
+                (m['platformSpecifics'] as Map)['icon'] as String? ?? '',
+              );
             case 'cancel':
               cancelled.add((call.arguments as Map)['id'] as int);
           }
@@ -91,6 +96,16 @@ void main() {
     final third = planFor(7 << 20);
     await notifier.show(third);
     expect(summaryBody(), '2 new posts');
+  });
+
+  test('every notification names the status bar icon itself', () async {
+    // The plugin's default icon lives in shared preferences, where the UI isolate's own
+    // initialisation would otherwise decide it (the launcher icon, in colour).
+    final notifier = Notifier();
+    await notifier.init();
+    await notifier.show(planFor(5 << 20));
+    expect(icons, isNotEmpty);
+    expect(icons.every((i) => i == notificationIcon), isTrue, reason: '$icons');
   });
 
   test('the summary counts neither itself nor another channel', () async {
