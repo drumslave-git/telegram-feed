@@ -73,6 +73,9 @@ final class TdlibGateway implements TelegramGateway {
   final _openThreads = <(int, int)>{};
   final _senders = <String, map.Sender>{};
 
+  /// Stickers of custom emoji already asked for, by id: they never change.
+  final _customEmoji = <String, StickerMedia>{};
+
   /// Words and thumbnail of posts that other posts answer, by "chat/message".
   final _replied = <String, ({String text, PhotoMedia? photo})>{};
 
@@ -703,6 +706,35 @@ final class TdlibGateway implements TelegramGateway {
         removeCaption: false,
       ),
     );
+  }
+
+  @override
+  Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async {
+    final wanted = [
+      for (final id in ids)
+        if (!_customEmoji.containsKey(id)) id,
+    ];
+    if (wanted.isNotEmpty) {
+      try {
+        final answer = await _client.call(
+          td.GetCustomEmojiStickers(
+            customEmojiIds: [for (final id in wanted) int.tryParse(id) ?? 0],
+          ),
+        );
+        for (final s in answer.stickers) {
+          final sticker = map.sticker(s);
+          final id = switch (s.fullType) {
+            td.StickerFullTypeCustomEmoji(:final customEmojiId) =>
+              '$customEmojiId',
+            _ => null,
+          };
+          if (sticker != null && id != null) _customEmoji[id] = sticker;
+        }
+      } on TelegramException catch (e) {
+        log?.call('getCustomEmojiStickers failed: $e');
+      }
+    }
+    return {for (final id in ids) id: ?_customEmoji[id]};
   }
 
   @override

@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-11 (custom emoji in a post's text).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-12 (the pinned post bar).
 
 ## Phase 0 — Spikes
 
@@ -283,8 +283,12 @@ after it has faded goes to the post underneath, as it should (H-2).
   the bubble's width; a round video message is the ordinary player clipped to a circle. Neither
   opens the media viewer, and both carry a name for read-aloud, search and rule notifications
   ("A Sticker", "Video message"). A sticker counts as `other` for a feed's media filters.
-- [ ] H-11 Custom emoji in a post's text: the entity the app drops today, drawn as the emoji's
-  own picture (animated ones as their static thumbnail unless cheap to animate).
+- [x] H-11 Custom emoji in a post's text: `TextEntityKind.customEmoji` with the sticker id
+  (dropped until now), the gateway's `customEmoji(ids)` over `getCustomEmojiStickers` with a
+  cache of its own and one request per text, and `FormattedText` drawing each one as its
+  sticker at the height of a line — animated ones animate, since they are stickers like any
+  other. An id Telegram does not know, or a text drawn without a gateway, keeps the plain
+  emoji that stands in the text.
 - [ ] H-12 Pinned post bar at the top of a channel, tappable to jump to it. In a feed of many
   channels it needs a place of its own; a single channel's timeline gets the official app's
   bar. (Reopened from round 4.)

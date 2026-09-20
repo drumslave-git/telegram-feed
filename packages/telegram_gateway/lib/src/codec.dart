@@ -319,7 +319,13 @@ LinkPreview decodeLinkPreview(Map<Object?, Object?> m) => LinkPreview(
 
 List<Map<String, Object?>> _encodeEntities(List<TextEntity> entities) => [
   for (final e in entities)
-    {'o': e.offset, 'l': e.length, 'k': e.kind.name, 'u': e.url},
+    {
+      'o': e.offset,
+      'l': e.length,
+      'k': e.kind.name,
+      'u': e.url,
+      'e': e.customEmojiId,
+    },
 ];
 
 List<TextEntity> _decodeEntities(Object? list) => [
@@ -329,6 +335,7 @@ List<TextEntity> _decodeEntities(Object? list) => [
       length: e['l'] as int,
       kind: TextEntityKind.values.byName(e['k'] as String),
       url: e['u'] as String?,
+      customEmojiId: e['e'] as String?,
     ),
 ];
 

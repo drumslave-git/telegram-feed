@@ -334,6 +334,7 @@ class CommentBubble extends StatelessWidget {
                   text: c.text,
                   entities: c.entities,
                   onOpenLink: onOpenLink,
+                  gateway: gateway,
                   style: TextStyle(
                     fontSize: 16,
                     height: 1.3,

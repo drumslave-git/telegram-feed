@@ -77,6 +77,10 @@ abstract interface class TelegramGateway {
   /// Stops a download nobody waits for any more; what is on disk stays.
   Future<void> cancelDownload(int fileId);
 
+  /// The stickers behind custom (premium) emoji ids, for the text that carries them. Ids
+  /// TDLib does not know are simply missing from the answer.
+  Future<Map<String, StickerMedia>> customEmoji(List<String> ids);
+
   /// Emoji this account may react with on the post (phase 3).
   Future<List<String>> availableReactions(int chatId, int messageId);
 

@@ -151,6 +151,24 @@ Post post(td.Message m, {ForwardOrigin? forwardedFrom, ReplyTarget? replyTo}) {
   );
 }
 
+/// A sticker on its own (custom emoji), null when TDLib sent no file with it.
+StickerMedia? sticker(td.Sticker s) {
+  final file = s.sticker;
+  if (file == null) return null;
+  return StickerMedia(
+    file: fileRef(file, width: s.width, height: s.height),
+    format: switch (s.format) {
+      td.StickerFormatTgs() => StickerFormat.tgs,
+      td.StickerFormatWebm() => StickerFormat.webm,
+      _ => StickerFormat.webp,
+    },
+    width: s.width,
+    height: s.height,
+    emoji: s.emoji,
+    thumbnail: thumbRef(s.thumbnail),
+  );
+}
+
 /// The post a post answers. A reply inside the same channel carries nothing but the ids, so
 /// the gateway fetches that post for its words; a reply to another chat comes with the
 /// origin and the content already.
@@ -366,16 +384,23 @@ List<TextEntity> entities(td.FormattedText? t) {
       td.TextEntityTypeHashtag() => (TextEntityKind.tag, null),
       td.TextEntityTypeCashtag() => (TextEntityKind.tag, null),
       td.TextEntityTypeBotCommand() => (TextEntityKind.tag, null),
+      // The id travels in the url slot; the app asks TDLib for the sticker behind it.
+      td.TextEntityTypeCustomEmoji(:final customEmojiId) => (
+        TextEntityKind.customEmoji,
+        '$customEmojiId',
+      ),
       _ => (null, null),
     };
     final kind = mapped.$1;
     if (kind == null) continue;
+    final isEmoji = kind == TextEntityKind.customEmoji;
     out.add(
       TextEntity(
         offset: e.offset,
         length: e.length,
         kind: kind,
-        url: mapped.$2,
+        url: isEmoji ? null : mapped.$2,
+        customEmojiId: isEmoji ? mapped.$2 : null,
       ),
     );
   }

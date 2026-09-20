@@ -119,6 +119,9 @@ final class ScriptedGateway implements TelegramGateway {
   Future<void> closeThread(Thread thread) async {}
 
   @override
+  Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async =>
+      const {};
+  @override
   Future<List<String>> availableReactions(int chatId, int messageId) async =>
       const ['👍', '🔥'];
   @override

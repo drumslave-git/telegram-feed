@@ -700,6 +700,7 @@ class _Bubble extends StatelessWidget {
     text: text,
     entities: item.textPost.entities,
     onOpenLink: onOpenLink,
+    gateway: gateway,
     style: TextStyle(
       fontSize: 16,
       height: 1.3,

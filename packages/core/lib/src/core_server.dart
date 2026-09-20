@@ -292,6 +292,13 @@ final class CoreServer {
         await gateway.closeThread(
           decodeThread(a['thread'] as Map<Object?, Object?>),
         );
+      case 'customEmoji':
+        return {
+          for (final e in (await gateway.customEmoji(
+            (a['ids'] as List).cast<String>(),
+          )).entries)
+            e.key: encodeMedia(e.value),
+        };
       case 'availableReactions':
         return gateway.availableReactions(
           a['chatId'] as int,

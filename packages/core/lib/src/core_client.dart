@@ -275,6 +275,16 @@ final class CoreClient implements TelegramGateway {
       _call('closeThread', {'thread': encodeThread(thread)});
 
   @override
+  Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async {
+    final answer = (await _call('customEmoji', {'ids': ids})) as Map;
+    return {
+      for (final entry in answer.entries)
+        entry.key as String:
+            decodeMedia(entry.value as Map<Object?, Object?>) as StickerMedia,
+    };
+  }
+
+  @override
   Future<List<String>> availableReactions(int chatId, int messageId) async =>
       ((await _call('availableReactions', {
         'chatId': chatId,

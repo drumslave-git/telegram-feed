@@ -549,6 +549,10 @@ enum TextEntityKind {
 
   /// Coloured like a link but without a target: hashtags, cashtags, bot commands.
   tag,
+
+  /// A custom (premium) emoji: [TextEntity.customEmojiId] names the sticker to draw in
+  /// place of the plain emoji the text carries.
+  customEmoji,
 }
 
 /// Formatting of one range of [Post.text]; offsets count UTF-16 code units, like Dart
@@ -559,6 +563,7 @@ final class TextEntity {
     required this.length,
     required this.kind,
     this.url,
+    this.customEmojiId,
   });
   final int offset;
   final int length;
@@ -566,6 +571,9 @@ final class TextEntity {
 
   /// Target of a [TextEntityKind.link].
   final String? url;
+
+  /// Sticker id of a [TextEntityKind.customEmoji] (TDLib's int64 as a string).
+  final String? customEmojiId;
 
   int get end => offset + length;
 
@@ -575,9 +583,10 @@ final class TextEntity {
       other.offset == offset &&
       other.length == length &&
       other.kind == kind &&
-      other.url == url;
+      other.url == url &&
+      other.customEmojiId == customEmojiId;
   @override
-  int get hashCode => Object.hash(offset, length, kind, url);
+  int get hashCode => Object.hash(offset, length, kind, url, customEmojiId);
   @override
   String toString() =>
       'TextEntity($kind $offset+$length${url == null ? '' : ' $url'})';

@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
+
+import 'sticker_view.dart';
 
 /// A post's text with Telegram's formatting: bold, italic, underline, strikethrough,
 /// monospace, quotes, spoilers (hidden until tapped), links and mentions that open, and
@@ -15,6 +19,7 @@ class FormattedText extends StatefulWidget {
     required this.entities,
     required this.style,
     this.onOpenLink,
+    this.gateway,
   });
   final String text;
   final List<TextEntity> entities;
@@ -23,12 +28,18 @@ class FormattedText extends StatefulWidget {
   /// Links are plain coloured text without it.
   final void Function(String url)? onOpenLink;
 
+  /// Fetches the stickers of custom emoji; without it they stay the plain emoji.
+  final TelegramGateway? gateway;
+
   @override
   State<FormattedText> createState() => _FormattedTextState();
 }
 
 class _FormattedTextState extends State<FormattedText> {
   final _recognizers = <TapGestureRecognizer>[];
+
+  /// Stickers of the custom emoji in this text, once TDLib has named them.
+  Map<String, StickerMedia> _emoji = const {};
 
   /// Offsets of the spoilers the user has uncovered.
   final _revealed = <int>{};
@@ -41,9 +52,35 @@ class _FormattedTextState extends State<FormattedText> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(_loadCustomEmoji());
+  }
+
+  @override
   void didUpdateWidget(FormattedText old) {
     super.didUpdateWidget(old);
     if (old.text != widget.text) _revealed.clear();
+    if (old.entities != widget.entities) unawaited(_loadCustomEmoji());
+  }
+
+  /// One request for all the custom emoji of this text; the gateway keeps what it learns,
+  /// so the same emoji in the next post costs nothing.
+  Future<void> _loadCustomEmoji() async {
+    final gateway = widget.gateway;
+    if (gateway == null) return;
+    final ids = {
+      for (final e in widget.entities)
+        if (e.kind == TextEntityKind.customEmoji && e.customEmojiId != null)
+          e.customEmojiId!,
+    };
+    if (ids.isEmpty) return;
+    try {
+      final found = await gateway.customEmoji(ids.toList());
+      if (mounted && found.isNotEmpty) setState(() => _emoji = found);
+    } on TelegramException {
+      // The plain emoji of the text stays.
+    }
   }
 
   @override
@@ -84,6 +121,7 @@ class _FormattedTextState extends State<FormattedText> {
       final decorations = <TextDecoration>[];
       TextEntity? link;
       TextEntity? spoiler;
+      TextEntity? emoji;
       for (final e in entities) {
         if (e.offset > from || e.end < to) continue;
         switch (e.kind) {
@@ -112,6 +150,8 @@ class _FormattedTextState extends State<FormattedText> {
             link = e;
           case TextEntityKind.spoiler:
             spoiler = e;
+          case TextEntityKind.customEmoji:
+            emoji ??= e;
         }
       }
       if (decorations.isNotEmpty) {
@@ -133,14 +173,35 @@ class _FormattedTextState extends State<FormattedText> {
         final url = link!.url!;
         recognizer = _onTap(() => widget.onOpenLink!(url));
       }
-      spans.add(
-        TextSpan(
-          text: text.substring(from, to),
-          style: style,
-          recognizer: recognizer,
-          semanticsLabel: hidden ? 'spoiler' : null,
-        ),
-      );
+      final sticker = _emoji[emoji?.customEmojiId];
+      if (sticker != null && !hidden) {
+        // The sticker takes the place of the plain emoji the text carries, at the size of
+        // a line of that text.
+        final side = (widget.style.fontSize ?? 16) * 1.25;
+        spans.add(
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: SizedBox(
+              width: side,
+              height: side,
+              child: StickerView(
+                sticker: sticker,
+                gateway: widget.gateway!,
+                side: side,
+              ),
+            ),
+          ),
+        );
+      } else {
+        spans.add(
+          TextSpan(
+            text: text.substring(from, to),
+            style: style,
+            recognizer: recognizer,
+            semanticsLabel: hidden ? 'spoiler' : null,
+          ),
+        );
+      }
       // The end of a monospace block: its own copy button, as in the official app.
       for (final e in entities) {
         if (e.kind != TextEntityKind.pre || e.end != to) continue;
