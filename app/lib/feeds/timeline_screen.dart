@@ -439,6 +439,11 @@ class TimelineViewState extends State<TimelineView> {
   /// Every channel the account follows, by chat id: the forwarded-from line opens one.
   Map<int, Channel> _known = const {};
 
+  /// The channel's pinned post, shown in a bar over the timeline. A feed mixes channels,
+  /// so it has no such bar (founder decision, round 7).
+  Post? _pinned;
+  bool _pinnedHidden = false;
+
   /// Emoji a double tap sends; the reader's last one, a thumbs up until they react once.
   /// Read once when the timeline opens and kept up to date by reacting here: watching the
   /// setting would tie every channel timeline to a database stream it otherwise never needs.
@@ -501,6 +506,7 @@ class TimelineViewState extends State<TimelineView> {
     _focusMessage = widget.focusMessageId;
     _positions.itemPositions.addListener(_onPositions);
     unawaited(_loadQuickReaction());
+    if (widget.channel != null) unawaited(_loadPinned());
     final feed = widget.feed;
     if (feed == null) {
       final c = widget.channel!;
@@ -1229,6 +1235,15 @@ class TimelineViewState extends State<TimelineView> {
     }
   }
 
+  Future<void> _loadPinned() async {
+    try {
+      final pinned = await widget.gateway.pinnedPost(widget.channel!.chatId);
+      if (mounted && pinned != null) setState(() => _pinned = pinned);
+    } on TelegramException {
+      // No bar, as if the channel had nothing pinned.
+    }
+  }
+
   Future<void> _loadQuickReaction() async {
     final emoji = await widget.db.setting(SettingKeys.quickReaction);
     if (mounted && emoji != null && emoji.isNotEmpty) {
@@ -1278,9 +1293,26 @@ class TimelineViewState extends State<TimelineView> {
             ),
           ),
         ),
-        if (t != null && !_opening && items.isNotEmpty)
+        if (_pinned != null && !_pinnedHidden)
           Positioned(
             top: 0,
+            left: 0,
+            right: 0,
+            child: PinnedBar(
+              post: _pinned!,
+              onTap: () => unawaited(
+                jumpToPost(
+                  chatId: _pinned!.chatId,
+                  messageId: _pinned!.messageId,
+                  date: _pinned!.date,
+                ),
+              ),
+              onHide: () => setState(() => _pinnedHidden = true),
+            ),
+          ),
+        if (t != null && !_opening && items.isNotEmpty)
+          Positioned(
+            top: _pinned != null && !_pinnedHidden ? pinnedBarHeight : 0,
             left: 0,
             right: 0,
             child: FloatingDay(
@@ -1521,6 +1553,88 @@ class _FloatingDayState extends State<FloatingDay>
       );
     },
   );
+}
+
+/// Height of [PinnedBar]; the floating day pill stands below it.
+const pinnedBarHeight = 44.0;
+
+/// The channel's pinned post over the timeline, as in the official app: a line of what it
+/// says, a tap to jump to it, and a cross to put the bar away for this visit.
+class PinnedBar extends StatelessWidget {
+  const PinnedBar({
+    super.key,
+    required this.post,
+    required this.onTap,
+    required this.onHide,
+  });
+  final Post post;
+  final VoidCallback onTap;
+  final VoidCallback onHide;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerHighest.withValues(alpha: 0.96),
+      child: SizedBox(
+        height: pinnedBarHeight,
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: onTap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.push_pin_outlined,
+                        size: 18,
+                        color: scheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Pinned post',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: scheme.primary,
+                              ),
+                            ),
+                            Text(
+                              // One line: a pinned post may be a long one.
+                              postLabel(post)
+                                  .replaceAll(String.fromCharCode(10), ' '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Hide',
+              icon: const Icon(Icons.close, size: 18),
+              onPressed: onHide,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Marks where the unread posts began when the feed was opened.

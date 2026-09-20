@@ -275,6 +275,12 @@ final class CoreClient implements TelegramGateway {
       _call('closeThread', {'thread': encodeThread(thread)});
 
   @override
+  Future<Post?> pinnedPost(int chatId) async {
+    final answer = await _call('pinnedPost', {'chatId': chatId});
+    return answer == null ? null : decodePost(answer as Map<Object?, Object?>);
+  }
+
+  @override
   Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async {
     final answer = (await _call('customEmoji', {'ids': ids})) as Map;
     return {

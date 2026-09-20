@@ -21,6 +21,16 @@ final class TimelineGateway extends ChannelsGateway {
   final Map<int, List<Post>> histories;
   final reactions = <String>[];
 
+  /// The post a channel timeline finds pinned, and the chats that asked for one.
+  Post? pinned;
+  final pinnedAsked = <int>[];
+
+  @override
+  Future<Post?> pinnedPost(int chatId) async {
+    pinnedAsked.add(chatId);
+    return pinned;
+  }
+
   @override
   Future<void> react(
     int chatId,

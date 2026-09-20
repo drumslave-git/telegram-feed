@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-12 (the pinned post bar).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-13 (mark everything read).
 
 ## Phase 0 — Spikes
 
@@ -289,9 +289,11 @@ after it has faded goes to the post underneath, as it should (H-2).
   sticker at the height of a line — animated ones animate, since they are stickers like any
   other. An id Telegram does not know, or a text drawn without a gateway, keeps the plain
   emoji that stands in the text.
-- [ ] H-12 Pinned post bar at the top of a channel, tappable to jump to it. In a feed of many
-  channels it needs a place of its own; a single channel's timeline gets the official app's
-  bar. (Reopened from round 4.)
+- [x] H-12 Pinned post bar: `pinnedPost(chatId)` over TDLib's `getChatPinnedMessage` (a channel
+  with nothing pinned answers with an error, which the gateway turns into none) and `PinnedBar`
+  over a channel's timeline — the pin, "Pinned post", one line of what it says, a tap that jumps
+  to it and a cross that puts it away for the visit. A feed mixes channels and gets no bar
+  (founder decision, round 7). (Reopened from round 4.)
 
 ### Reading flow and the lists
 

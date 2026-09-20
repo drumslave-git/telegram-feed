@@ -292,6 +292,9 @@ final class CoreServer {
         await gateway.closeThread(
           decodeThread(a['thread'] as Map<Object?, Object?>),
         );
+      case 'pinnedPost':
+        final pinned = await gateway.pinnedPost(a['chatId'] as int);
+        return pinned == null ? null : encodePost(pinned);
       case 'customEmoji':
         return {
           for (final e in (await gateway.customEmoji(

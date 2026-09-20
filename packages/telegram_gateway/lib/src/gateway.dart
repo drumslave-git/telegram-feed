@@ -77,6 +77,10 @@ abstract interface class TelegramGateway {
   /// Stops a download nobody waits for any more; what is on disk stays.
   Future<void> cancelDownload(int fileId);
 
+  /// The post pinned in a channel, or null when it has none. The official app shows it in
+  /// a bar over the timeline.
+  Future<Post?> pinnedPost(int chatId);
+
   /// The stickers behind custom (premium) emoji ids, for the text that carries them. Ids
   /// TDLib does not know are simply missing from the answer.
   Future<Map<String, StickerMedia>> customEmoji(List<String> ids);

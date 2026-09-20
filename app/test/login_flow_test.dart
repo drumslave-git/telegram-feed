@@ -119,6 +119,8 @@ final class ScriptedGateway implements TelegramGateway {
   Future<void> closeThread(Thread thread) async {}
 
   @override
+  Future<Post?> pinnedPost(int chatId) async => null;
+  @override
   Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async =>
       const {};
   @override

@@ -709,6 +709,18 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
+  Future<Post?> pinnedPost(int chatId) async {
+    try {
+      final m = await _client.call(td.GetChatPinnedMessage(chatId: chatId));
+      return await _post(m);
+    } on TelegramException catch (e) {
+      // A channel without a pinned post answers with an error, not with nothing.
+      log?.call('getChatPinnedMessage($chatId): $e');
+      return null;
+    }
+  }
+
+  @override
   Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async {
     final wanted = [
       for (final id in ids)
