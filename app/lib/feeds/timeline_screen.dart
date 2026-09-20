@@ -1256,11 +1256,48 @@ class TimelineViewState extends State<TimelineView> {
     );
   }
 
-  /// A link in a post: whatever app handles it, the browser for web pages.
+  /// A link in a post. A Telegram link to a channel the account follows opens here, post
+  /// and all; everything else goes to whatever app handles it (the browser for web pages).
   Future<void> _openLink(String url) async {
     final messenger = ScaffoldMessenger.of(context);
-    if (await launchFirst([Uri.tryParse(url)])) return;
+    final uri = Uri.tryParse(url);
+    if (uri != null && _openTelegramLink(uri)) return;
+    if (await launchFirst([uri])) return;
     messenger.showSnackBar(SnackBar(content: Text('No app can open $url')));
+  }
+
+  /// The link path, for the test of H-18: answers whether the app opened it itself.
+  @visibleForTesting
+  bool openLinkForTest(String url) => _openTelegramLink(Uri.parse(url));
+
+  /// True when the link named a channel of this account and its timeline was opened.
+  bool _openTelegramLink(Uri uri) {
+    final target = telegramTargetOf(uri);
+    if (target == null) return false;
+    final username = target.username?.toLowerCase();
+    Channel? channel;
+    for (final c in _known.values) {
+      if (target.chatId != null && c.chatId == target.chatId) channel = c;
+      if (username != null && (c.username ?? '').toLowerCase() == username) {
+        channel = c;
+      }
+      if (channel != null) break;
+    }
+    if (channel == null) return false;
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TimelineScreen(
+            db: widget.db,
+            gateway: widget.gateway,
+            channel: channel!,
+            focusChatId: target.messageId == null ? null : channel.chatId,
+            focusMessageId: target.messageId,
+          ),
+        ),
+      ),
+    );
+    return true;
   }
 
   Uri? _shareLink(TimelineItem item) => telegramShareUri(

@@ -219,6 +219,12 @@ An album is several messages, so the four content settings judge its parts one b
 - **Editing.** The feed editor's "Show" row opens a sheet with the four content controls and the "Show the whole post" checkbox (off only for a feed with media); the row's subtitle is the filter in words.
 - **Sync.** The filter travels with the feed as the optional `filter` key of the snapshot. The file's format version stays 1: a device on an older version ignores the key and keeps syncing, and the filter survives as long as that device does not edit the feed. `wholePost` is a key inside that filter and needs no format change either; a build that predates it splits albums as it always did.
 
+`telegramTargetOf` (package `core`) reads a Telegram link the other way round: `t.me/<name>`,
+`t.me/<name>/<post>`, `t.me/c/<internal id>/<post>`, `tg://resolve` and `tg://privatepost`,
+with the post as a TDLib message id. A link in a post that names a channel the account
+follows opens that channel's timeline inside the app (H-18); invite links, sticker sets and
+web pages fall through to `launchFirst` and the system.
+
 ### 5.10 Search, dates and shared media
 
 A feed is merged channels, so everything the official app offers inside one channel runs over

@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-18 (t.me links open in our own timeline).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-19 (voice and music: seek and speed).
 
 ## Phase 0 — Spikes
 
@@ -316,8 +316,10 @@ after it has faded goes to the post underneath, as it should (H-2).
   and the app bar becomes "N selected" with Copy text, Share and Save to Saved Messages, each
   over every picked post, oldest first. Forwarding to a chat stays out: this app does not write
   to chats. (Reopened from round 4.)
-- [ ] H-18 A t.me link inside a post that points at a channel the account follows opens in our
-  own timeline instead of the browser, post id and all.
+- [x] H-18 A t.me link inside a post that points at a channel the account follows opens in our
+  own timeline, post and all: `telegramTargetOf` reads `t.me/<name>[/<post>]`, `t.me/c/<id>/<post>`,
+  `tg://resolve` and `tg://privatepost`, and leaves invite links, sticker sets and web pages to
+  the apps that handle them.
 
 ### Media
 

@@ -68,6 +68,8 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - I can close any screen with a swipe from the left edge.
 - When the app cannot reach Telegram it says so under the title, instead of looking empty.
 - I can copy a post's text from its menu, and a block of code with the button at its end.
+- A Telegram link in a post that leads to a channel I follow opens here, at that post;
+  everything else opens in the app that handles it.
 - I can open the original post in the official Telegram app.
 
 ### Notification rules

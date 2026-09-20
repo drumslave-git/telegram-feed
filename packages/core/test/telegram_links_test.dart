@@ -66,4 +66,50 @@ void main() {
     );
     expect(long, 'News\n\n${'a' * 10}…\n\nhttps://t.me/news/5');
   });
+
+  test('telegramTargetOf reads the links the app can open itself', () {
+    expect(telegramTargetOf(Uri.parse('https://t.me/alpha')), (
+      username: 'alpha',
+      chatId: null,
+      messageId: null,
+    ));
+    expect(telegramTargetOf(Uri.parse('https://t.me/alpha/42')), (
+      username: 'alpha',
+      chatId: null,
+      messageId: 42 << 20,
+    ));
+    expect(telegramTargetOf(Uri.parse('https://telegram.me/alpha/42')), (
+      username: 'alpha',
+      chatId: null,
+      messageId: 42 << 20,
+    ));
+    expect(telegramTargetOf(Uri.parse('https://t.me/c/1446168251/5')), (
+      username: null,
+      chatId: -1001446168251,
+      messageId: 5 << 20,
+    ));
+    expect(telegramTargetOf(Uri.parse('tg://resolve?domain=alpha&post=7')), (
+      username: 'alpha',
+      chatId: null,
+      messageId: 7 << 20,
+    ));
+    expect(
+      telegramTargetOf(Uri.parse('tg://privatepost?channel=1446168251&post=5')),
+      (username: null, chatId: -1001446168251, messageId: 5 << 20),
+    );
+  });
+
+  test('telegramTargetOf leaves everything else to other apps', () {
+    for (final link in [
+      'https://example.org/story',
+      'https://t.me/+AbCdEf',
+      'https://t.me/joinchat/AbCdEf',
+      'https://t.me/addstickers/pack',
+      'https://t.me/',
+      'mailto:a@b.io',
+      'tg://settings',
+    ]) {
+      expect(telegramTargetOf(Uri.parse(link)), isNull, reason: link);
+    }
+  });
 }
