@@ -290,6 +290,29 @@ final class CoreClient implements TelegramGateway {
       _call('closeThread', {'thread': encodeThread(thread)});
 
   @override
+  Future<GlobalSearchPage> searchAllChannels({
+    required String query,
+    HistoryFilter filter = HistoryFilter.any,
+    String offset = '',
+    int limit = 30,
+  }) async {
+    final m = (await _call('searchAllChannels', {
+      'query': query,
+      'filter': filter.name,
+      'offset': offset,
+      'limit': limit,
+    })) as Map<Object?, Object?>;
+    return GlobalSearchPage(
+      posts: [
+        for (final p in m['posts'] as List)
+          decodePost(p as Map<Object?, Object?>),
+      ],
+      totalCount: m['totalCount'] as int,
+      nextOffset: m['nextOffset'] as String,
+    );
+  }
+
+  @override
   Future<Post?> pinnedPost(int chatId) async {
     final answer = await _call('pinnedPost', {'chatId': chatId});
     return answer == null ? null : decodePost(answer as Map<Object?, Object?>);

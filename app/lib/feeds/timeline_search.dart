@@ -284,6 +284,53 @@ class SearchStepper extends StatelessWidget {
 
 /// Runs a [FeedSearch] for one query and keeps what it found; the screen only reads it.
 /// A new query gets a new session, so answers of the old one are dropped with it.
+/// Paging state of a search over the posts of every channel the account follows (H-25).
+/// Telegram searches all chats at once and pages with a token of its own.
+final class GlobalSearchSession {
+  GlobalSearchSession({
+    required this.gateway,
+    required this.query,
+    this.filter = HistoryFilter.any,
+  });
+  final TelegramGateway gateway;
+  final String query;
+  final HistoryFilter filter;
+
+  final results = <Post>[];
+  String _offset = '';
+  bool exhausted = false;
+  bool loading = false;
+  String? error;
+  int _total = 0;
+
+  /// Telegram's estimate while more can come, the exact number once it cannot.
+  int get total => exhausted ? results.length : _total;
+
+  /// Loads the next page. True when the screen should rebuild.
+  Future<bool> loadMore() async {
+    if (loading || exhausted) return false;
+    loading = true;
+    try {
+      final page = await gateway.searchAllChannels(
+        query: query,
+        filter: filter,
+        offset: _offset,
+      );
+      error = null;
+      results.addAll(page.posts);
+      if (page.totalCount >= 0) _total = page.totalCount;
+      _offset = page.nextOffset;
+      if (page.nextOffset.isEmpty) exhausted = true;
+      return true;
+    } on TelegramException catch (e) {
+      error = e.message;
+      return true;
+    } finally {
+      loading = false;
+    }
+  }
+}
+
 final class SearchSession {
   SearchSession({
     required this.gateway,

@@ -157,6 +157,23 @@ final class SearchPage {
 }
 
 /// What a channel's info screen shows beyond what a channel list needs ([Channel]).
+/// One page of a search over every channel the account follows: TDLib pages this one with a
+/// token of its own instead of a message id.
+final class GlobalSearchPage {
+  const GlobalSearchPage({
+    required this.posts,
+    required this.totalCount,
+    required this.nextOffset,
+  });
+  final List<Post> posts;
+
+  /// Telegram's estimate, -1 when it does not know.
+  final int totalCount;
+
+  /// Empty when there is nothing more.
+  final String nextOffset;
+}
+
 final class ChannelInfo {
   const ChannelInfo({
     required this.chatId,

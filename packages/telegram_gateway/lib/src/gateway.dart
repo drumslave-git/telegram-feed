@@ -77,6 +77,15 @@ abstract interface class TelegramGateway {
   /// Stops a download nobody waits for any more; what is on disk stays.
   Future<void> cancelDownload(int fileId);
 
+  /// Searches the posts of every channel the account follows at once (TDLib's own search
+  /// over all chats, filtered down to channels). [offset] comes from the previous page.
+  Future<GlobalSearchPage> searchAllChannels({
+    required String query,
+    HistoryFilter filter = HistoryFilter.any,
+    String offset = '',
+    int limit = 30,
+  });
+
   /// TDLib's connection, so a screen can say "Connecting..." instead of looking empty.
   /// The first value is what it is now.
   Stream<ConnectionStatus> get connection;

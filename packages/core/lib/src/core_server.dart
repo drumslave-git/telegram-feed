@@ -295,6 +295,18 @@ final class CoreServer {
         await gateway.closeThread(
           decodeThread(a['thread'] as Map<Object?, Object?>),
         );
+      case 'searchAllChannels':
+        final page = await gateway.searchAllChannels(
+          query: a['query'] as String,
+          filter: HistoryFilter.values.byName(a['filter'] as String),
+          offset: a['offset'] as String,
+          limit: a['limit'] as int,
+        );
+        return {
+          'posts': page.posts.map(encodePost).toList(),
+          'totalCount': page.totalCount,
+          'nextOffset': page.nextOffset,
+        };
       case 'pinnedPost':
         final pinned = await gateway.pinnedPost(a['chatId'] as int);
         return pinned == null ? null : encodePost(pinned);

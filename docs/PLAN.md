@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-25 (search from the home screen).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-26 (media filters in the search bar).
 
 ## Phase 0 — Spikes
 
@@ -354,8 +354,11 @@ after it has faded goes to the post underneath, as it should (H-2).
 
 ### Search
 
-- [ ] H-25 Search from the home screen over the posts of every channel the account follows,
-  with the channel on every result row. (Reopened from round 4.)
+- [x] H-25 Search from the home screen over the posts of every channel the account follows:
+  `searchAllChannels` over TDLib's own search of all chats (filtered to channels, paged with
+  Telegram's token), the magnifier in the app bar, the results as the same rows the feed search
+  uses — each naming its channel — and a tap that opens that channel at the post. (Reopened
+  from round 4.)
 - [ ] H-26 Media filters in the search bar: photos, videos, links, files, music, voice, the
   way the info screens' tabs already ask TDLib.
 - [ ] H-27 Search inside a comment thread.

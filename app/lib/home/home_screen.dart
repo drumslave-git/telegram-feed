@@ -7,6 +7,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import '../feeds/feed_editor_screen.dart';
 import '../feeds/feeds_screen.dart' show FeedsController;
 import '../feeds/mark_read.dart';
+import '../feeds/timeline_search.dart';
 import '../feeds/timeline_screen.dart';
 import 'channel_info_screen.dart';
 import 'connection_title.dart';
@@ -46,6 +47,12 @@ class _HomeScreenState extends State<HomeScreen>
   /// Feeds, the folders, All channels.
   late TabController _tabCtl = TabController(length: 2, vsync: this);
 
+  /// Search over every channel (H-25): open, the query, the running search.
+  bool _searchOpen = false;
+  final _queryCtl = TextEditingController();
+  Timer? _debounce;
+  GlobalSearchSession? _session;
+
   @override
   void initState() {
     super.initState();
@@ -66,6 +73,8 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _debounce?.cancel();
+    _queryCtl.dispose();
     _reload?.cancel();
     _posts?.cancel();
     _tagSources?.cancel();
@@ -79,6 +88,71 @@ class _HomeScreenState extends State<HomeScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Folders and read counters may have changed in the official app meanwhile.
     if (state == AppLifecycleState.resumed) unawaited(_loadChannels());
+  }
+
+  void _openSearch() => setState(() => _searchOpen = true);
+
+  void _closeSearch() {
+    _debounce?.cancel();
+    _queryCtl.clear();
+    setState(() {
+      _searchOpen = false;
+      _session = null;
+    });
+  }
+
+  void _onQuery(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(
+      const Duration(milliseconds: 300),
+      () => unawaited(_startSearch(value)),
+    );
+  }
+
+  Future<void> _startSearch(String value) async {
+    final query = value.trim();
+    if (query.isEmpty) {
+      setState(() => _session = null);
+      return;
+    }
+    final session = GlobalSearchSession(gateway: widget.gateway, query: query);
+    setState(() => _session = session);
+    await session.loadMore();
+    if (mounted && identical(_session, session)) setState(() {});
+  }
+
+  Future<void> _loadMoreResults() async {
+    final session = _session;
+    if (session == null) return;
+    final changed = await session.loadMore();
+    if (changed && mounted && identical(_session, session)) setState(() {});
+  }
+
+  /// A result opens the channel it came from, at that post.
+  void _openResult(int index) {
+    final session = _session;
+    if (session == null || index >= session.results.length) return;
+    final post = session.results[index];
+    final channel = {for (final c in _channels) c.chatId: c}[post.chatId];
+    if (channel == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('That channel is not in your list.')),
+      );
+      return;
+    }
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TimelineScreen(
+            db: widget.db,
+            gateway: widget.gateway,
+            channel: channel,
+            focusChatId: post.chatId,
+            focusMessageId: post.messageId,
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _loadTags() async {
@@ -522,6 +596,51 @@ class _HomeScreenState extends State<HomeScreen>
     },
   );
 
+  /// The search over every channel: the bar takes the app bar, the results the screen.
+  Widget _searchScaffold() {
+    final session = _session;
+    final byId = {for (final c in _channels) c.chatId: c};
+    return Scaffold(
+      appBar: AppBar(
+        leading: BackButton(onPressed: _closeSearch),
+        titleSpacing: 0,
+        title: TextField(
+          controller: _queryCtl,
+          autofocus: true,
+          textInputAction: TextInputAction.search,
+          decoration: const InputDecoration(
+            hintText: 'Search all channels',
+            border: InputBorder.none,
+          ),
+          onChanged: _onQuery,
+        ),
+        actions: [
+          if (_queryCtl.text.isNotEmpty)
+            IconButton(
+              tooltip: 'Clear',
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                _queryCtl.clear();
+                _onQuery('');
+              },
+            ),
+        ],
+      ),
+      body: SearchResults(
+        results: session?.results ?? const [],
+        gateway: widget.gateway,
+        look: (chatId) =>
+            (title: byId[chatId]?.title ?? '', photo: byId[chatId]?.photo),
+        onOpen: _openResult,
+        onLoadMore: () => unawaited(_loadMoreResults()),
+        query: _queryCtl.text,
+        loading: session?.loading ?? false,
+        exhausted: session?.exhausted ?? false,
+        error: session?.error,
+      ),
+    );
+  }
+
   /// Channels of the folder with posts the account has not read, the way Telegram counts
   /// unread chats on its own folder tabs.
   int _unreadInFolder(ChatFolder folder) {
@@ -555,13 +674,21 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_searchOpen) return _searchScaffold();
     return Scaffold(
       appBar: AppBar(
         title: ConnectionTitle(
           gateway: widget.gateway,
           title: const Text('telegram-feed'),
         ),
-        actions: widget.actions,
+        actions: [
+          IconButton(
+            tooltip: 'Search posts',
+            icon: const Icon(Icons.search),
+            onPressed: _openSearch,
+          ),
+          ...widget.actions,
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(kTextTabBarHeight),
           child: Row(

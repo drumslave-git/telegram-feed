@@ -264,6 +264,11 @@ web pages fall through to `launchFirst` and the system.
 
 ### 5.10 Search, dates and shared media
 
+The home screen searches every channel at once (H-25): `searchAllChannels` asks TDLib's own
+`searchMessages` over the main chat list with its channel filter, pages with the token TDLib
+returns, and drops anything that is not a channel of this account. The results use the same
+rows as the feed search, and a tap opens that channel's timeline at the post.
+
 A feed is merged channels, so everything the official app offers inside one channel runs over
 all of a feed's sources at once and obeys the feed's filter (founder decision 2026-09-19).
 

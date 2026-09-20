@@ -731,6 +731,37 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
+  Future<GlobalSearchPage> searchAllChannels({
+    required String query,
+    HistoryFilter filter = HistoryFilter.any,
+    String offset = '',
+    int limit = 30,
+  }) async {
+    final r = await _client.call(
+      td.SearchMessages(
+        chatList: const td.ChatListMain(),
+        query: query,
+        offset: offset,
+        limit: limit,
+        filter: map.searchFilter(filter),
+        chatTypeFilter: const td.SearchMessagesChatTypeFilterChannel(),
+        minDate: 0,
+        maxDate: 0,
+      ),
+    );
+    // Channels the account left, or chats that are not channels at all, are not ours.
+    final keep = [
+      for (final m in r.messages)
+        if (_isChannelChat(m.chatId)) m,
+    ];
+    return GlobalSearchPage(
+      posts: await _posts(keep),
+      totalCount: r.totalCount,
+      nextOffset: r.nextOffset,
+    );
+  }
+
+  @override
   Future<Post?> pinnedPost(int chatId) async {
     try {
       final m = await _client.call(td.GetChatPinnedMessage(chatId: chatId));

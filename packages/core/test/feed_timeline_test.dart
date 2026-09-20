@@ -165,6 +165,13 @@ final class HistoryGateway implements TelegramGateway {
   }
 
   @override
+  Future<GlobalSearchPage> searchAllChannels({
+    required String query,
+    HistoryFilter filter = HistoryFilter.any,
+    String offset = '',
+    int limit = 30,
+  }) async => const GlobalSearchPage(posts: [], totalCount: 0, nextOffset: '');
+  @override
   Future<Post?> pinnedPost(int chatId) async => null;
   @override
   Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async =>

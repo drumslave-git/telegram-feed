@@ -25,6 +25,30 @@ final class TimelineGateway extends ChannelsGateway {
   Post? pinned;
   final pinnedAsked = <int>[];
 
+  /// Queries the search over every channel was asked, with their offsets.
+  final globalQueries = <String>[];
+
+  @override
+  Future<GlobalSearchPage> searchAllChannels({
+    required String query,
+    HistoryFilter filter = HistoryFilter.any,
+    String offset = '',
+    int limit = 30,
+  }) async {
+    globalQueries.add('$query|$filter|$offset');
+    final all = [
+      for (final posts in histories.values)
+        for (final p in posts)
+          if (p.text.toLowerCase().contains(query.toLowerCase())) p,
+    ]..sort((a, b) => b.date.compareTo(a.date));
+    // One page, then the end.
+    return GlobalSearchPage(
+      posts: offset.isEmpty ? all : const [],
+      totalCount: all.length,
+      nextOffset: '',
+    );
+  }
+
   @override
   Future<Post?> pinnedPost(int chatId) async {
     pinnedAsked.add(chatId);
