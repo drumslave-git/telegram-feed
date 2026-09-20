@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** the rest of round 7, from the feature-by-feature comparison with the official app.
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-3 (link previews).
 
 ## Phase 0 — Spikes
 
@@ -128,7 +128,7 @@ Founder decisions of the same day: a feed is merged channels, so search, date na
 - [x] C-8 Found while checking the round on the emulator: a date jump landed at the end of the chosen day, not at its beginning. The first page of history covers only thirty rows, and a busy feed has many more in a day, so the oldest loaded row of the day was taken for its first post. The timeline now pages down to the day before (capped at 300 rows) and then settles on the first post of the day. (6696d99)
 
 - [-] Mute and leave in the channel info screen: the app has its own notification rules (founder decision 2026-09-19).
-- [-] Pinned posts bar, selecting several posts, search over all channels from the home screen: not part of this round (founder decision 2026-09-19).
+- [-] Pinned posts bar, selecting several posts, search over all channels from the home screen: not part of this round (founder decision 2026-09-19). All three were taken up in round 7 (H-12, H-17, H-25).
 
 Verified on the emulator (NewsFeed and Real News, 2026-09-19): the magnifier turns the app
 bar into a search field and a query answers with the posts of all three channels, each row
@@ -201,15 +201,119 @@ their tags instead.
 
 ## Feedback round 7 (founder, 2026-09-20)
 
+The round started with two findings of the founder's own (H-1, H-2) and then with a
+feature-by-feature comparison of the app against the official Telegram Android app as a
+channel reader: every difference found in the code was put to the founder, who picked what
+the app takes over and dropped the rest (the list at the end of this round, and the Dropped
+section). The order is the founder's: what is most visible while reading comes first. Each
+task updates SPEC.md and ARCHITECTURE.md as it lands, so those two keep describing the app
+as it is; the decisions themselves are in the ARCHITECTURE decision log already.
+
+The comparison left out what the spec calls a non-goal: chats, groups, calls and stories,
+joining or leaving channels, editing Telegram's chat folders, muting a channel (rules take
+that place) and sponsored posts, which this app will never show.
+
 - [x] H-1 The menu of a folder tab could hardly be called when the folder's name is a single
   emoji: the long press only covered the label, which is a few pixels wide. Tabs carry their
   own padding now (`labelPadding` of the bar is zero) and a minimum width of 72 px, so the
-  press is answered anywhere in the tab.
+  press is answered anywhere in the tab. (6f62b46)
 - [x] H-2 The day of the topmost post floats over the timeline while it is scrolled, as the
   date does in the official app: `FloatingDay` fades in with a scroll the reader started
   (`UserScrollNotification`, so opening a feed or a date jump brings nothing out) and fades
   out 900 ms after the list comes to rest. A tap opens the calendar on that day, like the day
-  pills between the posts.
+  pills between the posts. (93771eb)
+
+### In every post (most visible while reading)
+
+- [ ] H-3 Link previews: the web page card under a post with a link (site, title, description,
+  photo), which TDLib hands over ready-made and the gateway drops today. `Post.webPage` through
+  the isolate codec, a card in `PostCard`, tappable.
+- [ ] H-4 "Forwarded from" header: the forward origin (channel, hidden sender, user) in the
+  gateway model and above the text, as in the official app. Channels repost each other
+  constantly and the app shows such a post as the channel's own.
+- [ ] H-5 Reply and quote preview: a post that answers an earlier post of the channel shows the
+  quoted post above its text, tappable to jump to it (`jumpToPost` already exists).
+- [ ] H-6 Copying text out of a post: "Copy text" in the post menu and the official app's copy
+  button in the corner of a monospace block.
+- [ ] H-7 Text size for posts: a slider in Settings' Appearance section that scales the post
+  text (and the comments), kept in `settings` and synced like the theme.
+- [ ] H-8 Swipe back: an edge swipe closes any screen, as it does everywhere in the official
+  app. Every route of the app, and it must not fight the viewer's swipe to close or the
+  timeline's own gestures.
+- [ ] H-9 Double tap on a post sends the quick reaction (thumbs up by default, the last used
+  one afterwards), as in the official app.
+- [ ] H-10 Stickers and video notes: static and animated stickers (TGS and WebM) and round
+  video messages, which land as "unsupported content" today.
+- [ ] H-11 Custom emoji in a post's text: the entity the app drops today, drawn as the emoji's
+  own picture (animated ones as their static thumbnail unless cheap to animate).
+- [ ] H-12 Pinned post bar at the top of a channel, tappable to jump to it. In a feed of many
+  channels it needs a place of its own; a single channel's timeline gets the official app's
+  bar. (Reopened from round 4.)
+
+### Reading flow and the lists
+
+- [ ] H-13 Mark everything read: one action for a feed, a channel and a folder, which moves the
+  feed's marks and Telegram's own read position when read sync is on.
+- [ ] H-14 Unread counts on the folder tabs, the way the Feeds tab already carries a badge.
+- [ ] H-15 Long press on a channel row opens a menu: mark as read, channel info, add to a feed.
+- [ ] H-16 Connection status: TDLib's `updateConnectionState` in the app bar ("Connecting…",
+  "Waiting for network", "Updating…"), so a dead connection does not look like an empty feed.
+- [ ] H-17 Selecting several posts: a long press starts a selection, then save, share or copy
+  all of them at once. (Reopened from round 4.)
+- [ ] H-18 A t.me link inside a post that points at a channel the account follows opens in our
+  own timeline instead of the browser, post id and all.
+
+### Media
+
+- [ ] H-19 Voice and music can be dragged to seek and played at 1×, 1.5× and 2×.
+- [ ] H-20 A player bar keeps the audio playing when the post leaves the screen and when the
+  screen is left, with pause and close, as the official app's does.
+- [ ] H-21 The viewer pages through all the media of the channel, or of the feed, instead of
+  the post's own album only.
+- [ ] H-22 The viewer shows the caption, the channel and the time, with share and save on it.
+- [ ] H-23 Saving a photo or a video into the phone's gallery (`MediaStore`, with the
+  permission it needs). Replaces the round 2 decision that the download button only fills
+  Telegram's cache; the cache download stays as it is.
+- [ ] H-24 Auto-download settings: what is fetched without being asked for, per network
+  (photos, videos, files; size limits; nothing on mobile data), next to the autoplay limits.
+
+### Search
+
+- [ ] H-25 Search from the home screen over the posts of every channel the account follows,
+  with the channel on every result row. (Reopened from round 4.)
+- [ ] H-26 Media filters in the search bar: photos, videos, links, files, music, voice, the
+  way the info screens' tabs already ask TDLib.
+- [ ] H-27 Search inside a comment thread.
+- [ ] H-28 The search bar remembers the last queries and offers them when it opens.
+
+### Screens and account
+
+- [ ] H-29 Saved Messages are readable in the app, the chat the post menu already saves into.
+- [ ] H-30 Archived channels have a place of their own (an Archive entry at the top of All
+  channels), instead of staying out of every list. Refines the round 6 decision: the archive
+  is still not walked for the ordinary lists.
+- [ ] H-31 A tap on the channel photo opens it full screen, in the info screen and wherever
+  else an avatar is big enough to aim at.
+- [ ] H-32 Similar channels and the channel's QR code in the info screen (both come from
+  Telegram).
+- [ ] H-33 Sound and vibration per rule priority: what the silent, normal and urgent channels
+  use, picked in Read-aloud's neighbourhood in Settings. Android fixes a channel's sound when
+  it is created, so changing it re-creates the channel under a new id.
+- [ ] H-34 App lock: a PIN or the device's biometrics on the app, with a timeout, as the
+  official app's passcode lock. The TDLib database stays as it is; the lock is ours.
+- [ ] H-35 Several Telegram accounts, up to four as in the official app: one TDLib database and
+  one core per account, feeds and rules belonging to an account, and a switcher.
+
+Dropped in this round (founder decision 2026-09-20, from the same comparison): polls and
+quizzes; giveaways, invoices and paid media as cards; selecting part of a post's text by hand;
+translating a post; the waveform of a voice message; voice transcription; swiping a channel
+row to mark it read; an in-app browser and Instant View; registering the app as a handler for
+t.me links from other apps; chat wallpaper and bubble colours; automatic night mode on a
+schedule; interface languages other than English; a "Mark as read" action on a notification;
+an in-app banner for new posts; replying from a notification; sharing into the app from other
+apps; a home-screen widget; the list of active sessions; managing two-step verification;
+per-channel cache size; channel statistics. They are in the Dropped section at the end of this
+file with their reasons.
 
 ## Phase 4 — Extras
 
@@ -219,6 +323,33 @@ their tags instead.
 - [ ] P4-4 Optional cloud voices.
 
 ## Dropped
+
+Round 7 (founder decision 2026-09-20, from the feature-by-feature comparison with the
+official app; each one was put to the founder and not picked):
+
+- [-] Polls and quizzes: they stay "unsupported content"; a poll is a thing to take part in, not to read.
+- [-] Giveaways, invoices and paid media as cards: same, and none of them is readable content.
+- [-] Selecting part of a post's text by hand: the whole text can be copied (H-6), and a selection would fight the long-press menu.
+- [-] Translating a post: Telegram's own translation is a server feature the app cannot call, and neither an endpoint of the reader's nor Android's translator was wanted.
+- [-] Waveform of a voice message: the bar with seek and speed (H-19) is enough.
+- [-] Voice transcription: Telegram's is a Premium server feature, and Android's recognizer was not wanted.
+- [-] Swiping a channel row to mark it read: the long-press menu (H-15) carries that action.
+- [-] In-app browser and Instant View: links keep going to the system browser (founder left the choice to the session; the browser is not the app's business and Instant View is a screen of its own).
+- [-] Registering the app as a handler for t.me links from other apps: it would put a chooser in front of every t.me link on the device; links inside our own posts do open here (H-18).
+- [-] Chat wallpaper and bubble colours: one tinted backdrop, light and dark, stays.
+- [-] Automatic night mode on a schedule: the system's own switch is enough.
+- [-] Interface languages other than English.
+- [-] "Mark as read" action on a notification.
+- [-] In-app banner for a new post while the app is open: the shade is where notifications belong.
+- [-] Replying to a comment thread from a notification.
+- [-] Sharing into the app from other apps.
+- [-] Home-screen widget with a feed.
+- [-] List of active sessions and terminating them: account management stays in the official app.
+- [-] Managing two-step verification: same.
+- [-] Per-channel cache size and clearing: Settings clears the whole cache.
+- [-] Channel statistics for channels the account administers.
+
+Earlier:
 
 - [-] iOS build: on-device-only cannot deliver real-time notifications on iOS (2026-09-17).
 - [-] Adding unjoined public channels: only joined channels are sources (2026-09-17).

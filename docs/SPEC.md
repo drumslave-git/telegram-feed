@@ -42,7 +42,7 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 ### Feeds
 - As a user I can log in with my Telegram account so the app sees the channels I already follow.
 - I can create, rename, reorder, and delete feeds. They are listed on the "Feeds" tab of the main screen; `+` creates one, dragging reorders, the row's menu edits its channels, renames or deletes it.
-- My Telegram chat folders appear as tabs too, each listing the folder's channels the way Telegram lists chats (photo, newest post, time, unread count), including channels I joined through a folder invite link, which Telegram keeps in that folder's list alone. "All channels" lists every joined channel with a search box; channels I archived in Telegram stay out of it. Tapping a channel opens its posts as a timeline; its read position is Telegram's own.
+- My Telegram chat folders appear as tabs too, each listing the folder's channels the way Telegram lists chats (photo, newest post, time, unread count), including channels I joined through a folder invite link, which Telegram keeps in that folder's list alone. "All channels" lists every joined channel with a search box; channels I archived in Telegram stay out of it, and an Archive place of their own is decided and planned (PLAN.md H-30). Tapping a channel opens its posts as a timeline; its read position is Telegram's own.
 - Every list of channels tags each channel with the feeds it belongs to.
 - I can add channels to a feed by picking from the channels I am a member of, with a search box over that list. Channels I have not joined cannot be added; joining happens in the official Telegram app.
 - I can add the same channel to several feeds.
@@ -53,7 +53,7 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - I can scroll up indefinitely; older posts load as I scroll. Posts that arrive while I read older ones wait behind a button with their count.
 - I can view photos inline, play video, voice, and audio without leaving the app.
 - A tap on a video plays it full screen at once, in the orientation I hold the phone, from the beginning when the timeline was autoplaying it. There I can seek, zoom with a double tap or a pinch and move the zoomed picture, hold a finger down for 2× speed, swipe down to close, swipe sideways through the photos and videos of the album, and shrink the video to a floating player. Leaving full screen stops the video and its download; short videos that autoplay in the timeline go on playing there without sound.
-- Every video has a download button in its top left corner that keeps the whole file in Telegram's cache, with progress and cancel.
+- Every video has a download button in its top left corner that keeps the whole file in Telegram's cache, with progress and cancel. Saving a photo or a video into the phone's gallery is decided and planned (PLAN.md H-23).
 - Each feed shows an unread count. Posts are marked read once I have seen them down to their end.
 - Reading a post here also marks it read in the official Telegram app. A setting turns this off.
 - I can open the original post in the official Telegram app.
