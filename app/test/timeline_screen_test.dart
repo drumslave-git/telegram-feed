@@ -483,6 +483,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('shareable'));
     await tester.pumpAndSettle();
+    // The menu scrolls: its last entries are below the fold on a short screen.
+    await tester.ensureVisible(find.text('Save to Saved Messages'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Save to Saved Messages'));
     await tester.pumpAndSettle();
     expect(gw.saved, ['-1001446168251:${5 << 20}']);

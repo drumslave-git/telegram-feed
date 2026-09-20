@@ -1,11 +1,13 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 /// A post's text with Telegram's formatting: bold, italic, underline, strikethrough,
 /// monospace, quotes, spoilers (hidden until tapped), links and mentions that open, and
 /// coloured hashtags. Entities may nest and overlap; the text is cut at every boundary and
-/// each piece gets the styles of all entities covering it.
+/// each piece gets the styles of all entities covering it. A monospace block ends with the
+/// copy button the official app puts in its corner.
 class FormattedText extends StatefulWidget {
   const FormattedText({
     super.key,
@@ -139,7 +141,47 @@ class _FormattedTextState extends State<FormattedText> {
           semanticsLabel: hidden ? 'spoiler' : null,
         ),
       );
+      // The end of a monospace block: its own copy button, as in the official app.
+      for (final e in entities) {
+        if (e.kind != TextEntityKind.pre || e.end != to) continue;
+        spans.add(
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: _CopyBlock(text: text.substring(e.offset, e.end)),
+          ),
+        );
+      }
     }
     return Text.rich(TextSpan(children: spans), style: widget.style);
   }
+}
+
+/// Copies a monospace block. The button is part of the text, so it sits where the block
+/// ends instead of floating over it.
+class _CopyBlock extends StatelessWidget {
+  const _CopyBlock({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(left: 4),
+    child: InkWell(
+      onTap: () async {
+        await Clipboard.setData(ClipboardData(text: text));
+        if (!context.mounted) return;
+        ScaffoldMessenger.maybeOf(context)
+            ?.showSnackBar(const SnackBar(content: Text('Code copied')));
+      },
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.all(2),
+        child: Icon(
+          Icons.content_copy,
+          size: 15,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          semanticLabel: 'Copy code',
+        ),
+      ),
+    ),
+  );
 }

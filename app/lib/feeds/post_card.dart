@@ -130,6 +130,7 @@ class PostCard extends StatelessWidget {
     this.onOpenInTelegram,
     this.onShare,
     this.onCopyLink,
+    this.onCopyText,
     this.onSave,
     this.onReact,
     this.availableReactions,
@@ -147,6 +148,9 @@ class PostCard extends StatelessWidget {
   final VoidCallback? onOpenInTelegram;
   final VoidCallback? onShare;
   final VoidCallback? onCopyLink;
+
+  /// Copies the post's text; absent on a post without words.
+  final VoidCallback? onCopyText;
 
   /// Forwards the post into the account's Saved Messages.
   final VoidCallback? onSave;
@@ -174,6 +178,7 @@ class PostCard extends StatelessWidget {
       onOpenInTelegram != null ||
       onShare != null ||
       onCopyLink != null ||
+      onCopyText != null ||
       onSave != null ||
       availableReactions != null;
 
@@ -214,6 +219,12 @@ class PostCard extends StatelessWidget {
                   leading: const Icon(Icons.share_outlined),
                   title: const Text('Share'),
                   onTap: () => Navigator.pop(context, onShare),
+                ),
+              if (onCopyText != null && item.text.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.content_copy),
+                  title: const Text('Copy text'),
+                  onTap: () => Navigator.pop(context, onCopyText),
                 ),
               if (onCopyLink != null)
                 ListTile(

@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-6 (copying text out of a post).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-7 (text size for posts).
 
 ## Phase 0 — Spikes
 
@@ -257,8 +257,9 @@ after it has faded goes to the post underneath, as it should (H-2).
   alone, so the gateway fetches the answered post once and keeps its words. `RepliedPost` draws
   the quote block above the text; a tap jumps to that post in the timeline, or opens the channel
   it belongs to when the account follows it.
-- [ ] H-6 Copying text out of a post: "Copy text" in the post menu and the official app's copy
-  button in the corner of a monospace block.
+- [x] H-6 Copying text out of a post: "Copy text" in the post menu (absent on a post without
+  words) and a copy button at the end of every monospace block, which copies that block alone
+  and says so.
 - [ ] H-7 Text size for posts: a slider in Settings' Appearance section that scales the post
   text (and the comments), kept in `settings` and synced like the theme.
 - [ ] H-8 Swipe back: an edge swipe closes any screen, as it does everywhere in the official

@@ -1169,6 +1169,13 @@ class TimelineViewState extends State<TimelineView> {
     );
   }
 
+  /// The post's words, as the official app's "Copy" does.
+  Future<void> _copyText(TimelineItem item) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await Clipboard.setData(ClipboardData(text: item.text));
+    messenger.showSnackBar(const SnackBar(content: Text('Text copied')));
+  }
+
   Future<void> _copyLink(TimelineItem item) async {
     final messenger = ScaffoldMessenger.of(context);
     final link = _shareLink(item);
@@ -1361,6 +1368,7 @@ class TimelineViewState extends State<TimelineView> {
                 onOpenInTelegram: () => _openInTelegram(item),
                 onShare: () => _share(item),
                 onCopyLink: () => _copyLink(item),
+                onCopyText: item.text.isEmpty ? null : () => _copyText(item),
                 onSave: () => _save(item),
                 onReact: (emoji, remove) => _react(item, emoji, remove),
                 availableReactions: () => _availableReactions(item),

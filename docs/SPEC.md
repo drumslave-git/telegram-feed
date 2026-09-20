@@ -61,6 +61,7 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - Every video has a download button in its top left corner that keeps the whole file in Telegram's cache, with progress and cancel. Saving a photo or a video into the phone's gallery is decided and planned (PLAN.md H-23).
 - Each feed shows an unread count. Posts are marked read once I have seen them down to their end.
 - Reading a post here also marks it read in the official Telegram app. A setting turns this off.
+- I can copy a post's text from its menu, and a block of code with the button at its end.
 - I can open the original post in the official Telegram app.
 
 ### Notification rules
