@@ -68,6 +68,7 @@ class _HomeScreenState extends State<HomeScreen>
     });
     // The tags say which feeds a channel is in: they change with the feeds and with their
     // sources, which the feeds screen and the editor write.
+    _tabCtl.addListener(_onTabChanged);
     _tagSources = widget.db.watchSourceChanges().listen((_) => _loadTags());
     _tagFeeds = widget.db.watchFeeds().listen((_) => _loadTags());
     unawaited(_loadChannels());
@@ -83,7 +84,9 @@ class _HomeScreenState extends State<HomeScreen>
     _tagSources?.cancel();
     _tagFeeds?.cancel();
     _feeds.dispose();
-    _tabCtl.dispose();
+    _tabCtl
+      ..removeListener(_onTabChanged)
+      ..dispose();
     super.dispose();
   }
 
@@ -182,6 +185,11 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  /// The floating button belongs to the Feeds tab, so a change of tab rebuilds it.
+  void _onTabChanged() {
+    if (mounted && !_tabCtl.indexIsChanging) setState(() {});
+  }
+
   Future<void> _loadTags() async {
     final tags = await widget.db.feedNamesByChat();
     if (mounted) setState(() => _feedTags = tags);
@@ -220,7 +228,7 @@ class _HomeScreenState extends State<HomeScreen>
         length: after.length + 2,
         vsync: this,
         initialIndex: index,
-      );
+      )..addListener(_onTabChanged);
       // The old controller is still attached to this frame's widgets.
       WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
     }
@@ -772,13 +780,10 @@ class _HomeScreenState extends State<HomeScreen>
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(kTextTabBarHeight),
+          // The tab bar carries tabs only; the new feed button belongs to the Feeds tab
+          // itself (H-36).
           child: Row(
             children: [
-              IconButton(
-                tooltip: 'New feed',
-                icon: const Icon(Icons.add),
-                onPressed: _createFeed,
-              ),
               Expanded(
                 child: TabBar(
                   controller: _tabCtl,
@@ -840,6 +845,14 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
       ),
+      // Only the Feeds tab makes feeds, so the button belongs to it and to no other.
+      floatingActionButton: _tabCtl.index == 0
+          ? FloatingActionButton(
+              tooltip: 'New feed',
+              onPressed: _createFeed,
+              child: const Icon(Icons.add),
+            )
+          : null,
       body: TabBarView(
         controller: _tabCtl,
         children: [

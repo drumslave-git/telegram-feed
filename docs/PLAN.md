@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-36 (the new feed button moves into the Feeds tab).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-37 (the channel picker takes several channels at once).
 
 ## Phase 0 — Spikes
 
@@ -414,8 +414,9 @@ after it has faded goes to the post underneath, as it should (H-2).
 
 ### Founder's own three, after the comparison (2026-09-20)
 
-- [ ] H-36 "New feed" belongs inside the Feeds tab, not in the tab bar: the `+` leaves the bar
-  and becomes an action of the feeds list itself.
+- [x] H-36 "New feed" belongs inside the Feeds tab: the `+` left the tab bar, which now
+  carries tabs only, and became a floating button that stands on the Feeds tab and nowhere
+  else. The home golden was regenerated.
 - [ ] H-37 The channel picker of a feed takes several channels at once: check them off and add
   them in one go.
 - [ ] H-38 Feed positioning is tested thoroughly on fixture data instead of real channels: where

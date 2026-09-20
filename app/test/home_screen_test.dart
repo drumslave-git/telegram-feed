@@ -322,6 +322,31 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('the new feed button belongs to the Feeds tab alone', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await settle(tester);
+    // On the Feeds tab: a floating button, and nothing in the tab bar.
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(TabBar),
+        matching: find.byTooltip('New feed'),
+      ),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('All channels'));
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingActionButton), findsNothing);
+
+    await tester.tap(find.text('Feeds'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('New feed'), findsOneWidget);
+    await unmount(tester);
+  });
+
   testWidgets('a folder tab counts the channels with unread posts', (
     tester,
   ) async {

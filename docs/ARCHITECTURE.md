@@ -202,9 +202,9 @@ as `CoreStream.connection`) and puts "Connecting…", "Waiting for network…", 
 proxy…" or "Updating…" under the title until TDLib is ready.
 
 
-`HomeScreen` is a tab bar: `+`, "Feeds", the Telegram chat folders, "All channels".
+`HomeScreen` is a tab bar of "Feeds", the Telegram chat folders and "All channels"; making a feed is a floating button on the Feeds tab itself (H-36), not a button in the bar.
 
-- The Feeds tab lists the feeds with the number of channels that have new posts (`FeedsController`); the tab label counts the feeds that have any. A tap opens the feed as `TimelineScreen(feed:)`, dragging reorders, the row's menu leads to its channels, rename and delete. `+` creates a feed and goes straight to its channel editor.
+- The Feeds tab lists the feeds with the number of channels that have new posts (`FeedsController`); the tab label counts the feeds that have any. A tap opens the feed as `TimelineScreen(feed:)`, dragging reorders, the row's menu leads to its channels, rename, mark all read and delete. The floating button creates a feed and goes straight to its channel editor; it is there only while the Feeds tab is up.
 - A folder tab carries a badge with the number of its channels that have unread posts (Telegram's own `unreadCount` per channel), as the Feeds tab carries one for feeds with new posts.
 - Folder tabs come from `chatFolders()`: TDLib announces the folders in `updateChatFolders`; the chats of each are read with `getChats(chatListFolder)`, which already applies the folder's include and exclude rules and Telegram's order, and only channels are kept. Folders without channels get no tab. The app never edits folders.
 - The archive has a row of its own at the top of All channels (H-30): `archivedChannels()` walks `ChatListArchive` when that row is tapped, and shows what it finds as an ordinary channel list. The lists of the tabs still never walk the archive.
