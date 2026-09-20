@@ -273,6 +273,10 @@ rows as the feed search, and a tap opens that channel's timeline at the post.
 gateway already knows: Everything, Media, Links, Files, Music, Voice. A chip with no words is
 a search of its own, so "every file of my channels" needs no query.
 
+A comment thread has a search of its own (H-27): `searchThread` calls `searchChatMessages`
+scoped to the thread's topic, so Telegram finds a comment far above without the app paging
+the whole thread; the results stand in for the thread while the field is open.
+
 A feed is merged channels, so everything the official app offers inside one channel runs over
 all of a feed's sources at once and obeys the feed's filter (founder decision 2026-09-19).
 

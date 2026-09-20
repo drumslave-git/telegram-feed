@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-27 (search inside a comment thread).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-28 (the search bar remembers the last queries).
 
 ## Phase 0 — Spikes
 
@@ -362,7 +362,10 @@ after it has faded goes to the post underneath, as it should (H-2).
 - [x] H-26 Media filters in the search bar: chips for Everything, Media, Links, Files, Music
   and Voice under the field, in the feed and channel search and in the home search alike. A
   chip on its own is a search too ("every file of my channels"), and the words travel with it.
-- [ ] H-27 Search inside a comment thread.
+- [x] H-27 Search inside a comment thread: `searchThread` asks TDLib to search that thread
+  (`searchChatMessages` scoped to the message thread), so a comment far above is found without
+  loading everything in between. The magnifier in the comments' app bar turns it into a field,
+  and what it finds takes the place of the thread until the search is closed.
 - [ ] H-28 The search bar remembers the last queries and offers them when it opens.
 
 ### Screens and account

@@ -290,6 +290,22 @@ final class CoreClient implements TelegramGateway {
       _call('closeThread', {'thread': encodeThread(thread)});
 
   @override
+  Future<List<Comment>> searchThread(
+    Thread thread, {
+    required String query,
+    int fromMessageId = 0,
+    int limit = 30,
+  }) async => [
+    for (final c in (await _call('searchThread', {
+      'thread': encodeThread(thread),
+      'query': query,
+      'fromMessageId': fromMessageId,
+      'limit': limit,
+    })) as List)
+      decodeComment(c as Map<Object?, Object?>),
+  ];
+
+  @override
   Future<GlobalSearchPage> searchAllChannels({
     required String query,
     HistoryFilter filter = HistoryFilter.any,

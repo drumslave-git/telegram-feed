@@ -731,6 +731,31 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
+  Future<List<Comment>> searchThread(
+    Thread thread, {
+    required String query,
+    int fromMessageId = 0,
+    int limit = 30,
+  }) async {
+    final r = await _client.call(
+      td.SearchChatMessages(
+        chatId: thread.chatId,
+        topicId: td.MessageTopicThread(messageThreadId: thread.threadId),
+        query: query,
+        fromMessageId: fromMessageId,
+        offset: 0,
+        limit: limit,
+      ),
+    );
+    final out = <Comment>[];
+    for (final m in r.messages) {
+      if (m.id == thread.threadId) continue; // the forwarded post itself
+      out.add(map.comment(m, await _sender(m)));
+    }
+    return out;
+  }
+
+  @override
   Future<GlobalSearchPage> searchAllChannels({
     required String query,
     HistoryFilter filter = HistoryFilter.any,

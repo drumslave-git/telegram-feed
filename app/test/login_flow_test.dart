@@ -128,6 +128,13 @@ final class ScriptedGateway implements TelegramGateway {
   }
 
   @override
+  Future<List<Comment>> searchThread(
+    Thread thread, {
+    required String query,
+    int fromMessageId = 0,
+    int limit = 30,
+  }) async => const [];
+  @override
   Future<GlobalSearchPage> searchAllChannels({
     required String query,
     HistoryFilter filter = HistoryFilter.any,

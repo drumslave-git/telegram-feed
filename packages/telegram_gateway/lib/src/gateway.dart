@@ -77,6 +77,14 @@ abstract interface class TelegramGateway {
   /// Stops a download nobody waits for any more; what is on disk stays.
   Future<void> cancelDownload(int fileId);
 
+  /// Searches the comments of one thread, newest first. [fromMessageId] pages older ones.
+  Future<List<Comment>> searchThread(
+    Thread thread, {
+    required String query,
+    int fromMessageId = 0,
+    int limit = 30,
+  });
+
   /// Searches the posts of every channel the account follows at once (TDLib's own search
   /// over all chats, filtered down to channels). [offset] comes from the previous page.
   Future<GlobalSearchPage> searchAllChannels({

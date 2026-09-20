@@ -54,6 +54,24 @@ class ThreadGateway extends ChannelsGateway {
     ];
   }
 
+  /// Words the thread was searched for.
+  final searched = <String>[];
+
+  @override
+  Future<List<Comment>> searchThread(
+    Thread t, {
+    required String query,
+    int fromMessageId = 0,
+    int limit = 30,
+  }) async {
+    searched.add(query);
+    final all = await threadHistory(t);
+    return [
+      for (final c in all)
+        if (c.text.toLowerCase().contains(query.toLowerCase())) c,
+    ];
+  }
+
   @override
   Future<void> reply(Thread t, String text) async => replies.add(text);
   @override
@@ -166,5 +184,47 @@ void main() {
     await tester.pump();
     expect(find.textContaining('no discussion group'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
+  });
+
+  testWidgets('the comments can be searched', (tester) async {
+    final gw = ThreadGateway();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ThreadScreen(gateway: gw, post: post, channelTitle: 'News'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Search comments'));
+    await tester.pumpAndSettle();
+    final searchField = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(searchField, 'second');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(gw.searched, ['second']);
+    // The words are in the field as well as in the comment that was found.
+    expect(
+      find.descendant(
+        of: find.byType(CommentBubble),
+        matching: find.text('second'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('first'), findsNothing);
+
+    // Nothing for these words.
+    await tester.enterText(searchField, 'zzz');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(find.textContaining('Nothing found'), findsOneWidget);
+
+    // Back to the thread itself.
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('first'), findsOneWidget);
   });
 }

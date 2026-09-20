@@ -44,10 +44,57 @@ class _ThreadScreenState extends State<ThreadScreen> {
   final _comments = <Comment>[]; // oldest first
   StreamSubscription<Comment>? _live;
 
+  /// Search inside the thread (H-27): open, the words, what was found (newest first).
+  bool _searchOpen = false;
+  final _queryCtl = TextEditingController();
+  Timer? _debounce;
+  List<Comment>? _found;
+  bool _searching = false;
+
   @override
   void initState() {
     super.initState();
     unawaited(_open());
+  }
+
+  void _openSearch() => setState(() => _searchOpen = true);
+
+  void _closeSearch() {
+    _debounce?.cancel();
+    _queryCtl.clear();
+    setState(() {
+      _searchOpen = false;
+      _found = null;
+    });
+  }
+
+  void _onQuery(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(
+      const Duration(milliseconds: 300),
+      () => unawaited(_search(value)),
+    );
+  }
+
+  /// Telegram searches the thread itself, so a comment far above is found without loading
+  /// everything in between.
+  Future<void> _search(String value) async {
+    final thread = _thread;
+    final query = value.trim();
+    if (thread == null) return;
+    if (query.isEmpty) {
+      setState(() => _found = null);
+      return;
+    }
+    setState(() => _searching = true);
+    try {
+      final found = await widget.gateway.searchThread(thread, query: query);
+      if (mounted) setState(() => _found = found);
+    } on TelegramException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _searching = false);
+    }
   }
 
   Future<void> _open() async {
@@ -153,6 +200,8 @@ class _ThreadScreenState extends State<ThreadScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
+    _queryCtl.dispose();
     _live?.cancel();
     final t = _thread;
     if (t != null) unawaited(widget.gateway.closeThread(t));
@@ -164,14 +213,49 @@ class _ThreadScreenState extends State<ThreadScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = ChatColors.of(context);
+    final found = _found;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.channelTitle.isEmpty
-              ? 'Comments'
-              : 'Comments · ${widget.channelTitle}',
-        ),
-      ),
+      appBar: _searchOpen
+          ? AppBar(
+              leading: BackButton(onPressed: _closeSearch),
+              titleSpacing: 0,
+              title: TextField(
+                controller: _queryCtl,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                decoration: const InputDecoration(
+                  hintText: 'Search comments',
+                  border: InputBorder.none,
+                ),
+                onChanged: _onQuery,
+              ),
+              actions: [
+                if (_queryCtl.text.isNotEmpty)
+                  IconButton(
+                    tooltip: 'Clear',
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      _queryCtl.clear();
+                      _onQuery('');
+                    },
+                  ),
+              ],
+            )
+          : AppBar(
+              title: Text(
+                widget.channelTitle.isEmpty
+                    ? 'Comments'
+                    : 'Comments · ${widget.channelTitle}',
+              ),
+              actions: [
+                if (!_noThread)
+                  IconButton(
+                    tooltip: 'Search comments',
+                    icon: const Icon(Icons.search),
+                    onPressed: _openSearch,
+                  ),
+              ],
+            ),
       // The comments follow the reader's text size, like the posts.
       body: PostTextScale.wrap(
         context,
@@ -192,6 +276,29 @@ class _ThreadScreenState extends State<ThreadScreen> {
                       )
                     : _error != null && _comments.isEmpty
                     ? Center(child: Text('Telegram: $_error'))
+                    // While searching, what was found takes the place of the thread.
+                    : found != null
+                    ? (found.isEmpty
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(32),
+                                child: Text(
+                                  _searching
+                                      ? 'Searching…'
+                                      : 'Nothing found for "${_queryCtl.text}".',
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              itemCount: found.length,
+                              itemBuilder: (context, i) => CommentBubble(
+                                comment: found[i],
+                                gateway: widget.gateway,
+                                onOpenLink: _openLink,
+                              ),
+                            ))
                     : ListView.builder(
                         controller: _scroll,
                         padding: const EdgeInsets.symmetric(vertical: 8),

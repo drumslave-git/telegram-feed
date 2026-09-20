@@ -295,6 +295,13 @@ final class CoreServer {
         await gateway.closeThread(
           decodeThread(a['thread'] as Map<Object?, Object?>),
         );
+      case 'searchThread':
+        return (await gateway.searchThread(
+          decodeThread(a['thread'] as Map<Object?, Object?>),
+          query: a['query'] as String,
+          fromMessageId: a['fromMessageId'] as int,
+          limit: a['limit'] as int,
+        )).map(encodeComment).toList();
       case 'searchAllChannels':
         final page = await gateway.searchAllChannels(
           query: a['query'] as String,
