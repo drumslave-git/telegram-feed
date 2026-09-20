@@ -7,6 +7,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import '../feeds/feed_editor_screen.dart';
 import '../feeds/feeds_screen.dart' show FeedsController;
 import '../feeds/mark_read.dart';
+import '../feeds/recent_searches.dart';
 import '../feeds/timeline_search.dart';
 import '../feeds/timeline_screen.dart';
 import 'channel_info_screen.dart';
@@ -53,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen>
   Timer? _debounce;
   GlobalSearchSession? _session;
   HistoryFilter _searchFilter = HistoryFilter.any;
+  List<String> _recent = const [];
 
   @override
   void initState() {
@@ -91,7 +93,15 @@ class _HomeScreenState extends State<HomeScreen>
     if (state == AppLifecycleState.resumed) unawaited(_loadChannels());
   }
 
-  void _openSearch() => setState(() => _searchOpen = true);
+  void _openSearch() {
+    setState(() => _searchOpen = true);
+    unawaited(_loadRecent());
+  }
+
+  Future<void> _loadRecent() async {
+    final words = await RecentSearches(widget.db).load();
+    if (mounted) setState(() => _recent = words);
+  }
 
   void _closeSearch() {
     _debounce?.cancel();
@@ -130,6 +140,10 @@ class _HomeScreenState extends State<HomeScreen>
       filter: _searchFilter,
     );
     setState(() => _session = session);
+    if (query.isNotEmpty) {
+      final words = await RecentSearches(widget.db).remember(query);
+      if (mounted) setState(() => _recent = words);
+    }
     await session.loadMore();
     if (mounted && identical(_session, session)) setState(() {});
   }
@@ -657,6 +671,15 @@ class _HomeScreenState extends State<HomeScreen>
         loading: session?.loading ?? false,
         exhausted: session?.exhausted ?? false,
         error: session?.error,
+        recent: _recent,
+        onRecent: (words) {
+          _queryCtl.text = words;
+          unawaited(_startSearch(words));
+        },
+        onClearRecent: () async {
+          await RecentSearches(widget.db).clear();
+          if (mounted) setState(() => _recent = const []);
+        },
       ),
     );
   }

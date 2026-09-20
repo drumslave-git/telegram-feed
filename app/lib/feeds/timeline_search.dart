@@ -66,6 +66,9 @@ class SearchResults extends StatelessWidget {
     this.exhausted = false,
     this.error,
     this.current = -1,
+    this.recent = const [],
+    this.onRecent,
+    this.onClearRecent,
   });
 
   final List<Post> results;
@@ -83,8 +86,43 @@ class SearchResults extends StatelessWidget {
   /// Result the timeline is showing, if any; it is marked in the list.
   final int current;
 
+  /// The words searched for last, offered while nothing has been typed (H-28).
+  final List<String> recent;
+  final void Function(String query)? onRecent;
+  final VoidCallback? onClearRecent;
+
   @override
   Widget build(BuildContext context) {
+    // Nothing typed yet: the words searched for last, as the official app offers them.
+    if (results.isEmpty &&
+        query.trim().isEmpty &&
+        recent.isNotEmpty &&
+        onRecent != null) {
+      return ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        children: [
+          ListTile(
+            dense: true,
+            title: Text(
+              'Recent searches',
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+            trailing: onClearRecent == null
+                ? null
+                : TextButton(
+                    onPressed: onClearRecent,
+                    child: const Text('Clear'),
+                  ),
+          ),
+          for (final words in recent)
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: Text(words),
+              onTap: () => onRecent!(words),
+            ),
+        ],
+      );
+    }
     if (results.isEmpty) {
       return Center(
         child: Padding(

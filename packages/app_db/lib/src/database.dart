@@ -131,6 +131,9 @@ abstract final class SettingKeys {
   /// Emoji a double tap on a post sends; the last one reacted with, a thumbs up at first.
   static const quickReaction = 'reactions.quick';
 
+  /// The last words searched for, newest first, as a JSON list of strings.
+  static const recentSearches = 'search.recent';
+
   /// Pictures load by themselves on an unmetered connection; 'true' | 'false', default true.
   static const autoDownloadWifi = 'media.autoDownload.wifi';
 

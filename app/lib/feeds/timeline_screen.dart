@@ -19,6 +19,7 @@ import 'feed_editor_screen.dart';
 import 'open_links.dart';
 import 'post_card.dart';
 import 'read_marker.dart';
+import 'recent_searches.dart';
 import 'thread_screen.dart';
 import 'timeline_search.dart';
 
@@ -64,6 +65,9 @@ class _TimelineScreenState extends State<TimelineScreen> {
   /// What kind of post the search looks for (H-26).
   HistoryFilter _searchFilter = HistoryFilter.any;
 
+  /// The words searched for last, offered when the bar opens (H-28).
+  List<String> _recent = const [];
+
   /// True while the results cover the timeline; false once a result was opened.
   bool _listOpen = false;
 
@@ -100,10 +104,18 @@ class _TimelineScreenState extends State<TimelineScreen> {
     }
   }
 
-  void _openSearch() => setState(() {
-    _searchOpen = true;
-    _listOpen = true;
-  });
+  void _openSearch() {
+    setState(() {
+      _searchOpen = true;
+      _listOpen = true;
+    });
+    unawaited(_loadRecent());
+  }
+
+  Future<void> _loadRecent() async {
+    final words = await RecentSearches(widget.db).load();
+    if (mounted) setState(() => _recent = words);
+  }
 
   void _closeSearch() {
     _debounce?.cancel();
@@ -159,6 +171,10 @@ class _TimelineScreenState extends State<TimelineScreen> {
       _session = session;
       _current = -1;
     });
+    if (query.isNotEmpty) {
+      final words = await RecentSearches(widget.db).remember(query);
+      if (mounted) setState(() => _recent = words);
+    }
     await session.loadMore();
     if (mounted && identical(_session, session)) setState(() {});
   }
@@ -438,6 +454,15 @@ class _TimelineScreenState extends State<TimelineScreen> {
                         exhausted: session?.exhausted ?? false,
                         error: session?.error,
                         current: _current,
+                        recent: _recent,
+                        onRecent: (words) {
+                          _queryCtl.text = words;
+                          unawaited(_startSearch(words));
+                        },
+                        onClearRecent: () async {
+                          await RecentSearches(widget.db).clear();
+                          if (mounted) setState(() => _recent = const []);
+                        },
                       ),
                     ),
                   ),

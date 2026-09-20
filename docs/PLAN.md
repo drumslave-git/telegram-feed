@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-28 (the search bar remembers the last queries).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-29 (Saved Messages are readable in the app).
 
 ## Phase 0 — Spikes
 
@@ -366,7 +366,9 @@ after it has faded goes to the post underneath, as it should (H-2).
   (`searchChatMessages` scoped to the message thread), so a comment far above is found without
   loading everything in between. The magnifier in the comments' app bar turns it into a field,
   and what it finds takes the place of the thread until the search is closed.
-- [ ] H-28 The search bar remembers the last queries and offers them when it opens.
+- [x] H-28 The search bar remembers the last ten queries and offers them when it opens, with a
+  Clear beside them: `RecentSearches` keeps one list for the whole app in `settings`, newest
+  first and without repeats, and both search bars (home and timeline) read and write it.
 
 ### Screens and account
 

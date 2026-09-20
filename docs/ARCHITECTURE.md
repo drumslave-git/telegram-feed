@@ -273,6 +273,10 @@ rows as the feed search, and a tap opens that channel's timeline at the post.
 gateway already knows: Everything, Media, Links, Files, Music, Voice. A chip with no words is
 a search of its own, so "every file of my channels" needs no query.
 
+`RecentSearches` (`search.recent` in `settings`) keeps the last ten queries of the whole app,
+newest first and without repeats; both search bars offer them while nothing is typed and can
+clear them (H-28).
+
 A comment thread has a search of its own (H-27): `searchThread` calls `searchChatMessages`
 scoped to the thread's topic, so Telegram finds a comment far above without the app paging
 the whole thread; the results stand in for the thread while the field is open.
