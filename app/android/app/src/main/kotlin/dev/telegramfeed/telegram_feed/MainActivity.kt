@@ -5,6 +5,8 @@ import android.app.PictureInPictureParams
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Environment
@@ -63,6 +65,14 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        // What the phone is on, for the automatic downloads of H-24.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "tf/network")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "type" -> result.success(networkType())
+                    else -> result.notImplemented()
+                }
+            }
         pipChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "tf/pip").also {
             it.setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -81,6 +91,20 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        }
+    }
+
+    /** "wifi", "mobile" or "none": metered connections count as mobile. */
+    private fun networkType(): String {
+        val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return "none"
+        if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return "none"
+        val unmetered = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+        return when {
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) && unmetered -> "wifi"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "wifi"
+            unmetered -> "wifi"
+            else -> "mobile"
         }
     }
 

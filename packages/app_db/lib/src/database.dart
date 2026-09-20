@@ -130,6 +130,17 @@ abstract final class SettingKeys {
 
   /// Emoji a double tap on a post sends; the last one reacted with, a thumbs up at first.
   static const quickReaction = 'reactions.quick';
+
+  /// Pictures load by themselves on an unmetered connection; 'true' | 'false', default true.
+  static const autoDownloadWifi = 'media.autoDownload.wifi';
+
+  /// The same on mobile data; 'true' | 'false', default true.
+  static const autoDownloadMobile = 'media.autoDownload.mobile';
+
+  /// Largest picture that loads by itself, in megabytes: on Wi-Fi (default 20) and on
+  /// mobile data (default 5).
+  static const autoDownloadWifiMaxMb = 'media.autoDownload.wifiMaxMb';
+  static const autoDownloadMobileMaxMb = 'media.autoDownload.mobileMaxMb';
   static const syncReadToTelegram =
       'syncReadToTelegram'; // 'true' | 'false', default true
 

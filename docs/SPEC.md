@@ -58,6 +58,8 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - A post one channel forwarded from another says so above its text, with the original
   channel's name; a tap opens the original post when I follow that channel too.
 - A post whose text carries a link shows the site's card under it (or over it, as Telegram says): the site, the title, the description and the picture, with a play badge when the link is a video. A tap on the card opens the link in the browser or in the app that handles it.
+- I can say whether pictures load by themselves on Wi-Fi and on mobile data, and up to what
+  size; anything bigger, or on a connection I excluded, waits for a tap.
 - I can view photos inline, play video, voice, and audio without leaving the app. Voice and
   music can be dragged to seek and played faster (1x, 1.5x, 2x), and a bar at the bottom keeps
   them playing while I scroll on or open another screen.

@@ -174,6 +174,17 @@ the `tf/gallery` method channel: the Kotlin side inserts the file into `MediaSto
 file since Android 10) and answers with its uri; the file is downloaded first when the cache
 does not have it.
 
+### 5.5c Automatic downloads
+
+`AutoDownloadScope` (`media/auto_download.dart`) decides whether a picture loads by itself:
+a switch and a size limit per connection (`media.autoDownload.*`), with the connection read
+from the `tf/network` method channel (metered Wi-Fi counts as mobile data) and refreshed when
+the app resumes. Until the four settings and the connection are known the policy is `unknown`
+and nothing starts — a cold start must not spend mobile data the reader forbade — and the
+spinner stands in; when the policy then allows it, `Downloaded` starts on the flip instead of
+waiting for a tap. Videos keep the autoplay limits of F-6; files and voice messages always
+wait for a tap.
+
 ### 5.6 Video playback
 
 - **Playing while downloading.** A video starts as soon as its first bytes are there, as in the official app. `MediaServer` (UI isolate) is an HTTP server on the loopback interface; the player (`video_player`, ExoPlayer) opens `http://127.0.0.1:<port>/<secret>/<fileId>` and asks for byte ranges. Bytes TDLib already has are read from its partial file, where they sit at their final offsets; for a range that is not there yet the download is aimed at it (`downloadFile` with `offset`) and the response waits. Seeking and MP4 files with the index at the end are the same case: another range. The newest request decides where TDLib downloads. Response headers are written at once through a detached socket, because dart:io holds them back until the first body byte and the player's read timeout would run meanwhile. The path contains a random token, since other apps can reach the port; the port closes when nothing plays. A finished file is played from disk without the server; a file without a known size is downloaded whole first.

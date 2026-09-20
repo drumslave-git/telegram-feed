@@ -6,6 +6,7 @@ import '../ai/semantic_gate.dart';
 import '../feeds/text_scale.dart';
 import '../home/channel_list.dart' show ChannelAvatar;
 import '../home/home_placeholder.dart';
+import '../media/auto_download.dart';
 import '../media/autoplay.dart';
 import 'ai_settings_screen.dart';
 import '../sync/sync_controller.dart';
@@ -115,6 +116,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(),
           const _Header('Video autoplay'),
           AutoplaySettings(db: widget.db),
+          const Divider(),
+          const _Header('Automatic downloads'),
+          AutoDownloadSettings(db: widget.db),
           const Divider(),
           const _Header('Background'),
           StreamBuilder<String?>(
@@ -539,3 +543,84 @@ Future<void> showAutoplaySettings(BuildContext context, AppDatabase db) =>
         ),
       ),
     );
+
+/// Whether pictures load by themselves, per kind of connection, with a size limit each —
+/// the official app's automatic downloads, kept to what this app fetches on its own.
+class AutoDownloadSettings extends StatelessWidget {
+  const AutoDownloadSettings({super.key, required this.db});
+  final AppDatabase db;
+
+  Widget _row({
+    required String title,
+    required String subtitle,
+    required String flagKey,
+    required String limitKey,
+    required int defaultMb,
+  }) => StreamBuilder<String?>(
+    stream: db.watchSetting(flagKey),
+    builder: (context, flag) {
+      final on = flag.data != 'false';
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SwitchListTile(
+            value: on,
+            title: Text(title),
+            subtitle: Text(subtitle),
+            onChanged: (v) => db.setSetting(flagKey, '$v'),
+          ),
+          if (on)
+            StreamBuilder<String?>(
+              stream: db.watchSetting(limitKey),
+              builder: (context, limit) {
+                final mb = int.tryParse(limit.data ?? '') ?? defaultMb;
+                return ListTile(
+                  title: const Text('Largest picture'),
+                  subtitle: Text('$mb MB'),
+                  trailing: SizedBox(
+                    width: 180,
+                    child: Slider(
+                      value: mb.clamp(1, 50).toDouble(),
+                      min: 1,
+                      max: 50,
+                      divisions: 49,
+                      label: '$mb MB',
+                      onChanged: (v) => db.setSetting(limitKey, '${v.round()}'),
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      );
+    },
+  );
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _row(
+        title: 'Pictures on Wi-Fi',
+        subtitle: 'Load pictures without asking on an unmetered connection',
+        flagKey: SettingKeys.autoDownloadWifi,
+        limitKey: SettingKeys.autoDownloadWifiMaxMb,
+        defaultMb: AutoDownloadPolicy.defaultWifiMaxMb,
+      ),
+      _row(
+        title: 'Pictures on mobile data',
+        subtitle: 'Metered Wi-Fi counts as mobile data',
+        flagKey: SettingKeys.autoDownloadMobile,
+        limitKey: SettingKeys.autoDownloadMobileMaxMb,
+        defaultMb: AutoDownloadPolicy.defaultMobileMaxMb,
+      ),
+      const Padding(
+        padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: Text(
+          'Videos follow the autoplay limits above; files and voice messages always wait '
+          'for a tap.',
+        ),
+      ),
+    ],
+  );
+}

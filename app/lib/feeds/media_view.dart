@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import '../media/auto_download.dart';
 import '../media/autoplay.dart';
 import '../media/media_viewer.dart';
 import '../media/video_downloads.dart';
@@ -153,7 +154,13 @@ class _DownloadedState extends State<Downloaded> {
   @override
   void didUpdateWidget(Downloaded old) {
     super.didUpdateWidget(old);
-    if (old.file.id == widget.file.id) return;
+    if (old.file.id == widget.file.id) {
+      // The settings arrived and now allow it: start without waiting for a tap.
+      if (_path == null && !_started && widget.autoStart && !old.autoStart) {
+        unawaited(start());
+      }
+      return;
+    }
     _sub?.cancel();
     _started = false;
     _progress = null;
@@ -242,13 +249,21 @@ class PhotoView extends StatelessWidget {
     final aspect = file.width > 0 && file.height > 0
         ? file.width / file.height
         : 4 / 3;
+    // A picture loads by itself only as far as the reader allowed for this connection.
+    // While the settings are still being read nothing starts, and nothing is offered
+    // either: a moment later the policy is known.
+    final policy = AutoDownloadScope.of(context);
+    final auto = policy.allows(file.size);
     final picture = Downloaded(
       file: file,
       gateway: gateway,
-      placeholder: const ColoredBox(
-        color: Colors.black12,
-        child: Center(child: CircularProgressIndicator()),
-      ),
+      autoStart: auto,
+      placeholder: auto || !policy.ready
+          ? const ColoredBox(
+              color: Colors.black12,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          : null,
       builder: (context, path) => Image.file(
         File(path),
         fit: BoxFit.cover,

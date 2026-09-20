@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-24 (auto-download settings).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-25 (search from the home screen).
 
 ## Phase 0 — Spikes
 
@@ -345,8 +345,12 @@ after it has faded goes to the post underneath, as it should (H-2).
   permission for a file the app wrote itself on Android 10 and later. The file is downloaded
   first when it is not in the cache yet. Replaces the round 2 decision that the download button
   only fills Telegram's cache; that button stays as it is.
-- [ ] H-24 Auto-download settings: what is fetched without being asked for, per network
-  (photos, videos, files; size limits; nothing on mobile data), next to the autoplay limits.
+- [x] H-24 Automatic downloads: a switch and a size limit for pictures per kind of connection
+  (Wi-Fi and mobile data, with metered Wi-Fi counting as mobile), read from a `tf/network`
+  method channel and the settings by `AutoDownloadScope`. A picture over the limit, or on a
+  connection the reader excluded, waits for a tap; nothing starts at all until the settings are
+  known, so a cold start does not spend mobile data the reader forbade. Videos keep the
+  autoplay limits of F-6 and files keep waiting for a tap, which the section says.
 
 ### Search
 
