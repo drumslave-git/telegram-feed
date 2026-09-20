@@ -129,6 +129,7 @@ class PostCard extends StatelessWidget {
     this.onOpenInTelegram,
     this.onShare,
     this.onCopyLink,
+    this.onSave,
     this.onReact,
     this.availableReactions,
     this.onOpenThread,
@@ -143,6 +144,9 @@ class PostCard extends StatelessWidget {
   final VoidCallback? onOpenInTelegram;
   final VoidCallback? onShare;
   final VoidCallback? onCopyLink;
+
+  /// Forwards the post into the account's Saved Messages.
+  final VoidCallback? onSave;
 
   /// Tap on a reaction: adds it, or removes it when already chosen.
   final void Function(String emoji, bool remove)? onReact;
@@ -161,58 +165,68 @@ class PostCard extends StatelessWidget {
       onOpenInTelegram != null ||
       onShare != null ||
       onCopyLink != null ||
+      onSave != null ||
       availableReactions != null;
 
   Future<void> _menu(BuildContext context) async {
     final action = await showModalBottomSheet<VoidCallback>(
       context: context,
       showDragHandle: true,
+      // Scrollable: with the reactions on top the entries do not all fit on a short screen.
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (availableReactions != null && onReact != null)
-              _ReactionStrip(
-                load: availableReactions!,
-                chosen: {
-                  for (final r in item.head.reactions)
-                    if (r.chosen) r.emoji,
-                },
-                onPick: (emoji, remove) =>
-                    Navigator.pop(context, () => onReact!(emoji, remove)),
-              ),
-            if (onOpenInTelegram != null)
-              ListTile(
-                leading: const Icon(Icons.open_in_new),
-                title: const Text('Open in Telegram'),
-                onTap: () => Navigator.pop(context, onOpenInTelegram),
-              ),
-            if (onOpenThread != null)
-              ListTile(
-                leading: const Icon(Icons.forum_outlined),
-                title: const Text('Comments'),
-                onTap: () => Navigator.pop(context, onOpenThread),
-              ),
-            if (onShare != null)
-              ListTile(
-                leading: const Icon(Icons.share_outlined),
-                title: const Text('Share'),
-                onTap: () => Navigator.pop(context, onShare),
-              ),
-            if (onCopyLink != null)
-              ListTile(
-                leading: const Icon(Icons.link),
-                title: const Text('Copy link'),
-                onTap: () => Navigator.pop(context, onCopyLink),
-              ),
-            if (onAutoplaySettings != null &&
-                item.allPosts.any((p) => p.media is VideoMedia))
-              ListTile(
-                leading: const Icon(Icons.play_circle_outline),
-                title: const Text('Video autoplay settings'),
-                onTap: () => Navigator.pop(context, onAutoplaySettings),
-              ),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (availableReactions != null && onReact != null)
+                _ReactionStrip(
+                  load: availableReactions!,
+                  chosen: {
+                    for (final r in item.head.reactions)
+                      if (r.chosen) r.emoji,
+                  },
+                  onPick: (emoji, remove) =>
+                      Navigator.pop(context, () => onReact!(emoji, remove)),
+                ),
+              if (onOpenInTelegram != null)
+                ListTile(
+                  leading: const Icon(Icons.open_in_new),
+                  title: const Text('Open in Telegram'),
+                  onTap: () => Navigator.pop(context, onOpenInTelegram),
+                ),
+              if (onOpenThread != null)
+                ListTile(
+                  leading: const Icon(Icons.forum_outlined),
+                  title: const Text('Comments'),
+                  onTap: () => Navigator.pop(context, onOpenThread),
+                ),
+              if (onShare != null)
+                ListTile(
+                  leading: const Icon(Icons.share_outlined),
+                  title: const Text('Share'),
+                  onTap: () => Navigator.pop(context, onShare),
+                ),
+              if (onCopyLink != null)
+                ListTile(
+                  leading: const Icon(Icons.link),
+                  title: const Text('Copy link'),
+                  onTap: () => Navigator.pop(context, onCopyLink),
+                ),
+              if (onSave != null)
+                ListTile(
+                  leading: const Icon(Icons.bookmark_add_outlined),
+                  title: const Text('Save to Saved Messages'),
+                  onTap: () => Navigator.pop(context, onSave),
+                ),
+              if (onAutoplaySettings != null &&
+                  item.allPosts.any((p) => p.media is VideoMedia))
+                ListTile(
+                  leading: const Icon(Icons.play_circle_outline),
+                  title: const Text('Video autoplay settings'),
+                  onTap: () => Navigator.pop(context, onAutoplaySettings),
+                ),
+            ],
+          ),
         ),
       ),
     );

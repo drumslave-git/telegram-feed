@@ -1047,6 +1047,21 @@ class TimelineViewState extends State<TimelineView> {
     messenger.showSnackBar(SnackBar(content: Text('Link copied: $link')));
   }
 
+  /// Forwards the post, and with it the whole album, into Saved Messages.
+  Future<void> _save(TimelineItem item) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await widget.gateway.saveToSavedMessages(item.chatId, [
+        for (final p in item.allPosts) p.messageId,
+      ]);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Saved to Saved Messages')),
+      );
+    } on TelegramException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
+    }
+  }
+
   Future<void> _react(TimelineItem item, String emoji, bool remove) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -1189,6 +1204,7 @@ class TimelineViewState extends State<TimelineView> {
                 onOpenInTelegram: () => _openInTelegram(item),
                 onShare: () => _share(item),
                 onCopyLink: () => _copyLink(item),
+                onSave: () => _save(item),
                 onReact: (emoji, remove) => _react(item, emoji, remove),
                 availableReactions: () => _availableReactions(item),
                 onOpenLink: _openLink,

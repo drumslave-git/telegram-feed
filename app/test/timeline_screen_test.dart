@@ -476,6 +476,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(copied, 'https://t.me/news/5');
     expect(find.textContaining('Link copied'), findsOneWidget);
+
+    // The snack bar covers the post until it has gone.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('shareable'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save to Saved Messages'));
+    await tester.pumpAndSettle();
+    expect(gw.saved, ['-1001446168251:${5 << 20}']);
+    expect(find.text('Saved to Saved Messages'), findsOneWidget);
     await unmount(tester);
   });
 
@@ -525,6 +535,9 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('with a video'));
+    await tester.pumpAndSettle();
+    // The menu scrolls; its last entry is below the fold on this small screen.
+    await tester.ensureVisible(find.text('Video autoplay settings'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Video autoplay settings'));
     await settle(tester);

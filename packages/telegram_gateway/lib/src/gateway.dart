@@ -88,6 +88,10 @@ abstract interface class TelegramGateway {
     bool remove = false,
   });
 
+  /// Forwards the post (a whole album at once) into the account's Saved Messages, as the
+  /// official app's "Save to Saved Messages" does: with the channel as its source.
+  Future<void> saveToSavedMessages(int chatId, List<int> messageIds);
+
   /// The post's discussion thread, or null when the channel has no discussion group.
   /// Opening a thread makes its new comments arrive on [comments] until [closeThread].
   Future<Thread?> discussion(int chatId, int messageId);

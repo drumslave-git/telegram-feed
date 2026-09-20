@@ -134,6 +134,10 @@ final class FakeGateway implements TelegramGateway {
       calls.add('viewed:$chatId:${messageIds.join(",")}');
 
   @override
+  Future<void> saveToSavedMessages(int chatId, List<int> messageIds) async =>
+      calls.add('saved:$chatId:${messageIds.join(",")}');
+
+  @override
   Future<FileRef> download(FileRef ref, {int priority = 16}) async {
     calls.add('download:${ref.id}:$priority');
     fileCtl.add(FileProgress(fileId: ref.id, downloaded: 5, total: 10));
@@ -239,6 +243,9 @@ void main() {
 
       await client.markViewed(-1001, [7, 6]);
       expect(gw.calls.last, 'viewed:-1001:7,6');
+
+      await client.saveToSavedMessages(-1001, [7, 6]);
+      expect(gw.calls.last, 'saved:-1001:7,6');
 
       expect(
         (await client.historyAfter(-1001, afterMessageId: 7)).single.messageId,

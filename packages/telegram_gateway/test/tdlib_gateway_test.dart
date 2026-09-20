@@ -762,6 +762,32 @@ void main() {
     },
   );
 
+  test(
+    'saveToSavedMessages forwards the album into the chat with self',
+    () async {
+      t.handlers['getMe'] = (_) => {
+        '@type': 'user',
+        'id': 42,
+        'first_name': 'Ann',
+      };
+      t.handlers['createPrivateChat'] = (r) =>
+          chatJson(r['user_id'] as int, 'Saved Messages');
+      t.handlers['forwardMessages'] = (_) => {
+        '@type': 'messages',
+        'total_count': 0,
+        'messages': <Object?>[],
+      };
+
+      await g.saveToSavedMessages(-1001, [7, 6]);
+      final r = t.sent.last;
+      expect(r['@type'], 'forwardMessages');
+      expect(r['chat_id'], 42);
+      expect(r['from_chat_id'], -1001);
+      expect(r['message_ids'], [6, 7]); // TDLib needs them in increasing order
+      expect(r['send_copy'], false);
+    },
+  );
+
   test('markViewed forces read through viewMessages', () async {
     t.handlers['viewMessages'] = (_) => {'@type': 'ok'};
     await g.markViewed(-1001, [1, 2]);

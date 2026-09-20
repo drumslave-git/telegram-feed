@@ -233,6 +233,11 @@ final class CoreServer {
           a['chatId'] as int,
           (a['messageIds'] as List).cast<int>(),
         );
+      case 'saveToSavedMessages':
+        await gateway.saveToSavedMessages(
+          a['chatId'] as int,
+          (a['messageIds'] as List).cast<int>(),
+        );
       case 'download':
         final ref = decodeFileRef(a['ref'] as Map<Object?, Object?>);
         _watchFile(ref.id);

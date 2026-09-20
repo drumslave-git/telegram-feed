@@ -201,6 +201,12 @@ final class CoreClient implements TelegramGateway {
       _call('markViewed', {'chatId': chatId, 'messageIds': messageIds});
 
   @override
+  Future<void> saveToSavedMessages(int chatId, List<int> messageIds) => _call(
+    'saveToSavedMessages',
+    {'chatId': chatId, 'messageIds': messageIds},
+  );
+
+  @override
   Future<FileRef> download(FileRef ref, {int priority = 16}) async =>
       decodeFileRef(
         (await _call('download', {

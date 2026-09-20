@@ -69,6 +69,13 @@ class ChannelsGateway implements TelegramGateway {
   @override
   Future<void> markViewed(int chatId, List<int> messageIds) async {}
   @override
+  Future<void> saveToSavedMessages(int chatId, List<int> messageIds) async =>
+      saved.add('$chatId:${messageIds.join(",")}');
+
+  /// Records hold lists badly (a record with a list is never equal to another), so the
+  /// saved posts are kept as text.
+  final saved = <String>[];
+  @override
   Future<FileRef> download(FileRef ref, {int priority = 16}) async => ref;
   @override
   Future<FileProgress> downloadFrom(

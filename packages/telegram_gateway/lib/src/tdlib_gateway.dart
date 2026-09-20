@@ -64,6 +64,9 @@ final class TdlibGateway implements TelegramGateway {
   final _commentCtl = StreamController<Comment>.broadcast();
   List<td.ChatFolderInfo> _folders = const [];
   final _supergroups = <int, td.Supergroup>{};
+
+  /// The account's own user id, which is also the chat id of Saved Messages.
+  int? _myId;
   final _channelChatIds = <int>{};
 
   /// (discussion chat id, thread id) of threads a screen has open.
@@ -617,6 +620,25 @@ final class TdlibGateway implements TelegramGateway {
   @override
   Future<void> closeThread(Thread thread) async {
     _openThreads.remove((thread.chatId, thread.threadId));
+  }
+
+  @override
+  Future<void> saveToSavedMessages(int chatId, List<int> messageIds) async {
+    // Saved Messages is the chat with oneself; createPrivateChat makes sure TDLib knows it.
+    final me = _myId ??= (await _client.call(const td.GetMe())).id;
+    final saved = await _client.call(
+      td.CreatePrivateChat(userId: me, force: false),
+    );
+    await _client.call(
+      td.ForwardMessages(
+        chatId: saved.id,
+        fromChatId: chatId,
+        // TDLib forwards in strictly increasing order only.
+        messageIds: [...messageIds]..sort(),
+        sendCopy: false,
+        removeCaption: false,
+      ),
+    );
   }
 
   @override

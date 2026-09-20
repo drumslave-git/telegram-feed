@@ -85,6 +85,8 @@ final class ScriptedGateway implements TelegramGateway {
   @override
   Future<void> markViewed(int chatId, List<int> messageIds) async {}
   @override
+  Future<void> saveToSavedMessages(int chatId, List<int> messageIds) async {}
+  @override
   Future<FileRef> download(FileRef ref, {int priority = 16}) async => ref;
   @override
   Future<FileProgress> downloadFrom(
