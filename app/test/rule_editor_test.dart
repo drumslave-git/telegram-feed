@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:core/core.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/ai/semantic_gate.dart';
+import 'package:telegram_feed/home/channel_list.dart' show FeedTags;
 import 'package:telegram_feed/rules/rule_editor_screen.dart';
 import 'package:telegram_feed/rules/rules_screen.dart';
 import 'package:rules/rules.dart';
@@ -120,6 +121,30 @@ void main() {
       await unmount(tester);
     },
   );
+
+  testWidgets('the scope list tags each channel with its feeds', (
+    tester,
+  ) async {
+    tall(tester);
+    await tester.pumpWidget(editor());
+    await settle(tester);
+    await tester.tap(find.text('All channels in my feeds'));
+    await tester.pumpAndSettle();
+
+    // The open dropdown shows the channel with the feed it belongs to.
+    expect(
+      tester
+          .widgetList<FeedTags>(find.byType(FeedTags))
+          .map((t) => t.names)
+          .toList(),
+      [
+        ['F'],
+      ],
+    );
+    await tester.tap(find.text('Crypto').last);
+    await tester.pumpAndSettle();
+    await unmount(tester);
+  });
 
   testWidgets('text mode: parse errors shown, valid text saved with schedule', (
     tester,

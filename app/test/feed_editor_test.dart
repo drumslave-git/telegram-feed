@@ -114,6 +114,38 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('the picker tags a channel with its other feeds', (tester) async {
+    await tester.runAsync(() async {
+      feedId = (await db.createFeed('Tech')).id;
+      final other = await db.createFeed('Morning');
+      await db.addSource(other.id, -1, title: 'Alpha News');
+    });
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.tap(find.text('Add channel'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+
+    final alpha = find.widgetWithText(ListTile, 'Alpha News');
+    expect(
+      tester
+          .widget<FeedTags>(
+            find.descendant(of: alpha, matching: find.byType(FeedTags)),
+          )
+          .names,
+      ['Morning'],
+    );
+    // Beta Daily is in no feed at all.
+    expect(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'Beta Daily'),
+        matching: find.byType(FeedTags),
+      ),
+      findsNothing,
+    );
+    await unmount(tester);
+  });
+
   testWidgets('the picker ends above the keyboard', (tester) async {
     final many = [
       for (var i = 1; i <= 40; i++) Channel(chatId: -i, title: 'Channel $i'),
