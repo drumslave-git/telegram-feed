@@ -148,6 +148,14 @@ Feeds with their sources, rules and a whitelist of settings (theme, read-aloud p
 - **When** (`SyncController`, UI isolate): at start, 15 seconds after a local edit, every 15 minutes while the app is open, and on demand from Settings. Pulled rule changes reach the core the same way local edits do, through the database watchers.
 - **Drive access** (`DriveSyncStore`, `GoogleDriveAuth`): `google_sign_in` for the account and an access token with the single scope `drive.appdata`, then plain REST calls (`files.list` in `appDataFolder`, media download, multipart create, media update). A 401 gets one retry with a fresh token. Needs an Android OAuth client (package name + signing SHA-1) in a Google Cloud project and that project's web client id at build time: `--dart-define=GOOGLE_SERVER_CLIENT_ID=...`. Without it the Sync screen says the build cannot sync.
 
+### 5.5a Sound
+
+`AudioSessions` (`media/audio_session.dart`) is the app's one audio player: voice messages
+and music open in it, so only one sound is ever heard and a post that scrolls away keeps
+playing. It sits behind an `AudioEngine` interface — `just_audio` in the app, a fake in the
+tests — and holds the track, whether it plays, the position and the speed (1×, 1.5×, 2×) as
+notifiers, which the row in the post and the player bar both follow.
+
 ### 5.6 Video playback
 
 - **Playing while downloading.** A video starts as soon as its first bytes are there, as in the official app. `MediaServer` (UI isolate) is an HTTP server on the loopback interface; the player (`video_player`, ExoPlayer) opens `http://127.0.0.1:<port>/<secret>/<fileId>` and asks for byte ranges. Bytes TDLib already has are read from its partial file, where they sit at their final offsets; for a range that is not there yet the download is aimed at it (`downloadFile` with `offset`) and the response waits. Seeking and MP4 files with the index at the end are the same case: another range. The newest request decides where TDLib downloads. Response headers are written at once through a detached socket, because dart:io holds them back until the first body byte and the player's read timeout would run meanwhile. The path contains a random token, since other apps can reach the port; the port closes when nothing plays. A finished file is played from disk without the server; a file without a known size is downloaded whole first.

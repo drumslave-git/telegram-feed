@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-19 (voice and music: seek and speed).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-20 (the player bar that keeps playing).
 
 ## Phase 0 — Spikes
 
@@ -323,7 +323,10 @@ after it has faded goes to the post underneath, as it should (H-2).
 
 ### Media
 
-- [ ] H-19 Voice and music can be dragged to seek and played at 1×, 1.5× and 2×.
+- [x] H-19 Voice and music can be dragged to seek and played at 1×, 1.5× and 2×: the sound
+  moved out of the widget into `AudioSessions`, the app's one player, behind an `AudioEngine`
+  interface (`just_audio` in the app, a fake in the tests, as `Speaker` does for read-aloud).
+  The row shows play or pause, a slider, the position and the length, and the speed button.
 - [ ] H-20 A player bar keeps the audio playing when the post leaves the screen and when the
   screen is left, with pause and close, as the official app's does.
 - [ ] H-21 The viewer pages through all the media of the channel, or of the feed, instead of
