@@ -7,6 +7,7 @@ import '../media/media_viewer.dart';
 import 'album_layout.dart';
 import 'bubble_text.dart';
 import 'formatted_text.dart';
+import 'link_preview.dart';
 import 'media_view.dart';
 
 /// Colours of the chat the official app draws: a tinted backdrop with bubbles on it.
@@ -268,8 +269,10 @@ class PostCard extends StatelessWidget {
           child: InkWell(
             onTap: _hasMenu ? () => _menu(context) : null,
             onLongPress: _hasMenu ? () => _menu(context) : null,
-            // Text alone makes a bubble as wide as it needs; media fills the row.
-            child: media.isEmpty
+            // Text alone makes a bubble as wide as it needs; media fills the row, and so
+            // does a link preview, whose card and picture would otherwise be squeezed into
+            // the width of the words above it.
+            child: media.isEmpty && item.textPost.linkPreview == null
                 ? IntrinsicWidth(child: bubble)
                 : SizedBox(width: double.infinity, child: bubble),
           ),
@@ -351,6 +354,8 @@ class _Bubble extends StatelessWidget {
     ];
     final reactions = item.head.reactions;
     final text = item.text;
+    // Only a text post carries a link preview, so it never belongs to an album.
+    final preview = item.textPost.linkPreview;
     // Nothing under the pictures: the footer goes on top of them, as in Telegram.
     final footerOnMedia =
         text.isEmpty && reactions.isEmpty && other.isEmpty && visual.isNotEmpty;
@@ -378,6 +383,24 @@ class _Bubble extends StatelessWidget {
     } else if (visual.length > 1) {
       pictures = AlbumMosaic(media: visual, gateway: gateway, onOpen: open);
     }
+
+    final card = preview == null
+        ? null
+        : Padding(
+            padding: const EdgeInsets.fromLTRB(_side, 2, _side, 4),
+            child: LinkPreviewCard(
+              preview: preview,
+              colorId: item.chatId,
+              gateway: gateway,
+              onOpen: onOpenLink == null
+                  ? null
+                  : () => onOpenLink!(preview.url),
+            ),
+          );
+    // The footer lies on the last line of the text, unless the card comes after it: then it
+    // goes under the card, where the official app puts it too.
+    final footerUnderCard =
+        card != null && !preview!.aboveText && reactions.isEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -410,13 +433,15 @@ class _Bubble extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: _side),
             child: MediaView(media: m, gateway: gateway),
           ),
+        if (card != null && preview!.aboveText) card,
         if (text.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(_side, 6, _side, 6),
-            child: reactions.isEmpty
+            child: reactions.isEmpty && !footerUnderCard
                 ? BubbleText(text: _text(context, text), footer: footer)
                 : _text(context, text),
           ),
+        if (card != null && !preview!.aboveText) card,
         if (reactions.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(_side, 2, _side, 6),
@@ -448,7 +473,8 @@ class _Bubble extends StatelessWidget {
               ],
             ),
           ),
-        if (text.isEmpty && reactions.isEmpty && !footerOnMedia)
+        if (footerUnderCard ||
+            (text.isEmpty && reactions.isEmpty && !footerOnMedia))
           Padding(
             padding: const EdgeInsets.fromLTRB(_side, 2, _side, 6),
             child: Align(alignment: Alignment.centerRight, child: footer),

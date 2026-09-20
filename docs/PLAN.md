@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-3 (link previews).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-4 (the "forwarded from" header).
 
 ## Phase 0 — Spikes
 
@@ -232,9 +232,14 @@ after it has faded goes to the post underneath, as it should (H-2).
 
 ### In every post (most visible while reading)
 
-- [ ] H-3 Link previews: the web page card under a post with a link (site, title, description,
-  photo), which TDLib hands over ready-made and the gateway drops today. `Post.webPage` through
-  the isolate codec, a card in `PostCard`, tappable.
+- [x] H-3 Link previews: the card under a post with a link (site, title, description, picture),
+  which TDLib hands over ready-made and the gateway used to drop. `LinkPreview` in the gateway
+  models from TDLib's `linkPreview` (picture, video flag and length per kind of link), through
+  the isolate codec, and `LinkPreviewCard` in the bubble: accent bar and tint in the channel's
+  colour, the picture wide or as a small square as TDLib asks, above or below the card's words,
+  the card itself above or below the post's text, a play badge and the length on a video link.
+  A tap anywhere on it opens the link. A preview is not `Post.media`, so a post with a link
+  stays a text post for a feed's filters.
 - [ ] H-4 "Forwarded from" header: the forward origin (channel, hidden sender, user) in the
   gateway model and above the text, as in the official app. Channels repost each other
   constantly and the app shows such a post as the channel's own.

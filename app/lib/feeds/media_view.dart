@@ -39,7 +39,7 @@ class MediaView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => switch (media) {
     PhotoMedia(:final sizes) => PhotoView(
-      file: _pickSize(sizes, MediaQuery.sizeOf(context).width),
+      file: pickPhotoSize(sizes, MediaQuery.sizeOf(context).width),
       gateway: gateway,
       onTap: onOpen,
       fill: fill,
@@ -80,15 +80,15 @@ class MediaView extends StatelessWidget {
       visualDensity: VisualDensity.compact,
     ),
   };
+}
 
-  /// Smallest size that is at least as wide as the viewport (or the largest available).
-  static FileRef _pickSize(List<FileRef> sizes, double viewportWidth) {
-    final dpr = 2.0;
-    for (final s in sizes) {
-      if (s.width >= viewportWidth * dpr) return s;
-    }
-    return sizes.last;
+/// Smallest size that is at least as wide as the viewport (or the largest available).
+FileRef pickPhotoSize(List<FileRef> sizes, double viewportWidth) {
+  const dpr = 2.0;
+  for (final s in sizes) {
+    if (s.width >= viewportWidth * dpr) return s;
   }
+  return sizes.last;
 }
 
 /// Downloads a file once and rebuilds with its local path; shows progress meanwhile.

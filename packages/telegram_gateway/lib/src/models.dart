@@ -278,6 +278,62 @@ final class DocumentMedia extends Media {
   final FileRef? thumbnail;
 }
 
+/// The card under (or above) a post with a link: what TDLib hands over as `linkPreview` and
+/// the official app draws with the site, the title, a description and a picture. It is not
+/// [Post.media]: a post with a link stays a text post for a feed's filters.
+final class LinkPreview {
+  const LinkPreview({
+    required this.url,
+    this.displayUrl = '',
+    this.siteName = '',
+    this.title = '',
+    this.author = '',
+    this.description = '',
+    this.photo,
+    this.isVideo = false,
+    this.durationSeconds = 0,
+    this.largeMedia = false,
+    this.photoAbove = false,
+    this.aboveText = false,
+  });
+
+  /// The link itself, which a tap on the card opens.
+  final String url;
+
+  /// The link as the official app shows it in the card's corner.
+  final String displayUrl;
+  final String siteName;
+  final String title;
+  final String author;
+
+  /// Plain text: the description carries formatting in TDLib, but the whole card is one tap
+  /// target, so nothing inside it needs to be clickable.
+  final String description;
+
+  /// The card's picture, in the sizes TDLib offers.
+  final PhotoMedia? photo;
+
+  /// The link points at a video (a play badge goes on the picture; the tap still opens the
+  /// link, since the app has no player for other sites).
+  final bool isVideo;
+  final int durationSeconds;
+
+  /// TDLib's `show_large_media`: a wide picture of its own instead of a small square beside
+  /// the text.
+  final bool largeMedia;
+
+  /// TDLib's `show_media_above_description`: the picture goes over the card's words.
+  final bool photoAbove;
+
+  /// TDLib's `show_above_text`: the card stands above the post's own text.
+  final bool aboveText;
+
+  @override
+  String toString() =>
+      'LinkPreview($url${title.isEmpty ? '' : ', $title'}'
+      '${photo == null ? '' : ', photo'})';
+}
+
 /// Content the app does not render yet (polls, stickers, ...); [tdType] names it.
 final class UnsupportedMedia extends Media {
   const UnsupportedMedia(this.tdType);
@@ -419,6 +475,7 @@ final class Post {
     this.replyCount = 0,
     this.canComment = false,
     this.entities = const [],
+    this.linkPreview,
   });
   final int chatId;
   final int messageId;
@@ -447,6 +504,9 @@ final class Post {
 
   /// True when the post has a comment thread (the channel has a discussion group).
   final bool canComment;
+
+  /// The link preview TDLib attached to the post, if it has one.
+  final LinkPreview? linkPreview;
 
   @override
   String toString() => 'Post($chatId/$messageId, ${text.length} chars)';

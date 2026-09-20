@@ -139,7 +139,97 @@ Post post(td.Message m) {
     replyCount: m.interactionInfo?.replyInfo?.replyCount ?? 0,
     canComment: m.interactionInfo?.replyInfo != null,
     entities: entities(formattedText(m.content)),
+    linkPreview: linkPreview(m.content),
   );
+}
+
+/// The card of a post that carries a link (TDLib's `linkPreview`, only on `messageText`).
+LinkPreview? linkPreview(td.MessageContent? c) {
+  if (c is! td.MessageText) return null;
+  final p = c.linkPreview;
+  if (p == null) return null;
+  final (photo, isVideo, duration) = _previewPicture(p.type);
+  return LinkPreview(
+    url: p.url,
+    displayUrl: p.displayUrl,
+    siteName: p.siteName,
+    title: p.title,
+    author: p.author,
+    description: p.description?.text ?? '',
+    photo: photo,
+    isVideo: isVideo,
+    durationSeconds: duration,
+    largeMedia: p.showLargeMedia,
+    photoAbove: p.showMediaAboveDescription,
+    aboveText: p.showAboveText,
+  );
+}
+
+/// Picture, video flag and length of a preview, by the kind of link it is. Kinds without a
+/// picture (a chat, a sticker set, an invoice, anything newer than this app) give none and
+/// the card is drawn from its text alone.
+(PhotoMedia?, bool, int) _previewPicture(td.LinkPreviewType? t) => switch (t) {
+  td.LinkPreviewTypePhoto(:final photo) => (_photo(photo), false, 0),
+  td.LinkPreviewTypeArticle(:final photo) => (_photo(photo), false, 0),
+  td.LinkPreviewTypeApp(:final photo) => (_photo(photo), false, 0),
+  td.LinkPreviewTypeAlbum(:final media) => (
+    _photo(switch (media.firstOrNull) {
+      td.LinkPreviewAlbumMediaPhoto(:final photo) => photo,
+      _ => null,
+    }),
+    false,
+    0,
+  ),
+  td.LinkPreviewTypeVideo(:final video, :final cover) => (
+    _photo(cover) ?? _thumb(video?.thumbnail),
+    true,
+    video?.duration ?? 0,
+  ),
+  td.LinkPreviewTypeEmbeddedVideoPlayer(:final thumbnail, :final duration) => (
+    _photo(thumbnail),
+    true,
+    duration,
+  ),
+  td.LinkPreviewTypeEmbeddedAnimationPlayer(:final thumbnail) => (
+    _photo(thumbnail),
+    true,
+    0,
+  ),
+  // An external video file has no picture of its own, only its length.
+  td.LinkPreviewTypeExternalVideo(:final duration) => (null, true, duration),
+  td.LinkPreviewTypeAnimation(:final animation) => (
+    _thumb(animation?.thumbnail),
+    true,
+    animation?.duration ?? 0,
+  ),
+  td.LinkPreviewTypeDocument(:final document) => (
+    _thumb(document?.thumbnail),
+    false,
+    0,
+  ),
+  td.LinkPreviewTypeAudio(:final audio) => (
+    _thumb(audio?.albumCoverThumbnail),
+    false,
+    audio?.duration ?? 0,
+  ),
+  _ => (null, false, 0),
+};
+
+/// A TDLib photo as the sizes the card picks from, smallest first.
+PhotoMedia? _photo(td.Photo? p) {
+  final sizes = [
+    for (final s in (p?.sizes ?? const <td.PhotoSize>[]).where(
+      (s) => s.photo != null,
+    ))
+      fileRef(s.photo!, width: s.width, height: s.height),
+  ]..sort((a, b) => a.width.compareTo(b.width));
+  return sizes.isEmpty ? null : PhotoMedia(sizes: sizes);
+}
+
+/// A thumbnail as a one-size photo, for the kinds that carry no full picture.
+PhotoMedia? _thumb(td.Thumbnail? t) {
+  final ref = thumbRef(t);
+  return ref == null ? null : PhotoMedia(sizes: [ref]);
 }
 
 /// The text or caption of a message with its formatting, for the kinds [content] reads.

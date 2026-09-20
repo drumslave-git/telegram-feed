@@ -52,6 +52,7 @@ Post _post(
   String text, {
   Media? media,
   int replyCount = 0,
+  LinkPreview? linkPreview,
 }) => Post(
   chatId: chat,
   messageId: id,
@@ -60,6 +61,7 @@ Post _post(
   media: media,
   replyCount: replyCount,
   canComment: replyCount > 0,
+  linkPreview: linkPreview,
 );
 
 void main() {
@@ -186,6 +188,21 @@ void main() {
           1700010000, // fixed past dates: the header shows time only for today
           'A longer post with two lines of text so the card wraps and shows its shape.',
           replyCount: 12,
+        ),
+        // A link preview, without a picture of its own: a downloading one would turn a
+        // spinner in the image.
+        _post(
+          -1,
+          120,
+          1700001000,
+          'A post with a link in it',
+          linkPreview: const LinkPreview(
+            url: 'https://example.org/a',
+            displayUrl: 'example.org/a',
+            siteName: 'Example',
+            title: 'A headline from the web',
+            description: 'The description of the page the link leads to.',
+          ),
         ),
         _post(
           -1,

@@ -230,7 +230,42 @@ Map<String, Object?> encodePost(Post p) => {
   'replyCount': p.replyCount,
   'canComment': p.canComment,
   'entities': _encodeEntities(p.entities),
+  'linkPreview': p.linkPreview == null
+      ? null
+      : encodeLinkPreview(p.linkPreview!),
 };
+
+Map<String, Object?> encodeLinkPreview(LinkPreview p) => {
+  'url': p.url,
+  'displayUrl': p.displayUrl,
+  'siteName': p.siteName,
+  'title': p.title,
+  'author': p.author,
+  'description': p.description,
+  'photo': p.photo == null ? null : encodeMedia(p.photo!),
+  'isVideo': p.isVideo,
+  'duration': p.durationSeconds,
+  'largeMedia': p.largeMedia,
+  'photoAbove': p.photoAbove,
+  'aboveText': p.aboveText,
+};
+
+LinkPreview decodeLinkPreview(Map<Object?, Object?> m) => LinkPreview(
+  url: m['url'] as String,
+  displayUrl: (m['displayUrl'] as String?) ?? '',
+  siteName: (m['siteName'] as String?) ?? '',
+  title: (m['title'] as String?) ?? '',
+  author: (m['author'] as String?) ?? '',
+  description: (m['description'] as String?) ?? '',
+  photo: m['photo'] == null
+      ? null
+      : decodeMedia(m['photo'] as Map<Object?, Object?>) as PhotoMedia,
+  isVideo: (m['isVideo'] as bool?) ?? false,
+  durationSeconds: (m['duration'] as int?) ?? 0,
+  largeMedia: (m['largeMedia'] as bool?) ?? false,
+  photoAbove: (m['photoAbove'] as bool?) ?? false,
+  aboveText: (m['aboveText'] as bool?) ?? false,
+);
 
 List<Map<String, Object?>> _encodeEntities(List<TextEntity> entities) => [
   for (final e in entities)
@@ -312,6 +347,9 @@ Post decodePost(Map<Object?, Object?> m) => Post(
   replyCount: (m['replyCount'] as int?) ?? 0,
   canComment: (m['canComment'] as bool?) ?? false,
   entities: _decodeEntities(m['entities']),
+  linkPreview: m['linkPreview'] == null
+      ? null
+      : decodeLinkPreview(m['linkPreview'] as Map<Object?, Object?>),
 );
 
 Map<String, Object?> encodePostEvent(PostEvent e) => switch (e) {
