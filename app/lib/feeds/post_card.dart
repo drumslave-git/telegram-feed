@@ -149,6 +149,9 @@ class PostCard extends StatelessWidget {
     this.selected = false,
     this.onViewerMedia,
     this.onMoreViewerMedia,
+    this.onViewerDetails,
+    this.onViewerShare,
+    this.onViewerSave,
   });
   final TimelineItem item;
   final String channelTitle;
@@ -201,6 +204,13 @@ class PostCard extends StatelessWidget {
 
   /// Loads the timeline's next page and answers with all of its media again.
   final Future<List<Media>> Function()? onMoreViewerMedia;
+
+  /// The channel, the day and the caption of each item in the viewer.
+  final List<ViewerDetail> Function()? onViewerDetails;
+
+  /// Share and save from inside the viewer, by the index of the picture.
+  final void Function(int index)? onViewerShare;
+  final void Function(int index)? onViewerSave;
 
   bool get _hasMenu =>
       onOpenInTelegram != null ||
@@ -311,6 +321,9 @@ class PostCard extends StatelessWidget {
       onQuickReact: onQuickReact,
       onViewerMedia: onViewerMedia,
       onMoreViewerMedia: onMoreViewerMedia,
+      onViewerDetails: onViewerDetails,
+      onViewerShare: onViewerShare,
+      onViewerSave: onViewerSave,
     );
     // The bubble has the row to itself: the channel's photo sits in its title line and
     // sharing is in the menu, so nothing beside it takes width from text and pictures.
@@ -565,6 +578,9 @@ class _Bubble extends StatelessWidget {
     required this.onQuickReact,
     required this.onViewerMedia,
     required this.onMoreViewerMedia,
+    required this.onViewerDetails,
+    required this.onViewerShare,
+    required this.onViewerSave,
   });
   final TimelineItem item;
   final List<Media> media;
@@ -580,6 +596,9 @@ class _Bubble extends StatelessWidget {
   final VoidCallback? onQuickReact;
   final List<Media> Function()? onViewerMedia;
   final Future<List<Media>> Function()? onMoreViewerMedia;
+  final List<ViewerDetail> Function()? onViewerDetails;
+  final void Function(int index)? onViewerShare;
+  final void Function(int index)? onViewerSave;
 
   static const _side = 10.0;
 
@@ -612,12 +631,17 @@ class _Bubble extends StatelessWidget {
       // this post's album is only where it starts.
       final around = onViewerMedia?.call() ?? visual;
       final items = around.contains(m) ? around : visual;
+      final whole = identical(items, around);
       MediaViewerScreen.open(
         context,
         items: items,
         gateway: gateway,
         initialIndex: items.indexOf(m),
-        onNeedOlder: onMoreViewerMedia,
+        onNeedOlder: whole ? onMoreViewerMedia : null,
+        details: whole ? onViewerDetails?.call() ?? const [] : const [],
+        onDetails: whole ? onViewerDetails : null,
+        onShare: whole ? onViewerShare : null,
+        onSave: whole ? onViewerSave : null,
       );
     }
 

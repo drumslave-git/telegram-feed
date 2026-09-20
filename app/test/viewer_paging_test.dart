@@ -149,4 +149,62 @@ void main() {
     expect(find.text('2 of 4'), findsWidgets);
     await unmount(tester);
   });
+
+  testWidgets('the viewer names the channel, the day, and can share and save', (
+    tester,
+  ) async {
+    var shared = -1;
+    var saved = -1;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => MediaViewerScreen.open(
+              context,
+              items: const [
+                PhotoMedia(
+                  sizes: [
+                    FileRef(
+                      id: 1,
+                      remoteId: 'r1',
+                      size: 10,
+                      width: 90,
+                      height: 90,
+                    ),
+                  ],
+                ),
+              ],
+              gateway: gw,
+              details: const [
+                ViewerDetail(
+                  channel: 'Alpha News',
+                  date: 1700000000,
+                  caption: 'what the post said',
+                ),
+              ],
+              onShare: (i) => shared = i,
+              onSave: (i) => saved = i,
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Alpha News'), findsOneWidget);
+    expect(find.text('what the post said'), findsOneWidget);
+    // One picture: no counter, but the day of the post.
+    expect(find.textContaining('of 1'), findsNothing);
+
+    await tester.tap(find.byTooltip('Share'));
+    await tester.pump();
+    expect(shared, 0);
+    await tester.tap(find.byTooltip('Save to Saved Messages'));
+    await tester.pump();
+    expect(saved, 0);
+    await unmount(tester);
+  });
 }

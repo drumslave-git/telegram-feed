@@ -165,7 +165,10 @@ The viewer (`MediaViewerScreen`) pages through everything the timeline holds, no
 album: the card asks the timeline for its media (`_viewerMedia`, newest first, the feed's
 filter already applied because it walks the loaded rows) and opens at the tapped one. Two
 pages from the older end it calls `onNeedOlder`, which pages the timeline and hands the list
-back grown; a list that does not grow means the end.
+back grown; a list that does not grow means the end. A `ViewerDetail` per item carries the
+channel, the day and the caption, which the bar and the band at the bottom show, and the
+viewer's Share and Save act on the post that picture belongs to (`onShare`, `onSave` by
+index; the timeline keeps the owning row of every picture).
 
 ### 5.6 Video playback
 

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../feeds/media_view.dart' show Downloaded;
+import '../feeds/post_card.dart' show formatDay;
 import 'mini_player.dart';
 import 'swipe_to_close.dart';
 import 'video_downloads.dart';
@@ -19,6 +20,21 @@ import 'zoom.dart';
 /// to zoom, drag down or up to close. The video of the page in front plays with sound; turning the page or leaving hands
 /// its session back, which ends playback and streaming unless the video autoplays in its row
 /// or moved on into the [MiniPlayer].
+/// What the viewer says about one picture: which channel it came from, when it was posted
+/// and what its post said. Aligned with the items by index.
+class ViewerDetail {
+  const ViewerDetail({
+    required this.channel,
+    required this.date,
+    this.caption = '',
+  });
+  final String channel;
+
+  /// Unix seconds of the post.
+  final int date;
+  final String caption;
+}
+
 class MediaViewerScreen extends StatefulWidget {
   const MediaViewerScreen({
     super.key,
@@ -26,6 +42,10 @@ class MediaViewerScreen extends StatefulWidget {
     required this.gateway,
     this.initialIndex = 0,
     this.onNeedOlder,
+    this.details = const [],
+    this.onShare,
+    this.onSave,
+    this.onDetails,
   });
 
   /// [PhotoMedia] and [VideoMedia] only, see [viewable].
@@ -36,6 +56,16 @@ class MediaViewerScreen extends StatefulWidget {
   /// Asked for more media when the reader reaches the older end: the timeline loads its
   /// next page and answers with everything it has, this list included.
   final Future<List<Media>> Function()? onNeedOlder;
+
+  /// The channel, the time and the caption of each item; empty where the caller has none.
+  final List<ViewerDetail> details;
+
+  /// Share and save the post the item at that index belongs to.
+  final void Function(int index)? onShare;
+  final void Function(int index)? onSave;
+
+  /// The details again, after more items were loaded.
+  final List<ViewerDetail> Function()? onDetails;
 
   /// What of a post's media the viewer can show, in the order of the post.
   static List<Media> viewable(Iterable<Media> media) => [
@@ -50,6 +80,10 @@ class MediaViewerScreen extends StatefulWidget {
     required TelegramGateway gateway,
     int initialIndex = 0,
     Future<List<Media>> Function()? onNeedOlder,
+    List<ViewerDetail> details = const [],
+    void Function(int index)? onShare,
+    void Function(int index)? onSave,
+    List<ViewerDetail> Function()? onDetails,
   }) => Navigator.of(context, rootNavigator: true).push(
     PageRouteBuilder<void>(
       // The timeline shows through while the page is dragged away.
@@ -59,6 +93,10 @@ class MediaViewerScreen extends StatefulWidget {
         gateway: gateway,
         initialIndex: initialIndex,
         onNeedOlder: onNeedOlder,
+        details: details,
+        onShare: onShare,
+        onSave: onSave,
+        onDetails: onDetails,
       ),
       transitionsBuilder: (_, animation, _, child) =>
           FadeTransition(opacity: animation, child: child),
@@ -76,6 +114,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
   /// Everything the viewer can page through: what it opened with, and what the timeline
   /// hands over as the reader goes past the older end.
   late List<Media> _items = widget.items;
+  late List<ViewerDetail> _details = widget.details;
   bool _loadingOlder = false;
   bool _noMoreOlder = false;
 
@@ -125,7 +164,11 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
         _noMoreOlder = true;
         return;
       }
-      setState(() => _items = more);
+      setState(() {
+        _items = more;
+        // The caller hands the details over with the items; asking again refreshes both.
+        _details = widget.onDetails?.call() ?? _details;
+      });
     } finally {
       _loadingOlder = false;
     }
@@ -134,12 +177,54 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
   @override
   Widget build(BuildContext context) {
     final items = _items;
-    final counter = items.length > 1
-        ? Text(
-            '${_index + 1} of ${items.length}',
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-          )
-        : null;
+    final detail = _index < _details.length ? _details[_index] : null;
+    // The channel and the day above, the counter under them, as the official app does.
+    final title = Column(
+      // Without this the column fills the screen and the bar swallows every tap.
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (detail != null && detail.channel.isNotEmpty)
+          Text(
+            detail.channel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        Text(
+          [
+            if (items.length > 1) '${_index + 1} of ${items.length}',
+            if (detail != null && detail.date > 0)
+              formatDay(
+                DateTime.fromMillisecondsSinceEpoch(detail.date * 1000),
+              ),
+          ].join(' · '),
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+      ],
+    );
+    final counter = Flexible(child: title);
+    final actions = [
+      if (widget.onShare != null)
+        IconButton(
+          tooltip: 'Share',
+          color: Colors.white,
+          icon: const Icon(Icons.share),
+          onPressed: () => widget.onShare!(_index),
+        ),
+      if (widget.onSave != null)
+        IconButton(
+          tooltip: 'Save to Saved Messages',
+          color: Colors.white,
+          icon: const Icon(Icons.bookmark_add_outlined),
+          onPressed: () => widget.onSave!(_index),
+        ),
+    ];
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SwipeToClose(
@@ -164,6 +249,8 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
               gateway: widget.gateway,
               active: i == _index,
               title: counter,
+              actions: actions,
+              caption: i < _details.length ? _details[i].caption : '',
               onZoomChanged: _onZoom,
               onPip: _toMiniPlayer,
             ),
@@ -175,7 +262,9 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                   gateway: widget.gateway,
                   onZoomChanged: _onZoom,
                 ),
-                ViewerTopBar(title: counter),
+                ViewerTopBar(title: counter, actions: actions),
+                if (i < _details.length && _details[i].caption.isNotEmpty)
+                  ViewerCaption(text: _details[i].caption),
               ],
             ),
             _ => const SizedBox.shrink(),
@@ -195,6 +284,8 @@ class _VideoPage extends StatefulWidget {
     required this.gateway,
     required this.active,
     required this.title,
+    required this.actions,
+    required this.caption,
     required this.onZoomChanged,
     required this.onPip,
   });
@@ -202,6 +293,8 @@ class _VideoPage extends StatefulWidget {
   final TelegramGateway gateway;
   final bool active;
   final Widget? title;
+  final List<Widget> actions;
+  final String caption;
   final ValueChanged<bool> onZoomChanged;
   final ValueChanged<VideoSession> onPip;
 
@@ -269,7 +362,9 @@ class _VideoPageState extends State<_VideoPage> {
           icon: const Icon(Icons.picture_in_picture_alt),
           onPressed: () => widget.onPip(session),
         ),
+        ...widget.actions,
       ],
+      caption: widget.caption,
     );
   }
 }

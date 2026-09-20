@@ -1386,15 +1386,48 @@ class TimelineViewState extends State<TimelineView> {
     }
   }
 
+  /// The post each picture in the viewer came from, in the same order as the media.
+  List<TimelineItem> _viewerOwners = const [];
+
   /// Every picture and video the timeline holds, newest first: what the viewer pages
-  /// through, so a tap on one picture walks the whole feed and not only its post.
-  List<Media> _viewerMedia() => [
-    for (final item in _timeline?.items ?? const <TimelineItem>[])
-      ...MediaViewerScreen.viewable([
+  /// through, so a tap on one picture walks the whole feed and not only its post. The post
+  /// behind each one is kept, for the channel, the day, the caption and the actions.
+  List<Media> _viewerMedia() {
+    final media = <Media>[];
+    final owners = <TimelineItem>[];
+    for (final item in _timeline?.items ?? const <TimelineItem>[]) {
+      final shown = MediaViewerScreen.viewable([
         for (final p in item.allPosts.reversed)
           if (p.media != null) p.media!,
-      ]),
+      ]);
+      media.addAll(shown);
+      owners.addAll(List.filled(shown.length, item));
+    }
+    _viewerOwners = owners;
+    return media;
+  }
+
+  /// What the viewer says about each picture.
+  List<ViewerDetail> _viewerDetails() => [
+    for (final item in _viewerOwners)
+      ViewerDetail(
+        channel: _titles[item.chatId] ?? '',
+        date: item.head.date,
+        caption: item.text,
+      ),
   ];
+
+  void _viewerShare(int index) {
+    if (index < _viewerOwners.length) {
+      unawaited(_share(_viewerOwners[index]));
+    }
+  }
+
+  void _viewerSave(int index) {
+    if (index < _viewerOwners.length) {
+      unawaited(_save(_viewerOwners[index]));
+    }
+  }
 
   /// The viewer reached the older end: one more page of posts, and all the media again.
   Future<List<Media>> _moreViewerMedia() async {
@@ -1640,6 +1673,9 @@ class TimelineViewState extends State<TimelineView> {
                 onQuickReact: () => unawaited(_quickReact(item)),
                 onViewerMedia: _viewerMedia,
                 onMoreViewerMedia: _moreViewerMedia,
+                onViewerDetails: _viewerDetails,
+                onViewerShare: _viewerShare,
+                onViewerSave: _viewerSave,
                 onSelect: () => toggleSelected(item),
                 selecting: _selected.isNotEmpty,
                 selected: _selected.contains(id),

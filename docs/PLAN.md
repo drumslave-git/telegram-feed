@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-22 (caption and share in the viewer).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-23 (saving a picture into the phone's gallery).
 
 ## Phase 0 — Spikes
 
@@ -336,7 +336,10 @@ after it has faded goes to the post underneath, as it should (H-2).
   the one that was tapped, and the viewer asks for more when the reader comes within two pages
   of the older end — which pages the timeline itself, so the feed's filter and its channels are
   obeyed without a second kind of search.
-- [ ] H-22 The viewer shows the caption, the channel and the time, with share and save on it.
+- [x] H-22 The viewer says which channel a picture came from, on what day, and what its post
+  said — the caption over a dark band at the bottom — and carries Share and Save to Saved
+  Messages, which act on that post. `ViewerDetail` travels with the items, so the details grow
+  with them as older pages load.
 - [ ] H-23 Saving a photo or a video into the phone's gallery (`MediaStore`, with the
   permission it needs). Replaces the round 2 decision that the download button only fills
   Telegram's cache; the cache download stays as it is.

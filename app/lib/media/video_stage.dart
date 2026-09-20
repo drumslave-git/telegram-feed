@@ -89,6 +89,7 @@ class VideoStage extends StatefulWidget {
   const VideoStage({
     super.key,
     required this.session,
+    this.caption = '',
     this.poster,
     this.title,
     this.actions = const [],
@@ -104,6 +105,9 @@ class VideoStage extends StatefulWidget {
 
   /// Shown until the first frame is ready (the post's thumbnail).
   final Widget? poster;
+
+  /// What the post said, over the bottom of the picture.
+  final String caption;
 
   /// The viewer stops paging and swipe-to-close while the picture is zoomed in, so that a
   /// drag pans it.
@@ -268,6 +272,7 @@ class _VideoStageState extends State<VideoStage> {
           // Leaving must work while the video still loads, too.
           if (!ready || _controls)
             ViewerTopBar(title: widget.title, actions: widget.actions),
+          if (widget.caption.isNotEmpty) ViewerCaption(text: widget.caption),
         ],
       ),
     );
@@ -399,6 +404,39 @@ class _VideoStageState extends State<VideoStage> {
 }
 
 /// Back arrow in the top left corner, where the official viewer has it.
+/// The words of the post under the picture, over a dark band so they stay readable, as the
+/// official app shows a caption in its viewer.
+class ViewerCaption extends StatelessWidget {
+  const ViewerCaption({super.key, required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.bottomCenter,
+    child: DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [Colors.black87, Colors.transparent],
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+          child: SingleChildScrollView(
+            child: Text(
+              text,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class ViewerTopBar extends StatelessWidget {
   const ViewerTopBar({super.key, this.title, this.actions = const []});
   final Widget? title;
