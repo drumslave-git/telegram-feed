@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 5 (notifications, feed filters) is done and verified on the emulator; rounds 1 to 4 and P4-1, P4-2 are closed. **Next task:** P4-3 (AI-generated podcast from a feed).
+**Current phase:** feedback round 6 (folder channels, viewer, saving, padding, feed tags). **Next task:** G-1 (a folder joined by invite link shows no channels).
 
 ## Phase 0 — Spikes
 
@@ -171,6 +171,19 @@ handover in the log (`core: handed TDLib back` → `service: core down` → the 
 note about Android (N-6); the dry run says "20 of the last 20 posts match" with "Photo" and
 "Video" under the channel's name (N-7). Before N-6 the minimal mode was seen to post on
 `core_min` and to look exactly like `core` in the shade.
+
+## Feedback round 6 (founder, 2026-09-20)
+
+Founder decisions of the same day: channels the account archived in Telegram stay out of the
+app's lists, but a channel that only a chat folder holds is read from that folder's list; feed
+tags show in the home channel lists, in the feed editor's channel picker and in the rule
+editor's scope list.
+
+- [ ] G-1 A folder joined through an invite link showed its tab but no channels: the app built every channel list from Telegram's main chat list, which does not hold such channels.
+- [ ] G-2 A video the timeline autoplays starts from the beginning when it is tapped open in the viewer.
+- [ ] G-3 "Save to Saved Messages" in the post menu.
+- [ ] G-4 Space between the newest post and the bottom edge of the screen.
+- [ ] G-5 Channel lists tag each channel with the feeds it belongs to.
 
 ## Phase 4 — Extras
 
