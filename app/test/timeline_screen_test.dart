@@ -3,7 +3,8 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:telegram_feed/feeds/post_card.dart' show ChatPill, PostCard;
+import 'package:telegram_feed/feeds/post_card.dart'
+    show ChatPill, PostCard, formatDay;
 import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_feed/feeds/timeline_search.dart';
 import 'package:telegram_feed/home/channel_list.dart';
@@ -774,6 +775,91 @@ void main() {
       await unmount(tester);
     },
   );
+
+  testWidgets('the day of the topmost post floats over a moving list', (
+    tester,
+  ) async {
+    // Two days of twenty posts each: scrolling up crosses from one day into the other.
+    const oneDay = 86400;
+    const base = 1700000000; // 2023-11-14 22:13 UTC
+    int dateOf(int id) => base + (id > 20 ? oneDay : 0) + id * 60;
+    String dayOf(int id) =>
+        formatDay(DateTime.fromMillisecondsSinceEpoch(dateOf(id) * 1000));
+    gw.histories[-1] = [
+      for (var id = 40; id >= 1; id--) post(-1, id, dateOf(id), 'post-$id'),
+    ];
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Days');
+      await db.addSource(feed.id, -1, title: 'One');
+      await db.markRead(feed.id, -1, 40); // opens at the newest post
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+    await tester.pumpAndSettle();
+
+    final pill = find.descendant(
+      of: find.byType(FloatingDay),
+      matching: find.byType(ChatPill),
+    );
+    String label() => tester.widget<ChatPill>(pill).label;
+
+    /// The day of the topmost row that has a part on screen, which is the one the pill
+    /// names. Rows the list keeps just off screen do not count.
+    String topmostDay() {
+      final height = tester.getSize(find.byType(TimelineView)).height;
+      var top = double.infinity;
+      var id = 0;
+      for (final e in find.textContaining('post-').evaluate()) {
+        final n = int.tryParse((e.widget as Text).data!.split('-').last);
+        if (n == null) continue;
+        final rect = tester.getRect(find.byWidget(e.widget));
+        if (rect.bottom <= 0 || rect.top >= height || rect.top >= top) continue;
+        top = rect.top;
+        id = n;
+      }
+      return dayOf(id);
+    }
+
+    final centre = tester.getCenter(find.byType(TimelineView));
+    // A list at rest shows no day.
+    expect(pill, findsNothing);
+
+    // Towards older posts: in a chat-like list that is a drag downwards.
+    await tester.dragFrom(centre, const Offset(0, 300));
+    await tester.pump(); // the fade starts on the frame after the scroll
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(pill, findsOneWidget);
+    expect(label(), topmostDay());
+
+    // On up into the day before; the pill follows the top of the screen.
+    for (var i = 0; i < 20 && topmostDay() == dayOf(40); i++) {
+      await tester.dragFrom(centre, const Offset(0, 400));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(topmostDay(), dayOf(1));
+    expect(label(), dayOf(1));
+
+    // It fades away once the list has been at rest for a moment.
+    await tester.pump(const Duration(seconds: 1)); // the linger runs out
+    await tester.pumpAndSettle();
+    expect(pill, findsNothing);
+
+    // The calendar opens from it, as from the day pills between the posts.
+    await tester.dragFrom(centre, const Offset(0, 100));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(pill);
+    await tester.pumpAndSettle();
+    expect(find.byType(DatePickerDialog), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    await unmount(tester);
+  });
 
   testWidgets('jump to a date before the first post says so', (tester) async {
     await tester.runAsync(() async {

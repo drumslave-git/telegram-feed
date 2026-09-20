@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-2 (the day of the topmost post floats over the timeline).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** the rest of round 7, from the feature-by-feature comparison with the official app.
 
 ## Phase 0 — Spikes
 
@@ -205,6 +205,11 @@ their tags instead.
   emoji: the long press only covered the label, which is a few pixels wide. Tabs carry their
   own padding now (`labelPadding` of the bar is zero) and a minimum width of 72 px, so the
   press is answered anywhere in the tab.
+- [x] H-2 The day of the topmost post floats over the timeline while it is scrolled, as the
+  date does in the official app: `FloatingDay` fades in with a scroll the reader started
+  (`UserScrollNotification`, so opening a feed or a date jump brings nothing out) and fades
+  out 900 ms after the list comes to rest. A tap opens the calendar on that day, like the day
+  pills between the posts.
 
 ## Phase 4 — Extras
 

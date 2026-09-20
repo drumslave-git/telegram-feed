@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
@@ -467,6 +470,16 @@ class TimelineViewState extends State<TimelineView> {
   /// Day the timeline jumped to from the calendar; it settles on its first post.
   DateTime? _focusDay;
 
+  /// Day of the topmost post on screen, shown as a floating pill while the list moves and
+  /// faded out shortly after it stops, as the official app does. Notifiers, so the pill
+  /// comes and goes without rebuilding the list on every scroll.
+  final _stickyDay = ValueNotifier<DateTime?>(null);
+  final _stickyShown = ValueNotifier<bool>(false);
+  Timer? _stickyHide;
+
+  /// How long the floating day pill stays after the list came to rest.
+  static const _stickyLinger = Duration(milliseconds: 900);
+
   /// Set by the button that leaves a jump: the rebuilt timeline opens at its newest post,
   /// not where it would open when the feed is entered.
   bool _openAtNewest = false;
@@ -857,6 +870,7 @@ class TimelineViewState extends State<TimelineView> {
       _settleAtNewest(positions);
     }
     final items = t.items;
+    if (items.isEmpty) return;
     var newest = positions.first;
     var oldestIndex = positions.first.index;
     final seen = <TimelineItem>[];
@@ -889,6 +903,9 @@ class TimelineViewState extends State<TimelineView> {
         }
       }
     }
+    // The list is reversed, so the row on top of the screen is the one with the highest
+    // index: its day is what the floating pill names.
+    _show(_stickyDay, _dayOf(items[oldestIndex.clamp(0, items.length - 1)]));
     if (newest.index < items.length && !t.anchored) {
       final row = items[newest.index];
       _remembered[_memoryKey] = _Anchor(
@@ -917,6 +934,43 @@ class TimelineViewState extends State<TimelineView> {
       }
     }
     if (oldestIndex >= items.length - 5) unawaited(_loadMore());
+  }
+
+  /// The floating day pill follows a scroll the reader started: it is there as soon as the
+  /// list moves under the finger and fades out [_stickyLinger] after the list came to rest,
+  /// like the date in the official app. A scroll of the app's own making (opening the feed,
+  /// a jump to a date, new posts at the bottom) does not bring it out.
+  bool _onScroll(ScrollNotification n) {
+    if (n is UserScrollNotification) {
+      if (n.direction != ScrollDirection.idle) _armSticky();
+    } else if (n is ScrollUpdateNotification && _stickyShown.value) {
+      _armSticky(); // the fling after the finger is gone keeps it up
+    }
+    return false;
+  }
+
+  void _armSticky() {
+    _show(_stickyShown, true);
+    _stickyHide?.cancel();
+    _stickyHide = Timer(_stickyLinger, () {
+      if (mounted) _show(_stickyShown, false);
+    });
+  }
+
+  /// A scroll notification can arrive from inside the list's own layout (new content
+  /// dimensions start a ballistic scroll), and the pill must not be rebuilt from there:
+  /// such a change waits for the end of the frame.
+  void _show<T>(ValueNotifier<T> notifier, T value) {
+    if (notifier.value == value) return;
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks) {
+      notifier.value = value;
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) notifier.value = value;
+    });
   }
 
   /// Tints the row for a moment, so the post the timeline jumped to is easy to spot.
@@ -1083,6 +1137,9 @@ class TimelineViewState extends State<TimelineView> {
   @override
   void dispose() {
     _positions.itemPositions.removeListener(_onPositions);
+    _stickyHide?.cancel();
+    _stickyDay.dispose();
+    _stickyShown.dispose();
     _highlightTimer?.cancel();
     _events?.cancel();
     _sources?.cancel();
@@ -1101,9 +1158,23 @@ class TimelineViewState extends State<TimelineView> {
         Positioned.fill(
           child: ColoredBox(
             color: ChatColors.of(context).background,
-            child: _body(context, t, items),
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _onScroll,
+              child: _body(context, t, items),
+            ),
           ),
         ),
+        if (t != null && !_opening && items.isNotEmpty)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: FloatingDay(
+              day: _stickyDay,
+              shown: _stickyShown,
+              onTap: (day) => unawaited(pickDate(around: day)),
+            ),
+          ),
         if (t != null && !_opening && (!t.atTop || t.anchored))
           Positioned(
             right: 16,
@@ -1261,6 +1332,73 @@ class TimelineViewState extends State<TimelineView> {
             },
           );
   }
+}
+
+/// The day of the topmost post, floating over the timeline: it is there while the list
+/// moves and fades out once it comes to rest, as the date does in the official app. A tap
+/// opens the calendar on that day, like the day pills between the posts.
+class FloatingDay extends StatefulWidget {
+  const FloatingDay({
+    super.key,
+    required this.day,
+    required this.shown,
+    this.onTap,
+  });
+
+  /// Day of the topmost post; null until the list has reported its first rows.
+  final ValueListenable<DateTime?> day;
+
+  /// Whether the list is moving (or has just come to rest).
+  final ValueListenable<bool> shown;
+  final void Function(DateTime day)? onTap;
+
+  @override
+  State<FloatingDay> createState() => _FloatingDayState();
+}
+
+class _FloatingDayState extends State<FloatingDay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _fade = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+    value: _visible ? 1 : 0,
+  );
+
+  bool get _visible => widget.shown.value && widget.day.value != null;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.shown.addListener(_follow);
+    widget.day.addListener(_follow);
+  }
+
+  @override
+  void dispose() {
+    widget.shown.removeListener(_follow);
+    widget.day.removeListener(_follow);
+    _fade.dispose();
+    super.dispose();
+  }
+
+  void _follow() => _visible ? _fade.forward() : _fade.reverse();
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _fade,
+    builder: (context, _) {
+      final day = widget.day.value;
+      // Nothing in the tree while it is away: a pill nobody can see is none.
+      if (_fade.value == 0 || day == null) return const SizedBox.shrink();
+      return Opacity(
+        opacity: _fade.value,
+        child: ChatPill(
+          formatDay(day),
+          onTap: widget.onTap == null ? null : () => widget.onTap!(day),
+        ),
+      );
+    },
+  );
 }
 
 /// Marks where the unread posts began when the feed was opened.
