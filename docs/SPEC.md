@@ -44,6 +44,8 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - I can create, rename, reorder, and delete feeds. They are listed on the "Feeds" tab of the main screen; `+` creates one, dragging reorders, the row's menu edits its channels, renames or deletes it.
 - My Telegram chat folders appear as tabs too, each listing the folder's channels the way Telegram lists chats (photo, newest post, time, unread count), including channels I joined through a folder invite link, which Telegram keeps in that folder's list alone. "All channels" lists every joined channel with a search box; channels I archived in Telegram stay out of it, and an Archive place of their own is decided and planned (PLAN.md H-30). Tapping a channel opens its posts as a timeline, with the channel's pinned post in a bar on top; its read position is Telegram's own.
 - Every list of channels tags each channel with the feeds it belongs to.
+- A long press on a channel row offers to mark it read, to open its info, or to add it to one
+  of my feeds.
 - I can add channels to a feed by picking from the channels I am a member of, with a search box over that list. Channels I have not joined cannot be added; joining happens in the official Telegram app.
 - I can add the same channel to several feeds.
 - I can remove a channel from a feed without leaving the channel in Telegram.

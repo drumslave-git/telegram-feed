@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-15 (the menu of a channel row).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-16 (the connection status).
 
 ## Phase 0 — Spikes
 
@@ -303,7 +303,10 @@ after it has faded goes to the post underneath, as it should (H-2).
   the feed's row menu and in the long-press menu of a folder tab; H-15 adds it to a channel row.
 - [x] H-14 Unread counts on the folder tabs: a badge with the number of the folder's channels
   that have posts the account has not read, which is how Telegram counts on its own tabs.
-- [ ] H-15 Long press on a channel row opens a menu: mark as read, channel info, add to a feed.
+- [x] H-15 Long press on a channel row opens a menu: "Mark all read" (H-13's action for that
+  one channel), "Channel info", and "Add to a feed", which lists the reader's feeds, greys out
+  the ones the channel is already in, and adds it starting at Telegram's read position as the
+  feed editor does.
 - [ ] H-16 Connection status: TDLib's `updateConnectionState` in the app bar ("Connecting…",
   "Waiting for network", "Updating…"), so a dead connection does not look like an empty feed.
 - [ ] H-17 Selecting several posts: a long press starts a selection, then save, share or copy

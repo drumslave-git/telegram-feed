@@ -340,6 +340,45 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a channel row has a menu: read, info, add to a feed', (
+    tester,
+  ) async {
+    late Feed feed;
+    await tester.runAsync(() async {
+      feed = await db.createFeed('News');
+    });
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.tap(find.text('All channels'));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('Two'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mark all read'), findsOneWidget);
+    expect(find.text('Channel info'), findsOneWidget);
+    expect(find.text('Add to a feed'), findsOneWidget);
+
+    await tester.tap(find.text('Add to a feed'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('News'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('added to'), findsOneWidget);
+    final sources = (await tester.runAsync(
+      () => db.watchSourceChannels(feed.id).first,
+    ))!;
+    expect(sources.map((s) => s.chatId), [-2]);
+
+    // Marking it read from the same menu moves the feed's mark to the newest post.
+    await tester.longPress(find.text('Two'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mark all read'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(await tester.runAsync(() => db.readMarks(feed.id)), {-2: 200});
+    await unmount(tester);
+  });
+
   testWidgets('the long press covers the whole tab, not just its label', (
     tester,
   ) async {

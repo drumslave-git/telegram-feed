@@ -13,6 +13,7 @@ class ChannelList extends StatefulWidget {
     required this.channels,
     required this.gateway,
     required this.onOpen,
+    this.onMenu,
     this.searchable = false,
     this.onRefresh,
     this.emptyText = 'No channels here.',
@@ -21,6 +22,9 @@ class ChannelList extends StatefulWidget {
   final List<Channel> channels;
   final TelegramGateway gateway;
   final void Function(Channel channel) onOpen;
+
+  /// Long press on a row: the menu of H-15, at the point the finger was on.
+  final void Function(Channel channel, Offset at)? onMenu;
   final bool searchable;
   final Future<void> Function()? onRefresh;
   final String emptyText;
@@ -73,6 +77,9 @@ class _ChannelListState extends State<ChannelList>
               gateway: widget.gateway,
               feeds: widget.feedsByChat[shown[i].chatId] ?? const [],
               onTap: () => widget.onOpen(shown[i]),
+              onMenu: widget.onMenu == null
+                  ? null
+                  : (at) => widget.onMenu!(shown[i], at),
             ),
           );
     if (widget.onRefresh != null) {
@@ -104,11 +111,15 @@ class ChannelTile extends StatelessWidget {
     required this.channel,
     required this.gateway,
     required this.onTap,
+    this.onMenu,
     this.feeds = const [],
   });
   final Channel channel;
   final TelegramGateway gateway;
   final VoidCallback onTap;
+
+  /// Long press: the row's menu, at the point the finger was on.
+  final void Function(Offset at)? onMenu;
 
   /// Names of the feeds this channel is in; shown as tags under the newest post.
   final List<String> feeds;
@@ -122,6 +133,13 @@ class ChannelTile extends StatelessWidget {
         : Text(c.lastMessageText, maxLines: 1, overflow: TextOverflow.ellipsis);
     return ListTile(
       onTap: onTap,
+      onLongPress: onMenu == null
+          ? null
+          : () {
+              // The menu opens where the row is, since a ListTile reports no position.
+              final box = context.findRenderObject()! as RenderBox;
+              onMenu!(box.localToGlobal(box.size.center(Offset.zero)));
+            },
       isThreeLine: preview != null && feeds.isNotEmpty,
       leading: ChannelAvatar(photo: c.photo, title: c.title, gateway: gateway),
       title: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis),

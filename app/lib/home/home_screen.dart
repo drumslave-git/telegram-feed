@@ -8,6 +8,7 @@ import '../feeds/feed_editor_screen.dart';
 import '../feeds/feeds_screen.dart' show FeedsController;
 import '../feeds/mark_read.dart';
 import '../feeds/timeline_screen.dart';
+import 'channel_info_screen.dart';
 import 'channel_list.dart';
 
 /// The main screen: `+`, the "Feeds" tab (list of feeds), one tab per Telegram folder (its
@@ -326,6 +327,111 @@ class _HomeScreenState extends State<HomeScreen>
     ),
   );
 
+  /// Long press on a channel row, as in the official app: mark it read, open its info, or
+  /// put it into one of the reader's feeds.
+  Future<void> _channelMenu(Channel channel, Offset at) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
+    final feeds = await widget.db.allFeeds();
+    if (!mounted) return;
+    final choice = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        at & Size.zero,
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        const PopupMenuItem(
+          value: 'read',
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.done_all),
+            title: Text('Mark all read'),
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'info',
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.info_outline),
+            title: Text('Channel info'),
+          ),
+        ),
+        if (feeds.isNotEmpty)
+          const PopupMenuItem(
+            value: 'add',
+            child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.playlist_add),
+              title: Text('Add to a feed'),
+            ),
+          ),
+      ],
+    );
+    if (!mounted) return;
+    switch (choice) {
+      case 'read':
+        await _markChannelsRead([channel.chatId]);
+      case 'info':
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                ChannelInfoScreen(gateway: widget.gateway, channel: channel),
+          ),
+        );
+      case 'add':
+        await _addToFeed(channel, feeds);
+    }
+  }
+
+  /// Picks one of the reader's feeds and puts the channel in it, starting at Telegram's own
+  /// read position as the feed editor does.
+  Future<void> _addToFeed(Channel channel, List<Feed> feeds) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final inFeeds = (_feedTags[channel.chatId] ?? const []).toSet();
+    final feed = await showModalBottomSheet<Feed>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final f in feeds)
+              ListTile(
+                leading: const Icon(Icons.rss_feed),
+                title: Text(f.name),
+                subtitle: inFeeds.contains(f.name)
+                    ? const Text('Already in this feed')
+                    : null,
+                enabled: !inFeeds.contains(f.name),
+                onTap: () => Navigator.pop(context, f),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (feed == null) return;
+    await widget.db.addSource(
+      feed.id,
+      channel.chatId,
+      title: channel.title,
+      username: channel.username,
+    );
+    if (channel.lastReadMessageId > 0) {
+      await widget.db.markRead(
+        feed.id,
+        channel.chatId,
+        channel.lastReadMessageId,
+      );
+    }
+    messenger.showSnackBar(
+      SnackBar(content: Text('${channel.title} added to "${feed.name}".')),
+    );
+  }
+
   void _openChannel(Channel c) => Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) =>
@@ -435,6 +541,7 @@ class _HomeScreenState extends State<HomeScreen>
           : [for (final id in folder.channelIds) ?byId[id]],
       gateway: widget.gateway,
       onOpen: _openChannel,
+      onMenu: _channelMenu,
       searchable: folder == null,
       onRefresh: _loadChannels,
       emptyText: folder == null
