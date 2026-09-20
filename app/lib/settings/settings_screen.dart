@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../ai/semantic_gate.dart';
 import '../feeds/text_scale.dart';
+import '../feeds/timeline_screen.dart';
 import '../home/channel_list.dart' show ChannelAvatar;
 import '../home/home_placeholder.dart';
 import '../media/auto_download.dart';
@@ -59,6 +62,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// The chat with oneself, read like any channel. A feed cannot hold it: it is not a
+  /// channel of the account, it is the account's own notepad.
+  Future<void> _openSaved(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    try {
+      final channel = await widget.gateway.savedMessages();
+      await navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) => TimelineScreen(
+            db: widget.db,
+            gateway: widget.gateway,
+            channel: channel,
+          ),
+        ),
+      );
+    } on TelegramException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -101,6 +125,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 v ? 'true' : 'false',
               ),
             ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.bookmark_outline),
+            title: const Text('Saved Messages'),
+            subtitle: const Text('The posts you saved from their menus'),
+            onTap: () => unawaited(_openSaved(context)),
           ),
           ListTile(
             leading: const Icon(Icons.record_voice_over_outlined),

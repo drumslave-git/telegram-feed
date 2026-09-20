@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-29 (Saved Messages are readable in the app).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-30 (a place for archived channels).
 
 ## Phase 0 — Spikes
 
@@ -372,7 +372,10 @@ after it has faded goes to the post underneath, as it should (H-2).
 
 ### Screens and account
 
-- [ ] H-29 Saved Messages are readable in the app, the chat the post menu already saves into.
+- [x] H-29 Saved Messages are readable in the app: `savedMessages()` hands the chat with
+  oneself over as a channel (title "Saved Messages"), and the row in Settings opens it as an
+  ordinary timeline, with its own read position from Telegram. The home and settings goldens
+  were regenerated (the new row, and the folder-tab badges of H-14).
 - [ ] H-30 Archived channels have a place of their own (an Archive entry at the top of All
   channels), instead of staying out of every list. Refines the round 6 decision: the archive
   is still not walked for the ordinary lists.

@@ -120,6 +120,9 @@ class ChannelsGateway implements TelegramGateway {
   }
 
   @override
+  Future<Channel> savedMessages() async =>
+      const Channel(chatId: 42, title: 'Saved Messages');
+  @override
   Future<List<Comment>> searchThread(
     Thread thread, {
     required String query,

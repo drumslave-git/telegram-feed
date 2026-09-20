@@ -290,6 +290,10 @@ final class CoreClient implements TelegramGateway {
       _call('closeThread', {'thread': encodeThread(thread)});
 
   @override
+  Future<Channel> savedMessages() async =>
+      decodeChannel((await _call('savedMessages')) as Map<Object?, Object?>);
+
+  @override
   Future<List<Comment>> searchThread(
     Thread thread, {
     required String query,

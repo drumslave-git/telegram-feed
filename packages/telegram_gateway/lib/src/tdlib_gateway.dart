@@ -731,6 +731,24 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
+  Future<Channel> savedMessages() async {
+    final me = _myId ??= (await _client.call(const td.GetMe())).id;
+    final chat = await _client.call(
+      td.CreatePrivateChat(userId: me, force: false),
+    );
+    return Channel(
+      chatId: chat.id,
+      title: 'Saved Messages',
+      photo: chat.photo?.small == null ? null : map.fileRef(chat.photo!.small!),
+      lastMessageId: chat.lastMessage?.id ?? 0,
+      lastReadMessageId: chat.lastReadInboxMessageId,
+      unreadCount: chat.unreadCount,
+      lastMessageText: map.preview(chat.lastMessage?.content),
+      lastMessageDate: chat.lastMessage?.date ?? 0,
+    );
+  }
+
+  @override
   Future<List<Comment>> searchThread(
     Thread thread, {
     required String query,

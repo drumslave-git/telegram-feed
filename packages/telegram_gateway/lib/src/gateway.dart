@@ -77,6 +77,10 @@ abstract interface class TelegramGateway {
   /// Stops a download nobody waits for any more; what is on disk stays.
   Future<void> cancelDownload(int fileId);
 
+  /// The chat with oneself, as a channel the timeline can read: what the post menu saves
+  /// into (SPEC 3, "Save to Saved Messages").
+  Future<Channel> savedMessages();
+
   /// Searches the comments of one thread, newest first. [fromMessageId] pages older ones.
   Future<List<Comment>> searchThread(
     Thread thread, {

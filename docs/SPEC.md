@@ -107,7 +107,7 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - I can react to a post with the reactions the channel allows.
 - I can open the discussion thread of a post and reply if the channel has one, and search the comments in it.
 - I can share a post or copy its link through the system share sheet.
-- I can save a post, and with it its whole album, to my Telegram Saved Messages.
+- I can save a post, and with it its whole album, to my Telegram Saved Messages, and read Saved Messages in the app from Settings.
 
 ## 4. Screens (Android MVP)
 

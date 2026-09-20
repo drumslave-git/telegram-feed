@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/main.dart' show themeModeFrom;
+import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_feed/settings/settings_screen.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -158,5 +159,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(loggedOut, 1);
     await unmount(tester);
+  });
+
+  testWidgets('Saved Messages opens as a timeline of its own', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pump();
+    await tester.pump();
+    await tester.ensureVisible(find.text('Saved Messages'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Saved Messages'));
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
+    // The screen it opens is a timeline with that title.
+    expect(find.byType(TimelineScreen), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.text('Saved Messages'),
+      ),
+      findsOneWidget,
+    );
+
+    // The timeline keeps a database stream of its own; take it down first.
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 30)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
   });
 }
