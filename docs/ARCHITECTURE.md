@@ -67,13 +67,14 @@ abstract interface class TelegramGateway {
   Future<void> requestQrCode();                            // AuthWaitOtherDeviceConfirmation carries the link
   Future<void> logOut();
 
-  Future<List<Channel>> myChannels();                      // joined supergroups with isChannel = true
+  Future<List<Channel>> myChannels();                      // joined channels of the main list and of every folder
   Stream<ChannelMembershipEvent> get membershipEvents;     // user joined / left a channel in Telegram
   Future<List<ChatFolder>> chatFolders();                  // Telegram folders, reduced to their channels
 
   Future<List<Post>> history(int chatId, {int fromMessageId, int limit, bool onlyLocal});
   Stream<PostEvent> get postEvents;                        // PostAdded / PostEdited / PostsDeleted
   Future<void> markViewed(int chatId, List<int> messageIds);
+  Future<void> saveToSavedMessages(int chatId, List<int> messageIds);  // forward into the chat with oneself
 
   Future<FileRef> download(FileRef ref, {int priority});   // completes with localPath set
   Stream<FileProgress> fileProgress(int fileId);
@@ -161,7 +162,8 @@ Feeds with their sources, rules and a whitelist of settings (theme, read-aloud p
 
 - The Feeds tab lists the feeds with the number of channels that have new posts (`FeedsController`); the tab label counts the feeds that have any. A tap opens the feed as `TimelineScreen(feed:)`, dragging reorders, the row's menu leads to its channels, rename and delete. `+` creates a feed and goes straight to its channel editor.
 - Folder tabs come from `chatFolders()`: TDLib announces the folders in `updateChatFolders`; the chats of each are read with `getChats(chatListFolder)`, which already applies the folder's include and exclude rules and Telegram's order, and only channels are kept. Folders without channels get no tab. The app never edits folders.
-- Channel lists (`ChannelList`) show photo, newest post, time and Telegram's unread count from `Channel`. They reload when the app resumes, three seconds after a new post, and on pull to refresh.
+- `myChannels()` walks the main chat list and every folder list, each channel once, because a channel joined through a folder invite link is in its folder's list and in no other; the home screen asks for the folders first so the gateway knows which lists to walk. The archive is not read, so an archived channel only shows up when a folder of the account holds it.
+- Channel lists (`ChannelList`) show photo, newest post, time and Telegram's unread count from `Channel`, and under that the tags of the feeds the channel is in (`AppDatabase.feedNamesByChat`, live through `watchFeeds` and `watchSourceChanges`). The feed editor's channel picker and the rule editor's scope list carry the same tags. They reload when the app resumes, three seconds after a new post, and on pull to refresh.
 - A channel opens as `TimelineScreen(channel:)`: the same timeline with one source. It belongs to no feed, so its read marks are Telegram's own position (`last_read_inbox_message_id`); reading moves it through `viewMessages` when `syncReadToTelegram` is on and is not recorded otherwise.
 - The folders arrive from TDLib a moment after the screen is up. The `TabController` is replaced only when the set of folders changes, and the selected tab stays selected.
 - A long press on a folder tab offers "Create feed from folder": a feed with the folder's name and the channels it has at that moment, in the folder's order, each starting at Telegram's read position. It is a one-time copy; the feed does not follow the folder afterwards.
@@ -172,7 +174,8 @@ A timeline row (`PostCard`, `feeds/post_card.dart`) is drawn like a post in the 
 
 - Views, "edited" and the time sit in the bottom right corner. `BubbleText` is a render object of its own that puts this footer on the last line of the text when there is room and on a line of its own otherwise; with reactions the pills use the full width and the footer takes the free end of the last row; with nothing under the pictures it lies on top of them.
 - The unread dot has a reserved slot beside the time and only fades, so nothing moves when a post becomes read.
-- A tap or a long press on the bubble opens the menu: the emoji the channel allows, Open in Telegram, Comments, Share, Copy link, and for posts with a video the autoplay settings (`showAutoplaySettings`, the same switch and limits as in Settings).
+- A tap or a long press on the bubble opens the menu: the emoji the channel allows, Open in Telegram, Comments, Share, Copy link, Save to Saved Messages (`saveToSavedMessages` forwards the whole album into the chat with oneself, source header and all), and for posts with a video the autoplay settings (`showAutoplaySettings`, the same switch and limits as in Settings). The menu scrolls: with the reactions on top its entries do not all fit on a short screen.
+- The list keeps 8 px plus the system inset under the newest post, which in the reversed list is the bottom edge of the screen.
 - Albums of photos and videos are a mosaic: `layoutAlbum` ports the grouped layout of the official apps (hand-made arrangements for two to four pictures by their proportions, row splitting towards a 3:4 block for more). The mosaic always fills the bubble's width and is at most one and a half widths tall; cells crop their picture. Audio and documents of an album stay a list.
 - `Post.entities` and `Comment.entities` carry TDLib's text entities (offsets in UTF-16 units). `FormattedText` cuts the text at every entity boundary, so nested and overlapping formatting works; links, mentions and e-mail addresses open through `launchFirst`, spoilers are covered until tapped. Rules, read-aloud, sharing and notifications keep using the plain text.
 - Avatars: the timeline takes channel photos from `myChannels()` (the database keeps titles only); comments carry `authorId` and `authorPhoto`, resolved once per sender by the gateway. The thread view shows the post as its timeline row on top and comments as bubbles with the same title line (author's name, photo at its right end); own comments sit on the right without name and photo. Feed editor, channel picker and the rule scope list show the channel photos too.
@@ -415,3 +418,7 @@ Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
 | 2026-09-19 | The channel info screen has no mute and no leave | Founder decision, feedback round 4: notifications are the app's own rules, and only joined channels are sources |
 | 2026-09-19 | A filtered feed shows a post whole: one part that passes carries the rest of the album and its caption. Per-feed checkbox, on for every feed, the ones that exist included | Founder decision, feedback round 5: a filter picks posts, not pieces of them; a video beside a picture is still one post |
 | 2026-09-19 | Whole posts also reach rule notifications and the search by words; the shared media tabs stay strict | Founder decision the same day: what the timeline shows may notify and be found, while the tabs list single media items by kind |
+| 2026-09-20 | Channel lists are built from the main chat list and from every chat folder; the archive is not read | Founder decision, feedback round 6: a folder joined by invite link holds its channels in no other list, and an archived channel is one the founder put away |
+| 2026-09-20 | The viewer starts a video the timeline was autoplaying from the beginning; a handover from the mini player or the system window keeps the position | Founder decision, feedback round 6: the position autoplay reached is not one the watcher chose |
+| 2026-09-20 | The post menu can save a post, and with it its whole album, to Saved Messages: a forward that keeps the channel as the source | Founder decision, feedback round 6; same as the official app's entry, and it needs no place of our own to keep posts in |
+| 2026-09-20 | Every list of channels tags each channel with the feeds it is in | Founder decision, feedback round 6: home lists, the feed editor's picker and the rule editor's scope list |

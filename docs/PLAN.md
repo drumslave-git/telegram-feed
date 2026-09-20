@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 6 (folder channels, viewer, saving, padding, feed tags). **Next task:** G-1 (a folder joined by invite link shows no channels).
+**Current phase:** feedback round 6 (folder channels, viewer, saving, padding, feed tags) is done and verified on the emulator; rounds 1 to 5 and P4-1, P4-2 are closed. **Next task:** P4-3 (AI-generated podcast from a feed).
 
 ## Phase 0 — Spikes
 
@@ -179,11 +179,23 @@ app's lists, but a channel that only a chat folder holds is read from that folde
 tags show in the home channel lists, in the feed editor's channel picker and in the rule
 editor's scope list.
 
-- [ ] G-1 A folder joined through an invite link showed its tab but no channels: the app built every channel list from Telegram's main chat list, which does not hold such channels.
-- [ ] G-2 A video the timeline autoplays starts from the beginning when it is tapped open in the viewer.
-- [ ] G-3 "Save to Saved Messages" in the post menu.
-- [ ] G-4 Space between the newest post and the bottom edge of the screen.
-- [ ] G-5 Channel lists tag each channel with the feeds it belongs to.
+- [x] G-1 A folder joined through an invite link showed its tab but no channels: the app built every channel list from Telegram's main chat list, which does not hold such channels. `myChannels()` now walks the main list and every folder, each channel once, and logs where they came from; the home screen asks for the folders first. The archive stays unread. (d86f15f) The emulator confirmed the cause: `75 channels from the main list`, `6 channels from folder "🙂"`.
+- [x] G-2 A video the timeline autoplays starts from the beginning when it is tapped open in the viewer: `retainForViewer` seeks to zero unless it is taking the session over from the mini player or the system window, where the watcher is continuing the video. (7538f02)
+- [x] G-3 "Save to Saved Messages" in the post menu: gateway `saveToSavedMessages` forwards the post and every part of its album into the chat with oneself, through the core isolate; the menu scrolls now, since its entries no longer fit on a short screen. (2045967)
+- [x] G-4 Space between the newest post and the bottom edge of the screen: the reversed list carries 8 px plus the system inset at its visual bottom. (f1dd955)
+- [x] G-5 Channel lists tag each channel with the feeds it belongs to: `feedNamesByChat` in `app_db` and `FeedTags` chips in the home lists (live as feeds and sources change), the feed editor's channel picker and the rule editor's scope list. (e09734a, tests 6639200)
+
+Verified on the emulator (2026-09-20, spare account): the 🙂 folder that had been joined
+through an invite link lists its six channels with photos, previews, times and unread counts,
+and the log names the folder as their only chat list (G-1); a seven-second video that had
+been autoplaying in a row opened in the viewer at `0:00 / 0:07` with the sound on (G-2); the
+menu of a post carries "Save to Saved Messages" and answers "Saved to Saved Messages", with
+no error from Telegram — the official app is not installed on the emulator, so the arrival is
+visible in the founder's own Telegram (G-3); the newest post keeps its distance from the
+bottom edge and from the gesture bar (G-4); the channels of the Real News tab each carry a
+"NewsFeed" tag under their preview (G-5). The channel picker and the rule scope list list
+every joined channel of the account, which is not a screen to capture, so widget tests cover
+their tags instead.
 
 ## Phase 4 — Extras
 

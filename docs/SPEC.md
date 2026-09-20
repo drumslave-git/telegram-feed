@@ -42,7 +42,8 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 ### Feeds
 - As a user I can log in with my Telegram account so the app sees the channels I already follow.
 - I can create, rename, reorder, and delete feeds. They are listed on the "Feeds" tab of the main screen; `+` creates one, dragging reorders, the row's menu edits its channels, renames or deletes it.
-- My Telegram chat folders appear as tabs too, each listing the folder's channels the way Telegram lists chats (photo, newest post, time, unread count). "All channels" lists every joined channel with a search box. Tapping a channel opens its posts as a timeline; its read position is Telegram's own.
+- My Telegram chat folders appear as tabs too, each listing the folder's channels the way Telegram lists chats (photo, newest post, time, unread count), including channels I joined through a folder invite link, which Telegram keeps in that folder's list alone. "All channels" lists every joined channel with a search box; channels I archived in Telegram stay out of it. Tapping a channel opens its posts as a timeline; its read position is Telegram's own.
+- Every list of channels tags each channel with the feeds it belongs to.
 - I can add channels to a feed by picking from the channels I am a member of, with a search box over that list. Channels I have not joined cannot be added; joining happens in the official Telegram app.
 - I can add the same channel to several feeds.
 - I can remove a channel from a feed without leaving the channel in Telegram.
@@ -51,7 +52,7 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - The feed opens where I left it earlier in the session; otherwise at the first unread post, and at the newest post when everything is read.
 - I can scroll up indefinitely; older posts load as I scroll. Posts that arrive while I read older ones wait behind a button with their count.
 - I can view photos inline, play video, voice, and audio without leaving the app.
-- A tap on a video plays it full screen at once, in the orientation I hold the phone. There I can seek, zoom with a double tap or a pinch and move the zoomed picture, hold a finger down for 2× speed, swipe down to close, swipe sideways through the photos and videos of the album, and shrink the video to a floating player. Leaving full screen stops the video and its download; short videos that autoplay in the timeline go on playing there without sound.
+- A tap on a video plays it full screen at once, in the orientation I hold the phone, from the beginning when the timeline was autoplaying it. There I can seek, zoom with a double tap or a pinch and move the zoomed picture, hold a finger down for 2× speed, swipe down to close, swipe sideways through the photos and videos of the album, and shrink the video to a floating player. Leaving full screen stops the video and its download; short videos that autoplay in the timeline go on playing there without sound.
 - Every video has a download button in its top left corner that keeps the whole file in Telegram's cache, with progress and cancel.
 - Each feed shows an unread count. Posts are marked read once I have seen them down to their end.
 - Reading a post here also marks it read in the official Telegram app. A setting turns this off.
@@ -88,13 +89,14 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - I can react to a post with the reactions the channel allows.
 - I can open the discussion thread of a post and reply if the channel has one.
 - I can share a post or copy its link through the system share sheet.
+- I can save a post, and with it its whole album, to my Telegram Saved Messages.
 
 ## 4. Screens (Android MVP)
 
 1. **Onboarding / Login**: phone number, code, 2FA password, QR-code login as an alternative. Explains what the app can and cannot see.
-2. **Home**: tab bar with `+`, Feeds (list of feeds, each with the number of channels that have new posts), folder tabs, All channels. Rules and Settings in the app bar. A long press on a folder tab creates a feed from the folder's channels (a one-time copy).
+2. **Home**: tab bar with `+`, Feeds (list of feeds, each with the number of channels that have new posts), folder tabs, All channels; every channel row carries the tags of the feeds it is in. Rules and Settings in the app bar. A long press on a folder tab creates a feed from the folder's channels (a one-time copy).
 3. **Feed editor** (the feed's info screen): the ordered list of channels with the add-channel sheet and the filter row, and beside it tabs with the shared media of all the feed's channels at once: Media, Files, Links, Music, Voice.
-4. **Feed timeline**: infinite list of posts in chat order, drawn like the official app but with full-width bubbles (coloured channel name with the channel's avatar at the right end of that line, albums as a mosaic, formatted text with links, views and time in the corner with the unread dot beside the time, reactions, comments bar, day labels), "Unread posts" divider, button to the newest posts with the number of unread posts still below the reader. A tap on a post opens its menu: reactions, Open in Telegram, Comments, Share, Copy link, and on video posts the autoplay settings.
+4. **Feed timeline**: infinite list of posts in chat order, drawn like the official app but with full-width bubbles (coloured channel name with the channel's avatar at the right end of that line, albums as a mosaic, formatted text with links, views and time in the corner with the unread dot beside the time, reactions, comments bar, day labels), "Unread posts" divider, button to the newest posts with the number of unread posts still below the reader. A tap on a post opens its menu: reactions, Open in Telegram, Comments, Share, Copy link, Save to Saved Messages, and on video posts the autoplay settings.
 5. **Search in a feed or a channel**: the magnifier in the app bar searches the posts of every channel of the feed at once, as one list of matches with the channel, the text and the date; a tap opens the timeline at that post, with arrows and a counter to step through the matches. What the feed hides is not found either. A calendar in the search bar, and a tap on any day label between the posts, jumps to a date.
 6. **Channel info**: opened from the channel's title — photo, name, subscribers, description, link, and tabs with the shared media of the channel: Media, Files, Links, Music, Voice. No mute and no leave: notifications are the app's own rules and the app never joins or leaves a channel.
 7. **Post view**: full post with media viewer, open in Telegram, share.
