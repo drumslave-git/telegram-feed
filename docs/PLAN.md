@@ -223,6 +223,13 @@ that place) and sponsored posts, which this app will never show.
   out 900 ms after the list comes to rest. A tap opens the calendar on that day, like the day
   pills between the posts. (93771eb)
 
+Verified on the emulator (2026-09-20, spare account, NewsFeed): a long press inside the 🙂
+folder tab but well left of the glyph opens "Create feed from folder", where the same press
+used to reach nothing (H-1). The timeline opens with no pill in sight, a scroll upwards puts
+"Today" over the top of the list, it is gone three seconds after the list comes to rest, and a
+tap on it while it is up opens the calendar on that day ("Jump to date", Sun, Sep 20); a tap
+after it has faded goes to the post underneath, as it should (H-2).
+
 ### In every post (most visible while reading)
 
 - [ ] H-3 Link previews: the web page card under a post with a link (site, title, description,
