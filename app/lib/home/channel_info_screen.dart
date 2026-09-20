@@ -7,6 +7,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import '../feeds/open_links.dart';
 import '../feeds/post_card.dart' show formatCount;
 import '../feeds/shared_media.dart';
+import '../media/media_viewer.dart';
 import 'channel_list.dart' show ChannelAvatar;
 
 /// What the official app shows behind a channel's title: the photo, the name, how many
@@ -63,6 +64,26 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
     messenger.showSnackBar(SnackBar(content: Text('Link copied: $link')));
   }
 
+  /// The channel's own picture on the whole screen; a channel without one says so.
+  void _openPhoto(FileRef? photo) {
+    if (photo == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This channel has no photo.')),
+      );
+      return;
+    }
+    unawaited(
+      MediaViewerScreen.open(
+        context,
+        items: [
+          PhotoMedia(sizes: [photo]),
+        ],
+        gateway: widget.gateway,
+        details: [ViewerDetail(channel: widget.channel.title, date: 0)],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final channel = widget.channel;
@@ -79,11 +100,15 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ChannelAvatar(
-                  photo: info?.bigPhoto ?? channel.photo,
-                  title: channel.title,
-                  gateway: widget.gateway,
-                  radius: 32,
+                GestureDetector(
+                  // The photo opens full screen, as in the official app.
+                  onTap: () => _openPhoto(info?.bigPhoto ?? channel.photo),
+                  child: ChannelAvatar(
+                    photo: info?.bigPhoto ?? channel.photo,
+                    title: channel.title,
+                    gateway: widget.gateway,
+                    radius: 32,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(

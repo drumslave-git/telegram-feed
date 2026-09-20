@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-31 (a tap on a channel photo opens it).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-32 (similar channels and the QR code).
 
 ## Phase 0 — Spikes
 
@@ -380,8 +380,9 @@ after it has faded goes to the post underneath, as it should (H-2).
   archive list, and an "Archive" row at the top of All channels opens them as an ordinary
   channel list (with the same row menu). The ordinary lists still do not walk the archive, so
   an archived channel stays out of them — the round 6 decision, refined.
-- [ ] H-31 A tap on the channel photo opens it full screen, in the info screen and wherever
-  else an avatar is big enough to aim at.
+- [x] H-31 A tap on the channel photo in the info screen opens it on the whole screen, in the
+  media viewer with the channel's name on it; a channel without a photo says so. The avatars in
+  the lists and in the bubbles stay small targets and keep leading where they led.
 - [ ] H-32 Similar channels and the channel's QR code in the info screen (both come from
   Telegram).
 - [ ] H-33 Sound and vibration per rule priority: what the silent, normal and urgent channels

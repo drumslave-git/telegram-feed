@@ -7,6 +7,8 @@ import 'package:telegram_feed/feeds/feed_editor_screen.dart';
 import 'package:telegram_feed/feeds/shared_media.dart';
 import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_feed/home/channel_info_screen.dart';
+import 'package:telegram_feed/home/channel_list.dart' show ChannelAvatar;
+import 'package:telegram_feed/media/media_viewer.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'feeds_screen_test.dart' show ChannelsGateway;
@@ -249,5 +251,49 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('a tap on the channel photo opens it on the whole screen', (
+    tester,
+  ) async {
+    const withPhoto = Channel(
+      chatId: -1,
+      title: 'Alpha News',
+      username: 'alpha',
+      memberCount: 1200,
+      photo: FileRef(id: 3, remoteId: 'r3', size: 10, width: 640, height: 640),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChannelInfoScreen(gateway: gw, channel: withPhoto),
+      ),
+    );
+    await settle(tester);
+
+    await tester.tap(find.byType(ChannelAvatar).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(MediaViewerScreen), findsOneWidget);
+    // The viewer names the channel the picture belongs to.
+    expect(
+      find.descendant(
+        of: find.byType(MediaViewerScreen),
+        matching: find.text('Alpha News'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a channel with no photo says so instead', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChannelInfoScreen(gateway: gw, channel: channel),
+      ),
+    );
+    await settle(tester);
+    await tester.tap(find.byType(ChannelAvatar).first);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('This channel has no photo.'), findsOneWidget);
   });
 }
