@@ -233,6 +233,16 @@ Map<String, Object?> encodePost(Post p) => {
   'linkPreview': p.linkPreview == null
       ? null
       : encodeLinkPreview(p.linkPreview!),
+  'forwardedFrom': p.forwardedFrom == null
+      ? null
+      : {
+          'title': p.forwardedFrom!.title,
+          'chatId': p.forwardedFrom!.chatId,
+          'messageId': p.forwardedFrom!.messageId,
+          'userId': p.forwardedFrom!.userId,
+          'signature': p.forwardedFrom!.signature,
+          'hidden': p.forwardedFrom!.hidden,
+        },
 };
 
 Map<String, Object?> encodeLinkPreview(LinkPreview p) => {
@@ -350,6 +360,17 @@ Post decodePost(Map<Object?, Object?> m) => Post(
   linkPreview: m['linkPreview'] == null
       ? null
       : decodeLinkPreview(m['linkPreview'] as Map<Object?, Object?>),
+  forwardedFrom: switch (m['forwardedFrom']) {
+    final Map<Object?, Object?> o => ForwardOrigin(
+      title: (o['title'] as String?) ?? '',
+      chatId: (o['chatId'] as int?) ?? 0,
+      messageId: (o['messageId'] as int?) ?? 0,
+      userId: (o['userId'] as int?) ?? 0,
+      signature: (o['signature'] as String?) ?? '',
+      hidden: (o['hidden'] as bool?) ?? false,
+    ),
+    _ => null,
+  },
 );
 
 Map<String, Object?> encodePostEvent(PostEvent e) => switch (e) {

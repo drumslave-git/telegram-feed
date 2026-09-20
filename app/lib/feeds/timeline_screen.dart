@@ -435,6 +435,9 @@ class TimelineViewState extends State<TimelineView> {
 
   /// Channel photos for the avatars beside the posts.
   Map<int, FileRef?> _photos = const {};
+
+  /// Every channel the account follows, by chat id: the forwarded-from line opens one.
+  Map<int, Channel> _known = const {};
   Map<int, int> _marks = const {};
   bool _loading = false;
   String? _error;
@@ -525,11 +528,13 @@ class TimelineViewState extends State<TimelineView> {
   }
 
   /// The database keeps titles only; the photos come from Telegram's chat list. Rows show
-  /// initials until they are here.
+  /// initials until they are here. The channels themselves stay for the forwarded-from line,
+  /// which opens the origin when the account follows it.
   Future<void> _loadPhotos() async {
     try {
       final channels = await widget.gateway.myChannels();
       if (!mounted) return;
+      _known = {for (final c in channels) c.chatId: c};
       setState(() => _photos = {for (final c in channels) c.chatId: c.photo});
       _reportSources();
     } on TelegramException {
@@ -1060,6 +1065,40 @@ class TimelineViewState extends State<TimelineView> {
     );
   }
 
+  /// Tap on the forwarded-from line: opens the original post in the channel it came from,
+  /// when the account follows that channel. Channels the account does not follow cannot be
+  /// read (SPEC 5), so the line only says so.
+  void _openForward(TimelineItem item) {
+    final origin = item.head.forwardedFrom;
+    if (origin == null) return;
+    final channel = _known[origin.chatId];
+    if (channel == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            origin.title.isEmpty
+                ? 'That post came from an account that hides itself.'
+                : '${origin.title} is not a channel you follow.',
+          ),
+        ),
+      );
+      return;
+    }
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TimelineScreen(
+            db: widget.db,
+            gateway: widget.gateway,
+            channel: channel,
+            focusChatId: origin.chatId,
+            focusMessageId: origin.messageId == 0 ? null : origin.messageId,
+          ),
+        ),
+      ),
+    );
+  }
+
   /// A link in a post: whatever app handles it, the browser for web pages.
   Future<void> _openLink(String url) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -1286,6 +1325,9 @@ class TimelineViewState extends State<TimelineView> {
                 onOpenLink: _openLink,
                 onAutoplaySettings: () =>
                     showAutoplaySettings(context, widget.db),
+                onOpenForward: item.head.forwardedFrom == null
+                    ? null
+                    : () => _openForward(item),
                 // Only posts of channels with a discussion group have a thread.
                 onOpenThread: !item.head.canComment
                     ? null

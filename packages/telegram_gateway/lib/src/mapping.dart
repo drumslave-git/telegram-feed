@@ -123,7 +123,7 @@ String preview(td.MessageContent? c) {
   };
 }
 
-Post post(td.Message m) {
+Post post(td.Message m, {ForwardOrigin? forwardedFrom}) {
   final (text, media) = content(m.content);
   return Post(
     chatId: m.chatId,
@@ -140,8 +140,34 @@ Post post(td.Message m) {
     canComment: m.interactionInfo?.replyInfo != null,
     entities: entities(formattedText(m.content)),
     linkPreview: linkPreview(m.content),
+    forwardedFrom: forwardedFrom ?? forwardOrigin(m),
   );
 }
+
+/// Origin of a forwarded post, with the ids the gateway turns into a name.
+ForwardOrigin? forwardOrigin(td.Message m) => switch (m.forwardInfo?.origin) {
+  td.MessageOriginChannel(
+    :final chatId,
+    :final messageId,
+    :final authorSignature,
+  ) =>
+    ForwardOrigin(
+      chatId: chatId,
+      messageId: messageId,
+      signature: authorSignature,
+    ),
+  td.MessageOriginChat(:final senderChatId, :final authorSignature) =>
+    ForwardOrigin(chatId: senderChatId, signature: authorSignature),
+  td.MessageOriginUser(:final senderUserId) => ForwardOrigin(
+    userId: senderUserId,
+  ),
+  // Someone whose privacy settings hide the account: TDLib gives the name itself.
+  td.MessageOriginHiddenUser(:final senderName) => ForwardOrigin(
+    title: senderName,
+    hidden: true,
+  ),
+  null => null,
+};
 
 /// The card of a post that carries a link (TDLib's `linkPreview`, only on `messageText`).
 LinkPreview? linkPreview(td.MessageContent? c) {

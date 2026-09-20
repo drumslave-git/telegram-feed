@@ -51,6 +51,8 @@ Primary persona: someone who follows 20 to 200 Telegram channels (news, niche co
 - I can open a feed and see posts from all its channels in one chronological list, oldest on top and newest at the bottom as in a Telegram chat, with the channel name on every post.
 - The feed opens where I left it earlier in the session; otherwise at the first unread post, and at the newest post when everything is read.
 - I can scroll up indefinitely; older posts load as I scroll. Posts that arrive while I read older ones wait behind a button with their count.
+- A post one channel forwarded from another says so above its text, with the original
+  channel's name; a tap opens the original post when I follow that channel too.
 - A post whose text carries a link shows the site's card under it (or over it, as Telegram says): the site, the title, the description and the picture, with a play badge when the link is a video. A tap on the card opens the link in the browser or in the app that handles it.
 - I can view photos inline, play video, voice, and audio without leaving the app.
 - A tap on a video plays it full screen at once, in the orientation I hold the phone, from the beginning when the timeline was autoplaying it. There I can seek, zoom with a double tap or a pinch and move the zoomed picture, hold a finger down for 2× speed, swipe down to close, swipe sideways through the photos and videos of the album, and shrink the video to a floating player. Leaving full screen stops the video and its download; short videos that autoplay in the timeline go on playing there without sound.

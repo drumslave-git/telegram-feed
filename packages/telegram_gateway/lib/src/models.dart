@@ -278,6 +278,49 @@ final class DocumentMedia extends Media {
   final FileRef? thumbnail;
 }
 
+/// Where a forwarded post came from (TDLib's `message.forward_info`): the line the official
+/// app draws above the post, "Forwarded from `<name>`". The gateway fills [title] from
+/// the id.
+final class ForwardOrigin {
+  const ForwardOrigin({
+    this.title = '',
+    this.chatId = 0,
+    this.messageId = 0,
+    this.userId = 0,
+    this.signature = '',
+    this.hidden = false,
+  });
+
+  /// Name of the channel, group or person the post came from.
+  final String title;
+
+  /// Origin channel or group, and the original post in it (0 when the origin is a person or
+  /// hides itself); a tap can open it.
+  final int chatId;
+  final int messageId;
+
+  /// Origin user, when a person forwarded their own message (0 otherwise).
+  final int userId;
+
+  /// Author signature the original post carried.
+  final String signature;
+
+  /// The sender hides their account: [title] is only the name they show.
+  final bool hidden;
+
+  ForwardOrigin withTitle(String title) => ForwardOrigin(
+    title: title,
+    chatId: chatId,
+    messageId: messageId,
+    userId: userId,
+    signature: signature,
+    hidden: hidden,
+  );
+
+  @override
+  String toString() => 'ForwardOrigin($title, chat $chatId/$messageId)';
+}
+
 /// The card under (or above) a post with a link: what TDLib hands over as `linkPreview` and
 /// the official app draws with the site, the title, a description and a picture. It is not
 /// [Post.media]: a post with a link stays a text post for a feed's filters.
@@ -476,6 +519,7 @@ final class Post {
     this.canComment = false,
     this.entities = const [],
     this.linkPreview,
+    this.forwardedFrom,
   });
   final int chatId;
   final int messageId;
@@ -507,6 +551,9 @@ final class Post {
 
   /// The link preview TDLib attached to the post, if it has one.
   final LinkPreview? linkPreview;
+
+  /// Where the post was forwarded from, if it was.
+  final ForwardOrigin? forwardedFrom;
 
   @override
   String toString() => 'Post($chatId/$messageId, ${text.length} chars)';

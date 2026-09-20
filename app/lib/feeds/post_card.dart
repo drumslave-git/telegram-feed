@@ -136,6 +136,7 @@ class PostCard extends StatelessWidget {
     this.onOpenThread,
     this.onOpenLink,
     this.onAutoplaySettings,
+    this.onOpenForward,
   });
   final TimelineItem item;
   final String channelTitle;
@@ -161,6 +162,9 @@ class PostCard extends StatelessWidget {
 
   /// Menu entry of posts with a video: the autoplay switch and limits.
   final VoidCallback? onAutoplaySettings;
+
+  /// Tap on the "Forwarded from" line: opens the original post where the app can.
+  final VoidCallback? onOpenForward;
 
   bool get _hasMenu =>
       onOpenInTelegram != null ||
@@ -252,6 +256,7 @@ class PostCard extends StatelessWidget {
       onReact: onReact,
       onOpenThread: onOpenThread,
       onOpenLink: onOpenLink,
+      onOpenForward: onOpenForward,
     );
     // The bubble has the row to itself: the channel's photo sits in its title line and
     // sharing is in the menu, so nothing beside it takes width from text and pictures.
@@ -319,6 +324,45 @@ class BubbleTitle extends StatelessWidget {
   );
 }
 
+/// "Forwarded from `<name>`", the line the official app draws above a forwarded post. The
+/// signature of the original author follows the name, as it does there.
+class ForwardedFrom extends StatelessWidget {
+  const ForwardedFrom({super.key, required this.origin, this.onTap});
+  final ForwardOrigin origin;
+
+  /// Opens the original post, when it is one of a channel the account follows.
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final name = origin.title.isEmpty ? 'a hidden account' : origin.title;
+    final row = Text.rich(
+      TextSpan(
+        children: [
+          const TextSpan(text: 'Forwarded from '),
+          TextSpan(
+            text: name,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          if (origin.signature.isNotEmpty)
+            TextSpan(text: ' (${origin.signature})'),
+        ],
+      ),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+    );
+    return onTap == null
+        ? row
+        : GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: row,
+          );
+  }
+}
+
 class _Bubble extends StatelessWidget {
   const _Bubble({
     required this.item,
@@ -330,6 +374,7 @@ class _Bubble extends StatelessWidget {
     required this.onReact,
     required this.onOpenThread,
     required this.onOpenLink,
+    required this.onOpenForward,
   });
   final TimelineItem item;
   final List<Media> media;
@@ -340,6 +385,7 @@ class _Bubble extends StatelessWidget {
   final void Function(String emoji, bool remove)? onReact;
   final VoidCallback? onOpenThread;
   final void Function(String url)? onOpenLink;
+  final VoidCallback? onOpenForward;
 
   static const _side = 10.0;
 
@@ -415,6 +461,14 @@ class _Bubble extends StatelessWidget {
             gateway: gateway,
           ),
         ),
+        if (item.head.forwardedFrom != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(_side, 0, _side, 5),
+            child: ForwardedFrom(
+              origin: item.head.forwardedFrom!,
+              onTap: onOpenForward,
+            ),
+          ),
         if (pictures != null)
           footerOnMedia
               ? Stack(

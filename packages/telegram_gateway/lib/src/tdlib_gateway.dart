@@ -100,7 +100,7 @@ final class TdlibGateway implements TelegramGateway {
         if (_openThreads.contains((message.chatId, map.threadIdOf(message)))) {
           _commentCtl.add(map.comment(message, await _sender(message)));
         } else if (_isChannelChat(message.chatId)) {
-          _postCtl.add(PostAdded(map.post(message)));
+          _postCtl.add(PostAdded(await _post(message)));
         }
       case td.UpdateMessageContent(:final chatId, :final messageId):
         if (_isChannelChat(chatId)) await _emitEdited(chatId, messageId);
@@ -162,7 +162,7 @@ final class TdlibGateway implements TelegramGateway {
       final m = await _client.call(
         td.GetMessage(chatId: chatId, messageId: messageId),
       );
-      _postCtl.add(PostEdited(map.post(m)));
+      _postCtl.add(PostEdited(await _post(m)));
     } on TelegramException catch (e) {
       log?.call('getMessage($chatId, $messageId) failed: $e');
     }
@@ -338,7 +338,7 @@ final class TdlibGateway implements TelegramGateway {
           if (from == 0 || m.id < from) m,
       ];
       if (older.isEmpty) break;
-      out.addAll(older.map(map.post));
+      out.addAll(await _posts(older));
       from = older.last.id;
       // Local reads are one cheap probe before the network.
       if (onlyLocal) break;
@@ -372,7 +372,7 @@ final class TdlibGateway implements TelegramGateway {
           if (m.id > from) m,
       ]..sort((a, b) => a.id.compareTo(b.id));
       if (newer.isEmpty) break;
-      out.addAll(newer.map(map.post));
+      out.addAll(await _posts(newer));
       from = newer.last.id;
     }
     return out.reversed.toList();
@@ -407,7 +407,7 @@ final class TdlibGateway implements TelegramGateway {
         total = r.totalCount;
         first = false;
       }
-      out.addAll(r.messages.map(map.post));
+      out.addAll(await _posts(r.messages));
       next = r.nextFromMessageId;
       if (next == 0 || r.messages.isEmpty) {
         next = 0;
@@ -512,6 +512,37 @@ final class TdlibGateway implements TelegramGateway {
   @override
   Future<void> cancelDownload(int fileId) =>
       _client.call(td.CancelDownloadFile(fileId: fileId, onlyIfPending: false));
+
+  /// A post with the name of the channel or person it was forwarded from; the lookup is the
+  /// sender cache of the comments, so each origin costs one request per session.
+  Future<Post> _post(td.Message m) async {
+    final origin = map.forwardOrigin(m);
+    return map.post(
+      m,
+      forwardedFrom: origin == null ? null : await _named(origin),
+    );
+  }
+
+  Future<List<Post>> _posts(Iterable<td.Message> messages) async {
+    final out = <Post>[];
+    for (final m in messages) {
+      out.add(await _post(m));
+    }
+    return out;
+  }
+
+  Future<ForwardOrigin> _named(ForwardOrigin o) async {
+    if (o.title.isNotEmpty) return o;
+    if (o.chatId != 0) {
+      final s = _senders['c${o.chatId}'] ??= await _chatSender(o.chatId);
+      return o.withTitle(s.name);
+    }
+    if (o.userId != 0) {
+      final s = _senders['u${o.userId}'] ??= await _userSender(o.userId);
+      return o.withTitle(s.name);
+    }
+    return o;
+  }
 
   /// Name and photo of whoever wrote [m], looked up once per session.
   Future<map.Sender> _sender(td.Message m) async {

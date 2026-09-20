@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-4 (the "forwarded from" header).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-5 (reply and quote preview).
 
 ## Phase 0 — Spikes
 
@@ -246,9 +246,11 @@ after it has faded goes to the post underneath, as it should (H-2).
   with the accent bar; a live stream has no length, so no length badge; a tap on the card handed
   the link to the YouTube app. Light and dark are in the timeline goldens, which gained a
   picture-less card.
-- [ ] H-4 "Forwarded from" header: the forward origin (channel, hidden sender, user) in the
-  gateway model and above the text, as in the official app. Channels repost each other
-  constantly and the app shows such a post as the channel's own.
+- [x] H-4 "Forwarded from" header: `ForwardOrigin` from TDLib's four origins (channel with the
+  original post, chat, user, hidden sender with the name it shows), named by the gateway through
+  the sender cache of the comments — one request per origin and session — and drawn under the
+  title line as the official app does, signature and all. A tap opens the original post when the
+  account follows that channel, and says so when it does not.
 - [ ] H-5 Reply and quote preview: a post that answers an earlier post of the channel shows the
   quoted post above its text, tappable to jump to it (`jumpToPost` already exists).
 - [ ] H-6 Copying text out of a post: "Copy text" in the post menu and the official app's copy
