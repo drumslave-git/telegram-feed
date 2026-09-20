@@ -168,7 +168,11 @@ pages from the older end it calls `onNeedOlder`, which pages the timeline and ha
 back grown; a list that does not grow means the end. A `ViewerDetail` per item carries the
 channel, the day and the caption, which the bar and the band at the bottom show, and the
 viewer's Share and Save act on the post that picture belongs to (`onShare`, `onSave` by
-index; the timeline keeps the owning row of every picture).
+index; the timeline keeps the owning row of every picture). "Save to gallery" goes through
+the `tf/gallery` method channel: the Kotlin side inserts the file into `MediaStore` under
+`Pictures/telegram-feed` or `Movies/telegram-feed` (no permission needed for the app's own
+file since Android 10) and answers with its uri; the file is downloaded first when the cache
+does not have it.
 
 ### 5.6 Video playback
 

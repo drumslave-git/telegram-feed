@@ -2,11 +2,15 @@ package dev.telegramfeed.telegram_feed
 
 import android.app.NotificationManager
 import android.app.PictureInPictureParams
+import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.provider.Settings
+import java.io.File
 import android.util.Rational
 import androidx.annotation.RequiresApi
 import io.flutter.embedding.android.FlutterActivity
@@ -36,6 +40,29 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        // Saving a picture or a video where the gallery looks for it (H-23). MediaStore
+        // needs no permission for what the app itself writes since Android 10, which is the
+        // oldest version this app runs on.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "tf/gallery")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "save" -> {
+                        val path = call.argument<String>("path")
+                        val name = call.argument<String>("name")
+                        val mime = call.argument<String>("mimeType") ?: "image/jpeg"
+                        if (path == null || name == null) {
+                            result.error("args", "path and name are required", null)
+                        } else {
+                            try {
+                                result.success(saveToGallery(File(path), name, mime))
+                            } catch (e: Exception) {
+                                result.error("save", e.message, null)
+                            }
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
         pipChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "tf/pip").also {
             it.setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -55,6 +82,33 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+    }
+
+    /** Copies the file into Pictures/telegram-feed (or Movies) and answers with its uri. */
+    private fun saveToGallery(file: File, name: String, mime: String): String {
+        val video = mime.startsWith("video")
+        val collection = if (video) {
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        } else {
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        }
+        val folder = if (video) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+            put(MediaStore.MediaColumns.MIME_TYPE, mime)
+            put(MediaStore.MediaColumns.RELATIVE_PATH, "$folder/telegram-feed")
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val uri = contentResolver.insert(collection, values)
+            ?: throw IllegalStateException("the gallery refused the file")
+        contentResolver.openOutputStream(uri).use { out ->
+            checkNotNull(out) { "the gallery gave no stream" }
+            file.inputStream().use { it.copyTo(out) }
+        }
+        values.clear()
+        values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+        contentResolver.update(uri, values, null, null)
+        return uri.toString()
     }
 
     private fun pipSupported() =

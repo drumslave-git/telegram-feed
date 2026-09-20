@@ -7,6 +7,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../feeds/media_view.dart' show Downloaded;
 import '../feeds/post_card.dart' show formatDay;
+import 'gallery.dart';
 import 'mini_player.dart';
 import 'swipe_to_close.dart';
 import 'video_downloads.dart';
@@ -46,6 +47,7 @@ class MediaViewerScreen extends StatefulWidget {
     this.onShare,
     this.onSave,
     this.onDetails,
+    this.gallery = const Gallery(),
   });
 
   /// [PhotoMedia] and [VideoMedia] only, see [viewable].
@@ -67,6 +69,9 @@ class MediaViewerScreen extends StatefulWidget {
   /// The details again, after more items were loaded.
   final List<ViewerDetail> Function()? onDetails;
 
+  /// Where "Save to gallery" puts the file; tests hand in their own.
+  final Gallery gallery;
+
   /// What of a post's media the viewer can show, in the order of the post.
   static List<Media> viewable(Iterable<Media> media) => [
     for (final m in media)
@@ -84,6 +89,7 @@ class MediaViewerScreen extends StatefulWidget {
     void Function(int index)? onShare,
     void Function(int index)? onSave,
     List<ViewerDetail> Function()? onDetails,
+    Gallery gallery = const Gallery(),
   }) => Navigator.of(context, rootNavigator: true).push(
     PageRouteBuilder<void>(
       // The timeline shows through while the page is dragged away.
@@ -97,6 +103,7 @@ class MediaViewerScreen extends StatefulWidget {
         onShare: onShare,
         onSave: onSave,
         onDetails: onDetails,
+        gallery: gallery,
       ),
       transitionsBuilder: (_, animation, _, child) =>
           FadeTransition(opacity: animation, child: child),
@@ -150,6 +157,41 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
 
   void _onZoom(bool zoomed) {
     if (zoomed != _zoomed) setState(() => _zoomed = zoomed);
+  }
+
+  /// Puts the picture or the video of the page in front into the phone's gallery. The file
+  /// is downloaded first if it is not there yet, as the download button would.
+  Future<void> _saveToGallery() async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final item = _index < _items.length ? _items[_index] : null;
+    final file = switch (item) {
+      PhotoMedia(:final sizes) => sizes.isEmpty ? null : sizes.last,
+      VideoMedia(:final file) => file,
+      _ => null,
+    };
+    if (file == null) return;
+    final video = item is VideoMedia;
+    try {
+      final ready = file.localPath != null
+          ? file
+          : await widget.gateway.download(file);
+      final path = ready.localPath;
+      if (path == null) throw StateError('the file did not arrive');
+      await widget.gallery.save(
+        path: path,
+        name: Gallery.nameFor(fileId: file.id, video: video),
+        mimeType: video ? 'video/mp4' : 'image/jpeg',
+      );
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(
+            video ? 'Video saved to gallery' : 'Picture saved to gallery',
+          ),
+        ),
+      );
+    } on Object catch (e) {
+      messenger?.showSnackBar(SnackBar(content: Text('Cannot save: $e')));
+    }
   }
 
   /// Near the older end (the last page): ask the timeline for its next page of posts.
@@ -224,6 +266,12 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
           icon: const Icon(Icons.bookmark_add_outlined),
           onPressed: () => widget.onSave!(_index),
         ),
+      IconButton(
+        tooltip: 'Save to gallery',
+        color: Colors.white,
+        icon: const Icon(Icons.save_alt),
+        onPressed: () => unawaited(_saveToGallery()),
+      ),
     ];
     return Scaffold(
       backgroundColor: Colors.transparent,

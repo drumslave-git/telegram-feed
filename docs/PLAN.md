@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-23 (saving a picture into the phone's gallery).
+**Current phase:** feedback round 7 (founder, 2026-09-20); rounds 1 to 6 and P4-1, P4-2 are closed. **Next task:** H-24 (auto-download settings).
 
 ## Phase 0 — Spikes
 
@@ -340,9 +340,11 @@ after it has faded goes to the post underneath, as it should (H-2).
   said — the caption over a dark band at the bottom — and carries Share and Save to Saved
   Messages, which act on that post. `ViewerDetail` travels with the items, so the details grow
   with them as older pages load.
-- [ ] H-23 Saving a photo or a video into the phone's gallery (`MediaStore`, with the
-  permission it needs). Replaces the round 2 decision that the download button only fills
-  Telegram's cache; the cache download stays as it is.
+- [x] H-23 "Save to gallery" in the viewer: a `tf/gallery` method channel copies the file into
+  `Pictures/telegram-feed` or `Movies/telegram-feed` through `MediaStore`, which asks for no
+  permission for a file the app wrote itself on Android 10 and later. The file is downloaded
+  first when it is not in the cache yet. Replaces the round 2 decision that the download button
+  only fills Telegram's cache; that button stays as it is.
 - [ ] H-24 Auto-download settings: what is fetched without being asked for, per network
   (photos, videos, files; size limits; nothing on mobile data), next to the autoplay limits.
 
