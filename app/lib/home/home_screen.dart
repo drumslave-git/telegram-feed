@@ -72,8 +72,10 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _loadChannels() async {
     List<ChatFolder> folders;
     try {
-      final channels = await widget.gateway.myChannels();
+      // Folders first: they tell the gateway which chat lists hold channels, and a channel
+      // joined through a folder invite link is in no other list.
       folders = await widget.gateway.chatFolders();
+      final channels = await widget.gateway.myChannels();
       if (!mounted) return;
       _channels = channels;
       _error = null;

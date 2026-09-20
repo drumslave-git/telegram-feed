@@ -11,7 +11,10 @@ abstract interface class TelegramGateway {
   Future<void> requestQrCode();
   Future<void> logOut();
 
-  /// Joined channels (supergroups with `is_channel`), newest chat first.
+  /// Joined channels (supergroups with `is_channel`) of the main chat list and of every
+  /// chat folder, newest chat first, each channel once. Folders are read too because a
+  /// channel joined through a folder invite link is in its folder's list only; the archive
+  /// is not read.
   Future<List<Channel>> myChannels();
   Stream<ChannelMembershipEvent> get membershipEvents;
 

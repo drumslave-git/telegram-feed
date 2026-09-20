@@ -212,46 +212,77 @@ final class TdlibGateway implements TelegramGateway {
 
   @override
   Future<List<Channel>> myChannels() async {
-    const list = td.ChatListMain();
-    await _loadAll(list);
-    final ids = (await _client.call(
-      const td.GetChats(chatList: list, limit: 1000),
-    )).chatIds;
     final out = <Channel>[];
-    for (final id in ids) {
-      final chat = await _client.call(td.GetChat(chatId: id));
-      if (chat.type
-          case td.ChatTypeSupergroup(:final supergroupId, :final isChannel)
-          when isChannel) {
-        final sg =
-            _supergroups[supergroupId] ??
-            await _client.call(td.GetSupergroup(supergroupId: supergroupId));
-        _supergroups[supergroupId] = sg;
-        _channelChatIds.add(id);
-        out.add(map.channel(chat, sg));
+    final seen = <int>{};
+    for (final (name, list) in _chatLists()) {
+      var added = 0;
+      for (final id in await _chatIdsOf(list)) {
+        if (!seen.add(id)) continue;
+        final channel = await _channelOf(id);
+        if (channel == null) continue;
+        out.add(channel);
+        added++;
       }
+      if (added > 0) log?.call('myChannels: $added channels from $name');
     }
     return out;
+  }
+
+  /// The main list first, then every folder. A channel joined through a folder invite link
+  /// is in its folder's list and in no other, so the main list alone misses it. The archive
+  /// is not read: archived channels stay out of the app's lists (founder decision
+  /// 2026-09-20), except when a folder of theirs holds one.
+  List<(String, td.ChatList)> _chatLists() => [
+    ('the main list', const td.ChatListMain()),
+    for (final f in _folders)
+      (
+        'folder "${f.name?.text?.text ?? f.id}"',
+        td.ChatListFolder(chatFolderId: f.id),
+      ),
+  ];
+
+  Future<List<int>> _chatIdsOf(td.ChatList list) async {
+    await _loadAll(list);
+    return (await _client.call(td.GetChats(chatList: list, limit: 1000)))
+        .chatIds;
+  }
+
+  /// Whether the chat is a channel, remembering the answer. Cheaper than [_channelOf]: the
+  /// folder tabs get their channels from [myChannels], this only sorts the ids.
+  Future<bool> _isChannelChatId(int id) async {
+    if (_channelChatIds.contains(id)) return true;
+    final chat = await _client.call(td.GetChat(chatId: id));
+    if (chat.type case td.ChatTypeSupergroup(:final isChannel) when isChannel) {
+      _channelChatIds.add(id);
+      return true;
+    }
+    return false;
+  }
+
+  /// The channel behind a chat id, or null when the chat is a group, a user or a bot.
+  Future<Channel?> _channelOf(int id) async {
+    final chat = await _client.call(td.GetChat(chatId: id));
+    if (chat.type
+        case td.ChatTypeSupergroup(:final supergroupId, :final isChannel)
+        when isChannel) {
+      final sg =
+          _supergroups[supergroupId] ??
+          await _client.call(td.GetSupergroup(supergroupId: supergroupId));
+      _supergroups[supergroupId] = sg;
+      _channelChatIds.add(id);
+      return map.channel(chat, sg);
+    }
+    return null;
   }
 
   @override
   Future<List<ChatFolder>> chatFolders() async {
     final out = <ChatFolder>[];
     for (final info in _folders) {
-      final list = td.ChatListFolder(chatFolderId: info.id);
-      await _loadAll(list);
-      final ids = (await _client.call(td.GetChats(chatList: list, limit: 1000)))
-          .chatIds;
+      final ids = await _chatIdsOf(td.ChatListFolder(chatFolderId: info.id));
       final channels = <int>[];
       for (final id in ids) {
-        if (!_channelChatIds.contains(id)) {
-          final chat = await _client.call(td.GetChat(chatId: id));
-          if (chat.type case td.ChatTypeSupergroup(:final isChannel)
-              when isChannel) {
-            _channelChatIds.add(id);
-          }
-        }
-        if (_channelChatIds.contains(id)) channels.add(id);
+        if (await _isChannelChatId(id)) channels.add(id);
       }
       if (channels.isNotEmpty) {
         out.add(

@@ -221,6 +221,46 @@ void main() {
     },
   );
 
+  test('myChannels also lists a channel that only a folder holds', () async {
+    t.update({
+      '@type': 'updateChatFolders',
+      'chat_folders': [
+        {
+          '@type': 'chatFolderInfo',
+          'id': 2,
+          'name': {
+            '@type': 'chatFolderName',
+            'text': {'@type': 'formattedText', 'text': 'Memes', 'entities': []},
+          },
+        },
+      ],
+      'main_chat_list_position': 0,
+    });
+    await pumpEventQueue();
+    t.handlers['loadChats'] = (_) => {
+      '@type': 'error',
+      'code': 404,
+      'message': 'Not Found',
+    };
+    // The channel of the folder is in no other list, as after joining by folder link.
+    t.handlers['getChats'] = (r) => {
+      '@type': 'chats',
+      'total_count': 1,
+      'chat_ids': (r['chat_list'] as Map)['@type'] == 'chatListMain'
+          ? [-1001]
+          : [-1002, -1001],
+    };
+    t.handlers['getChat'] = (r) => r['chat_id'] == -1001
+        ? chatJson(-1001, 'News', supergroupId: 1)
+        : chatJson(-1002, 'Memes', supergroupId: 2);
+    t.handlers['getSupergroup'] = (r) =>
+        supergroupJson(r['supergroup_id'] as int);
+
+    final channels = await g.myChannels();
+    // Each channel once, the main list first.
+    expect(channels.map((c) => c.title), ['News', 'Memes']);
+  });
+
   test(
     'chatFolders keeps the channels of each folder, drops empty ones',
     () async {
