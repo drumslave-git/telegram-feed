@@ -415,6 +415,16 @@ class _HomeScreenState extends State<HomeScreen>
     },
   );
 
+  /// Channels of the folder with posts the account has not read, the way Telegram counts
+  /// unread chats on its own folder tabs.
+  int _unreadInFolder(ChatFolder folder) {
+    final unread = {
+      for (final c in _channels)
+        if (c.unreadCount > 0) c.chatId,
+    };
+    return folder.channelIds.where(unread.contains).length;
+  }
+
   Widget _channelsTab(ChatFolder? folder) {
     final byId = {for (final c in _channels) c.chatId: c};
     return ChannelList(
@@ -485,7 +495,23 @@ class _HomeScreenState extends State<HomeScreen>
                         behavior: HitTestBehavior.opaque,
                         onLongPressStart: (d) =>
                             _folderMenu(f, d.globalPosition),
-                        child: Tab(child: _tabLabel(Text(f.title))),
+                        child: Tab(
+                          child: _tabLabel(
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(f.title),
+                                if (_unreadInFolder(f) > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 6),
+                                    child: Badge.count(
+                                      count: _unreadInFolder(f),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     Tab(child: _tabLabel(const Text('All channels'))),
                   ],

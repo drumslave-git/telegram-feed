@@ -179,12 +179,13 @@ void main() {
       await tester.pumpWidget(app());
       await settle(tester);
       expect(find.text('1 channel with new posts'), findsOneWidget);
-      final onTab = find.descendant(
-        of: find.byType(TabBar),
+      // The badge of the Feeds tab; the folder tab has one of its own (H-14).
+      final onFeedsTab = find.descendant(
+        of: find.ancestor(of: find.text('Feeds'), matching: find.byType(Tab)),
         matching: find.byType(Badge),
       );
       expect(
-        find.descendant(of: onTab, matching: find.text('1')),
+        find.descendant(of: onFeedsTab, matching: find.text('1')),
         findsOneWidget,
       );
 
@@ -194,7 +195,7 @@ void main() {
       });
       await settle(tester);
       expect(find.textContaining('with new posts'), findsNothing);
-      expect(onTab, findsNothing);
+      expect(onFeedsTab, findsNothing);
 
       gw.posts.add(PostAdded(post(-2, 201, 'x')));
       await settle(tester);
@@ -318,6 +319,24 @@ void main() {
     // Back on the Feeds tab, with the new feed listed.
     expect(find.widgetWithText(ListTile, 'Work'), findsOneWidget);
     expect(find.textContaining('created with 2 channels'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('a folder tab counts the channels with unread posts', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await settle(tester);
+    // The folder holds Two (7 unread) and One (fully read).
+    final onFolder = find.descendant(
+      of: find.ancestor(of: find.text('Work'), matching: find.byType(Tab)),
+      matching: find.byType(Badge),
+    );
+    expect(onFolder, findsOneWidget);
+    expect(
+      find.descendant(of: onFolder, matching: find.text('1')),
+      findsOneWidget,
+    );
     await unmount(tester);
   });
 
