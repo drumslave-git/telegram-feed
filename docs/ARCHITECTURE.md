@@ -306,6 +306,14 @@ Each notification: channel title, post excerpt, actions **Listen** and **Open in
 
 The group summary's "N new posts" counts what `getActiveNotifications` still reports for that group, plus the post being shown; it is never a running tally, so posts the user swiped away or tapped, and posts deleted in Telegram, stop counting. When a cancellation empties a group the summary is cancelled with it.
 
+Every notification names its small icon (`ic_stat_feed`, a white glyph on transparency that
+Android tints like every other app's) instead of leaving it to the plugin's default: that
+default lives in shared preferences, so the isolate that initialises last would decide it, and
+the UI's own initialisation (for tap handling) would make it the launcher icon, in colour. The
+service's notification names the icon on every update for the same reason: Android restores a
+running foreground service with the content saved when it was started, which on an old install
+may predate the icon.
+
 Android 13+ requires `POST_NOTIFICATIONS`; requested during onboarding of phase 2.
 
 ## 7. Read aloud

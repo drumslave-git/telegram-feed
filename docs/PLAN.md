@@ -185,6 +185,8 @@ editor's scope list.
 - [x] G-4 Space between the newest post and the bottom edge of the screen: the reversed list carries 8 px plus the system inset at its visual bottom. (f1dd955)
 - [x] G-5 Channel lists tag each channel with the feeds it belongs to: `feedNamesByChat` in `app_db` and `FeedTags` chips in the home lists (live as feeds and sources change), the feed editor's channel picker and the rule editor's scope list. (e09734a, tests 6639200)
 
+- [x] G-6 The icon in the status bar had the launcher's blue background instead of a plain white glyph. Two paths could produce it: `flutter_local_notifications` keeps its default icon in shared preferences, where the UI isolate's initialisation (`@mipmap/ic_launcher`, there only for tap handling) decided the icon of the posts the service shows afterwards; and Android restores a running foreground service with the notification content saved when it was started, which on an old install comes from a build that named no icon. Every notification names `ic_stat_feed` now, the UI initialises with it too, and the service's minute-by-minute update names it again, so a stale one corrects itself. (8444b4f) Seen on the emulator: with the service channel raised to Default for the test, the status bar shows the bare glyph beside the system icons, and the channel was put back to Silent.
+
 Verified on the emulator (2026-09-20, spare account): the 🙂 folder that had been joined
 through an invite link lists its six channels with photos, previews, times and unread counts,
 and the log names the folder as their only chat list (G-1); a seven-second video that had
