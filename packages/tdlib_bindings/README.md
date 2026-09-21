@@ -1,7 +1,7 @@
 # tdlib_bindings
 
 Dart types for the TDLib JSON API, generated from `schema/td_api.tl` at the TDLib commit in
-`schema/TDLIB_COMMIT` (the same commit `tool/tdlib` and `tool/tdweb` build the binaries from).
+`schema/TDLIB_COMMIT` (the same commit `tool/tdlib` builds `libtdjson.so` from).
 
 ```bash
 dart run tool/generate.dart     # rewrites lib/src/td_api.dart and formats it

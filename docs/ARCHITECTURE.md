@@ -1,400 +1,273 @@
-# telegram-feed — Technical Architecture
+# telegram-feed — Architecture
 
-Status: draft v0.1, 2026-09-17. Companion to SPEC.md.
+Companion to [SPEC.md](SPEC.md).
 
 ## 1. Summary
 
-- **Flutter** app, Android only. iOS and web are out of scope (decision log).
-- **TDLib** (Telegram's official client library) accessed through its JSON interface (`td_json_client`) via `dart:ffi`.
-- The TDLib client and all "always-on" logic live in a single **core isolate**. On Android that isolate is hosted by a foreground service so it survives the UI being killed. The UI is a thin client of the core.
-- App data that TDLib does not own (feeds, feed membership, read markers, rules, settings) lives in a local **SQLite** database via **Drift**.
-- No backend. Nothing leaves the device except MTProto traffic to Telegram.
+- **Flutter** app, Android only.
+- **TDLib**, Telegram's client library, through its JSON interface (`td_json_client`) via `dart:ffi`.
+- The TDLib client and the rule engine live in one **core isolate**. With background watching on, a foreground service hosts it, so it keeps running when the UI is closed. With background watching off, the UI spawns it. The UI is a client of the core.
+- Data TDLib does not own (feeds, sources, read marks, rules, settings) lives in **SQLite** through **Drift**.
+- No backend. The device talks to Telegram, and, when the user turns them on, to the user's own Google Drive (sync) and to an AI endpoint the user configures (AI rules).
 
 ```
-┌───────────────────────────── device ─────────────────────────────┐
-│  UI isolate (Flutter)                                            │
-│   screens ── view models ── CoreClient (SendPort/ReceivePort)    │
-│                                   │                              │
-│  ───────────────────────────────── │ ─────────────────────────── │
-│  Core isolate (Android: hosted by foreground service)            │
-│   CoreServer ── FeedService ── RuleEngine ── TtsService          │
-│        │            │              │                             │
-│   TelegramGateway   AppDb (Drift/SQLite)   Notifier              │
-│        │                                                          │
-│   TDLib (td_json_client via FFI)                                  │
-└───────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────── device ───────────────────────────────┐
+│  UI isolate (Flutter)                                                │
+│   screens ── FeedTimeline / FeedSearch ── CoreClient ── AppDatabase  │
+│                                              │                       │
+│  ─────────────────────────────────────────── │ ───────────────────── │
+│  Service host (root isolate of the foreground service's engine)      │
+│   CoreServiceHandler ── Notifier ── TtsService ── SemanticGate       │
+│                                              │                       │
+│  ─────────────────────────────────────────── │ ───────────────────── │
+│  Core isolate                                                        │
+│   CoreServer ── TdlibGateway ── RuleEngine ── AppDatabase            │
+│                     │                                                │
+│   TDLib (td_json_client via FFI)                                     │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-## 2. Why these choices
+## 2. Technology choices
 
-| Choice | Alternatives considered | Reason |
-|---|---|---|
-| TDLib | GramJS / MTProto from scratch; Bot API | TDLib is Telegram's own library, handles auth, updates, media download, local cache, and has Android and web builds. Bot API cannot read arbitrary channels. |
-| On-device session | Server-side session; hybrid | The founder chose on-device. No server cost, no custody of user sessions, matches an open-source product. Cost: notifications depend on the app staying alive, which is fine on Android with a foreground service and is why iOS was dropped. |
-| Flutter | React Native, Kotlin Multiplatform | Mature FFI, one codebase that could also target desktop or (dropped) web. |
-| Core isolate separate from UI | TDLib in the UI isolate; native Kotlin service owning TDLib | The UI can be destroyed while the service lives on. Keeping TDLib in a Dart isolate keeps the code cross-platform; a Kotlin-owned TDLib would need a second implementation for web. |
-| Drift (SQLite) | Hive, Isar, shared_preferences | Relational data (feeds ↔ channels, per-feed read markers), proper queries. |
-| Device TTS via `flutter_tts` | Cloud voices | Free, offline, works with the screen off. Cloud voices are a later opt-in. |
+| Choice | Reason |
+|---|---|
+| TDLib | Handles auth, updates, media download and a local message cache. The Bot API cannot read arbitrary channels. |
+| Session on the device | No server and no custody of user sessions. Real-time notifications need the app to stay alive, which a foreground service provides on Android. |
+| Flutter | Mature FFI and one codebase. |
+| Core isolate separate from the UI | The UI can be destroyed while the service keeps the core running. TDLib stays in Dart, with no Kotlin implementation. |
+| Drift (SQLite) | Relational data (feeds ↔ channels, per-feed read marks) with real queries. |
+| Device TTS via `flutter_tts` | Free, offline, works with the screen off. |
 
-## 3. Module layout (Dart packages in one repo)
+## 3. Module layout
 
 ```
 telegram-feed/
-  app/                  Flutter application (UI, routing, theming, platform glue)
+  app/                  Flutter application: screens, service host, platform glue
   packages/
-    core/               Core isolate: CoreServer, services, rule engine, TTS, notifier
-    telegram_gateway/   TelegramGateway interface + TDLib FFI impl
+    core/               CoreServer, CoreClient, port protocol, FeedTimeline, FeedSearch, FeedFilter,
+                        RuleEngine, sync merge, read-aloud text preparation, Telegram links
+    telegram_gateway/   TelegramGateway interface, TdlibGateway, FfiTransport
     app_db/             Drift schema, DAOs, migrations
-    rules/              Rule AST, parser, evaluator (pure Dart, heavily unit tested)
-    tdlib_bindings/     Generated Dart types for the TDLib JSON API (td_api.tl → Dart)
+    rules/              Rule AST, parser, evaluator, schedules (pure Dart)
+    tdlib_bindings/     Dart types generated from td_api.tl
+    versioning/         Next version and changelog from conventional commits
+  tool/                 CI script, TDLib build and download, golden update
   docs/
-  tool/                 Scripts: TDLib build/download, codegen
 ```
 
-Pure-Dart packages (`rules`, `app_db`, `core`) get the bulk of the tests. `app/` stays thin.
+The pure-Dart packages carry most of the tests. `app/` stays thin.
 
 ## 4. Telegram gateway
 
-`TelegramGateway` is the only thing that knows about TDLib. Everything above it works with app-level types (`Channel`, `Post`, `Media`).
+`TelegramGateway` is the only layer that knows about TDLib. Everything above it works with app-level types (`Channel`, `Post`, `Media`, `Comment`, `FileRef`).
 
-```dart
-abstract interface class TelegramGateway {
-  Stream<AuthState> get authState;                         // current state replayed, then changes
-  Future<void> setPhoneNumber(String phone);
-  Future<void> checkCode(String code);
-  Future<void> checkPassword(String password);
-  Future<void> registerUser({required String firstName, String lastName});
-  Future<void> requestQrCode();                            // AuthWaitOtherDeviceConfirmation carries the link
-  Future<void> logOut();
+| Area | Members |
+|---|---|
+| Login | `authState`, `setPhoneNumber`, `checkCode`, `checkPassword`, `registerUser`, `requestQrCode`, `logOut` |
+| Channels | `myChannels`, `membershipEvents`, `chatFolders`, `archivedChannels`, `savedMessages`, `channelInfo`, `similarChannels`, `pinnedPost` |
+| Posts | `history`, `historyAfter`, `postEvents`, `markViewed`, `messageIdByDate`, `customEmoji` |
+| Search | `searchHistory`, `searchAllChannels`, `searchThread` |
+| Files | `download`, `fileProgress`, `downloadFrom`, `downloadedPrefix`, `cancelDownload` |
+| Interactions | `availableReactions`, `react`, `saveToSavedMessages`, `discussion`, `threadHistory`, `reply`, `comments`, `closeThread` |
+| Account and state | `me`, `storageStats`, `clearCache`, `connection`, `close` |
 
-  Future<List<Channel>> myChannels();                      // joined channels of the main list and of every folder
-  Stream<ChannelMembershipEvent> get membershipEvents;     // user joined / left a channel in Telegram
-  Future<List<ChatFolder>> chatFolders();                  // Telegram folders, reduced to their channels
+Implementation:
 
-  Future<List<Post>> history(int chatId, {int fromMessageId, int limit, bool onlyLocal});
-  Stream<PostEvent> get postEvents;                        // PostAdded / PostEdited / PostsDeleted
-  Future<void> markViewed(int chatId, List<int> messageIds);
-  Future<void> saveToSavedMessages(int chatId, List<int> messageIds);  // forward into the chat with oneself
+- `TdlibGateway` (package `telegram_gateway`) runs over a `TdTransport` (raw JSON in, raw JSON out). `TdClient` matches responses to requests by `@extra`, decodes updates with `tdlib_bindings` and hands them to the gateway strictly in order, so an edit that needs a `getMessage` round trip cannot be overtaken by the following delete.
+- `FfiTransport` loads `libtdjson`, polls `td_receive` in one long-lived receive isolate and demultiplexes by `@client_id`. TDLib aborts the process if `td_receive` is called from two threads, so there is exactly one receive isolate per process. Imported from `package:telegram_gateway/tdlib_ffi.dart`.
+- Post events are emitted only for chats known to be channels. `updateMessageContent` and `updateMessageEdited` are re-fetched with `getMessage`, so `PostEdited` carries the full post. `updateDeleteMessages` is forwarded only when `is_permanent`.
+- TDLib answers `getChatHistory` with short pages, often a single cached message. `history` pages until the limit or the end. Local reads (`only_local`) stay a single probe.
 
-  Future<FileRef> download(FileRef ref, {int priority});   // completes with localPath set
-  Stream<FileProgress> fileProgress(int fileId);
-  Future<FileProgress> downloadFrom(int fileId, {int offset, int priority});  // play while downloading
-  Future<int> downloadedPrefix(int fileId, int offset);    // bytes readable from offset
-  Future<void> cancelDownload(int fileId);
-  Future<void> close();
+TDLib parameters: `use_message_database`, `use_chat_info_database` and `use_file_database` are true; the files directory is `files/` inside the account's TDLib directory. TDLib owns message and file caching; the app never copies message bodies into its own database.
 
-  // phase 3: react, discussion
-}
-```
-
-Implementations:
-
-- One implementation, `TdlibGateway` (package `telegram_gateway`), over a `TdTransport` (raw JSON in, raw JSON out). `TdClient` matches responses to requests by `@extra`, decodes updates with `tdlib_bindings` and hands them to the gateway strictly in order (an edit that needs a `getMessage` round trip cannot be overtaken by the following delete).
-- `FfiTransport` (Android, and desktop for development): loads `libtdjson`, polls `td_receive` in one long-lived receive isolate and demultiplexes by `@client_id`. Imported from `package:telegram_gateway/tdlib_ffi.dart` only on native platforms.
-- Post events are emitted only for chats known to be channels; `updateMessageContent`/`updateMessageEdited` are re-fetched with `getMessage` so `PostEdited` carries the full post; `updateDeleteMessages` is forwarded only when `is_permanent`.
-
-TDLib parameters: `use_message_database = true`, `use_chat_info_database = true`, `use_file_database = true`, `files_directory` under app cache. TDLib owns message and file caching; the app never duplicates message bodies into its own DB.
-
-API credentials: `api_id` and `api_hash` come from `--dart-define=TG_API_ID=... --dart-define=TG_API_HASH=...`. The repo contains none. CI for release builds injects them from secrets.
+API credentials: `api_id` and `api_hash` come from `--dart-define=TG_API_ID=... --dart-define=TG_API_HASH=...`. The repository contains none. CI injects them from secrets.
 
 ## 5. Feeds
 
-### 5.1 Data model (Drift)
+### 5.1 Data model (Drift, schema version 5)
 
 ```
 feeds            (id, name, position, created_at, sync_id, updated_at, filter_json?)
-feed_sources     (feed_id, chat_id, position, added_at)         -- PK (feed_id, chat_id)
-feed_read_marks  (feed_id, chat_id, last_read_message_id)       -- per feed AND per channel
-watched_channels (chat_id, title, username)
+feed_sources     (feed_id, chat_id, position, added_at)                 -- PK (feed_id, chat_id)
+feed_read_marks  (feed_id, chat_id, last_read_message_id)               -- PK (feed_id, chat_id)
+watched_channels (chat_id, title, username?)
+rules            (see section 6.1)
+settings         (key, value, updated_at?)
+sync_tombstones  (kind, sync_id, deleted_at)                            -- PK (kind, sync_id)
 ```
 
 `watched_channels` is the union of all feed sources. It is what rules see as "global".
 
 ### 5.2 Sources
 
-Only channels the account is already a member of can be added. The picker lists `myChannels()` with a local search box, and channels are ticked off and added in one press (H-37), each one starting at Telegram's own read position. The app never calls `joinChat`, `leaveChat`, `searchPublicChat`, or changes Telegram-side mute or folder settings. Because every source is a joined chat, TDLib delivers `updateNewMessage` for all of them and no polling is needed.
+Only channels the account has joined can be added. The picker lists `myChannels()` with a search box; several channels are ticked and added with one press, each starting at Telegram's own read position. The app never calls `joinChat`, `leaveChat` or `searchPublicChat`, and never changes Telegram-side mute or folder settings. Every source is a joined chat, so TDLib delivers `updateNewMessage` for all of them and nothing is polled.
 
-If the user leaves a channel in the official app, `membershipEvents` reports it. The source stays in its feeds but is shown as "left" with an option to remove it; history already in TDLib's local database remains readable until then.
+When the user leaves a channel in the official app, `membershipEvents` reports it. The source stays in its feeds, marked as left, until the user removes it.
 
 ### 5.3 Merged timeline
 
 The timeline is a k-way merge over per-channel histories, ordered by `(date desc, chat_id, message_id desc)`.
 
-- `FeedTimeline` keeps one cursor per source: `oldestLoadedMessageId` and a small page buffer.
-- Loading a page: for every source whose buffer is empty, fetch the next `history()` page (limit 30). Then pop from a max-heap keyed by date until the requested count is satisfied. Sources that return nothing are marked exhausted.
-- Live updates: `postEvents` for any `chat_id` in the feed are inserted at the newest end if the user is there, otherwise they wait and are counted on the "to newest" button, which releases them.
-- Layout: the list is reversed (index 0 is the newest post, at the bottom), so loading older pages appends at the far end and never shifts what is on screen. A row inserted at the newest end does shift every index; the screen then re-anchors on index 0. Rows are keyed by `(chat_id, album or message id)`.
-- Opening (`_open` in `TimelineScreen`): the list widget takes its start position only when it is first built, so the first pages are loaded before it is. The position is, in this order: the post a notification asked for; where the user left the feed earlier in the session (kept in memory per feed: row and its edge); the first unread post; the newest post. For the first unread post the sources are loaded down to their read marks, at most 300 rows; the "Unread posts" divider is drawn on top of that row, and because a reversed list aligns rows by their bottom edge, the row above it is aligned just below the top of the screen. If the unread posts do not fill the screen, the newest post is put at the bottom instead of leaving a gap.
-- Album messages (media groups, `media_album_id`) are collapsed into a single timeline item.
-- Edits replace the item in place; deletes remove it.
+- `FeedTimeline` keeps one cursor per source (`oldestLoadedMessageId`) and a small page buffer.
+- Loading a page: every source whose buffer is empty fetches its next `history()` page (limit 30), all at once. Then rows are popped from a max-heap keyed by date until the page is full. A source that returns nothing is exhausted.
+- Live updates: `postEvents` for any source are inserted at the newest end when the reader is there; otherwise they wait and are counted on the button to the newest posts, which releases them.
+- Layout: the list is reversed (index 0 is the newest post, at the bottom), so loading older pages appends at the far end and never shifts what is on screen. A row inserted at the newest end shifts every index; the screen then re-anchors on index 0. Rows are keyed by `(chat_id, album or message id)`.
+- Opening (`_open` in `TimelineScreen`): the list widget takes its start position only when it is first built, so the first pages load before it is. The position is, in this order: the post a notification asked for; where the reader left the feed earlier in the session (kept in memory per feed: the row and its edge); the first unread post; the newest post. For the first unread post the sources load down to their read marks, at most 300 rows. The "Unread posts" divider is drawn on top of that row, and the row above it is aligned just below the top of the screen. When the unread posts do not fill the screen, the newest post goes to the bottom instead of leaving a gap.
+- Album messages (`media_album_id`) collapse into one row.
+- Edits replace a row in place; deletes remove it.
 
-Nothing is persisted by the timeline itself; TDLib's message database makes re-fetching cheap and offline-capable.
+The timeline persists nothing. TDLib's local message database answers a history request in about 2 ms.
 
 ### 5.4 Read state
 
-- "Mark all read" (`MarkRead`, `feeds/mark_read.dart`) is the one action that moves marks without reading: for a feed it sets every source's mark to that channel's newest post (`Channel.lastMessageId`), for a folder or a single channel it does the same in every feed that holds it, and it calls `markViewed` so Telegram agrees — unless `syncReadToTelegram` is off. It is in the feed's row menu, the folder tab's long-press menu and a channel row's menu.
-- `feed_read_marks` stores, per feed and per channel, the newest message id the user has scrolled past. When a channel is added to a feed the mark starts at Telegram's own read position for it (`chat.last_read_inbox_message_id`), so the backlog is not unread.
-- Unread count for a feed (J-1, `FeedsController`): per source, the posts newer than the mark as the feed's timeline would show them — an album is one post, and a post the feed's filter hides is none — summed over the sources; or, when the "Count unread posts" switch (`badge.countPosts`, synced, on by default as the official app's "Count unread messages") is off, the number of sources that have any. The posts come from `history`, newest first in pages of 100, down to the mark or to what was counted already, up to 1 000 per source (the badge then reads "999+"; the rows kept are the newest, so the count stays right as the mark climbs into them), all sources at once. Newest first because TDLib pages newer posts only from a message that exists: from a mark of 0, a channel never read, `historyAfter` answers with nothing. What is counted stays: a mark that moves on drops the rows it passed without asking again, a post that comes in (`PostAdded`) is added where the count had reached the newest post, a deleted one (`PostsDeleted`) is taken out — or the reader could never read past it — and only a mark that jumps past everything, or a new filter, starts over. The channel count comes first and at once (`chat.lastMessage.id` compared to the mark), so the line under the feed's name does not wait for the posts and the row never grows when they arrive; a filter can only take a channel away afterwards. In channel mode the history is asked too, one page per channel at most, since a newest post id past the mark can be one the timeline does not show (a service message). The count sits on the right of the feed's row, before its menu, as the official chat list has it.
-- A post is read once its end has been on screen, as in Telegram. Marking is debounced and calls `markViewed` on TDLib so the official Telegram app agrees. Setting `syncReadToTelegram`, default on; when off, only `feed_read_marks` is updated.
-- The timeline opens at the first unread post (section 5.3); there is no separate jump action.
+- `feed_read_marks` stores, per feed and per channel, the newest message id the reader has scrolled past. A channel added to a feed starts at Telegram's read position for it (`chat.last_read_inbox_message_id`), so its backlog is not unread.
+- A post is read once its end has been on screen. Marking is debounced (`ReadMarker`) and calls `markViewed` on TDLib when `syncReadToTelegram` is on (the default); otherwise only `feed_read_marks` changes.
+- "Mark all read" (`MarkRead`, `feeds/mark_read.dart`) moves marks without reading. For a feed it sets every source's mark to that channel's newest post (`Channel.lastMessageId`); for a folder or a single channel it does the same in every feed that holds it. It calls `markViewed` unless `syncReadToTelegram` is off. It is in the feed's row menu, the folder tab's long-press menu and a channel row's menu.
+- Unread count of a feed (`FeedsController`): with the "Count unread posts" switch on (`badge.countPosts`, synced, default on) it is the number of posts newer than the mark, counted as the timeline shows them: an album is one post, and a post the feed's filter hides counts as none. With the switch off it is the number of sources with any unread post.
+  - Posts are counted from `history`, newest first, in pages of 100, down to the mark, at most 1 000 per source (the badge then reads "999+"). All sources are counted at once. Counting starts at the newest post because TDLib pages newer posts only from a message that exists, and a mark of 0 names none.
+  - The count is kept and updated: a mark that moves on drops the rows it passed, a new post (`PostAdded`) is added, a deleted one (`PostsDeleted`) is removed. Only a mark that jumps past everything, or a changed filter, starts the count over.
+  - The number of channels with news comes first, from `chat.lastMessage.id` against the mark, so the line under the feed's name appears at once. In channel mode the history is still read, one page per channel at most, because a newest id past the mark can be a message the timeline does not show.
+  - The count sits on the right of the feed's row, before its menu.
+- The timeline opens at the first unread post (section 5.3).
 
-### 5.5 Sync through Google Drive (phase 4)
+### 5.5 Sync through Google Drive
 
-Feeds with their sources, rules and a whitelist of settings (theme, read-aloud preferences, read sync, AI endpoint and model) stay the same on all of a user's devices through one JSON file in the hidden app data folder of their own Google Drive. There is no server of ours. Read positions, the AI API key, the Telegram session and device state never sync.
+Feeds with their sources, rules and a whitelist of settings (`isSyncedSetting`: theme, read sync, "Count unread posts", `tts.*`, `media.*`, AI endpoint and model) are kept equal on all of a user's devices through one JSON file in the hidden app-data folder of the user's own Google Drive. Read positions, the AI API key, the Telegram session and every other setting (background watching, rule sounds, app lock, post text size, recent searches, quick reaction) stay on the device.
 
-- **Identity of items.** Feeds and rules carry a random `sync_id` (local row ids differ per device) and an `updated_at` stamp, settings an `updated_at` (schema v4). A feed's list of sources is part of the feed: adding, removing or reordering sources stamps the feed. Deleting a feed or rule leaves a row in `sync_tombstones`; a logout wipe leaves none, and sync is turned off before the wipe, so an emptied database is never merged into the file.
-- **Merge** (`SyncSnapshot.merge`, package `core`): item by item, the newer edit wins; a deletion beats edits made before it, and an edit made after the deletion brings the item back; tombstones expire after 180 days. The file is canonical JSON with a format version; a file from a newer version is refused.
-- **Run** (`SyncEngine`): export the database, read the file, merge, apply what changed locally (`applySynced*` in `app_db`), write the file only if it differs. Two devices writing at once can hide each other's edits in the file, but never lose them: every run merges the device's whole local state back in, so the next sync heals it.
-- **When** (`SyncController`, UI isolate): at start, 15 seconds after a local edit, every 15 minutes while the app is open, and on demand from Settings. Pulled rule changes reach the core the same way local edits do, through the database watchers.
-- **Drive access** (`DriveSyncStore`, `GoogleDriveAuth`): `google_sign_in` for the account and an access token with the single scope `drive.appdata`, then plain REST calls (`files.list` in `appDataFolder`, media download, multipart create, media update). A 401 gets one retry with a fresh token. Needs an Android OAuth client (package name + signing SHA-1) in a Google Cloud project and that project's web client id at build time: `--dart-define=GOOGLE_SERVER_CLIENT_ID=...`. Without it the Sync screen says the build cannot sync.
-
-### 5.5a Sound
-
-`AudioSessions` (`media/audio_session.dart`) is the app's one audio player: voice messages
-and music open in it, so only one sound is ever heard and a post that scrolls away keeps
-playing. It sits behind an `AudioEngine` interface — `just_audio` in the app, a fake in the
-tests — and holds the track, whether it plays, the position and the speed (1×, 1.5×, 2×) as
-notifiers, which the row in the post and the player bar both follow. `AudioBarHost` sits in
-the app's `builder`, under the navigator, so the bar stands under every screen while
-something plays and the sound survives scrolling away, opening another screen or logging
-into a thread.
-
-### 5.5b The media viewer
-
-The viewer (`MediaViewerScreen`) pages through everything the timeline holds, not one post's
-album: the card asks the timeline for its media (`_viewerMedia`, newest first, the feed's
-filter already applied because it walks the loaded rows) and opens at the tapped one. Two
-pages from the older end it calls `onNeedOlder`, which pages the timeline and hands the list
-back grown; a list that does not grow means the end. A `ViewerDetail` per item carries the
-channel, the day and the caption, which the bar and the band at the bottom show, and the
-viewer's Share and Save act on the post that picture belongs to (`onShare`, `onSave` by
-index; the timeline keeps the owning row of every picture). "Save to gallery" goes through
-the `tf/gallery` method channel: the Kotlin side inserts the file into `MediaStore` under
-`Pictures/telegram-feed` or `Movies/telegram-feed` (no permission needed for the app's own
-file since Android 10) and answers with its uri; the file is downloaded first when the cache
-does not have it.
-
-### 5.5c Automatic downloads and autoplay
-
-Automatic downloads and autoplay are one thing, as in the official app (J-2).
-`AutoDownloadScope` (`media/auto_download.dart`) sits above the navigator and hands every
-media widget an `AutoDownloadPolicy`: the `DownloadPreset` of the connection the phone is on
-and the two Autoplay switches.
-
-- **Connections.** Mobile data, Wi-Fi and roaming, each with its own preset
-  (`media.download.mobile|wifi|roaming`, JSON, synced like every `media.*` setting). The
-  connection comes from the `tf/network` method channel — metered Wi-Fi counts as mobile
-  data, cellular without `NET_CAPABILITY_NOT_ROAMING` as roaming — and is read again when the
-  app resumes.
-- **A preset** is the official app's: a switch for the whole connection, photos (no size
-  limit, as there), videos up to a size, files up to a size, and "Preload larger videos".
-  Telegram's three are built in — Low (photos only), Medium (videos to 10 MB, files to 1 MB)
-  and High (15 MB and 3 MB) — and a fresh install has Medium on mobile data, High on Wi-Fi
-  and Low while roaming. GIFs and round video messages count as videos; music and voice
-  messages as files.
-- **What it does.** A photo within the preset loads as soon as its row is built. A video
-  within the limit is downloaded whole through `VideoDownloads.start(auto: true)`, so its
-  pill shows the progress as a download the user asked for would; a download the user stops
-  by hand does not start by itself again in this run. A larger video with preloading on gets
-  its first 2 MB (`downloadFrom` with a `limit`, TDLib's `downloadFile` limit), so a tap plays
-  it at once. A file within the limit starts in its row; a voice message or a song loads
-  ahead without playing. A size TDLib has not reported yet waits for a tap.
-- **Autoplay** follows the download: a video autoplays when it loads by itself and its
-  Autoplay switch (GIFs, videos) is on. There is no length limit and no size limit of its
-  own any more; the ones of F-6 are gone.
-- Until the settings and the connection are known the policy is `unknown` and nothing
-  starts — a cold start must not spend mobile data the reader forbade — and the spinner
-  stands in; when the policy then allows it, the row starts on the flip instead of waiting
-  for a tap. Without a scope (widget tests of a single view) only pictures load.
+- **Identity.** Feeds and rules carry a random `sync_id` (local row ids differ per device) and an `updated_at` stamp; settings carry `updated_at`. A feed's sources are part of the feed: adding, removing or reordering sources stamps the feed. Deleting a feed or a rule leaves a row in `sync_tombstones`. Logout turns sync off before wiping the database and leaves no tombstones, so an emptied database is never merged into the file.
+- **Merge** (`SyncSnapshot.merge`, package `core`): item by item, the newer edit wins; a deletion beats edits made before it, and an edit made after the deletion restores the item. Tombstones expire after 180 days. The file is canonical JSON with format version 1; a file with a newer version is refused.
+- **Run** (`SyncEngine`): export the database, read the file, merge, apply the changes locally (`applySynced*` in `app_db`), write the file only if it differs. Two devices writing at once can hide each other's edits in the file but never lose them: every run merges the device's whole local state back in, so the next run repairs the file.
+- **Schedule** (`SyncController`, UI isolate): at start, 15 seconds after a local edit, every 15 minutes while the app is open, and on demand from Settings. A change notification leads to a Drive request only when the synced data differs from what the device held after its last run. Pulled rule changes reach the core through the database watchers, like local edits.
+- **Drive access** (`DriveSyncStore`, `GoogleDriveAuth`): `google_sign_in` for the account and an access token with the single scope `drive.appdata`, then REST calls (`files.list` in `appDataFolder`, media download, multipart create, media update). A 401 gets one retry with a fresh token. A build needs an Android OAuth client (package name and signing SHA-1) in a Google Cloud project and that project's web client id: `--dart-define=GOOGLE_SERVER_CLIENT_ID=...`. Without it the Sync screen says the build cannot sync.
 
 ### 5.6 Video playback
 
-- **Playing while downloading.** A video starts as soon as its first bytes are there, as in the official app. `MediaServer` (UI isolate) is an HTTP server on the loopback interface; the player (`video_player`, ExoPlayer) opens `http://127.0.0.1:<port>/<secret>/<fileId>` and asks for byte ranges. Bytes TDLib already has are read from its partial file, where they sit at their final offsets; for a range that is not there yet the download is aimed at it (`downloadFile` with `offset`) and the response waits. Seeking and MP4 files with the index at the end are the same case: another range. The newest request decides where TDLib downloads. Response headers are written at once through a detached socket, because dart:io holds them back until the first body byte and the player's read timeout would run meanwhile. The path contains a random token, since other apps can reach the port; the port closes when nothing plays. A finished file is played from disk without the server; a file without a known size is downloaded whole first.
-- **Sessions.** `VideoSessions` keeps one `VideoSession` (player plus state) per file id outside the widget tree, so the timeline row and the viewer show the same player. Only one session has sound at a time. Timeline rows are keyed by post, because the list otherwise reuses row state by position and a new post at the top shifts state under another post.
-- **Viewer** (`MediaViewerScreen`, `VideoStage`, `ZoomablePhoto`): one full-screen viewer for the photos and videos of a post; a sideways swipe pages through the album, with the position (`2 of 5`) beside the back arrow. A tap on a video plays it there at once, as the official app does; the timeline has no player controls. Only the video page in front has a session: its neighbours are posters, and turning the page hands the session back exactly as leaving does. The viewer is immersive and leaves the orientation to the device. Controls: back arrow, tap shows or hides them, scrubber with the buffered range, speed, mute, replay at the end; double tap on the left or right third seeks 10 s, in the middle it zooms to 2.5× around the tapped point and back; a pinch zooms up to 6× and a drag moves the zoomed picture (`InteractiveViewer` around the player's texture, zoom helpers in `media/zoom.dart` shared with photos); a finger held down plays at 2× until it lifts, then the chosen speed returns. The gesture layer lies behind the buttons, not around them, so button taps do not wait out the double-tap window. A vertical drag with one finger carries the picture away while the black behind it fades, and closes the viewer past 120 px or with a flick (`SwipeToClose`); it is off while the picture is zoomed, and a second finger takes the drag recognizer out of the arena so a pinch stays a pinch. For that the viewer's route is not opaque, so timeline rows under it remain visible to the visibility detector: autoplay rests while the row's route is not the current one. Leaving the viewer pauses the video, disposes the player and cancels the unfinished streaming download at once (`releaseFromViewer`).
-- **Download button** (`VideoDownloads`, `VideoDownloadButton`): a pill in the top left corner of a video in the timeline and in the viewer's top bar, as in the official app: arrow and size, then a progress ring with the bytes that cancels on tap, nothing once the file is complete. It downloads the whole file into TDLib's cache (priority 16, below a playing video's 32); nothing is exported to the gallery. A file the user asked for is not cancelled when its player closes, and cancelling the wish leaves a playing video its download. Posts carry the `FileRef` of the time they were loaded, so the button asks TDLib (`getFileDownloadedPrefixSize`) whether the file is complete by now, and listens to the file's progress while it shows: a short video that autoplays under it is streamed whole within seconds.
-- **Picture-in-picture** has two parts, as in the official app. *Mini player* (`MiniPlayer`): the viewer's PiP button moves the session into a small window in the root navigator's overlay that floats over the timeline and every other screen; drag it (it rests at the nearer side), tap for pause and play, open it in the viewer again, or close it. A session counts its sound-watching holders separately (`retainForViewer` / `releaseFromViewer`), so the viewer and the mini player hand a video to each other without it stopping, and it ends when the last of them lets go. Opening the viewer ends a mini player that shows another video. *System window* (`SystemPip`, `PipHost`, `MainActivity`): Android's picture-in-picture shrinks the whole activity, so it cannot float over our own screens; it takes over when the app is left. While a video plays in the viewer or the mini player (`VideoSessions.foreground`, which counts only once the player is initialized, because the window needs the picture's size) the activity is armed over the channel `tf/pip` with the video's aspect ratio, clamped to Android's 1:2.39 to 2.39:1: auto-enter from Android 12, `onUserLeaveHint` on 8 to 11. In the window `PipHost`, which sits above the navigator, shows nothing but the video and keeps the screens alive offstage, since they were not made for a window that small. When the activity is stopped (the window was dragged away, or the device has no such window) the foreground video pauses; nothing plays from the background.
-- **Autoplay** (section 5.5c decides which videos): a video that loads by itself starts muted and looping in its row (`InlineVideo`) once 60 % of it is visible, and pauses below 20 %; it streams through the loopback server while its automatic download goes on. A tap opens the viewer on the same player with sound; leaving the viewer mutes it again and it keeps autoplaying. A row that the list rebuilds picks its autoplay session up again within a grace period of 0.8 s; after that the player is disposed, and the download goes on only because the automatic download wants the file.
+- **Playing while downloading.** A video starts as soon as its first bytes are there. `MediaServer` (UI isolate) is an HTTP server on the loopback interface; the player (`video_player`, ExoPlayer) opens `http://127.0.0.1:<port>/<secret>/<fileId>` and asks for byte ranges. Bytes TDLib already has are read from its partial file, where they sit at their final offsets; for a range that is not there yet the download is aimed at it (`downloadFile` with `offset`) and the response waits. Seeking, and MP4 files with the index at the end, are the same case. The newest request decides where TDLib downloads. Response headers are written at once through a detached socket, because `dart:io` holds them back until the first body byte and the player's read timeout would run out meanwhile. The path contains a random token, since other apps can reach the port; the port closes when nothing plays. A finished file plays from disk without the server; a file without a known size is downloaded whole first.
+- **Sessions.** `VideoSessions` keeps one `VideoSession` (player plus state) per file id outside the widget tree, so the timeline row and the viewer show the same player. Only one session has sound at a time. Timeline rows are keyed by post, so a new post at the top cannot shift player state under another post.
+- **Viewer controls** (`MediaViewerScreen`, `VideoStage`, `ZoomablePhoto`; paging in section 5.13): a tap on a video in the timeline opens it in the viewer and plays it there; the timeline has no player controls. Only the page in front has a session: its neighbours are posters, and turning the page hands the session back exactly as leaving does. The viewer is immersive and follows the device's orientation. Controls: back arrow; a tap shows or hides them; a scrubber with the buffered range; speed; mute; replay at the end. A double tap on the left or right third seeks 10 s; in the middle it zooms to 2.5× around the tapped point and back. A pinch zooms up to 6× and a drag moves the zoomed picture (`InteractiveViewer` around the player's texture; zoom helpers in `media/zoom.dart`, shared with photos). A finger held down plays at 2× until it lifts. The gesture layer lies behind the buttons, so button taps do not wait out the double-tap window. A vertical drag with one finger carries the picture away while the black behind it fades, and closes the viewer past 120 px or with a flick (`SwipeToClose`); it is off while the picture is zoomed, and a second finger leaves the drag to the pinch. The viewer's route is not opaque, so timeline rows under it stay visible to the visibility detector; autoplay rests while the row's route is not the current one. Leaving the viewer pauses the video, disposes the player and cancels an unfinished streaming download at once (`releaseFromViewer`). A video the timeline was autoplaying starts from the beginning in the viewer; one taken over from the mini player or the system window keeps its position.
+- **Download button** (`VideoDownloads`, `VideoDownloadButton`): a pill in the top left corner of a video in the timeline and in the viewer's top bar: arrow and size, then a progress ring with the bytes that cancels on tap, nothing once the file is complete. It downloads the whole file into TDLib's cache (priority 16, below a playing video's 32). A download the user asked for is not cancelled when its player closes, and cancelling it leaves a playing video its stream. Posts carry the `FileRef` of the time they were loaded, so the button asks TDLib (`getFileDownloadedPrefixSize`) whether the file is complete by now, and follows the file's progress while it is shown.
+- **Picture-in-picture** has two parts. *Mini player* (`MiniPlayer`): the viewer's PiP button moves the session into a small window in the root navigator's overlay that floats over every screen; it can be dragged (it rests at the nearer side), paused and played with a tap, opened in the viewer again, or closed. A session counts its sound-watching holders (`retainForViewer` / `releaseFromViewer`), so the viewer and the mini player hand a video to each other without stopping it, and it ends when the last one lets go. Opening the viewer ends a mini player that shows another video. *System window* (`SystemPip`, `PipHost`, `MainActivity`): Android's picture-in-picture shrinks the whole activity, so it takes over only when the app is left. While a video plays in the viewer or the mini player (`VideoSessions.foreground`, counted once the player is initialized, because the window needs the picture's size) the activity is armed over the channel `tf/pip` with the video's aspect ratio, clamped to 1:2.39 to 2.39:1: auto-enter from Android 12, `onUserLeaveHint` on 8 to 11. In the window, `PipHost` (above the navigator) shows only the video and keeps the screens alive offstage. When the activity is stopped the foreground video pauses; nothing plays from the background.
+- **Autoplay** (section 5.14 decides which videos): a video that loads by itself starts muted and looping in its row (`InlineVideo`) once 60 % of it is visible, and pauses below 20 %; it streams through the loopback server while its automatic download goes on. A tap opens the viewer on the same player with sound; leaving the viewer mutes it again and it keeps autoplaying. A row the list rebuilds picks its autoplay session up again within 0.8 s; after that the player is disposed, and the download continues only if the automatic download wants the file.
 
 ### 5.7 Main screen
 
-`ConnectionTitle` sits in the app bar of the home screen and of every timeline: it listens to
-the gateway's `connection` stream (TDLib's `updateConnectionState`, carried over the core port
-as `CoreStream.connection`) and puts "Connecting…", "Waiting for network…", "Connecting to
-proxy…" or "Updating…" under the title until TDLib is ready.
+`HomeScreen` is a tab bar of "Feeds", the Telegram chat folders and "All channels". The app bar holds the search over all channels, Rules and Settings. A floating button on the Feeds tab creates a feed and opens its channel editor; it shows only while the Feeds tab is up.
 
-
-`HomeScreen` is a tab bar of "Feeds", the Telegram chat folders and "All channels"; making a feed is a floating button on the Feeds tab itself (H-36), not a button in the bar.
-
-- The Feeds tab lists the feeds, each with a badge (its unread posts, or its channels with unread posts, section 5.4) and a line naming the channels with new posts (`FeedsController`); the tab label carries the feeds' posts together, or the number of feeds with any. A tap opens the feed as `TimelineScreen(feed:)`, dragging reorders, the row's menu leads to its channels, rename, mark all read and delete. The floating button creates a feed and goes straight to its channel editor; it is there only while the Feeds tab is up.
-- A folder tab carries a badge from Telegram's own `unreadCount` per channel: the unread posts of its channels together, or the number of its channels that have any, as the "Count unread posts" switch says (section 5.4).
-- Folder tabs come from `chatFolders()`: TDLib announces the folders in `updateChatFolders`; the chats of each are read with `getChats(chatListFolder)`, which already applies the folder's include and exclude rules and Telegram's order, and only channels are kept. Folders without channels get no tab. The app never edits folders.
-- The archive has a row of its own at the top of All channels (H-30): `archivedChannels()` walks `ChatListArchive` when that row is tapped, and shows what it finds as an ordinary channel list. The lists of the tabs still never walk the archive.
-- `myChannels()` walks the main chat list and every folder list, each channel once, because a channel joined through a folder invite link is in its folder's list and in no other; the home screen asks for the folders first so the gateway knows which lists to walk. The archive is not read, so an archived channel only shows up when a folder of the account holds it.
-- A long press on a channel row opens its menu (mark all read, channel info, add to a feed); the row reports the point the finger was on, since a `ListTile` does not.
-- Channel lists (`ChannelList`) show photo, newest post, time and Telegram's unread count from `Channel`, and under that the tags of the feeds the channel is in (`AppDatabase.feedNamesByChat`, live through `watchFeeds` and `watchSourceChanges`). The feed editor's channel picker and the rule editor's scope list carry the same tags. They reload when the app resumes, three seconds after a new post, and on pull to refresh.
-- Saved Messages is the chat with oneself, handed over by `savedMessages()` as a `Channel` titled "Saved Messages" and opened from Settings as an ordinary timeline (H-29). It belongs to no feed: it is the account's own notepad, not a channel it follows.
-- A channel opens as `TimelineScreen(channel:)`: the same timeline with one source. It belongs to no feed, so its read marks are Telegram's own position (`last_read_inbox_message_id`); reading moves it through `viewMessages` when `syncReadToTelegram` is on and is not recorded otherwise.
-- The folders arrive from TDLib a moment after the screen is up. The `TabController` is replaced only when the set of folders changes, and the selected tab stays selected.
-- A long press on a folder tab offers "Create feed from folder": a feed with the folder's name and the channels it has at that moment, in the folder's order, each starting at Telegram's read position. It is a one-time copy; the feed does not follow the folder afterwards.
-- Every tab carries its own padding (the bar's `labelPadding` is zero) and is at least 72 px wide, so the long press covers the whole tab: a folder named with one emoji has a label a few pixels wide, and its menu could otherwise hardly be called.
-
-### 5.9 Posts and comments look like the official app
-
-Screens use `CupertinoPageTransitionsBuilder` on every platform (`appPageTransitions` in
-`main.dart`): they slide in and a drag from the left edge pops them, the gesture the official
-app has everywhere. The media viewer keeps its own see-through route and its swipe down.
-
-
-A timeline row (`PostCard`, `feeds/post_card.dart`) is drawn like a post in the official Android app, with one deliberate difference: nothing stands beside the bubble, so text and pictures get the whole width. A bubble on a tinted backdrop (`ChatColors`) starts with its title line (`BubbleTitle`): the channel's name in one of Telegram's seven peer colours (`peerColor`, by id) and the channel's photo, small, at the right end of that line. Then media edge to edge, the text, reaction pills and a comments bar; day pills stand between days. There is no share button beside the bubble; sharing is in the menu.
-
-- Views, "edited" and the time sit in the bottom right corner. `BubbleText` is a render object of its own that puts this footer on the last line of the text when there is room and on a line of its own otherwise; with reactions the pills use the full width and the footer takes the free end of the last row; with nothing under the pictures it lies on top of them.
-- A double tap sends the quick reaction (`reactions.quick`, a thumbs up until the reader picks another from the menu strip; the timeline reads it once when it opens and keeps it as they react). The recognizer sits on the post's words, or on the pictures of a post without words: on the whole bubble it would hold the gesture arena for 300 ms and delay every tap inside it. The menu therefore answers a long press only — a plain tap would take the second tap of a double one.
-- The reader's text size for posts (`appearance.postTextScale`, 0.8 to 1.6) comes from `PostTextScale`, an inherited value above the navigator; `PostCard` and the comments wrap themselves in a `MediaQuery` whose `textScaler` is clamped to that factor, so posts follow the setting and the rest of the app follows the system.
-- "Copy text" in the menu copies the row's words; every `TextEntityKind.pre` block ends with a copy button of its own (a `WidgetSpan` inside the text, so it sits where the block ends instead of floating over it).
-- The unread dot has a reserved slot beside the time and only fades, so nothing moves when a post becomes read.
-- "Select" in the menu starts a selection: `TimelineViewState` keeps the picked rows by `(chat id, row id)`, each card gets a tick and a layer that swallows every other tap, and `TimelineScreen` replaces its app bar with "N selected" plus Copy text, Share and Save to Saved Messages, which run over the picked rows oldest first (saving groups them per channel, so an album goes in one call).
-- A long press on the bubble opens the menu: the emoji the channel allows, Open in Telegram, Comments, Share, Copy link, Save to Saved Messages (`saveToSavedMessages` forwards the whole album into the chat with oneself, source header and all), and for posts with a video "Autoplay and download settings", which opens Data and storage. The menu scrolls: with the reactions on top its entries do not all fit on a short screen.
-- The list keeps 8 px plus the system inset under the newest post, which in the reversed list is the bottom edge of the screen.
-- A forwarded post carries `Post.forwardedFrom` (`ForwardOrigin`: the name, the origin chat and post, the origin user, the author signature, and whether the sender hides itself). TDLib gives ids, not names, so `TdlibGateway._post` resolves them through the same sender cache the comments use: one `getChat` or `getUser` per origin and session. `ForwardedFrom` draws "Forwarded from <name> (signature)" under the title line, and a tap opens the original post when the account follows that channel — the app cannot read a channel it has not joined.
-- A post that answers another carries `Post.replyTo` (`ReplyTarget`: the answered post's chat and id, the quote with `manualQuote` when the author picked one, the words otherwise, a thumbnail, and the name for a reply across chats). TDLib sends the origin and the content only when the answered post is in another chat; inside the channel `TdlibGateway._reply` fetches that post once and keeps its words and thumbnail in a small map (cleared past 500 entries). `RepliedPost` draws the block above the text, and a tap jumps to the post when it belongs to the timeline's own channels, else opens that channel.
-- A post with a link carries TDLib's `linkPreview` as `Post.linkPreview` (`LinkPreview` in the gateway models: url, display url, site, title, author, description as plain text, a `PhotoMedia` for the picture, the video flag with its length, and TDLib's `show_large_media`, `show_media_above_description` and `show_above_text`). `_previewPicture` reads the picture out of the kind of link it is — a photo, an article, an app, a video with its cover, an embedded player's thumbnail, an animation, a document or an audio cover — and kinds that carry none (a chat, a sticker set, an invoice, anything newer than this app) give a card of words alone. `LinkPreviewCard` (`feeds/link_preview.dart`) draws it like the official app: an accent bar and a tint in the channel's peer colour, the site in that colour, the title, the description of at most three lines, and the picture the width of the card or as a 56 px square beside the words. A tap anywhere on it opens the link through `onOpenLink`, the same path as a link in the text; the app has no browser or player of its own, so a video link leaves too. A preview is deliberately not `Post.media`: a feed that shows text posts only still shows a post with a link, and the card widens the bubble to the whole row, which text alone does not.
-- A channel's timeline carries `PinnedBar` at the top when `pinnedPost(chatId)` finds one (TDLib's `getChatPinnedMessage`; a channel with nothing pinned answers with an error). A tap jumps to that post, the cross hides the bar for the visit, and the floating day pill moves below it. A feed has no bar: it mixes channels, and one bar cannot speak for all of them.
-- The day of the topmost row floats over the list (`FloatingDay`, the same pill as between the days): it fades in when the reader starts a scroll (`UserScrollNotification` with a direction, so a scroll of the app's own making — opening a feed, a date jump, a new post at the bottom — brings nothing out), follows the top of the screen from `itemPositions`, and fades out 900 ms after the list comes to rest, leaving the tree altogether. A tap on it opens the calendar on that day. A scroll notification can arrive from inside the list's own layout, where a rebuild must not be scheduled, so the pill's state lives in two `ValueNotifier`s written after the frame.
-- A sticker (`StickerMedia`) is drawn by `StickerView` at its own proportions, about 180 px on its longest side: `webp` as a picture, `tgs` through `Lottie.file` with `LottieComposition.decodeGZip` (Telegram packs Lottie in gzip), `webm` as a silent looping video (`LoopingVideo`). A round video message is `VideoMedia.isVideoNote`, the ordinary player inside a `ClipOval` of 200 px. `MediaViewerScreen.viewable` takes neither, and the bubble draws everything the viewer skips as its own row, so both appear without being stretched to the bubble's width.
-- Albums of photos and videos are a mosaic: `layoutAlbum` ports the grouped layout of the official apps (hand-made arrangements for two to four pictures by their proportions, row splitting towards a 3:4 block for more). The mosaic always fills the bubble's width and is at most one and a half widths tall; cells crop their picture. Audio and documents of an album stay a list.
-- A custom (premium) emoji is `TextEntityKind.customEmoji` with the sticker id; `FormattedText` asks the gateway for the stickers of all the ids in one text at once (`customEmoji`, TDLib's `getCustomEmojiStickers`, cached in the gateway because a sticker never changes) and draws each as a `StickerView` the height of a line. Without an answer the plain emoji in the text stands.
-- `Post.entities` and `Comment.entities` carry TDLib's text entities (offsets in UTF-16 units). `FormattedText` cuts the text at every entity boundary, so nested and overlapping formatting works; links, mentions and e-mail addresses open through `launchFirst`, spoilers are covered until tapped. Rules, read-aloud, sharing and notifications keep using the plain text.
-- Avatars: the timeline takes channel photos from `myChannels()` (the database keeps titles only); comments carry `authorId` and `authorPhoto`, resolved once per sender by the gateway. The thread view shows the post as its timeline row on top and comments as bubbles with the same title line (author's name, photo at its right end); own comments sit on the right without name and photo. Feed editor, channel picker and the rule scope list show the channel photos too.
+- `ConnectionTitle` sits in the app bar of the home screen and of every timeline. It follows the gateway's `connection` stream (TDLib's `updateConnectionState`, carried over the core port as `CoreStream.connection`) and puts "Connecting…", "Waiting for network…", "Connecting to proxy…" or "Updating…" under the title until TDLib is ready.
+- The Feeds tab lists the feeds, each with its count (section 5.4) and a line naming the channels with new posts (`FeedsController`). The tab label carries the feeds' posts together, or the number of feeds with any. A tap opens the feed as `TimelineScreen(feed:)`; dragging reorders; the row's menu leads to its channels, rename, mark all read and delete.
+- Folder tabs come from `chatFolders()`: TDLib announces the folders in `updateChatFolders`; the chats of each are read with `getChats(chatListFolder)`, which applies the folder's include and exclude rules and Telegram's order, and only channels are kept. A folder without channels gets no tab. The app never edits folders. The `TabController` is replaced only when the set of folders changes, and the selected tab stays selected.
+- A folder tab's badge comes from Telegram's own `unreadCount` per channel: the unread posts of its channels together, or the number of its channels with any, as the "Count unread posts" switch says.
+- `myChannels()` walks the main chat list and every folder list, each channel once, because a channel joined through a folder invite link is in its folder's list and in no other. The home screen asks for the folders first so the gateway knows which lists to walk. The archive is not walked, so an archived channel appears in these lists only when a folder holds it.
+- The archive has a row of its own at the top of All channels: `archivedChannels()` walks `ChatListArchive` when that row is tapped and shows the result as an ordinary channel list.
+- A long press on a folder tab offers "Create feed from folder" (a feed with the folder's name and its current channels in the folder's order, each at Telegram's read position; the feed does not follow the folder afterwards) and "Mark all read".
+- Every tab carries its own padding (the bar's `labelPadding` is zero) and is at least 72 px wide, so the long press covers the whole tab, including a folder named with a single emoji.
+- A long press on a channel row opens its menu (mark all read, channel info, add to a feed). The row reports the point the finger was on, since a `ListTile` does not.
+- Channel lists (`ChannelList`) show photo, newest post, time and Telegram's unread count from `Channel`, and under that the tags of the feeds the channel is in (`AppDatabase.feedNamesByChat`, live through `watchFeeds` and `watchSourceChanges`). The feed editor's channel picker and the rule editor's scope list carry the same tags. Lists reload when the app resumes, three seconds after a new post, and on pull to refresh.
+- A channel opens as `TimelineScreen(channel:)`: the same timeline with one source. It belongs to no feed, so its read position is Telegram's own (`last_read_inbox_message_id`); reading moves it through `viewMessages` when `syncReadToTelegram` is on and is not recorded otherwise.
+- Saved Messages is the chat with oneself, handed over by `savedMessages()` as a `Channel` titled "Saved Messages" and opened from Settings as an ordinary timeline. It belongs to no feed.
 
 ### 5.8 Feed filters
 
-`feeds.filter_json` (schema v5) holds a `FeedFilter` (package `core`): media presence (any, with media, text only), a set of media kinds (photo, video, gif, audio, voice, document, other; empty = all), a minimum video length, a minimum length for posts without media, and `wholePost` (on unless the JSON says otherwise, older filters included). Null means everything. Unknown values from a newer version are ignored, broken JSON shows everything.
+`feeds.filter_json` holds a `FeedFilter` (package `core`): media presence (any, with media, text only), a set of media kinds (photo, video, gif, audio, voice, document, other; empty means all), a minimum video length, a minimum length for posts without media, and `wholePost` (true unless the JSON says otherwise). Null means everything. Unknown values are ignored; broken JSON shows everything.
 
-An album is several messages, so the four content settings judge its parts one by one: a feed of videos would keep the clip of a mixed album and drop the picture beside it, together with the caption that usually sits on it. `wholePost` makes the row the unit instead — one part that passes carries the others (`FeedFilter.mayShow`, the presence check only, since a single post cannot see its siblings; the row decides the rest). An album whose parts all fail stays hidden.
+An album is several messages, so the four content settings judge its parts one by one. `wholePost` makes the row the unit instead: one part that passes carries the others (`FeedFilter.mayShow` checks presence only, since a single message cannot see its siblings; the row decides the rest). An album whose parts all fail stays hidden.
 
-- **Timeline.** `FeedTimeline` runs every post through the filter as it leaves a source's buffer or arrives live; hidden posts never become rows. A hidden part of a whole-post feed joins the row its siblings opened; if that row does not exist yet (its parts arrive newest first from history, and one by one when live) the part waits in a small map keyed by chat and album, capped at eight, that the opening part empties. From then on it counts as shown, so read marks treat it like any other post of the row.
-- **Read state.** Hidden posts must not stay unread forever, or a channel that only posts hidden things would keep its feed marked as new. The timeline remembers which ids it hid and which it showed per channel; `coveredFrom(chat, id)` is the newest id such that everything between is hidden. Reading a row covers the hidden posts after it, and hidden posts that directly follow the read mark are covered as soon as the source is loaded down to the mark. Covered ids go the same way as seen ones: `feed_read_marks`, and `viewMessages` when read sync is on. The feeds list's cheap unread bound cannot see content, so a feed may show as new until it is opened once.
-- **Rules.** The rule engine gets, per channel, the filters of all feeds that contain it (`filtersByChat`). A post that every one of them hides is dropped before the conditions are looked at; one feed that shows it is enough. It asks `mayShow`, so the caption of an album notifies when the feed shows whole posts. One post does not know its siblings, so a rule may notify about an album the timeline hides after all — the error stays on the side of notifying, like the rule above it.
-- **Search.** `FeedSearch` asks `mayShow` for a search by words (it finds what the timeline shows) and `allows` for the shared media tabs, which list single media items by kind and so keep the strict check.
-- **Editing.** The feed editor's "Show" row opens a sheet with the four content controls and the "Show the whole post" checkbox (off only for a feed with media); the row's subtitle is the filter in words.
-- **Sync.** The filter travels with the feed as the optional `filter` key of the snapshot. The file's format version stays 1: a device on an older version ignores the key and keeps syncing, and the filter survives as long as that device does not edit the feed. `wholePost` is a key inside that filter and needs no format change either; a build that predates it splits albums as it always did.
+- **Timeline.** `FeedTimeline` runs every post through the filter as it leaves a source's buffer or arrives live; hidden posts never become rows. A hidden part of a whole-post feed joins the row its siblings opened. If that row does not exist yet (parts arrive newest first from history, and one by one when live) the part waits in a small map keyed by chat and album, capped at eight, which the opening part empties. From then on it counts as shown.
+- **Read state.** Hidden posts must not stay unread, or a channel that only posts hidden things would keep its feed marked as new. The timeline remembers which ids it hid and which it showed per channel; `coveredFrom(chat, id)` is the newest id such that everything between is hidden. Reading a row covers the hidden posts after it, and hidden posts directly after the read mark are covered as soon as the source is loaded down to the mark. Covered ids are marked like seen ones: `feed_read_marks`, and `viewMessages` when read sync is on.
+- **Rules.** The rule engine gets, per channel, the filters of all feeds that contain it (`filtersByChat`). A post that every one of them hides is dropped before the conditions are evaluated; one feed that shows it is enough. It asks `mayShow`, so the caption of an album notifies when the feed shows whole posts. A rule can therefore notify about an album the timeline hides; the error is on the side of notifying.
+- **Search.** `FeedSearch` asks `mayShow` for a search by words and `allows` for the shared media tabs, which list single media items by kind.
+- **Editing.** The feed editor's "Show" row opens a sheet with the four content controls and the "Show the whole post" checkbox (shown only for a feed with media); the row's subtitle is the filter in words.
+- **Sync.** The filter travels with the feed as the optional `filter` key of the sync snapshot.
 
-`telegramTargetOf` (package `core`) reads a Telegram link the other way round: `t.me/<name>`,
-`t.me/<name>/<post>`, `t.me/c/<internal id>/<post>`, `tg://resolve` and `tg://privatepost`,
-with the post as a TDLib message id. A link in a post that names a channel the account
-follows opens that channel's timeline inside the app (H-18); invite links, sticker sets and
-web pages fall through to `launchFirst` and the system.
+### 5.9 Posts and comments
+
+Screens use `CupertinoPageTransitionsBuilder` on every platform (`appPageTransitions` in `main.dart`): they slide in, and a drag from the left edge pops them. The media viewer keeps its own see-through route and its swipe down.
+
+A timeline row (`PostCard`, `feeds/post_card.dart`) is drawn like a post in the official Android app, except that nothing stands beside the bubble, so text and pictures get the whole width. A bubble on a tinted backdrop (`ChatColors`) starts with its title line (`BubbleTitle`): the channel's name in one of Telegram's seven peer colours (`peerColor`, by id) and the channel's photo, small, at the right end of that line. Then media edge to edge, the text, reaction pills and a comments bar. Day pills stand between days.
+
+- Views, "edited" and the time sit in the bottom right corner. `BubbleText` is a render object that puts this footer on the last line of the text when there is room and on a line of its own otherwise. With reactions, the pills use the full width and the footer takes the free end of the last row. With nothing under the pictures it lies on top of them.
+- The unread dot has a reserved slot beside the time and only fades, so nothing moves when a post becomes read.
+- A double tap sends the quick reaction (`reactions.quick`, a thumbs up until the reader picks another from the menu strip; the timeline reads it once when it opens). A second double tap takes it back. The recognizer sits on the post's words, or on the pictures of a post without words: on the whole bubble it would hold the gesture arena for 300 ms and delay every tap inside it. For the same reason the menu opens on a long press only.
+- A long press on the bubble opens the menu: the reactions the channel allows, Open in Telegram, Comments, Share, Copy text, Copy link, Save to Saved Messages, Select, and on posts with a video "Autoplay and download settings", which opens Data and storage. The menu scrolls, since its entries do not all fit on a short screen. `saveToSavedMessages` forwards the whole album into the chat with oneself, keeping the channel as the source.
+- "Copy text" copies the row's words. Every `TextEntityKind.pre` block ends with a copy button of its own (a `WidgetSpan` inside the text, so it sits where the block ends).
+- "Select" starts a selection: `TimelineViewState` keeps the picked rows by `(chat id, row id)`, each card gets a tick and a layer that swallows every other tap, and `TimelineScreen` replaces its app bar with "N selected" plus Copy text, Share and Save to Saved Messages, which run over the picked rows oldest first (saving groups them per channel, so an album goes in one call).
+- The post text size (`appearance.postTextScale`, 0.8 to 1.6) comes from `PostTextScale`, an inherited value above the navigator. `PostCard` and the comments wrap themselves in a `MediaQuery` whose `textScaler` is clamped to that factor, so posts follow the setting and the rest of the app follows the system.
+- The list keeps 8 px plus the system inset under the newest post, which in the reversed list is the bottom edge of the screen.
+- A forwarded post carries `Post.forwardedFrom` (`ForwardOrigin`: the name, the origin chat and post, the origin user, the author signature, and whether the sender hides itself). TDLib gives ids, not names, so `TdlibGateway._post` resolves them through the sender cache the comments use: one `getChat` or `getUser` per origin and session. `ForwardedFrom` draws "Forwarded from <name> (signature)" under the title line; a tap opens the original post when the account follows that channel, and says so otherwise.
+- A post that answers another carries `Post.replyTo` (`ReplyTarget`: the answered post's chat and id, the quote with `manualQuote` when the author picked one, the words otherwise, a thumbnail, and the name for a reply across chats). TDLib sends the origin and content only when the answered post is in another chat; inside the channel `TdlibGateway._reply` fetches that post once and keeps its words and thumbnail in a map cleared past 500 entries. `RepliedPost` draws the block above the text; a tap jumps to the post when it belongs to the timeline's channels, else opens that channel.
+- A post with a link carries TDLib's `linkPreview` as `Post.linkPreview` (`LinkPreview`: url, display url, site, title, author, description as plain text, a `PhotoMedia` for the picture, the video flag with its length, and TDLib's `show_large_media`, `show_media_above_description` and `show_above_text`). `_previewPicture` reads the picture out of each kind of link (photo, article, app, video with its cover, embedded player thumbnail, animation, document, audio cover); kinds without one (chat, sticker set, invoice, unknown kinds) give a card of words alone. `LinkPreviewCard` (`feeds/link_preview.dart`) draws an accent bar and a tint in the channel's peer colour, the site in that colour, the title, a description of at most three lines, and the picture either the width of the card or as a 56 px square beside the words, with a play badge and the length on a video link. A tap opens the link through `onOpenLink`, like a link in the text. A preview is not `Post.media`: a feed that shows text posts only still shows a post with a link.
+- A channel's timeline carries `PinnedBar` at the top when `pinnedPost(chatId)` finds one (TDLib's `getChatPinnedMessage`; a channel with nothing pinned answers with an error, which means none). A tap jumps to that post, the cross hides the bar for the visit, and the floating day pill moves below it. A feed mixes channels and has no bar.
+- The day of the topmost row floats over the list (`FloatingDay`, the same pill as between days). It fades in when the reader starts a scroll (`UserScrollNotification` with a direction, so opening a feed, a date jump or a new post brings nothing out), follows the top of the screen from `itemPositions`, and fades out 900 ms after the list comes to rest, leaving the tree. A tap opens the calendar on that day. A scroll notification can arrive from inside the list's layout, where a rebuild must not be scheduled, so the pill's state lives in two `ValueNotifier`s written after the frame.
+- A sticker (`StickerMedia`) is drawn by `StickerView` at its own proportions, about 180 px on its longest side: `webp` as a picture, `tgs` through `Lottie.file` with `LottieComposition.decodeGZip`, `webm` as a silent looping video (`LoopingVideo`). A round video message is `VideoMedia.isVideoNote`, the ordinary player inside a `ClipOval` of 200 px. Neither opens the media viewer. Both carry a name for read-aloud, search and rule notifications ("A Sticker", "Video message"). A sticker counts as `other` for a feed's media filters.
+- Albums of photos and videos are a mosaic: `layoutAlbum` ports the grouped layout of the official apps (fixed arrangements for two to four pictures by their proportions, row splitting towards a 3:4 block for more). The mosaic fills the bubble's width and is at most one and a half widths tall; cells crop their picture. Audio and documents of an album stay a list.
+- A custom emoji is `TextEntityKind.customEmoji` with the sticker id. `FormattedText` asks the gateway for the stickers of all ids in one text at once (`customEmoji`, TDLib's `getCustomEmojiStickers`, cached in the gateway) and draws each as a `StickerView` the height of a line. Without an answer the plain emoji in the text stands.
+- `Post.entities` and `Comment.entities` carry TDLib's text entities (offsets in UTF-16 units). `FormattedText` cuts the text at every entity boundary, so nested and overlapping formatting works. Links, mentions and e-mail addresses open through `launchFirst`; spoilers are covered until tapped. Rules, read-aloud, sharing and notifications use the plain text.
+- Avatars: the timeline takes channel photos from `myChannels()` (the database keeps titles only). Comments carry `authorId` and `authorPhoto`, resolved once per sender by the gateway. The thread view (`ThreadScreen`) shows the post as its timeline row on top and comments as bubbles with the same title line (author's name, photo at its right end); the account's own comments sit on the right without name and photo. The feed editor, channel picker and rule scope list show channel photos too.
 
 ### 5.10 Search, dates and shared media
 
-The home screen searches every channel at once (H-25): `searchAllChannels` asks TDLib's own
-`searchMessages` over the main chat list with its channel filter, pages with the token TDLib
-returns, and drops anything that is not a channel of this account. The results use the same
-rows as the feed search, and a tap opens that channel's timeline at the post.
+Search, date jumps and shared media run over all of a feed's sources as one merged list and obey the feed's filter.
 
-`SearchFilterChips` sits under both search fields (H-26) and maps to the `HistoryFilter` the
-gateway already knows: Everything, Media, Links, Files, Music, Voice. A chip with no words is
-a search of its own, so "every file of my channels" needs no query.
-
-`RecentSearches` (`search.recent` in `settings`) keeps the last ten queries of the whole app,
-newest first and without repeats; both search bars offer them while nothing is typed and can
-clear them (H-28).
-
-A comment thread has a search of its own (H-27): `searchThread` calls `searchChatMessages`
-scoped to the thread's topic, so Telegram finds a comment far above without the app paging
-the whole thread; the results stand in for the thread while the field is open.
-
-A feed is merged channels, so everything the official app offers inside one channel runs over
-all of a feed's sources at once and obeys the feed's filter (founder decision 2026-09-19).
-
-- **Search and media tabs** share one engine, `FeedSearch` (package `core`). It is the merge
-  of `FeedTimeline` over `searchHistory` instead of `history`: a buffer and a next offset per
-  source, `(date desc, chatId, messageId desc)`, `loadMore()` for the next page. Albums are
-  not collapsed — a result row and a media tile mean one post. A media tab is the same search
-  with an empty query and a `HistoryFilter` (photo and video, document, link, audio, voice),
-  which the gateway turns into TDLib's `SearchMessagesFilter`.
-- **The feed's filter applies**: a post the feed hides is not a result either. Telegram's
-  `total_count` per source is summed into `FeedSearch.totalCount`; it counts what the server
-  matched, so with a filter it is an upper bound, and once the search is exhausted the number
-  of results is exact.
-- **In the timeline.** The magnifier turns the app bar of `TimelineScreen` into a search
-  field (`SearchResults`, `SearchResultTile`, `SearchStepper` in `feeds/timeline_search.dart`).
-  Typing runs a `SearchSession` after 300 ms; the results cover the timeline, each row naming
-  its channel and marking the words. A tap opens the result: the list makes way, the bar
-  keeps the query, and the bottom bar steps through the matches with "3 of 47".
-- **Jumping to a post.** `TimelineViewState.jumpToPost` rebuilds the timeline anchored at that
-  post: the post itself for its own channel, `anchorsForDate` for the others. One page of
-  newer posts is loaded straight away, so the post stands in its surroundings and the list
-  does not run on towards the newest end by itself; `FeedTimeline.loadNewer` (gateway
-  `historyAfter`, TDLib's negative offset) adds more as the reader scrolls down, and every
-  row it adds moves the indices, so the list is jumped back to where the reader was. While
-  the timeline is jumped, new posts wait on the badge, the remembered position is left alone,
-  and the button at the corner rebuilds the live timeline at its newest post. A rebuilt list
-  keeps the scroll position of the old one, so an opening that is not the first also jumps
-  explicitly; `initialScrollIndex` only counts for the first build.
-- **Channel info.** A channel's title in the timeline opens `ChannelInfoScreen`: photo, name,
-  subscribers, description and the link (`@username` for a public channel, the invite link for
-  a private one), and under it the shared media tabs. It has no mute and no leave: this app
-  notifies by its own rules and never joins or leaves a channel.
-- **The tabs** (`SharedMediaTabs`, `feeds/shared_media.dart`) are Media, Files, Links, Music
-  and Voice; each is a `FeedSearch` of its own with no query, paged as it is scrolled. Media
-  is a grid of cropped pictures with the length on videos, and a tap opens the viewer over
-  everything the tab has loaded; Files name the file before it is downloaded and carry the
-  download control of the timeline; Links open in the browser; Music and Voice are the audio
-  players of the timeline.
-- **The button to the newest posts** carries the unread counter of the official app:
-  `FeedTimeline.unreadBefore` counts the unread rows between the reader and the newest one,
-  plus the posts that arrived while reading. It also leaves a jumped timeline.
-- **A feed's info** is its editor (founder decision 2026-09-19): `FeedEditorScreen` has a
-  "Channels" tab with the sources, the filter row and the picker, and beside it the same five
-  media tabs over all of its channels at once, with the feed's filter. The tab's search starts
-  over when the channels or the filter change. The feed's title in the timeline opens it, like
-  a channel's title opens the channel info.
-- **Dates.** `anchorsForDate` asks every source for the newest post sent no later than the
-  chosen day (`getChatMessageByDate`, a 404 means the channel has nothing that old and it
-  contributes nothing at that point). The anchors are where the timeline starts. The calendar
-  opens from the search bar or from a day pill between the posts (`TimelineViewState.pickDate`,
-  `jumpToDate`); the timeline then settles on the first post of that day, and on a day without
-  posts on the closest older one. A date before everything the sources have only says so.
+- **Home search.** `searchAllChannels` asks TDLib's `searchMessages` over the main chat list with its channel filter, pages with the token TDLib returns, and drops anything that is not a channel of this account. Results use the rows of the feed search; a tap opens that channel's timeline at the post.
+- **Filter chips.** `SearchFilterChips` sits under both search fields and maps to `HistoryFilter`: Everything, Media, Links, Files, Music, Voice. A chip with no words is a search of its own.
+- **Recent searches.** `RecentSearches` (`search.recent` in `settings`) keeps the last ten queries of the whole app, newest first and without repeats. Both search bars offer them while nothing is typed and can clear them.
+- **Comment search.** `searchThread` calls `searchChatMessages` scoped to the thread, so Telegram finds a comment far above without the app paging the whole thread. The results replace the thread while the field is open.
+- **Engine.** Search and the media tabs share `FeedSearch` (package `core`): the merge of `FeedTimeline` over `searchHistory` instead of `history`, with a buffer and a next offset per source, `(date desc, chatId, messageId desc)`, and `loadMore()` for the next page. Albums are not collapsed: a result row or a media tile is one message. A media tab is the same search with an empty query and a `HistoryFilter` (photo and video, document, link, audio, voice), which the gateway turns into TDLib's `SearchMessagesFilter`.
+- **Counts.** Telegram's `total_count` per source is summed into `FeedSearch.totalCount`. It counts what the server matched, so with a filter it is an upper bound; once the search is exhausted the number of results is exact.
+- **In the timeline.** The magnifier turns the app bar of `TimelineScreen` into a search field (`SearchResults`, `SearchResultTile`, `SearchStepper` in `feeds/timeline_search.dart`). Typing runs a `SearchSession` after 300 ms; the results cover the timeline, each row naming its channel and marking the words. A tap opens the result: the list makes way, the bar keeps the query, and the bottom bar steps through the matches with "3 of 47".
+- **Jumping to a post.** `TimelineViewState.jumpToPost` rebuilds the timeline anchored at that post: the post itself for its own channel, `anchorsForDate` for the others. One page of newer posts loads straight away, so the post stands among its neighbours. `FeedTimeline.loadNewer` (gateway `historyAfter`, TDLib's negative offset) adds more as the reader scrolls down; every row it adds moves the indices, so the list is jumped back to where the reader was. While the timeline is jumped, new posts wait on the badge, the remembered position is left alone, and the corner button rebuilds the live timeline at its newest post. A rebuilt list keeps the scroll position of the old one, so a later opening also jumps explicitly; `initialScrollIndex` counts only for the first build.
+- **Dates.** `anchorsForDate` asks every source for the newest post sent no later than the chosen day (`getChatMessageByDate`; a 404 means the channel has nothing that old and contributes nothing there). The calendar opens from the search bar or from a day pill (`TimelineViewState.pickDate`, `jumpToDate`). The timeline pages down to the day before (at most 300 rows) and settles on the first post of the chosen day, or on the closest older post for a day without posts. A date before everything the sources have is reported as such.
+- **Button to the newest posts.** It carries the unread counter: `FeedTimeline.unreadBefore` counts the unread rows between the reader and the newest one, plus the posts that arrived while reading. It also leaves a jumped timeline.
+- **Channel info.** A channel's title in the timeline opens `ChannelInfoScreen`: photo (a tap opens it in the media viewer), name, subscribers, description, the link (`@username` for a public channel, the invite link for a private one), the channel's QR code (`qr_flutter`), similar channels (`similarChannels`, TDLib's suggestions; a tap opens one in the official app) and the shared media tabs. It has no mute and no leave.
+- **Shared media tabs** (`SharedMediaTabs`, `feeds/shared_media.dart`): Media, Files, Links, Music and Voice, each a `FeedSearch` with no query, paged as it scrolls. Media is a grid of cropped pictures with the length on videos; a tap opens the viewer over everything the tab has loaded. Files name the file before download and carry the timeline's download control. Links open in the browser. Music and Voice use the timeline's audio players.
+- **Feed info.** `FeedEditorScreen` is the feed's info screen: a "Channels" tab with the sources, the filter row and the picker, and the same five media tabs over all of the feed's channels, with the feed's filter. A tab's search starts over when the channels or the filter change. The feed's title in the timeline opens it.
 
 ### 5.11 Settings
 
-Settings is laid out as the official app lays out its own (J-3): `SettingsScreen` holds the
-profile (`AccountHeader`) and one row per screen, and no setting of its own. Log out is in
-the app bar's menu, as in the official app. The rows, in order:
+`SettingsScreen` holds the profile (`AccountHeader`: photo, name, username, phone, bio, Telegram ID) and one row per screen, and no setting of its own. Log out is in the app bar's menu. The rows, in order:
 
 - Accounts and Saved Messages, under the profile.
-- The official app's groups, each a screen in `settings/`: Chat settings
-  (`ChatSettingsScreen`: the text size of posts with a preview, the theme), Privacy and
-  security (`PrivacyScreen`: the app lock, and read sync, since it decides what Telegram
-  learns of the reading), Notifications and sounds (`NotificationsScreen`: sound and
-  vibration per rule priority, the Badge counter's "Count unread posts", background
-  watching), Data and storage (`DataStorageScreen`:
-  storage usage with its own screen and the cache button; the three connections, each a row
-  with the preset's summary and the connection's switch behind a divider, as in the official
-  app, and a screen of its own — `AutoDownloadScreen`: the switch, the data-usage slider over
-  Low, Medium and High with a Custom stop placed by how much it spends, and photos, videos and
-  files with their limits in a sheet — the reset, and the Autoplay switches).
-- The app's own screens: Read aloud, AI rules, Google Drive sync, each showing its state on
-  the right where it has one.
-- About (a dialog with what leaves the device) and the licenses, then the version line
-  (`package_info_plus`) the official app signs its list with.
+- Screens in `settings/`: Chat settings (`ChatSettingsScreen`: post text size with a preview, theme); Privacy and security (`PrivacyScreen`: app lock, read sync); Notifications and sounds (`NotificationsScreen`: sound and vibration per rule priority, the Badge counter's "Count unread posts", background watching); Data and storage (`DataStorageScreen`: storage usage with its own screen and the cache button; one row per connection with the preset's summary and the connection's switch behind a divider, each leading to `AutoDownloadScreen`; the reset; the Autoplay switches). `AutoDownloadScreen` has the connection's switch, a data-usage slider over Low, Medium and High with a Custom stop placed by how much it downloads, and photos, videos and files with their limits in a sheet.
+- The app's own screens: Read aloud, AI rules, Google Drive sync, each with its state on the right where it has one.
+- About (a dialog listing what leaves the device) and the licenses, then the version line (`package_info_plus`).
 
-`settings/settings_tiles.dart` has the pieces every screen shares: the blue section header,
-the grey note under a section and the row that leads to a screen.
+`settings/settings_tiles.dart` holds the shared pieces: the section header, the note under a section and the row that leads to a screen.
 
-## 6. Rules and notifications (phase 2)
+### 5.12 Sound
+
+`AudioSessions` (`media/audio_session.dart`) is the app's one audio player: voice messages and music play in it, so only one sound is heard at a time and a post that scrolls away keeps playing. It sits behind an `AudioEngine` interface (`just_audio` in the app, a fake in the tests) and holds the track, whether it plays, the position and the speed (1×, 1.5×, 2×) as notifiers, which the row in the post and the player bar both follow. `AudioBarHost` sits in the app's `builder`, under the navigator, so the bar stands under every screen while something plays and the sound survives scrolling away or opening another screen.
+
+### 5.13 Media viewer
+
+The viewer (`MediaViewerScreen`) pages through every picture and video the timeline holds, not only one post's album. The card asks the timeline for its media (`_viewerMedia`, newest first, the feed's filter already applied because it walks the loaded rows) and opens at the tapped one. Two pages from the older end it calls `onNeedOlder`, which pages the timeline and hands the list back grown; a list that does not grow is the end. A `ViewerDetail` per item carries the channel, the day and the caption, which the top bar and the band at the bottom show. The viewer's Share and Save to Saved Messages act on the post the picture belongs to (`onShare`, `onSave` by index).
+
+"Save to gallery" goes through the `tf/gallery` method channel: the Kotlin side inserts the file into `MediaStore` under `Pictures/telegram-feed` or `Movies/telegram-feed` (no permission needed for the app's own file on Android 10 and later) and answers with its uri. The file is downloaded first when the cache does not have it.
+
+### 5.14 Automatic downloads and autoplay
+
+Automatic downloads and autoplay are one setting. `AutoDownloadScope` (`media/auto_download.dart`) sits above the navigator and hands every media widget an `AutoDownloadPolicy`: the `DownloadPreset` of the connection the phone is on, and the two Autoplay switches.
+
+- **Connections.** Mobile data, Wi-Fi and roaming, each with its own preset (`media.download.mobile|wifi|roaming`, JSON, synced like every `media.*` setting). The connection comes from the `tf/network` method channel: metered Wi-Fi counts as mobile data, cellular without `NET_CAPABILITY_NOT_ROAMING` as roaming. It is read again when the app resumes.
+- **Presets** follow the official app: a switch for the whole connection, photos (no size limit), videos up to a size, files up to a size, and "Preload larger videos". Telegram's three are built in: Low (photos only), Medium (videos to 10 MB, files to 1 MB) and High (videos to 15 MB, files to 3 MB). A fresh install has Medium on mobile data, High on Wi-Fi and Low while roaming. GIFs and round video messages count as videos; music and voice messages as files.
+- **Behaviour.** A photo within the preset loads as soon as its row is built. A video within the limit downloads whole through `VideoDownloads.start(auto: true)`, so its pill shows the progress; a download the user stops by hand does not restart by itself in this run. A larger video with preloading on gets its first 2 MB (`downloadFrom` with a `limit`, TDLib's `downloadFile` limit), so a tap plays it at once. A file within the limit starts in its row; a voice message or a song loads ahead without playing. A size TDLib has not reported yet waits for a tap.
+- **Autoplay** follows the download: a video autoplays when it loads by itself and its Autoplay switch (GIFs, videos) is on. Autoplay has no length or size limit of its own.
+- Until the settings and the connection are known the policy is `unknown`, nothing starts, and a spinner stands in; when the policy then allows it, the row starts at once. Without a scope (widget tests of a single view) only pictures load.
+
+### 5.15 Telegram links
+
+`telegramTargetOf` (package `core`) parses `t.me/<name>`, `t.me/<name>/<post>`, `t.me/c/<internal id>/<post>`, `tg://resolve` and `tg://privatepost`, with the post as a TDLib message id. A link in a post that names a channel the account follows opens that channel's timeline in the app, at the post. Invite links, sticker sets and web pages go to `launchFirst` and the system. The app does not register as a handler for t.me links from other apps.
+
+`launchFirst` tries each candidate link in turn and survives the exception `url_launcher` throws for `tg://` when no app handles it, so Open in Telegram falls back from `tg://privatepost` to `t.me`. `telegramPostUri` builds `https://t.me/<user>/<id>` for public channels and `tg://privatepost` plus a `t.me/c` fallback for private ones. Share puts the `t.me` link into the system share sheet (`share_plus`); Copy link uses the clipboard.
+
+## 6. Rules and notifications
 
 ### 6.1 Rule model
 
 ```
 rules (id, name, enabled, scope_kind {global, channel}, scope_chat_id?,
-       condition_json, priority {silent, normal, urgent}, read_aloud bool,
-       schedule_json?, created_at, semantic_prompt?)
+       condition_json, priority {silent, normal, urgent}, read_aloud,
+       schedule_json?, created_at, semantic_prompt?, sync_id, updated_at)
 ```
-
-A rule with no condition at all (`And([])`, which every post satisfies) notifies about every post of its channels; the editor saves that when both keyword editors are left empty, and the rules list shows it as "every post". Scope, priority, schedule, read-aloud and the feed-filter rule of section 5.8 apply to it like any other. Such a rule also matches a post with no text at all (a picture without a caption), which the evaluation drops for every other rule; its notification and the dry run show what the post carries instead ("Photo", "Video", the file's name — `postLabel` in `core`). An AI rule is not one of them: there is nothing to send to the model.
 
 Condition AST (package `rules`):
 
@@ -404,214 +277,96 @@ Term = { text, wholeWord: bool, caseSensitive: bool }     // multi-word text = p
 Schedule = { weekdays: Set<1..7>, from: "HH:mm", to: "HH:mm" }   // local time, may wrap midnight
 ```
 
-The editor is a visual builder (groups of terms with AND/OR toggles, NOT per term), plus a text form `("bitcoin" OR btc) AND NOT airdrop` that parses to the same AST (`RuleParser`, package `rules`): terms are bare words or quoted phrases, default whole-word and case-insensitive; prefix `~` for substring match, `=` for case-sensitive; `AND` binds tighter than `OR`, `NOT` tightest; `RuleParser.format` renders the AST back. Whole-word matching is Unicode-aware: Dart's `\b` is ASCII-only, so boundaries are `(?<![\p{L}\p{N}_])…(?![\p{L}\p{N}_])` with `unicode: true` (CJK text has no inner boundaries, so users pick `~` there). Case-insensitive matching uses the regex engine's Unicode case folding, which covers Cyrillic.
+The editor is a visual builder (groups of terms with AND/OR, NOT per term) plus a text form `("bitcoin" OR btc) AND NOT airdrop` that parses to the same AST (`RuleParser`). Terms are bare words or quoted phrases, whole-word and case-insensitive by default; prefix `~` for substring match and `=` for case-sensitive. `AND` binds tighter than `OR`, `NOT` tightest. `RuleParser.format` renders the AST back. Whole-word matching is Unicode-aware: Dart's `\b` is ASCII-only, so boundaries are `(?<![\p{L}\p{N}_])…(?![\p{L}\p{N}_])` with `unicode: true`. CJK text has no inner word boundaries, so `~` is the match to use there. Case-insensitive matching uses the regex engine's Unicode case folding, which covers Cyrillic.
+
+A rule with no condition (`And([])`, which every post satisfies) notifies about every post of its channels. The editor saves it when both keyword editors are left empty, and the rules list shows it as "every post". Scope, priority, schedule, read-aloud and the feed-filter check (section 5.8) apply to it like any other rule. It also matches a post with no text at all; its notification and the dry run show what the post carries instead ("Photo", "Video", the file's name; `postLabel` in `core`). An AI rule never counts as one: there is nothing to send to the model.
 
 ### 6.2 Evaluation
 
-On every `PostEvent.newMessage` for a watched channel:
+`RuleEngine` runs in the core isolate and reads rules, watched channels and feed filters from the database whenever the host signals a change (`refresh`). On every new post of a watched channel:
 
-1. Extract text: message text, or media caption. Formatted entities are flattened to plain text. Nothing else is matched (no forward origin, no URLs beyond their visible text). A post without text only reaches rules with no condition (section 6.1).
-2. Drop the post if every feed containing the channel hides it (section 5.8). Candidate rules = enabled global rules + enabled rules scoped to this `chat_id`, filtered by schedule against the local clock.
-3. Evaluate each condition. Collect matches.
-4. If none: stop. Otherwise: priority = max over matches, readAloud = any match.
-5. Emit a notification (section 6.3) and, if readAloud, enqueue for TTS (section 7).
+1. Extract the text: message text or media caption, formatting flattened. Nothing else is matched (no forward origin, no URLs beyond their visible text). A post without text only reaches rules with no condition (section 6.1).
+2. Drop the post if every feed containing the channel hides it (section 5.8). Candidate rules are the enabled global rules plus the enabled rules scoped to this `chat_id`, filtered by schedule against the local clock.
+3. Evaluate each condition and collect matches.
+4. If none match, stop. Otherwise priority is the maximum over the matches and read-aloud is true if any match asks for it.
+5. Send a `MatchEvent` to the service host, which shows the notification (section 6.3) and, if read-aloud is set, queues the post for speech (section 7).
 
-Edited messages are ignored by the engine. Deleted messages cancel a pending notification if it has not been shown yet.
-
-### 6.4 AI semantic rules (phase 4)
-
-A rule may carry a description of what the post should be about (`rules.semantic_prompt`, schema v3). Its keyword condition then is an optional pre-filter; an empty one (`And([])`) lets every post of the rule's channels through, and the editor warns that all of them are sent out.
-
-- The rule engine stays synchronous and offline: it applies scope, schedule and keywords only, and the `MatchEvent` lists every matched rule with its prompt (`MatchedRule`).
-- The service host finishes the decision (`SemanticGate`): one request per post to an OpenAI-compatible `chat/completions` endpoint (`SemanticClient`) with all pending descriptions numbered; the model answers with the matching numbers or `NONE`. The request carries only `model` and `messages`: reasoning models need room to think before the short answer, and some providers reject a custom temperature or token cap. An empty answer counts as a failed check, not as `NONE`. `MatchEvent.withSemanticVerdicts` keeps keyword rules and the confirmed semantic ones, and priority and read-aloud are recomputed from what is left.
-- When the check cannot be done (no endpoint, offline, bad key, rate limit, odd answer) the semantic rules are skipped for that post. Keyword rules on the same post still fire, nothing is retried, and the reason is stored in the `ai.lastError` setting, which the rules screen shows as a quiet note until a check succeeds again.
-- Endpoint and model are settings (`ai.baseUrl`, `ai.model`); the API key is in the Android keystore through `flutter_secure_storage`, never in the database, and is deleted on logout. Plain `http://` endpoints are allowed for models on the user's own network, with a warning.
-- The rule editor's dry run sends the newest 8 posts that pass the keywords to the model.
+Edited posts are not evaluated again. A deleted post cancels its notification.
 
 ### 6.3 Notifications
 
-Sound and vibration per priority (H-33): the reader picks a sound with Android's own picker
-(`tf/notifications.pickSound`, an activity result) and a vibration switch, per normal and
-urgent rules; silent rules stay silent. Android fixes a channel's sound when it creates the
-channel, so the choice is part of the channel id: the default adds no suffix (an older
-install keeps `posts_normal` and `posts_urgent`), any other choice gets a suffix derived
-from it, and channels of earlier choices are deleted so the system settings show one row per
-priority. The service host reads the four settings when it brings the notifier up.
+`Notifier` (service host) uses `flutter_local_notifications` with one Android notification channel per priority:
 
-`flutter_local_notifications` with three Android notification channels, created once:
-
-| App priority | Android channel importance | Behaviour |
+| Priority | Android channel importance | Behaviour |
 |---|---|---|
 | silent | LOW | In the shade, no sound, no heads-up |
-| normal | DEFAULT | Sound and vibration per system settings |
-| urgent | HIGH + `bypassDnd` | Heads-up; DND bypass requires the user to grant notification-policy access, which the app requests when the first urgent rule is created. Android fixes a channel's DND bypass at creation, so the notifier posts on `posts_urgent` until access exists and then creates `posts_urgent_dnd` (and deletes the other); it re-checks before every urgent notification |
+| normal | DEFAULT | Sound and vibration as chosen in Settings |
+| urgent | HIGH + `bypassDnd` | Heads-up. Bypassing Do Not Disturb needs notification-policy access, which the app requests when the first urgent rule is saved. Android fixes a channel's DND bypass at creation, so the notifier posts on `posts_urgent` until access exists and then creates `posts_urgent_dnd` (and deletes the other); it checks before every urgent notification |
 
-Each notification: channel title, post excerpt, actions **Listen** and **Open in Telegram**. Tapping opens the post inside the first feed containing that channel. Notifications from the same channel are grouped.
+Sound and vibration are chosen per normal and urgent rules: a sound from Android's own picker (`tf/notifications.pickSound`, an activity result) and a vibration switch; silent rules stay silent. Android fixes a channel's sound when the channel is created, so the choice is part of the channel id: the default sound uses the plain ids (`posts_normal`, `posts_urgent`), any other choice adds a suffix derived from it, and channels of earlier choices are deleted, so the system settings show one row per priority. The service host reads these settings when it starts, so a change applies at the next start of the app.
 
-The group summary's "N new posts" counts what `getActiveNotifications` still reports for that group, plus the post being shown; it is never a running tally, so posts the user swiped away or tapped, and posts deleted in Telegram, stop counting. When a cancellation empties a group the summary is cancelled with it.
+Each notification shows the channel title and a post excerpt, with the actions **Listen** and **Open in Telegram**. A tap opens the post inside the first feed that contains its channel. Notifications from the same channel are grouped. The group summary's "N new posts" counts what `getActiveNotifications` still reports for that group plus the post being shown, so posts the user swiped away or opened, and posts deleted in Telegram, stop counting. When a cancellation empties a group, the summary is cancelled with it.
 
-Every notification names its small icon (`ic_stat_feed`, a white glyph on transparency that
-Android tints like every other app's) instead of leaving it to the plugin's default: that
-default lives in shared preferences, so the isolate that initialises last would decide it, and
-the UI's own initialisation (for tap handling) would make it the launcher icon, in colour. The
-service's notification names the icon on every update for the same reason: Android restores a
-running foreground service with the content saved when it was started, which on an old install
-may predate the icon.
+Every notification names its small icon, `ic_stat_feed` (a white glyph on transparency that Android tints). The plugin keeps its default icon in shared preferences, where the isolate that initialises last would decide it, so no notification relies on the default. The service's notification names the icon on every update, because Android restores a running foreground service with the content saved when it was started.
 
-Android 13+ requires `POST_NOTIFICATIONS`; requested during onboarding of phase 2.
+Android 13 and later require `POST_NOTIFICATIONS`; `CoreHost` requests it before starting the service.
+
+### 6.4 AI semantic rules
+
+A rule may carry a description of what the post should be about (`rules.semantic_prompt`). Its keyword condition is then an optional pre-filter; an empty one (`And([])`) lets every post of the rule's channels through, and the editor warns that all of them are sent to the model.
+
+- The rule engine stays synchronous and offline: it applies scope, schedule and keywords only, and the `MatchEvent` lists every matched rule with its prompt (`MatchedRule`).
+- The service host finishes the decision (`SemanticGate`): one request per post to an OpenAI-compatible `chat/completions` endpoint (`SemanticClient`) with all pending descriptions numbered; the model answers with the matching numbers or `NONE`. The request carries only `model` and `messages`, because reasoning models need room before their short answer and some providers reject a custom temperature or token cap. An empty answer counts as a failed check, not as `NONE`. `MatchEvent.withSemanticVerdicts` keeps the keyword rules and the confirmed semantic ones, and priority and read-aloud are recomputed from them.
+- When the check cannot be done (no endpoint, offline, bad key, rate limit, unreadable answer), the semantic rules are skipped for that post. Keyword rules on the same post still fire and nothing is retried. The reason is stored in the `ai.lastError` setting, which the rules screen shows as a note until a check succeeds.
+- Endpoint and model are settings (`ai.baseUrl`, `ai.model`). The API key is in the Android keystore through `flutter_secure_storage`, never in the database, and is deleted on logout. Plain `http://` endpoints are allowed, with a warning, for models on the user's own network.
+- The rule editor's dry run sends the newest 8 posts that pass the keywords to the model.
 
 ## 7. Read aloud
 
-- `TtsService` in the core isolate owns the queue and text preparation; the actual `flutter_tts` calls run in the service host isolate (see Android notes), which the core reaches over a port. A single FIFO queue; a new item never interrupts a playing one unless the user stops it (`flutter_tts.speak` flushes by default, so the queue must wait for `awaitSpeakCompletion`).
-- Language: `google_mlkit_language_id` on Android (on-device). Detected code selects a voice from the user's per-language preferences, falling back to the system default for that language, then to the app's default voice.
-- Text preparation: strip URLs (say "link"), collapse whitespace, drop emoji and formatting markers, prepend "New post in <channel>". Posts over a configurable length are truncated with "… and more".
-- Audio focus: request transient focus with ducking; release on queue drain. Never speak during a phone call (check `audio_session` / telephony state).
-- The "Listen" action and auto-read use the same path; the only difference is that a Listen request is spoken right after the current utterance instead of at the end of the queue. The queue never drops items, however far it is behind (founder decision 2026-09-18).
+- `TtsService` runs in the service host and owns a single FIFO queue over a `Speaker` interface (`FlutterTtsSpeaker` in the app). `flutter_tts.speak` flushes the previous utterance, so the queue waits for `awaitSpeakCompletion` and a new item never interrupts a playing one. The queue never drops items. A Listen request is spoken right after the current utterance instead of at the end of the queue; otherwise Listen and automatic read-aloud share one path.
+- Language: `google_mlkit_language_id` (on-device), or the "Language when unknown" setting when detection fails (default English). The language selects the user's voice for it, or the engine's default voice for that language.
+- Text preparation (`prepareForSpeech`, package `core`): URLs become "link", whitespace collapses, emoji and formatting markers are dropped, "New post in <channel>" is prepended. Posts over the maximum length are cut at a sentence boundary with "… and more".
+- Audio focus: transient focus with ducking, released when the queue drains. Phone calls and other apps taking the focus arrive as `audio_session` interruptions: the queue pauses and the interrupted item is spoken again afterwards. No telephony permission is needed.
+- Settings (`ReadAloudScreen`): speed, pitch, maximum length, language when unknown, voice per language, and a preview.
 
-## 7a. Several accounts (H-35)
+## 8. Android platform notes
 
-`AccountStore` keeps `accounts.json` in the support directory — outside every per-account
-database, because it says which of them to open — with the accounts (id, label) and the one
-in use, at most four as in the official app. `appPaths([accountId])` derives that account's
-TDLib directory and app database from the id; account 1 keeps `tdlib/` and `app.sqlite`, the
-paths every earlier build used, so an upgrade finds its data. Both hosts call `appPaths()`
-without an id and so land on the active account.
+- **Foreground service** via `flutter_foreground_task`, service type `specialUse` with `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` describing the persistent Telegram connection. `dataSync` is not usable: Android 15 and later cap it at 6 hours per day. The plugin does not declare the service, so the app manifest declares it with the type and the property. The service shows a permanent "Watching N channels" notification with a Pause action.
+- **Background watching** (`service.background`, device-local, not synced) is read by `CoreHost._connect` when the core is brought up. Off keeps the service from starting at all and stops one Android restored on boot, and the UI spawns the core in-process. The stop also holds for later boots, because the plugin's `RebootReceiver` skips `autoRunOnBoot` for a service stopped deliberately. The setting applies at the next app start, because the core cannot move between the service and the app while TDLib runs. Without the service there is no Telegram connection once the device dozes.
+- **The service notification** sits on channel `core` at `LOW`. Android raises a foreground service's channel to `IMPORTANCE_LOW` whatever the app asks for, and a silent notification has no status-bar icon since Android 12, so there is no quieter mode.
+- **Core isolate.** The foreground task runs a Dart callback in its own Flutter engine (`CoreServiceHandler`, the service host). It spawns the core isolate and registers the core's `SendPort` with `IsolateNameServer` under `telegram_feed.core`. The UI engine looks the port up on start and talks over it; both engines run in the same process, so ports work across them.
+- **The core isolate is never respawned**, because each isolate would start its own `td_receive` loop. After a logout TDLib closes its client (`AuthClosed`); the core isolate creates a new client and gateway and `CoreServer.replaceGateway` swaps it in behind the same port, so UI clients see the new auth states.
+- **Handing TDLib over.** Android restores the foreground service by itself when the process comes back, before Dart runs (`TaskStarter.system`), so the app can find a service core running after a kill. Stopping the service does not take that core down: its `td_receive` pump isolate keeps polling, and a second pump aborts the process ("Receive must not be called simultaneously from two different threads"). A core therefore hands TDLib back on the protocol's `shutdown` call: it closes TDLib's client and waits for `authorizationStateClosed`, so the database lock is free, then kills the receive isolate and waits for its exit (`FfiTransport.stopReceiving`). The service's `onDestroy` waits for `onStart` to finish, shuts its core down, and only then takes the port out of `IsolateNameServer`. `CoreHost` waits for that mapping to disappear, and asks any core still registered to stand down, before spawning its own.
+- **Plugins with platform-to-Dart callbacks** (`flutter_tts`, `flutter_local_notifications`) cannot run in the core isolate: Flutter routes platform messages to the root isolate only. The service host owns them; the core sends it match events over the port. Callback-free method-channel calls (for example `path_provider`) work from the core isolate through `BackgroundIsolateBinaryMessenger`.
+- **Battery.** Without an exemption from battery optimization Android kills the service after a while. The rules screen shows a banner asking for it until it is granted; the banner checks again when the app resumes and after the system dialog closes.
+- **TDLib binaries.** `libtdjson.so` for `arm64-v8a` and `x86_64`, built in Docker (`tool/tdlib`, TDLib's own `example/android` build: NDK 23.2, static OpenSSL and libc++) from the commit pinned in `packages/tdlib_bindings/schema/TDLIB_COMMIT` (TDLib 1.8.67). TDLib has no git tags after v1.8.0, so the pin is a commit. The binaries have 16 KB LOAD alignment. `.github/workflows/tdlib.yml` publishes them as the release `tdlib-<sha7>`; `tool/fetch_tdlib.dart` downloads them into `jniLibs`. They are not committed.
+- **Platforms.** Android only. iOS has no persistent foreground service, so on-device rule notifications cannot be delivered in real time there. There is no web build.
 
-Switching is a restart of the host, not a second core: the root (`main.dart`, now stateful)
-disposes the host — which closes the core client, the database and sync — writes the new
-active id and starts a fresh host, and everything under `MaterialApp` rebuilds. An account
-with no session of its own therefore shows the login screen. `AccountSwitch` is how a screen
-deep in Settings asks the root for that. It sits in `MaterialApp.builder`, above the
-navigator: the Accounts screen is a route pushed over the home route, not a widget inside
-it, so an `AccountSwitch` in `home` (where it was first put) was out of its reach and a
-switch only took effect at the next start. Removing an account deletes its TDLib directory and
-its database file; the last account cannot be removed, since the app would have nothing to
-open.
+## 9. Several accounts
 
-## 8. Platform notes
+`AccountStore` keeps `accounts.json` in the support directory, outside every per-account database, since it says which of them to open. It holds the accounts (id, label) and the one in use, at most four. `appPaths([accountId])` derives the account's TDLib directory and app database from its id; account 1 uses `tdlib/` and `app.sqlite`. Both hosts call `appPaths()` without an id and so open the active account.
 
-### Android (phase 1 and 2)
-
-- **Foreground service** via `flutter_foreground_task`, service type `specialUse` with `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` explaining the persistent Telegram connection. `dataSync` is not usable: Android 15+ caps it at 6 hours per day (spike P0-2). The app manifest declares the plugin's service itself. Persistent notification "Watching N channels" with a Pause action.
-- **One setting governs that notification**, read by `CoreHost._connect` when the core is brought up. `service.background` off keeps the service from starting at all (and stops one Android restored on boot): the core is then spawned in-process and rules only run while the app is open. The stop also settles later boots, because the plugin's `RebootReceiver` skips `autoRunOnBoot` for a service that was stopped deliberately. It applies at the next app start, because the core cannot change host while it is running (next bullet), and stays on the device instead of syncing. There is no quieter mode: the notification sits on channel `core` at `LOW`, and a channel a foreground service uses is raised to `IMPORTANCE_LOW` whatever the app asks for, so a `MIN` channel looked exactly the same on the device (verified on the emulator 2026-09-19, Android 16: same Silent section, no status-bar icon either way, since a silent notification has had none since Android 12). The `core_min` channel of the build that tried is deleted at startup.
-- The foreground task runs a Dart callback in its own Flutter engine. The **core isolate is spawned from that callback**, and it registers its `SendPort` with `IsolateNameServer` under a fixed name. The UI engine looks the port up on start and talks over it. Both engines are in the same process, so ports work across them (verified in spike P0-2).
-- **The core isolate is never respawned.** TDLib aborts the process if `td_receive` is called from two threads, and each isolate would start its own receive loop. After a logout TDLib closes its client (`AuthClosed`); the core isolate then creates a new client and gateway itself and `CoreServer.replaceGateway` swaps it in behind the same port, so UI clients just see the new auth states (verified on the emulator, P1-7).
-- **Handing TDLib over.** Android restores the foreground service by itself when the process comes back (before Dart runs, reported as `TaskStarter.system`), so the app can find a service core alive even after a kill. Stopping the service is not enough to take that core down: killing its isolate leaves the `td_receive` pump isolate polling, and a second pump aborts the process ("Receive must not be called simultaneously from two different threads") — which is what killed the app on the first start after background watching was switched off. A core therefore *hands TDLib back* on the protocol's `shutdown` call: it closes TDLib's client and waits for `authorizationStateClosed`, so the database lock is free, then kills the receive isolate and waits for its exit (`FfiTransport.stopReceiving`). The service's `onDestroy` first awaits the run of `onStart` (a destroy in the middle of a start would leave a pump behind), then shuts its core down and only afterwards takes the port out of `IsolateNameServer`; `CoreHost` waits for that mapping to disappear and asks any core still registered to stand down before spawning one of its own.
-- **Plugins with platform-to-Dart callbacks (`flutter_tts`, `flutter_local_notifications`) cannot run in the core isolate**: Flutter routes platform messages to the root isolate only. The service engine's root isolate (the task handler, "service host") owns those plugins; `Notifier` and `TtsService` in `core` send it `notify` / `speak` commands over a port. Callback-free method-channel calls (e.g. `path_provider`) work from the core isolate via `BackgroundIsolateBinaryMessenger`.
-- In phase 1 (no notifications yet) the service is not needed. The core isolate is still used from day one, spawned by the UI, so moving it into the service in phase 2 is a change of host, not of code.
-- Battery: on first run of phase 2 the app asks for an exemption from battery optimization and explains why. Without the service the OS kills TDLib within minutes.
-- TDLib binaries: prebuilt `libtdjson.so` for arm64-v8a, armeabi-v7a and x86_64, produced by a CI job from a pinned TDLib tag, published as a GitHub release asset and downloaded by `tool/fetch_tdlib.dart`. Not committed to git.
-
-### Web (dropped 2026-09-17)
-
-A web build on tdweb was completed in phase 3 (commit 87e10f3: tdweb transport over `dart:js_interop`, drift on a self-built `sqlite3.wasm`, browser notifications, Web Speech read-aloud) and verified up to QR login on the production DC, then dropped by the founder to keep the product Android-only. The gateway keeps its transport seam (`TdTransport`), so the target can be revived from that commit.
-
-### iOS (not planned)
-
-iOS has no equivalent of a persistent foreground service, so an on-device-only design cannot deliver real-time rule notifications there. Rather than ship a degraded version, iOS is off the roadmap. Nothing in the code should block a future iOS build (the FFI gateway would work), but no effort is spent on it.
-
-## 9. Phase 0 spikes
-
-Each spike is a throwaway branch with a written outcome in `docs/spikes/`.
-
-1. **TDLib FFI on Android.** Load prebuilt `libtdjson.so`, log in, list chats, receive `updateNewMessage`. Exit criterion: login and live updates from a Flutter app on an Android emulator (x86_64 image). All development and testing happens on emulators, never on the founder's personal phone.
-2. **Core isolate under the foreground service.** Spawn the core isolate from `flutter_foreground_task`'s callback, exchange ports with the UI engine via `IsolateNameServer`, kill the activity, confirm TDLib stays connected and a notification still fires. Also confirm `flutter_tts` works from that engine with the screen off.
-3. **Merged timeline performance.** 50 channels, scroll through 2 000 posts, measure page latency and memory with TDLib's local database. Exit criterion: < 100 ms per page from local cache.
-4. **tdweb feasibility.** Log in and fetch history in a Flutter web build. Decide whether web stays on the roadmap or moves behind a GramJS-based gateway.
+Switching restarts the host instead of running a second core: the root (`main.dart`) disposes the host, which closes the core client, the database and sync, writes the new active id and starts a fresh host; everything under `MaterialApp` rebuilds. An account without a session shows the login screen. `AccountSwitch` sits in `MaterialApp.builder`, above the navigator, so the Accounts screen, a pushed route, can reach it. Removing an account deletes its TDLib directory and its database file. The last account cannot be removed.
 
 ## 10. Privacy and security
 
-The app has a lock of its own (H-34, `settings/app_lock.dart`): a PIN kept as a salted
-SHA-256 hash in the keystore (`PinStore`, the same storage as the AI key) and, where the
-reader allows it, the device's fingerprint or face through `local_auth`, with the PIN always
-available. `LockGate` sits in the app's builder above the navigator and re-locks when the app
-has rested longer than `lock.timeoutSeconds`. Nothing of TDLib's own database is encrypted by
-this: it keeps people out of the app, not out of the file system.
+- **App lock** (`settings/app_lock.dart`): a PIN of at least four digits, kept as a salted SHA-256 hash in the keystore (`PinStore`, the same storage as the AI key), and, where the user allows it, the device's fingerprint or face through `local_auth`, with the PIN always available. `LockGate` sits in the app's builder above the navigator, so no screen and no notification tap bypasses it, and locks again when the app has been in the background longer than `lock.timeoutSeconds` (at once, a minute, five minutes, an hour).
+- The TDLib database and files are in the app's private storage. They are not encrypted: `database_encryption_key` is empty, and the app lock does not change that.
+- Nothing leaves the device except Telegram traffic, with two exceptions the user turns on: Google Drive sync (section 5.5) stores feeds, rules and some settings in the user's own Drive, in a folder only this app can read; AI semantic rules (section 6.4) send the text of the posts they check to the endpoint the user configured.
+- No analytics and no crash reporting.
+- Logout turns sync off, deletes the AI key, wipes the app database and logs out of TDLib, which deletes its database and files directory.
+- The manifest declares `INTERNET`, `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `WAKE_LOCK` and `VIBRATE`; plugins add their own (`local_auth` adds `USE_BIOMETRIC`).
+- TDLib is built from pinned sources in Docker (`tool/tdlib`), never downloaded prebuilt from third parties.
 
-- The TDLib database is stored in the app's private storage, encrypted with a key held in the platform keystore (`flutter_secure_storage`), passed to TDLib as `database_encryption_key`.
-- Nothing leaves the device except Telegram traffic, with two opt-in exceptions. Google Drive sync (section 5.5) stores feeds, rules and some settings in the user's own Drive, in a folder only this app can read. And: AI semantic rules (section 6.4) send the text of the posts they check to the endpoint the user configured. No rule of that kind, no request.
-- No analytics, no crash reporting by default. Optional opt-in crash reporting (Sentry) may come later; it must never include message content.
-- Logout wipes the TDLib database, the app database, and the media cache.
-- The app requests only: internet, notifications, foreground service, and (optional) battery-optimization exemption.
-- Third-party native binaries (TDLib) are built from pinned sources in Docker (`tool/tdlib`), never downloaded prebuilt from third parties.
+## 11. Testing
 
-## 11. Testing strategy
-
-- `rules`: exhaustive unit tests for the parser and evaluator, including Unicode word boundaries, Cyrillic case folding, schedule wrap-around at midnight.
-- `core`: timeline merge tested against a fake `TelegramGateway` with scripted histories and update streams.
-- `app_db`: migration tests on every schema change.
-- `app`: fixture data for every widget test in `app/test/fixtures.dart` — the fake gateway (channels, histories that page, live post events, `arrive` for a post that comes in now and `arrivedUnseen` for one that came in while the app was down), fixture channels and posts, and the pump helpers. Nothing in the test suite needs a real account, a real channel or a real post (H-38).
-- `app`: where a feed opens is tested on that fixture data in `app/test/feed_positioning_test.dart`: every read state (nothing read, read to a point, read through, one channel of two unread, the same channel with a mark per feed, a channel timeline on Telegram's own position), reading that moves the marks and the next session that starts where it left, the app resting in the background and coming back without moving the reader, posts arriving while it rested or while the reader reads, and posts that came in while the app was down. The database is a file there, so closing it and opening it again is what "the app was started again" means: the positions remembered for a session hang off the database object and die with it.
-- `app`: golden tests for the main screens; one integration test on an emulator that logs in with the project's spare Telegram account on the production DC (Telegram disabled test-DC test numbers in 2024; see `docs/spikes/tdlib-ffi.md`). The session is created once and its TDLib database is reused between runs so the SMS code is not needed on every run.
-- All manual testing runs on Android emulators (x86_64 system images, so the `libtdjson.so` x86_64 build is required from day one). No personal devices.
-
-## 12. Decision log
-
-| Date | Decision | Notes |
-|---|---|---|
-| 2026-09-17 | Android → web | Founder priority |
-| 2026-09-17 | iOS dropped from the roadmap | On-device-only cannot give real-time notifications on iOS |
-| 2026-09-17 | On-device TDLib session, no backend | |
-| 2026-09-17 | Flutter | Single codebase |
-| 2026-09-17 | Chronological feed, no ranking | Keep MVP simple |
-| 2026-09-17 | Rules per channel or global, never per feed | Feeds are reading views only |
-| 2026-09-17 | Rules match text and captions only | No forward origin, edits, or URL matching |
-| 2026-09-17 | Device TTS, auto language detection | Cloud voices are a later opt-in |
-| 2026-09-17 | Local only, no sync in MVP | Sync backend considered for phase 4 |
-| 2026-09-17 | Open source under GPL-3.0 | Forks must stay open |
-| 2026-09-17 | Only joined channels as sources | App never joins, leaves, or searches public channels |
-| 2026-09-17 | Reading syncs read state to Telegram | Default on, setting to disable |
-| 2026-09-17 | Name stays telegram-feed | Rename before public release |
-| 2026-09-17 | Emulator login uses a spare real account on the production DC | Telegram disabled test-DC test numbers; the founder's main account is never used (spike P0-1) |
-| 2026-09-17 | Foreground service type `specialUse` | Android 15+ caps `dataSync` at 6 h/day (spike P0-2) |
-| 2026-09-17 | TTS and notification plugins live in the service host isolate, core sends commands | Background isolates cannot receive platform callbacks (spike P0-2) |
-| 2026-09-17 | Share puts the `t.me` link (public username link, else `t.me/c`) into the system share sheet via `share_plus`; copy link uses the clipboard | Private `tg://privatepost` links stay for Open in Telegram only, since other apps cannot open them |
-| 2026-09-18 | Sync goes through the user's Google Drive; no sync backend | Founder decision; keeps the project backend-free |
-| 2026-09-18 | Drive access through the Drive API with Google sign-in (app data folder), not the system file picker | Founder decision; works without the Drive app, needs an OAuth client of the founder's Google Cloud project |
-| 2026-09-18 | Sync covers feeds with sources, rules and settings; read positions stay per device; merge per item, newest edit wins | Founder decision |
-| 2026-09-18 | AI semantic rules use any OpenAI-compatible endpoint; the user enters endpoint, model and key in Settings | Founder decision; no provider lock-in, works with local models |
-| 2026-09-18 | Keyword pre-filter of an AI rule is optional per rule, with a warning when empty | Founder decision; the user trades coverage against cost and privacy |
-| 2026-09-18 | A semantic check that fails skips that rule for that post, quietly | Founder decision; no retries, no fallback alerts, other rules still fire |
-| 2026-09-18 | Read-aloud queue never drops items; Listen requests go next | Found while dogfooding with busy channels; founder chose completeness over freshness |
-| 2026-09-18 | A channel added to a feed starts at Telegram's read position | Founder decision while dogfooding: the whole history used to count as unread |
-| 2026-09-17 | Web target dropped after the phase 3 build worked | Founder decision, Android only; the build stays in history at 87e10f3 |
-| 2026-09-19 | A rule with an empty condition means "every post" | Founder decision; one mechanism instead of a second per-channel notification switch, so scope, priority, schedule and read-aloud carry over |
-| 2026-09-19 | Background watching can be turned off; the service notification has no prominence setting | Founder decision. The "minimal" switch was built first and dropped the same day: Android raises a foreground service's channel to LOW whatever is asked for, so it changed nothing on screen, and it only ever reached a service the app started itself |
-| 2026-09-19 | Those two settings apply at the next app start, not live | The core isolate cannot move between the service and the app engine while TDLib is polling (section 8); a live handoff would need `FfiTransport` to stop its receive isolate |
-| 2026-09-17 | Web stays on tdweb, built from source; no GramJS gateway | tdweb 1.8.67 self-built works end to end, npm 1.8.0 is dead (spike P0-4) |
-| 2026-09-19 | Videos play while they download, through a loopback HTTP server over TDLib's partial file | Founder feedback: the official app starts videos much sooner; keeps `video_player` instead of a player with a custom data source |
-| 2026-09-19 | Short videos autoplay muted; limits 60 s and 20 MB by default, adjustable in Settings | Founder feedback |
-| 2026-09-19 | A tapped video plays in the full-screen viewer at once, orientation is never forced; leaving the viewer pauses it and cancels its streaming download, an autoplayed video returns to muted autoplay. Inline player controls are gone | Founder feedback round 2: behave like the official app |
-| 2026-09-19 | The download button on a video fills Telegram's cache and survives leaving the viewer; no export to the gallery | Founder decision, feedback round 2: same as the official app |
-| 2026-09-19 | One viewer for photos and videos with album paging, swipe to close and hold for 2×; it replaces the photo viewer and the full-screen video screen | Founder decision, feedback round 2: the parts of the official viewer wanted in this round |
-| 2026-09-19 | Picture-in-picture is an in-app mini player over the timeline plus Android's system window when the app is left | Founder decision, feedback round 2. Android's window shrinks the whole activity and cannot float over our own screens, so the official app's two behaviours need two mechanisms |
-| 2026-09-19 | Timeline in chat order (oldest on top), opens at the remembered position, else the first unread post | Founder feedback: same behaviour as a chat in Telegram; replaces newest-first and the jump-to-unread action |
-| 2026-09-19 | Main screen is a tab bar: `+`, Feeds (the list of feeds), one tab per Telegram folder listing its channels, All channels | Founder feedback; a tab per feed was built first and replaced the same day by the single Feeds tab, founder decision |
-| 2026-09-19 | Folder tabs and All channels show channels only | Founder decision; the app stays a channel reader, chatting is a non-goal |
-| 2026-09-19 | Feeds have content filters; they apply to the timeline and to rules (a post hidden by every feed with its channel does not notify) | Founder decision; refines "rules never per feed": rules stay per channel or global, filters only silence what no feed shows |
-| 2026-09-19 | Posts and comments are drawn like the official app: bubbles with avatars, coloured names, mosaic albums, formatted text, footer with views and time | Founder feedback round 3; the group-chat form, since a feed mixes channels and avatars were asked for everywhere |
-| 2026-09-19 | The unread dot sits beside the time in a reserved slot and only fades | Founder decision, feedback round 3: the dot in front of the title made the title jump when a post became read |
-| 2026-09-19 | A feed made from a Telegram folder is a one-time copy of its channels | Founder decision, feedback round 3; no link to the folder, no schema change |
-| 2026-09-19 | Autoplay keeps the switch and limits of F-6; they are also reachable from the menu of a video post | Founder feedback round 3: the settings existed but were overlooked |
-| 2026-09-19 | Avatars sit in the bubble's title line, at the right end, in posts and comments; the share button beside the bubble is gone (sharing stays in the menu) | Founder decision the same day, after seeing the first version of round 3: the avatar column and the share button took too much width from text and pictures. Departs from the official app on purpose |
-| 2026-09-19 | Search, date navigation and shared media work over all of a feed's sources as one merged list and obey the feed's filter | Founder decision, feedback round 4: a feed is merged channels, so it searches exactly what it shows |
-| 2026-09-19 | A rule with no condition notifies about posts without text too, showing what they carry | Founder decision, feedback round 5: "every post" has to mean every post; a keyword rule still needs text, and an AI rule has nothing to send |
-| 2026-09-19 | The channel info screen has no mute and no leave | Founder decision, feedback round 4: notifications are the app's own rules, and only joined channels are sources |
-| 2026-09-19 | A filtered feed shows a post whole: one part that passes carries the rest of the album and its caption. Per-feed checkbox, on for every feed, the ones that exist included | Founder decision, feedback round 5: a filter picks posts, not pieces of them; a video beside a picture is still one post |
-| 2026-09-19 | Whole posts also reach rule notifications and the search by words; the shared media tabs stay strict | Founder decision the same day: what the timeline shows may notify and be found, while the tabs list single media items by kind |
-| 2026-09-20 | Channel lists are built from the main chat list and from every chat folder; the archive is not read | Founder decision, feedback round 6: a folder joined by invite link holds its channels in no other list, and an archived channel is one the founder put away |
-| 2026-09-20 | The viewer starts a video the timeline was autoplaying from the beginning; a handover from the mini player or the system window keeps the position | Founder decision, feedback round 6: the position autoplay reached is not one the watcher chose |
-| 2026-09-20 | The post menu can save a post, and with it its whole album, to Saved Messages: a forward that keeps the channel as the source | Founder decision, feedback round 6; same as the official app's entry, and it needs no place of our own to keep posts in |
-| 2026-09-20 | Every list of channels tags each channel with the feeds it is in | Founder decision, feedback round 6: home lists, the feed editor's picker and the rule editor's scope list |
-| 2026-09-20 | The day of the topmost post floats over the timeline while the reader scrolls it | Founder feedback round 7: the official app's date, and the day pills alone leave the reader without a date in a long scroll |
-| 2026-09-20 | Round 7 is the feature-by-feature comparison with the official Telegram Android app: every difference found in the code was put to the founder one by one, who picked 33 of them and dropped 22 | Founder decision 2026-09-20; PLAN.md round 7 lists both sides, the drops with their reasons. The order of the work is what is most visible while reading |
-| 2026-09-20 | A photo or a video can be saved into the phone's gallery (H-23) | Founder decision, round 7; replaces the round 2 decision that the download button only fills Telegram's cache. The cache download stays as it is |
-| 2026-09-20 | Archived channels get a place of their own (an Archive entry in All channels, H-30) | Founder decision, round 7; refines the round 6 decision, which keeps them out of the ordinary lists |
-| 2026-09-20 | The app can hold several Telegram accounts, one TDLib database and one core each, with feeds and rules belonging to an account (H-35) | Founder decision, round 7; the official app holds four. Touches the core host, the schema and the sync snapshot, so it comes last in the round |
-| 2026-09-20 | The app gets a lock of its own (PIN or biometrics, H-34); account management (sessions, two-step verification) stays in the official app | Founder decision, round 7: private channels are readable by anyone holding the unlocked phone, while account settings are not this app's business |
-| 2026-09-20 | Links keep opening in the system browser: no in-app browser and no Instant View. A t.me link inside a post that points at a channel the account follows opens in our own timeline (H-18), and the app does not register as a handler for t.me links from other apps | The founder left this one to the session, round 7: a browser of our own is not the app's business, and a handler would put a chooser in front of every t.me link on the device |
-| 2026-09-20 | The post menu opens on a long press only, and a double tap sends the quick reaction | Founder feedback round 7 (H-9): Flutter's gesture arena cannot give a plain tap the menu and still see the second tap of a double tap, and the official app works this way too |
-| 2026-09-21 | Fixture channels, histories and posts live in `app/test/fixtures.dart`, not inside test files | H-38: the gateway fake used to sit in two test files that twenty others imported, and the positioning tests need channels, paging histories and arriving posts in one place. No test needs the spare Telegram account |
-| 2026-09-21 | Settings is a list of screens as in the official app: the profile, Chat settings, Privacy and security, Notifications and sounds, Data and storage, then the app's own screens (Read aloud, AI rules, Google Drive sync) and About. Log out moves into the app bar's menu | Founder feedback round 8 (J-3): the single screen had grown too long |
-| 2026-09-21 | Automatic downloads and video autoplay are one setting, as in the official app: per connection (mobile data, Wi-Fi, roaming) a switch, Telegram's Low, Medium and High presets and photos, videos and files with their limits; a video autoplays only when it loads by itself, and the Autoplay switches (GIFs, videos) sit under the downloads on Data and storage | Founder feedback round 8 (J-2) and founder decision the same day; replaces the autoplay limits of 2026-09-19 (60 s, 20 MB) and the picture-only downloads of H-24 |
-| 2026-09-21 | The badges of the feeds and of the folder tabs count unread posts, or the channels with unread posts, by one "Count unread posts" switch under Notifications and sounds > Badge counter, on by default | Founder feedback round 8 (J-1) and founder decision the same day: the official app's "Count unread messages", in the same place and with the same default. A feed counts posts as its timeline shows them (albums as one, its filter applied) |
+- `rules`: unit tests for the parser and evaluator, including Unicode word boundaries, Cyrillic case folding and schedules that wrap past midnight.
+- `core`: timeline merge, search, filters, rule engine and sync merge, tested against a fake `TelegramGateway` with scripted histories and update streams.
+- `telegram_gateway`: tested against a scripted fake transport.
+- `app_db`: a migration test for every schema version, against the dumps in `drift_schemas/`.
+- `app`: fixture data for every widget test is in `app/test/fixtures.dart`: the fake gateway (channels, histories that page, live post events, `arrive` for a post that comes in now and `arrivedUnseen` for one that came in while the app was down), fixture channels and posts, and the pump helpers. No test needs a real account, channel or post.
+- `app`: where a feed opens is tested in `app/test/feed_positioning_test.dart`: every read state (nothing read, read to a point, read through, one channel of two unread, the same channel with a mark per feed, a channel timeline on Telegram's own position), reading that moves the marks and the next session that starts where it left, the app resting in the background and coming back without moving the reader, posts arriving while it rested or while the reader reads, and posts that came in while the app was down. The database is a file there, so closing and reopening it is a restart of the app.
+- `app`: golden tests for the main screens (`tool/update_goldens.sh` regenerates them on Linux in Docker).
+- `app/integration_test`: runs the real app on an emulator. The feed flow runs only when the emulator's account is logged in.
+- Manual testing runs on Android emulators with x86_64 system images, never on personal devices. Telegram's test-DC test numbers (`99966XYYYY`) no longer work: Telegram disabled them ([tdlib/td#3083](https://github.com/tdlib/td/issues/3083)). The emulator therefore logs in with a spare real account on the production DC; the owner of that account types the phone number and code, and the TDLib session is reused between runs.
+- `tool/ci.sh` runs what CI runs: analyze, format check, package tests and app tests.
