@@ -88,6 +88,65 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
+  testWidgets('the watching notification row reads its channel and opens it', (
+    tester,
+  ) async {
+    const channel = MethodChannel('tf/notifications-watching');
+    final calls = <Map<Object?, Object?>>[];
+    bool? shown = true;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          calls.add({'method': call.method, ...call.arguments as Map});
+          return call.method == 'channelShown' ? shown : null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: WatchingNotificationRow(channel: channel)),
+      ),
+    );
+    await tester.pump();
+    expect(find.text("Shown. Tap to hide it in Android's settings"), findsOne);
+    expect(calls.single, {'method': 'channelShown', 'channel': 'core'});
+
+    await tester.tap(find.text('Watching notification'));
+    await tester.pump();
+    expect(calls.last, {'method': 'openChannelSettings', 'channel': 'core'});
+
+    // The user turned the channel off and came back.
+    shown = false;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(find.text('Hidden. Watching goes on'), findsOne);
+
+    // No channel yet: the watcher has not run since background watching went on.
+    shown = null;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(find.text('Available after the next start of the app'), findsOne);
+    expect(tester.widget<ListTile>(find.byType(ListTile)).enabled, isFalse);
+  });
+
+  testWidgets('without the platform side there is no row', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: WatchingNotificationRow(
+            channel: MethodChannel('tf/notifications-none'),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Watching notification'), findsNothing);
+  });
+
   test(
     'a chosen sound makes a channel of its own; the default keeps the old',
     () async {
