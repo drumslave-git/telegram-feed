@@ -367,6 +367,8 @@ class _HomeScreenState extends State<HomeScreen>
           'channel${channels.length == 1 ? '' : 's'}.',
         ),
         action: SnackBarAction(label: 'Open', onPressed: () => _openFeed(feed)),
+        // Flutter keeps a snack bar with an action up until it is swiped away.
+        persist: false,
       ),
     );
   }

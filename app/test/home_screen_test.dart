@@ -323,6 +323,10 @@ void main() {
     // Back on the Feeds tab, with the new feed listed.
     expect(find.widgetWithText(ListTile, 'Work'), findsOneWidget);
     expect(find.textContaining('created with 2 channels'), findsOneWidget);
+    // The message goes away by itself, its Open button notwithstanding.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('created with 2 channels'), findsNothing);
     await unmount(tester);
   });
 
