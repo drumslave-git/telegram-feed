@@ -78,29 +78,31 @@ class _TelegramFeedAppState extends State<TelegramFeedApp> {
             pageTransitionsTheme: appPageTransitions,
           ),
           themeMode: themeModeFrom(mode.data),
-          // Above the navigator, so every route's media sees the autoplay settings.
-          builder: (context, child) => PipHost(
-            child: snap.data == null
-                ? child!
-                : AutoplayScope(
-                    db: snap.data!.db,
-                    child: AutoDownloadScope(
+          // Above the navigator, so every route's media sees the autoplay settings, and
+          // every route reaches the account switch (the Accounts screen is pushed over
+          // the home route, not built inside it).
+          builder: (context, child) => AccountSwitch(
+            onSwitched: _switchAccount,
+            child: PipHost(
+              child: snap.data == null
+                  ? child!
+                  : AutoplayScope(
                       db: snap.data!.db,
-                      child: PostTextScale(
+                      child: AutoDownloadScope(
                         db: snap.data!.db,
-                        // Under every screen while a voice message or a song plays.
-                        // The lock sits above every screen the navigator builds.
-                        child: AudioBarHost(
-                          child: LockGate(db: snap.data!.db, child: child!),
+                        child: PostTextScale(
+                          db: snap.data!.db,
+                          // Under every screen while a voice message or a song plays.
+                          // The lock sits above every screen the navigator builds.
+                          child: AudioBarHost(
+                            child: LockGate(db: snap.data!.db, child: child!),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+            ),
           ),
-          home: AccountSwitch(
-            onSwitched: _switchAccount,
-            child: _Root(host: _host),
-          ),
+          home: _Root(host: _host),
         ),
       ),
     );

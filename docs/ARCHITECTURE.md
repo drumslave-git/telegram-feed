@@ -336,6 +336,27 @@ all of a feed's sources at once and obeys the feed's filter (founder decision 20
   `jumpToDate`); the timeline then settles on the first post of that day, and on a day without
   posts on the closest older one. A date before everything the sources have only says so.
 
+### 5.11 Settings
+
+Settings is laid out as the official app lays out its own (J-3): `SettingsScreen` holds the
+profile (`AccountHeader`) and one row per screen, and no setting of its own. Log out is in
+the app bar's menu, as in the official app. The rows, in order:
+
+- Accounts and Saved Messages, under the profile.
+- The official app's groups, each a screen in `settings/`: Chat settings
+  (`ChatSettingsScreen`: the text size of posts with a preview, the theme), Privacy and
+  security (`PrivacyScreen`: the app lock, and read sync, since it decides what Telegram
+  learns of the reading), Notifications and sounds (`NotificationsScreen`: sound and
+  vibration per rule priority, background watching), Data and storage (`DataStorageScreen`:
+  storage usage with its own screen and the cache button, automatic downloads, autoplay).
+- The app's own screens: Read aloud, AI rules, Google Drive sync, each showing its state on
+  the right where it has one.
+- About (a dialog with what leaves the device) and the licenses, then the version line
+  (`package_info_plus`) the official app signs its list with.
+
+`settings/settings_tiles.dart` has the pieces every screen shares: the blue section header,
+the grey note under a section and the row that leads to a screen.
+
 ## 6. Rules and notifications (phase 2)
 
 ### 6.1 Rule model
@@ -433,7 +454,10 @@ Switching is a restart of the host, not a second core: the root (`main.dart`, no
 disposes the host — which closes the core client, the database and sync — writes the new
 active id and starts a fresh host, and everything under `MaterialApp` rebuilds. An account
 with no session of its own therefore shows the login screen. `AccountSwitch` is how a screen
-deep in Settings asks the root for that. Removing an account deletes its TDLib directory and
+deep in Settings asks the root for that. It sits in `MaterialApp.builder`, above the
+navigator: the Accounts screen is a route pushed over the home route, not a widget inside
+it, so an `AccountSwitch` in `home` (where it was first put) was out of its reach and a
+switch only took effect at the next start. Removing an account deletes its TDLib directory and
 its database file; the last account cannot be removed, since the app would have nothing to
 open.
 
@@ -561,3 +585,4 @@ this: it keeps people out of the app, not out of the file system.
 | 2026-09-20 | Links keep opening in the system browser: no in-app browser and no Instant View. A t.me link inside a post that points at a channel the account follows opens in our own timeline (H-18), and the app does not register as a handler for t.me links from other apps | The founder left this one to the session, round 7: a browser of our own is not the app's business, and a handler would put a chooser in front of every t.me link on the device |
 | 2026-09-20 | The post menu opens on a long press only, and a double tap sends the quick reaction | Founder feedback round 7 (H-9): Flutter's gesture arena cannot give a plain tap the menu and still see the second tap of a double tap, and the official app works this way too |
 | 2026-09-21 | Fixture channels, histories and posts live in `app/test/fixtures.dart`, not inside test files | H-38: the gateway fake used to sit in two test files that twenty others imported, and the positioning tests need channels, paging histories and arriving posts in one place. No test needs the spare Telegram account |
+| 2026-09-21 | Settings is a list of screens as in the official app: the profile, Chat settings, Privacy and security, Notifications and sounds, Data and storage, then the app's own screens (Read aloud, AI rules, Google Drive sync) and About. Log out moves into the app bar's menu | Founder feedback round 8 (J-3): the single screen had grown too long |

@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/service/notifier.dart';
-import 'package:telegram_feed/settings/settings_screen.dart';
+import 'package:telegram_feed/settings/notifications_screen.dart';
 
 void main() {
   late AppDatabase db;

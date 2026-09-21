@@ -14,7 +14,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import '../home/channel_info_screen.dart';
 import '../home/connection_title.dart';
 import '../media/media_viewer.dart';
-import '../settings/settings_screen.dart' show showAutoplaySettings;
+import '../settings/data_storage_screen.dart' show showAutoplaySettings;
 import 'feed_editor_screen.dart';
 import 'open_links.dart';
 import 'post_card.dart';

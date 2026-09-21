@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 7 (founder, 2026-09-20) is closed, with rounds 1 to 6 and P4-1, P4-2. **Next task:** none open; round 7 is closed. Waiting for the founder's next round.
+**Current phase:** feedback round 8 (founder, 2026-09-21); rounds 1 to 7 and P4-1, P4-2 are closed. **Next task:** J-2 autoplay and automatic downloads as one, like the official app.
 
 ## Phase 0 — Spikes
 
@@ -444,6 +444,32 @@ an in-app banner for new posts; replying from a notification; sharing into the a
 apps; a home-screen widget; the list of active sessions; managing two-step verification;
 per-channel cache size; channel statistics. They are in the Dropped section at the end of this
 file with their reasons.
+
+## Feedback round 8 (founder, 2026-09-21)
+
+Founder decisions of the same day: one "Count unread posts" switch under Notifications and
+sounds > Badge counter, where the official app keeps its "Count unread messages", decides
+whether the feed badges and the folder-tab badges count posts or channels, and it is on by
+default as in the official app; a video autoplays only when it is within the auto-download
+limit of the connection, and the Autoplay switches (GIFs, videos) sit on the Data and storage
+screen under the automatic downloads, as the official app had them before Power Saving.
+
+- [x] J-3 Settings is one long screen: split it into screens as the official app does. The
+  first screen holds the profile and one row per screen and no setting of its own: Accounts
+  and Saved Messages under the profile; Chat settings (text size of posts, theme), Privacy
+  and security (app lock, read sync), Notifications and sounds (rule sounds, background
+  watching), Data and storage (storage usage with a screen of its own and the cache button,
+  automatic downloads, autoplay); Read aloud, AI rules and Google Drive sync with their state
+  on the right; About, the licenses and the version line at the bottom. Log out moved into
+  the app bar's menu. Found on the way: `AccountSwitch` sat in the home route, which the
+  pushed Accounts screen cannot reach, so a switch only took effect at the next start; it
+  moved into `MaterialApp.builder`. The settings golden was regenerated.
+- [ ] J-2 Video autoplay and automatic downloads become one thing that works and looks like
+  the official app: per connection (mobile data, Wi-Fi, roaming) a switch, a data-usage
+  preset and the kinds of media with their size limits; a video within the limit loads and
+  autoplays.
+- [ ] J-1 The feed unread count shows posts or channels, chosen by the switch above; the
+  folder tabs follow it.
 
 ## Phase 4 — Extras
 
