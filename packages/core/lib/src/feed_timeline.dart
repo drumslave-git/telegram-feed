@@ -47,9 +47,6 @@ class _Source {
   /// Only used by an anchored timeline; 0 means it is already at the newest end.
   int newerFrom = 0;
   bool noNewer = true;
-
-  /// Oldest message id that went through the filter (shown or hidden); 0 before the first.
-  int oldestSorted = 0;
 }
 
 /// Merged, paginated, live timeline over several channels (ARCHITECTURE.md section 5.3).
@@ -92,30 +89,24 @@ final class FeedTimeline {
   /// posts then wait in [pendingNew] and [loadNewer] pages towards the newest end.
   final bool anchored;
 
-  /// What the feed shows. Hidden posts never become rows; [coveredFrom] lets read marks
-  /// pass over them.
+  /// What the feed shows. Hidden posts never become rows; [passedAt] reads them with the
+  /// rows around them.
   final FeedFilter filter;
 
-  /// Message ids per chat that the filter hid, and that it let through (rows and posts
-  /// waiting in [pendingNew]).
-  // Sorted maps used as sets: only they can answer "the next id after this one".
-  final _hidden = <int, SplayTreeMap<int, void>>{};
-  final _shown = <int, SplayTreeMap<int, void>>{};
+  /// The posts the filter hid, per chat: message id to date.
+  final _hidden = <int, SplayTreeMap<int, int>>{};
 
-  /// True when the post may be listed; records the verdict either way.
+  /// True when the post may be listed; a hidden one is remembered.
   bool _sort(Post post) {
     final ok = filter.allows(post);
-    ((ok ? _shown : _hidden)[post.chatId] ??= SplayTreeMap())[post.messageId] =
-        null;
+    if (!ok) {
+      (_hidden[post.chatId] ??= SplayTreeMap())[post.messageId] = post.date;
+    }
     return ok;
   }
 
-  /// A part the filter hid that its album's row shows after all: it is on the screen, so
-  /// reading the row covers it like any other post.
-  void _promote(Post post) {
-    _hidden[post.chatId]?.remove(post.messageId);
-    (_shown[post.chatId] ??= SplayTreeMap())[post.messageId] = null;
-  }
+  /// A part the filter hid that its album's row shows after all.
+  void _promote(Post post) => _hidden[post.chatId]?.remove(post.messageId);
 
   /// True when the filter hid [post] but its album's row may still carry it
   /// ([FeedFilter.wholePost]).
@@ -180,37 +171,6 @@ final class FeedTimeline {
     return true;
   }
 
-  /// The newest message id of [chatId] that reading [fromId] also covers: the hidden posts
-  /// that follow it up to the next shown one. [fromId] itself when there are none.
-  ///
-  /// Only meaningful when everything newer than [fromId] is loaded; true for any row, and
-  /// for a read mark once [sortedDownTo] says so.
-  int coveredFrom(int chatId, int fromId) {
-    final hidden = _hidden[chatId];
-    if (hidden == null) return fromId;
-    final nextShown = _shown[chatId]?.firstKeyAfter(fromId);
-    var best = fromId;
-    for (
-      var h = hidden.firstKeyAfter(fromId);
-      h != null;
-      h = hidden.firstKeyAfter(h)
-    ) {
-      if (nextShown != null && h > nextShown) break;
-      best = h;
-    }
-    return best;
-  }
-
-  /// Whether every post of [chatId] newer than [messageId] has been through the filter.
-  bool sortedDownTo(int chatId, int messageId) {
-    for (final s in _sources) {
-      if (s.chatId != chatId) continue;
-      if (s.exhausted && s.buffer.isEmpty) return true;
-      return s.oldestSorted != 0 && s.oldestSorted <= messageId;
-    }
-    return false;
-  }
-
   final TelegramGateway gateway;
   final int pageSize;
   final int historyLimit;
@@ -273,7 +233,6 @@ final class FeedTimeline {
       }
       if (best == null) break;
       final post = best.buffer.removeFirst();
-      best.oldestSorted = post.messageId;
       if (!_seen.add((post.chatId, post.messageId))) continue;
       final passes = _sort(post);
       if (!passes && !_ridesAlong(post)) continue;
@@ -413,14 +372,72 @@ final class FeedTimeline {
   static bool isUnread(TimelineItem item, Map<int, int> marks) =>
       item.head.messageId > (marks[item.chatId] ?? 0);
 
-  /// How many unread rows are newer than [index] (below it in the list): what the button
-  /// to the newest posts counts, together with [pendingNew].
-  int unreadBefore(int index, Map<int, int> marks) {
+  /// The unread posts of the loaded rows, counted as Telegram counts them: every part of
+  /// an album is one. With [pendingNew], what the button to the newest posts shows.
+  int unreadPosts(Map<int, int> marks) {
     var n = 0;
-    for (var i = 0; i < index && i < _items.length; i++) {
-      if (isUnread(_items[i], marks)) n++;
+    // A channel's rows are newest first, so its first read row ends its unread ones.
+    final open = chatIds;
+    for (final item in _items) {
+      if (open.isEmpty) break;
+      if (!open.contains(item.chatId)) continue;
+      final mark = marks[item.chatId] ?? 0;
+      if (item.head.messageId <= mark) {
+        open.remove(item.chatId);
+        continue;
+      }
+      for (final p in item.allPosts) {
+        if (p.messageId > mark) n++;
+      }
     }
     return n;
+  }
+
+  /// What a reader who has read the row at [index] has passed, per chat: the newest post of
+  /// each chat at that row or older in the timeline's order, shown or hidden. The feed
+  /// reads like one chat (ARCHITECTURE.md 5.4): everything above the newest post read is
+  /// read. With [throughNewest] (the row is the newest one and nothing waits behind the
+  /// button) the hidden posts after it are passed too. A chat with nothing loaded that old
+  /// and nothing waiting in its buffer is left out.
+  Map<int, int> passedAt(int index, {bool throughNewest = false}) {
+    if (index < 0 || index >= _items.length) return const {};
+    final row = _items[index].head;
+    final out = <int, int>{};
+    void take(int chat, int id) {
+      if (id > (out[chat] ?? 0)) out[chat] = id;
+    }
+
+    final missing = chatIds;
+    for (var i = index; i < _items.length && missing.isNotEmpty; i++) {
+      final item = _items[i];
+      if (missing.remove(item.chatId)) take(item.chatId, item.head.messageId);
+    }
+    // Buffered posts are older than every row, so older than this one too.
+    for (final s in _sources) {
+      if (missing.contains(s.chatId) && s.buffer.isNotEmpty) {
+        take(s.chatId, s.buffer.first.messageId);
+      }
+    }
+    _hidden.forEach((chat, hidden) {
+      for (
+        var id = hidden.lastKey();
+        id != null;
+        id = hidden.lastKeyBefore(id)
+      ) {
+        if (throughNewest || _notNewer(hidden[id]!, chat, id, row)) {
+          take(chat, id);
+          break;
+        }
+      }
+    });
+    return out;
+  }
+
+  /// Whether the post (date, chat, id) stands at [row] or below it in the timeline's order.
+  static bool _notNewer(int date, int chatId, int messageId, Post row) {
+    if (date != row.date) return date < row.date;
+    if (chatId != row.chatId) return chatId < row.chatId;
+    return messageId <= row.messageId;
   }
 
   /// Index of the oldest loaded unread item, or -1 when nothing loaded is unread.

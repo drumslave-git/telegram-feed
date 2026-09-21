@@ -60,7 +60,7 @@ void main() {
     await tester.runAsync(() async {
       feed = await db.createFeed('Pick');
       await db.addSource(feed.id, -1, title: 'One');
-      await db.markRead(feed.id, -1, 3);
+      gw.readPositions[-1] = 3;
     });
     await tester.pumpWidget(
       MaterialApp(

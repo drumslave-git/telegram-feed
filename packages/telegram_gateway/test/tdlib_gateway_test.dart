@@ -788,6 +788,47 @@ void main() {
     },
   );
 
+  test(
+    "Telegram's read state: asked for, and pushed for channels only",
+    () async {
+      t.handlers['getChat'] = (r) => {
+        ...chatJson(-1001, 'News', supergroupId: 1),
+        'unread_count': 4,
+      };
+      final state = await g.readState(-1001);
+      expect(
+        (state.lastReadMessageId, state.unreadCount, state.lastMessageId),
+        (55, 4, 77),
+      );
+
+      final pushed = <ReadState>[];
+      final sub = g.readUpdates.listen(pushed.add);
+      t.update({
+        '@type': 'updateNewChat',
+        'chat': chatJson(-1001, 'News', supergroupId: 1),
+      });
+      t.update({'@type': 'updateNewChat', 'chat': chatJson(7, 'Bob')});
+      t.update({
+        '@type': 'updateChatReadInbox',
+        'chat_id': -1001,
+        'last_read_inbox_message_id': 60,
+        'unread_count': 1,
+      });
+      t.update({
+        '@type': 'updateChatReadInbox',
+        'chat_id': 7,
+        'last_read_inbox_message_id': 3,
+        'unread_count': 0,
+      }); // private chat: not a channel
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await sub.cancel();
+      expect(
+        pushed.map((r) => (r.chatId, r.lastReadMessageId, r.unreadCount)),
+        [(-1001, 60, 1)],
+      );
+    },
+  );
+
   test('markViewed forces read through viewMessages', () async {
     t.handlers['viewMessages'] = (_) => {'@type': 'ok'};
     await g.markViewed(-1001, [1, 2]);

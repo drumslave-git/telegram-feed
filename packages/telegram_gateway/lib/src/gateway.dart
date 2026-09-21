@@ -57,7 +57,17 @@ abstract interface class TelegramGateway {
   Future<ChannelInfo> channelInfo(int chatId);
 
   Stream<PostEvent> get postEvents;
+
+  /// Marks the posts viewed and everything of the channel up to the newest of them read, in
+  /// Telegram and so in the official app.
   Future<void> markViewed(int chatId, List<int> messageIds);
+
+  /// Telegram's read state of the chat now.
+  Future<ReadState> readState(int chatId);
+
+  /// Every change of a channel's read state: read here, in the official app or on another
+  /// device, and every new unread post.
+  Stream<ReadState> get readUpdates;
 
   /// Starts (or joins) a download and completes with the local path.
   Future<FileRef> download(FileRef ref, {int priority = 16});

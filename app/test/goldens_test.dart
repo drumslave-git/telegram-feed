@@ -107,7 +107,6 @@ void main() {
       final a = await db.createFeed('Tech');
       await db.addSource(a.id, -1, title: 'Alpha News');
       await db.addSource(a.id, -2, title: 'Beta Daily');
-      await db.markRead(a.id, -1, 100);
       await db.createFeed('Sports');
     });
     // Beta Daily has three posts past Tech's mark: the feed's counter says 3 (J-1).
@@ -134,6 +133,7 @@ void main() {
         ChatFolder(id: 2, title: 'News', channelIds: [-2, -1]),
       ],
     );
+    gw.readPositions[-1] = 100;
     await tester.pumpWidget(_app(HomeScreen(db: db, gateway: gw)));
     await _settle(tester);
     await _settle(tester);
@@ -179,7 +179,6 @@ void main() {
       feed = await db.createFeed('Tech');
       await db.addSource(feed.id, -1, title: 'Alpha News');
       await db.addSource(feed.id, -2, title: 'Beta Daily');
-      await db.markRead(feed.id, -2, 250);
     });
     final gw = TimelineGateway({
       -1: [
@@ -261,6 +260,7 @@ void main() {
           ),
       ],
     });
+    gw.readPositions[-2] = 250;
     for (final (mode, name) in [
       (ThemeMode.light, 'timeline_light'),
       (ThemeMode.dark, 'timeline_dark'),

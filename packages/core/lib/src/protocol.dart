@@ -9,7 +9,7 @@
 ///   {'type': 'welcome', 'auth': Map}                         current auth state
 ///   {'type': 'result', 'id': int, 'value': Object?}
 ///   {'type': 'error', 'id': int, 'code': int, 'message': String}
-///   {'type': 'event', 'stream': 'auth'|'posts'|'membership'|'files'|'matches'|'paused', 'data': Map}
+///   {'type': 'event', 'stream': a [CoreStream] name, 'data': Map}
 ///
 /// Calls beyond the gateway: 'refresh' (re-read rules and watched channels from the database),
 /// 'setPaused' {paused: bool} (stop/resume rule evaluation), 'isPaused', 'shutdown' (close
@@ -30,4 +30,5 @@ enum CoreStream {
   paused,
   comments,
   connection,
+  readStates,
 }

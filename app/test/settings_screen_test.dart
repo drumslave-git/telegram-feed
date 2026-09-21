@@ -190,17 +190,8 @@ void main() {
     expect(find.text('App lock'), findsOneWidget);
     expect(find.text('Off'), findsOneWidget);
 
-    final readSync = find.widgetWithText(
-      SwitchListTile,
-      'Mark posts read in Telegram',
-    );
-    expect(tester.widget<SwitchListTile>(readSync).value, isTrue);
-    await tester.tap(readSync);
-    await settle(tester);
-    expect(tester.widget<SwitchListTile>(readSync).value, isFalse);
-    await tester.runAsync(
-      () async => expect(await db.syncReadToTelegram(), isFalse),
-    );
+    // Reading always reaches Telegram, as in the official app: no switch for it.
+    expect(find.text('Mark posts read in Telegram'), findsNothing);
     await unmount(tester);
   });
 

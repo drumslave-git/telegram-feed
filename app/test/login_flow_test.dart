@@ -85,6 +85,11 @@ final class ScriptedGateway implements TelegramGateway {
   @override
   Future<void> markViewed(int chatId, List<int> messageIds) async {}
   @override
+  Future<ReadState> readState(int chatId) async =>
+      ReadState(chatId: chatId, lastReadMessageId: 0);
+  @override
+  Stream<ReadState> get readUpdates => const Stream.empty();
+  @override
   Future<void> saveToSavedMessages(int chatId, List<int> messageIds) async {}
   @override
   Future<FileRef> download(FileRef ref, {int priority = 16}) async => ref;

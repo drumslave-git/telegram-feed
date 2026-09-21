@@ -104,34 +104,26 @@ void main() {
     );
   });
 
-  test('read marks move forward only and default to 0', () async {
+  test('a deleted feed takes the position it was left at along', () async {
     final a = await db.createFeed('A');
-    await db.addSource(a.id, -1, title: 'One');
-    await db.addSource(a.id, -2, title: 'Two');
-    expect(await db.readMarks(a.id), {-1: 0, -2: 0});
-
-    await db.markRead(a.id, -1, 500);
-    await db.markRead(a.id, -1, 300); // older: ignored
-    expect(await db.readMarks(a.id), {-1: 500, -2: 0});
-
-    await db.removeSource(a.id, -1);
-    expect(await db.readMarks(a.id), {-2: 0});
+    final b = await db.createFeed('B');
+    await db.setSetting(SettingKeys.positionOfFeed(a.id), '{"chat":-1}');
+    await db.setSetting(SettingKeys.positionOfFeed(b.id), '{"chat":-2}');
+    await db.deleteFeed(a.id);
+    expect(await db.setting(SettingKeys.positionOfFeed(a.id)), isNull);
+    expect(await db.setting(SettingKeys.positionOfFeed(b.id)), '{"chat":-2}');
   });
 
   test('settings and wipe', () async {
-    expect(await db.syncReadToTelegram(), isTrue);
-    await db.setSetting(SettingKeys.syncReadToTelegram, 'false');
-    expect(await db.syncReadToTelegram(), isFalse);
-    await db.setSetting(SettingKeys.syncReadToTelegram, 'true');
-    expect(await db.syncReadToTelegram(), isTrue);
+    await db.setSetting(SettingKeys.themeMode, 'dark');
+    expect(await db.setting(SettingKeys.themeMode), 'dark');
 
     final a = await db.createFeed('A');
     await db.addSource(a.id, -1, title: 'One');
-    await db.markRead(a.id, -1, 1);
     await db.wipe();
     expect(await db.allFeeds(), isEmpty);
     expect(await db.allWatched(), isEmpty);
-    expect(await db.setting(SettingKeys.syncReadToTelegram), isNull);
+    expect(await db.setting(SettingKeys.themeMode), isNull);
   });
 
   test('watchFeeds emits on changes', () async {
@@ -241,8 +233,6 @@ void main() {
           'One',
           'Two',
         });
-        await sdb.markRead(feed.id, -2, 50);
-
         await sdb.applySyncedFeed(
           syncId: 'feed-a',
           name: 'Renamed',
@@ -253,7 +243,6 @@ void main() {
         feed = (await sdb.allFeeds()).single;
         expect(feed.name, 'Renamed');
         expect((await sdb.sourcesOf(feed.id)).map((s) => s.chatId), [-2]);
-        expect(await sdb.readMarks(feed.id), {-2: 50});
         expect((await sdb.allWatched()).map((w) => w.chatId), [-2]);
 
         await sdb.applySyncedRule(

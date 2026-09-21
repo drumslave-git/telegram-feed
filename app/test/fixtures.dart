@@ -21,8 +21,25 @@ class ChannelsGateway implements TelegramGateway {
   Future<List<ChatFolder>> chatFolders() async => folders;
   final posts = StreamController<PostEvent>.broadcast();
 
+  /// The channels as TDLib hands them out now: with the read position, the unread count
+  /// and the newest post of this moment.
   @override
-  Future<List<Channel>> myChannels() async => channels;
+  Future<List<Channel>> myChannels() async => [
+    for (final c in channels)
+      Channel(
+        chatId: c.chatId,
+        title: c.title,
+        username: c.username,
+        memberCount: c.memberCount,
+        photo: c.photo,
+        isMember: c.isMember,
+        lastMessageId: lastMessageOf(c.chatId),
+        lastReadMessageId: readPositions[c.chatId] ?? 0,
+        unreadCount: unreadOf(c.chatId),
+        lastMessageText: c.lastMessageText,
+        lastMessageDate: c.lastMessageDate,
+      ),
+  ];
   @override
   Stream<PostEvent> get postEvents => posts.stream;
 
@@ -74,12 +91,53 @@ class ChannelsGateway implements TelegramGateway {
   Future<ChannelInfo> channelInfo(int chatId) async =>
       ChannelInfo(chatId: chatId);
 
-  /// What the app told Telegram to count as read, per chat.
+  /// What the app told Telegram to count as read, per chat: the ids of the last call.
   final markedViewed = <int, List<int>>{};
 
+  /// Telegram's read position per chat. It starts at the channels' `lastReadMessageId`, a
+  /// test may set it, and [markViewed] moves it forward the way TDLib does, telling
+  /// [readUpdates] about it.
+  late final readPositions = <int, int>{
+    for (final c in channels) c.chatId: c.lastReadMessageId,
+  };
+  final readCtl = StreamController<ReadState>.broadcast();
+
   @override
-  Future<void> markViewed(int chatId, List<int> messageIds) async =>
-      markedViewed[chatId] = messageIds;
+  Stream<ReadState> get readUpdates => readCtl.stream;
+
+  /// Newest post of a chat, as the channel list names it.
+  int lastMessageOf(int chatId) {
+    for (final c in channels) {
+      if (c.chatId == chatId) return c.lastMessageId;
+    }
+    return 0;
+  }
+
+  /// Unread posts after the read position, as the channel list counts them.
+  int unreadOf(int chatId) {
+    for (final c in channels) {
+      if (c.chatId == chatId) return c.unreadCount;
+    }
+    return 0;
+  }
+
+  @override
+  Future<ReadState> readState(int chatId) async => ReadState(
+    chatId: chatId,
+    lastReadMessageId: readPositions[chatId] ?? 0,
+    unreadCount: unreadOf(chatId),
+    lastMessageId: lastMessageOf(chatId),
+  );
+
+  @override
+  Future<void> markViewed(int chatId, List<int> messageIds) async {
+    markedViewed[chatId] = messageIds;
+    final newest = messageIds.fold(0, (a, b) => a > b ? a : b);
+    if (newest <= (readPositions[chatId] ?? 0)) return;
+    readPositions[chatId] = newest;
+    readCtl.add(await readState(chatId));
+  }
+
   @override
   Future<void> saveToSavedMessages(int chatId, List<int> messageIds) async =>
       saved.add('$chatId:${messageIds.join(",")}');
@@ -305,11 +363,29 @@ final class TimelineGateway extends ChannelsGateway {
         .toList();
   }
 
+  @override
+  int lastMessageOf(int chatId) {
+    final history = histories[chatId];
+    return history == null || history.isEmpty
+        ? super.lastMessageOf(chatId)
+        : history.first.messageId;
+  }
+
+  @override
+  int unreadOf(int chatId) {
+    final history = histories[chatId];
+    if (history == null) return super.unreadOf(chatId);
+    final read = readPositions[chatId] ?? 0;
+    return history.where((p) => p.messageId > read).length;
+  }
+
   /// A post that arrives now: it joins the channel's history, so paging and a later
-  /// reopening of the feed find it, and it is pushed to the app as TDLib pushes it.
+  /// reopening of the feed find it, and it is pushed to the app as TDLib pushes it, with
+  /// the channel's new unread count.
   void arrive(Post post) {
     (histories[post.chatId] ??= <Post>[]).insert(0, post);
     posts.add(PostAdded(post));
+    unawaited(readState(post.chatId).then(readCtl.add));
   }
 
   /// A post that arrived while the app was not listening: the channel's history has it,
@@ -375,21 +451,21 @@ Channel fixtureChannel(
   isMember: isMember,
 );
 
-/// Creates a feed over [titles] (chat id to title) and returns it. Read marks are set
-/// afterwards with [AppDatabase.markRead], as adding a channel in the app does.
+/// Creates a feed over [titles] (chat id to title) and returns it. [marks] are Telegram's
+/// read positions of those channels, set on [gateway], which holds them as TDLib does.
 Future<Feed> fixtureFeed(
   AppDatabase db,
   String name,
   Map<int, String> titles, {
   Map<int, int> marks = const {},
+  ChannelsGateway? gateway,
 }) async {
+  assert(marks.isEmpty || gateway != null, 'read positions live in a gateway');
   final feed = await db.createFeed(name);
   for (final entry in titles.entries) {
     await db.addSource(feed.id, entry.key, title: entry.value);
   }
-  for (final entry in marks.entries) {
-    await db.markRead(feed.id, entry.key, entry.value);
-  }
+  gateway?.readPositions.addAll(marks);
   return feed;
 }
 

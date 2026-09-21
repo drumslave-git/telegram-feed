@@ -4,6 +4,7 @@ import 'package:app_db/app_db.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telegram_feed/feeds/saved_position.dart';
 import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -61,7 +62,7 @@ void main() {
     Map<int, String> channels = const {-1: 'Alpha', -2: 'Beta'},
     Map<int, int> marks = const {},
   }) async => (await tester.runAsync(
-    () => fixtureFeed(db, name, channels, marks: marks),
+    () => fixtureFeed(db, name, channels, marks: marks, gateway: gw),
   ))!;
 
   Future<void> open(WidgetTester tester, Widget widget) async {
@@ -113,8 +114,11 @@ void main() {
   Finder cardOf(String text) =>
       find.ancestor(of: find.text(text), matching: find.byType(PostCard));
 
-  Future<Map<int, int>> marksOf(WidgetTester tester, Feed feed) async =>
-      (await tester.runAsync(() => db.readMarks(feed.id)))!;
+  /// Telegram's read position of the feed's channels: the only read state there is.
+  Future<Map<int, int>> marksOf(WidgetTester tester, Feed feed) async {
+    final sources = (await tester.runAsync(() => db.sourcesOf(feed.id)))!;
+    return {for (final s in sources) s.chatId: gw.readPositions[s.chatId] ?? 0};
+  }
 
   // ---- where a feed opens ----
 
@@ -188,30 +192,32 @@ void main() {
     await unmountFixtures(tester);
   });
 
-  testWidgets('the same channel carries a read mark per feed', (tester) async {
-    final read = await feedOf(
+  testWidgets('a channel read in one feed is read in every feed', (
+    tester,
+  ) async {
+    final first = await feedOf(
       tester,
-      'Read',
+      'First',
       channels: {-1: 'Alpha'},
-      marks: {-1: 40},
+      marks: {-1: 20},
     );
-    final fresh = await feedOf(tester, 'Fresh', channels: {-1: 'Alpha'});
+    final second = await feedOf(tester, 'Second', channels: {-1: 'Alpha'});
 
-    await open(tester, app(read));
+    // Read through in the first feed, with the button to the end.
+    await open(tester, app(first));
+    expect(find.text('Unread posts'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
+    await tester.pumpAndSettle();
+    await settleFixtures(tester);
+    await unmountFixtures(tester);
+    expect(gw.readPositions[-1], 40);
+
+    // The other feed over the same channel has nothing new: one read position per channel,
+    // Telegram's own, as in the official app.
+    await open(tester, app(second));
     expect(find.text('Unread posts'), findsNothing);
     expect(find.text('a-40'), findsOneWidget);
     await unmountFixtures(tester);
-
-    // The other feed over the same channel knows nothing of that reading.
-    await open(tester, app(fresh));
-    expect(find.text('Unread posts'), findsOneWidget);
-    expect(find.text('a-1'), findsOneWidget);
-    expect(find.text('a-40'), findsNothing);
-    await unmountFixtures(tester);
-
-    final marks = await marksOf(tester, fresh);
-    expect(marks[-1], lessThan(40));
-    expect((await marksOf(tester, read))[-1], 40);
   });
 
   testWidgets("a channel of its own opens at Telegram's own read position", (
@@ -427,5 +433,144 @@ void main() {
     final badge = tester.widget<Badge>(find.byType(Badge));
     expect(int.parse(((badge.label as Text?)!).data!), greaterThan(30));
     await unmountFixtures(tester);
+  });
+
+  // ---- read and unread as in the official app ----
+
+  testWidgets('at the last post every channel of the feed is read', (
+    tester,
+  ) async {
+    // Beta posted ten times in the middle of Alpha's forty: at the newest end of the feed
+    // only Alpha is on the screen.
+    gw.histories[-2] = fixtureHistory(
+      -2,
+      to: 10,
+      label: 'b',
+      step: 200,
+      dateOffset: 2000,
+    );
+    final feed = await feedOf(tester, 'Middle', marks: {-1: 5});
+    await open(tester, app(feed));
+    expect(find.text('Unread posts'), findsOneWidget);
+
+    // The divider was on the screen, so the button goes to the very end.
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
+    await tester.pumpAndSettle();
+    await settleFixtures(tester);
+    expect(find.text('a-40'), findsOneWidget);
+    expect(find.textContaining('b-'), findsNothing);
+    await unmountFixtures(tester);
+
+    // Beta's posts were passed on the way, so they are read too.
+    expect(await marksOf(tester, feed), {-1: 40, -2: 10});
+  });
+
+  testWidgets('the button goes to the unread divider first, then to the end', (
+    tester,
+  ) async {
+    final feed = await feedOf(tester, 'Back', marks: {-1: 20, -2: 20});
+    // The reader left this feed scrolled up, at a post read long ago.
+    await tester.runAsync(
+      () => db.setSetting(
+        SettingKeys.positionOfFeed(feed.id),
+        const SavedPosition(chatId: -1, rowId: 10, edge: 0.1).encode(),
+      ),
+    );
+    await open(tester, app(feed));
+    expect(find.text('a-10'), findsOneWidget);
+    expect(find.text('Unread posts'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
+    await tester.pumpAndSettle();
+    await settleFixtures(tester);
+    expect(find.text('Unread posts'), findsOneWidget);
+    expect(divider(tester), lessThan(200));
+    expect(find.text('b-40'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
+    await tester.pumpAndSettle();
+    await settleFixtures(tester);
+    expect(find.text('b-40'), findsOneWidget);
+    expect(tester.getBottomLeft(cardOf('b-40')).dy, greaterThan(500));
+    await unmountFixtures(tester);
+  });
+
+  testWidgets('the button goes back to where a reply quote was tapped', (
+    tester,
+  ) async {
+    gw.histories[-1]![0] = const Post(
+      chatId: -1,
+      messageId: 40,
+      date: 8000,
+      text: 'a-40',
+      replyTo: ReplyTarget(chatId: -1, messageId: 5, text: 'the quote'),
+    );
+    final feed = await feedOf(tester, 'Reply', marks: {-1: 40, -2: 40});
+    await open(tester, app(feed));
+    await tester.tap(find.text('the quote'));
+    await tester.pumpAndSettle();
+    await settleFixtures(tester, rounds: 6);
+    await tester.pumpAndSettle();
+    expect(find.text('a-5'), findsOneWidget);
+    expect(find.text('a-40'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
+    await tester.pumpAndSettle();
+    await settleFixtures(tester, rounds: 6);
+    await tester.pumpAndSettle();
+    expect(find.text('a-40'), findsOneWidget);
+    expect(find.text('a-5'), findsNothing);
+    await unmountFixtures(tester);
+  });
+
+  testWidgets('a feed left scrolled up opens there again after a restart', (
+    tester,
+  ) async {
+    final feed = await feedOf(tester, 'Kept', marks: {-1: 40, -2: 40});
+    await open(tester, app(feed));
+    // Towards the older posts, and away.
+    await tester.dragFrom(_middle, const Offset(0, 1500));
+    await tester.pumpAndSettle();
+    await settleFixtures(tester);
+    final shown = [
+      for (var id = 1; id <= 40; id++)
+        for (final label in ['a', 'b'])
+          if (find.text('$label-$id').evaluate().isNotEmpty)
+            (text: '$label-$id', top: top(tester, '$label-$id')),
+    ].where((r) => r.top > 100 && r.top < 450).toList();
+    expect(shown, isNotEmpty);
+    await restart(tester);
+
+    await open(tester, app(feed));
+    for (final row in shown) {
+      expect(top(tester, row.text), closeTo(row.top, 2));
+    }
+    expect(find.text('Unread posts'), findsNothing);
+    await unmountFixtures(tester);
+  });
+
+  testWidgets('a feed left at its newest post keeps no position', (
+    tester,
+  ) async {
+    final feed = await feedOf(tester, 'Newest', marks: {-1: 40, -2: 40});
+    await tester.runAsync(
+      () => db.setSetting(
+        SettingKeys.positionOfFeed(feed.id),
+        const SavedPosition(chatId: -1, rowId: 10, edge: 0.1).encode(),
+      ),
+    );
+    await open(tester, app(feed));
+    expect(find.text('a-10'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
+    await tester.pumpAndSettle();
+    await settleFixtures(tester);
+    expect(find.text('b-40'), findsOneWidget);
+    await unmountFixtures(tester);
+    expect(
+      await tester.runAsync(
+        () => db.setting(SettingKeys.positionOfFeed(feed.id)),
+      ),
+      isNull,
+    );
   });
 }

@@ -29,7 +29,6 @@ final class SyncException implements Exception {
 /// the keystore and never in the database at all.
 bool isSyncedSetting(String key) =>
     key == SettingKeys.themeMode ||
-    key == SettingKeys.syncReadToTelegram ||
     key == SettingKeys.countUnreadPosts ||
     key == SettingKeys.postTextScale ||
     key.startsWith('tts.') ||

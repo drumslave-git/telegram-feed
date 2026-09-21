@@ -48,7 +48,7 @@ void main() {
   }
 
   test(
-    'the badge counts the posts the timeline would show, an album as one',
+    'the badge counts unread posts as Telegram does, album parts too',
     () async {
       final gw = twoChannels();
       final feed = await fixtureFeed(
@@ -56,33 +56,40 @@ void main() {
         'F',
         {-1: 'One', -2: 'Two'},
         marks: {-1: 6, -2: 3},
+        gateway: gw,
       );
       final c = await start(gw);
       expect(c.countPosts, isTrue);
-      // One: 7 to 10. Two: post 4 and the album of 5 to 7.
-      expect(c.unreadOf(feed.id), 6);
+      // One: 7 to 10. Two: post 4 and the three parts of the album.
+      expect(c.unreadOf(feed.id), 8);
       expect(c.unreadChannelsOf(feed.id), 2);
-      expect(c.unreadOnTab, 6);
+      expect(c.unreadOnTab, 8);
     },
   );
 
-  test('reading lowers the count without asking the history again', () async {
+  test('reading here or in the official app lowers every feed at once', () async {
     final gw = twoChannels();
     final feed = await fixtureFeed(
       db,
       'F',
       {-1: 'One', -2: 'Two'},
       marks: {-1: 6, -2: 3},
+      gateway: gw,
     );
+    // Another feed with the same channel: one read position is shared by both.
+    final other = await fixtureFeed(db, 'G', {-1: 'One'});
     final c = await start(gw);
+    expect(c.unreadOf(other.id), 4);
     final asked = gw.historyCalls;
-    await db.markRead(feed.id, -1, 8);
+    await gw.markViewed(-1, [8]);
     await settle();
-    expect(c.unreadOf(feed.id), 4); // 9, 10 and Two's two
-    await db.markRead(feed.id, -2, 7);
+    expect(c.unreadOf(feed.id), 6); // 9, 10 and Two's four
+    expect(c.unreadOf(other.id), 2);
+    await gw.markViewed(-2, [7]);
     await settle();
     expect(c.unreadOf(feed.id), 2);
     expect(c.unreadChannelsOf(feed.id), 1);
+    // Telegram's own count: no history is read for a feed that shows everything.
     expect(gw.historyCalls, asked);
   });
 
@@ -95,6 +102,7 @@ void main() {
         'F',
         {-1: 'One', -2: 'Two'},
         marks: {-1: 10, -2: 7},
+        gateway: gw,
       );
       final c = await start(gw);
       expect(c.unreadOf(feed.id), 0);
@@ -104,10 +112,6 @@ void main() {
       gw.arrive(fixturePost(-1, 12));
       await settle();
       expect(c.unreadOf(feed.id), 2);
-      // Deleted before it was read: nothing is left to read past it.
-      gw.posts.add(const PostsDeleted(chatId: -1, messageIds: [12]));
-      await settle();
-      expect(c.unreadOf(feed.id), 1);
     },
   );
 
@@ -128,7 +132,13 @@ void main() {
       },
       channels: [_channel(-1, 4)],
     );
-    final feed = await fixtureFeed(db, 'F', {-1: 'One'}, marks: {-1: 1});
+    final feed = await fixtureFeed(
+      db,
+      'F',
+      {-1: 'One'},
+      marks: {-1: 1},
+      gateway: gw,
+    );
     await db.setFeedFilter(
       feed.id,
       const FeedFilter(media: MediaPresence.withMedia).encode(),
@@ -143,49 +153,90 @@ void main() {
     );
     await settle();
     expect(c.unreadOf(feed.id), 2);
+
+    // A deleted post stops counting.
+    gw.posts.add(const PostsDeleted(chatId: -1, messageIds: [3]));
+    await settle();
+    expect(c.unreadOf(feed.id), 1);
   });
 
   test(
-    'the switch off counts channels, from one page of history each',
+    'a shown album counts with every part in a feed of whole posts',
     () async {
-      await db.setSetting(SettingKeys.countUnreadPosts, 'false');
-      final gw = twoChannels();
-      final feed = await fixtureFeed(
-        db,
-        'F',
-        {-1: 'One', -2: 'Two'},
-        marks: {-1: 6, -2: 7},
+      const photo = PhotoMedia(
+        sizes: [FileRef(id: 1, remoteId: 'p', size: 10)],
       );
-      await fixtureFeed(db, 'Quiet', {-2: 'Two'}, marks: {-2: 7});
-      final c = await start(gw);
-      expect(c.countPosts, isFalse);
-      expect(c.unreadOf(feed.id), 1);
-      expect(c.unreadOnTab, 1); // feeds with news, not their posts
-      expect(gw.historyCalls, 1); // One only: Two is read in both feeds
-
-      await db.setSetting(SettingKeys.countUnreadPosts, 'true');
-      await settle();
-      expect(c.unreadOf(feed.id), 4);
-      expect(c.unreadOnTab, 4);
-    },
-  );
-
-  test(
-    'a channel never read counts from its newest post, up to the cap',
-    () async {
+      const video = VideoMedia(
+        file: FileRef(id: 2, remoteId: 'v', size: 10),
+        durationSeconds: 30,
+      );
       final gw = TimelineGateway(
-        {-1: fixtureHistory(-1, to: 1500)},
-        channels: [_channel(-1, 1500)],
+        {
+          -1: [
+            fixturePost(-1, 3, albumId: 9, media: photo),
+            fixturePost(-1, 2, albumId: 9, media: video),
+            fixturePost(-1, 1),
+          ],
+        },
+        channels: [_channel(-1, 3)],
       );
-      final feed = await fixtureFeed(db, 'F', {-1: 'One'}, marks: {-1: 0});
+      final feed = await fixtureFeed(db, 'F', {-1: 'One'}, gateway: gw);
+      await db.setFeedFilter(
+        feed.id,
+        const FeedFilter(kinds: {MediaKind.video}).encode(),
+      );
       final c = await start(gw);
+      // The text post, and the video bringing the picture of its album along.
+      expect(c.unreadOf(feed.id), 3);
+
+      await db.setFeedFilter(
+        feed.id,
+        const FeedFilter(kinds: {MediaKind.video}, wholePost: false).encode(),
+      );
       await settle();
-      expect(c.unreadOf(feed.id), FeedsController.cap);
-      // Reading the first half lets the count go on towards the newest post.
-      await db.markRead(feed.id, -1, 900);
-      await settle();
-      await settle();
-      expect(c.unreadOf(feed.id), 600);
+      expect(c.unreadOf(feed.id), 2);
     },
   );
+
+  test('the switch off counts channels', () async {
+    await db.setSetting(SettingKeys.countUnreadPosts, 'false');
+    final gw = twoChannels();
+    final feed = await fixtureFeed(
+      db,
+      'F',
+      {-1: 'One', -2: 'Two'},
+      marks: {-1: 6, -2: 7},
+      gateway: gw,
+    );
+    await fixtureFeed(db, 'Quiet', {-2: 'Two'});
+    final c = await start(gw);
+    expect(c.countPosts, isFalse);
+    expect(c.unreadOf(feed.id), 1);
+    expect(c.unreadOnTab, 1); // feeds with news, not their posts
+
+    await db.setSetting(SettingKeys.countUnreadPosts, 'true');
+    await settle();
+    expect(c.unreadOf(feed.id), 4);
+    expect(c.unreadOnTab, 4);
+  });
+
+  test('a filtered channel never read counts up to the cap', () async {
+    final gw = TimelineGateway(
+      {-1: fixtureHistory(-1, to: 1500)},
+      channels: [_channel(-1, 1500)],
+    );
+    final feed = await fixtureFeed(db, 'F', {-1: 'One'}, gateway: gw);
+    await db.setFeedFilter(
+      feed.id,
+      const FeedFilter(media: MediaPresence.textOnly).encode(),
+    );
+    final c = await start(gw);
+    await settle();
+    expect(c.unreadOf(feed.id), FeedsController.cap);
+    // Reading the first half lets the count go on towards the newest post.
+    await gw.markViewed(-1, [900]);
+    await settle();
+    await settle();
+    expect(c.unreadOf(feed.id), 600);
+  });
 }

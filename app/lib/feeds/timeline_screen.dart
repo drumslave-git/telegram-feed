@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
@@ -21,6 +22,7 @@ import 'open_links.dart';
 import 'post_card.dart';
 import 'read_marker.dart';
 import 'recent_searches.dart';
+import 'saved_position.dart';
 import 'thread_screen.dart';
 import 'timeline_search.dart';
 
@@ -547,38 +549,24 @@ class TimelineView extends StatefulWidget {
   State<TimelineView> createState() => TimelineViewState();
 }
 
-/// Where the user was in a feed; kept in memory so coming back within the session lands on
-/// the same post, like reopening a chat in Telegram.
-class _Anchor {
-  const _Anchor(this.chatId, this.rowId, this.edge);
-  final int chatId;
-  final int rowId;
-
-  /// `itemLeadingEdge` of the row: its bottom, as a fraction of the viewport from the bottom.
-  final double edge;
-}
-
-class TimelineViewState extends State<TimelineView> {
-  /// Remembered positions per feed id (positive) or channel chat id (negative). They hang
-  /// off the database object, which goes away with the session.
-  static final _memory = Expando<Map<int, _Anchor>>();
-
-  /// Opening loads down to the read marks, but never more than this many rows.
+class TimelineViewState extends State<TimelineView>
+    with WidgetsBindingObserver {
+  /// Opening loads down to the read marks, or to the row the reader left the timeline at,
+  /// but never more than this many rows.
   static const _openCap = 300;
 
   final _scrollCtl = ItemScrollController();
   final _positions = ItemPositionsListener.create();
-  late final ReadMarker _marker = ReadMarker(
-    db: widget.db,
-    gateway: widget.gateway,
-    feedId: widget.feed?.id,
-  );
+  late final ReadMarker _marker = ReadMarker(gateway: widget.gateway);
 
-  int get _memoryKey => widget.feed?.id ?? widget.channel!.chatId;
+  /// Where the position the reader leaves this timeline at is kept.
+  String get _positionKey => widget.feed != null
+      ? SettingKeys.positionOfFeed(widget.feed!.id)
+      : SettingKeys.positionOfChat(widget.channel!.chatId);
   FeedTimeline? _timeline;
   StreamSubscription<PostEvent>? _events;
   StreamSubscription<List<WatchedChannel>>? _sources;
-  StreamSubscription<List<FeedReadMark>>? _marksSub;
+  StreamSubscription<ReadState>? _readStates;
   StreamSubscription<Feed?>? _feedSub;
   FeedFilter _filter = FeedFilter.none;
   List<({int chatId, String title, String? username})> _sourceRows = const [];
@@ -596,7 +584,7 @@ class TimelineViewState extends State<TimelineView> {
   final _selected = <(int, int)>{};
 
   /// The channel's pinned post, shown in a bar over the timeline. A feed mixes channels,
-  /// so it has no such bar (founder decision, round 7).
+  /// so it has no such bar.
   Post? _pinned;
   bool _pinnedHidden = false;
 
@@ -604,6 +592,10 @@ class TimelineViewState extends State<TimelineView> {
   /// Read once when the timeline opens and kept up to date by reacting here: watching the
   /// setting would tie every channel timeline to a database stream it otherwise never needs.
   String _quick = defaultQuickReaction;
+
+  /// Telegram's read position of every channel (ARCHITECTURE.md 5.4): everything up to it
+  /// is read. It moves as the reader reads here, and when the official app or another device
+  /// reads.
   Map<int, int> _marks = const {};
   bool _loading = false;
   String? _error;
@@ -617,12 +609,30 @@ class TimelineViewState extends State<TimelineView> {
   /// False until the list has reported its first positions after opening.
   bool _settled = true;
 
-  /// Unread posts between the reader and the newest one, plus the ones that arrived while
-  /// reading: what the button at the corner counts, as the official app does.
-  int _unreadBelow = 0;
+  /// True from a rebuild of a list that stayed up until the jump to its opening position
+  /// has been laid out: what the list reports in between is where it was before.
+  bool _repositioning = false;
 
-  /// Row that gets the "Unread posts" divider above it; fixed when the feed opens.
+  /// Row that gets the "Unread posts" divider above it: the first unread post when the
+  /// timeline was entered. It stays for the visit, through jumps and rebuilds.
   (int, int)? _firstUnread;
+
+  /// Whether the divider has been on the screen in this visit. Until it has, the button at
+  /// the corner goes to it first, as in the official app.
+  bool _dividerSeen = false;
+
+  /// Where a tap on a reply quote jumped from: the button goes back there before it goes
+  /// to the newest post, as in the official app.
+  ({int chatId, int messageId, int date})? _returnTo;
+
+  /// Where the reader is now, as it is kept on leaving: null at the newest post and on an
+  /// unread row. [_hereKnown] is false until the list has reported its rows.
+  SavedPosition? _here;
+  bool _hereKnown = false;
+
+  /// False until the first opening of this visit. Later rebuilds (a changed filter or
+  /// source) keep the reader where they are, not where they left the timeline last time.
+  bool _entered = false;
 
   /// Post the timeline opens at: a notification, or a search result / date it jumped to.
   int? _focusChat;
@@ -653,7 +663,9 @@ class TimelineViewState extends State<TimelineView> {
   /// not where it would open when the feed is entered.
   bool _openAtNewest = false;
 
-  Map<int, _Anchor> get _remembered => _memory[widget.db] ??= {};
+  /// Set by the button when the divider is not among the loaded rows: the rebuilt timeline
+  /// opens at the first unread post.
+  bool _openAtUnread = false;
 
   @override
   void initState() {
@@ -661,6 +673,8 @@ class TimelineViewState extends State<TimelineView> {
     _focusChat = widget.focusChatId;
     _focusMessage = widget.focusMessageId;
     _positions.itemPositions.addListener(_onPositions);
+    WidgetsBinding.instance.addObserver(this);
+    _readStates = widget.gateway.readUpdates.listen(_onReadState);
     unawaited(_loadQuickReaction());
     if (widget.channel != null) unawaited(_loadPinned());
     final feed = widget.feed;
@@ -679,10 +693,6 @@ class TimelineViewState extends State<TimelineView> {
               (chatId: r.chatId, title: r.title, username: r.username),
           ]),
         );
-    _marksSub = widget.db.watchAllReadMarks().listen((_) async {
-      _marks = await widget.db.readMarks(feed.id);
-      if (mounted) setState(() {});
-    });
     unawaited(_loadPhotos());
     _filter = FeedFilter.decode(feed.filterJson);
     // The filter can change in the feed editor while this timeline is underneath.
@@ -710,8 +720,53 @@ class TimelineViewState extends State<TimelineView> {
     }
   }
 
-  Future<Map<int, int>> _loadMarks() async =>
-      widget.feed == null ? _marks : await widget.db.readMarks(widget.feed!.id);
+  /// Telegram's read position of every source, as it is now. A position only moves
+  /// forward, so one the reader has passed here already stays.
+  Future<Map<int, int>> _loadMarks() async {
+    final ids = [for (final s in _sourceRows) s.chatId];
+    Future<int> of(int chatId) async {
+      try {
+        return (await widget.gateway.readState(chatId)).lastReadMessageId;
+      } on TelegramException {
+        return 0;
+      }
+    }
+
+    final read = await Future.wait(ids.map(of));
+    return {
+      for (var i = 0; i < ids.length; i++)
+        ids[i]: math.max(read[i], _marks[ids[i]] ?? 0),
+    };
+  }
+
+  /// Telegram moved a read position: the official app, another device, or this reading.
+  void _onReadState(ReadState r) {
+    if (!mounted || !_titles.containsKey(r.chatId)) return;
+    if (r.lastReadMessageId <= (_marks[r.chatId] ?? 0)) return;
+    setState(() => _marks = {..._marks, r.chatId: r.lastReadMessageId});
+  }
+
+  // Leaving the app is leaving the timeline, as far as its position goes: the official app
+  // keeps a chat's position when it pauses.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) _keepPosition();
+  }
+
+  /// Keeps where the reader is for the next visit, or forgets it when they are at the
+  /// newest post or on an unread row. Nothing changes before the list has shown any rows.
+  void _keepPosition() {
+    if (!_hereKnown) return;
+    final here = _here;
+    unawaited(
+      here == null
+          ? widget.db.deleteSetting(_positionKey)
+          : widget.db.setSetting(_positionKey, here.encode()),
+    );
+  }
+
+  Future<SavedPosition?> _loadPosition() async =>
+      SavedPosition.decode(await widget.db.setting(_positionKey));
 
   /// (Re)builds the timeline when the sources change.
   void _setSources(
@@ -734,7 +789,6 @@ class TimelineViewState extends State<TimelineView> {
       filter: _filter,
       startAt: _anchors,
     );
-    _firstUnread = null;
     _timeline = t;
     _events = widget.gateway.postEvents.listen((e) {
       final before = t.items.length;
@@ -742,7 +796,6 @@ class TimelineViewState extends State<TimelineView> {
       if (changed || e is PostAdded) setState(() {});
       // A row added at the newest end shifts every index; stay glued to the newest post.
       if (t.atTop && t.items.length > before) _jumpToNewest();
-      if (e is PostAdded) _coverHidden();
     });
     // A list that is already up keeps its scroll position: initialScrollIndex only counts
     // when it is built for the first time, and the spinner in between may never be drawn.
@@ -849,52 +902,96 @@ class TimelineViewState extends State<TimelineView> {
     _setSources(_sourceRows);
   }
 
-  /// Back to the live timeline: rebuilt without anchors, at its newest post.
-  void _toNewest() {
+  /// The button at the corner, as the official app's: first to the "Unread posts" divider
+  /// while the reader has not seen it in this visit, then back to where a reply quote was
+  /// tapped, then to the very end of the timeline.
+  void _onDownButton() {
     final t = _timeline;
     if (t == null) return;
-    if (!t.anchored) {
-      _release();
+    final divider = _firstUnread;
+    if (divider != null && !_dividerSeen) {
+      _dividerSeen = true;
+      final i = t.items.indexWhere((x) => (x.chatId, x.rowId) == divider);
+      if (i >= 0 && _scrollCtl.isAttached) {
+        // As when the timeline opens there: the row above the divider just below the top.
+        unawaited(
+          _scrollCtl.scrollTo(
+            index: i + 1,
+            alignment: 0.92,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+          ),
+        );
+        return;
+      }
+      if (t.anchored) {
+        _rebuildLive(atUnread: true);
+        return;
+      }
+    }
+    final back = _returnTo;
+    if (back != null) {
+      _returnTo = null;
+      unawaited(
+        jumpToPost(
+          chatId: back.chatId,
+          messageId: back.messageId,
+          date: back.date,
+        ),
+      );
       return;
     }
+    if (t.anchored) {
+      _rebuildLive(atUnread: false);
+    } else {
+      _release(toEnd: true);
+    }
+  }
+
+  /// Back to the live timeline, rebuilt without anchors: at its first unread post, or at
+  /// its newest one.
+  void _rebuildLive({required bool atUnread}) {
     _anchors = null;
     _focusChat = null;
     _focusMessage = null;
     _focusDay = null;
-    _openAtNewest = true;
+    _openAtUnread = atUnread;
+    _openAtNewest = !atUnread;
     _highlightTimer?.cancel();
     _highlight = null;
     _timeline = null;
     _setSources(_sourceRows);
   }
 
-  /// Posts the filter hides count as read once everything before them is: otherwise a
-  /// channel that only posts hidden things would keep its feed marked as new forever.
-  void _coverHidden() {
-    final t = _timeline;
-    if (t == null || _filter.isEmpty) return;
-    for (final chat in t.chatIds) {
-      final mark = _marks[chat] ?? 0;
-      if (mark == 0 || !t.sortedDownTo(chat, mark)) continue;
-      final covered = t.coveredFrom(chat, mark);
-      if (covered > mark) _marker.cover(chat, covered);
-    }
-  }
-
   int _indexOf(FeedTimeline t, int chatId, bool Function(TimelineItem) test) =>
       t.items.indexWhere((i) => i.chatId == chatId && test(i));
 
-  /// Loads the first rows and decides where the list opens: the post a notification asked
-  /// for, else where the user left this feed earlier in the session, else the first unread
-  /// post, else the newest post.
+  /// The first unread row gets the divider, once per visit; the button's first stop.
+  void _markFirstUnread(FeedTimeline t, {bool again = false}) {
+    if (_firstUnread != null && !again) return;
+    final unread = t.firstUnreadIndex(_marks);
+    if (unread < 0) return;
+    final row = t.items[unread];
+    _firstUnread = (row.chatId, row.rowId);
+    _dividerSeen = false;
+  }
+
+  /// Loads the first rows and decides where the list opens, as the official app opens a
+  /// chat: the post a notification asked for; else where the reader left the timeline
+  /// scrolled up; else the first unread post under the divider; else the newest post.
   Future<void> _open(FeedTimeline t, {bool reposition = false}) async {
     setState(() => _loading = true);
     try {
       _marks = await _loadMarks();
+      final entering = !_entered;
+      _entered = true;
+      final left = entering
+          ? await _loadPosition()
+          : (_hereKnown ? _here : null);
       await t.loadMore();
-      Future<int> search(int Function() find) async {
+      Future<int> search(int Function() find, {int pages = 8}) async {
         var index = find();
-        for (var pages = 0; index < 0 && pages < 8 && !t.exhausted; pages++) {
+        for (var p = 0; index < 0 && p < pages && !t.exhausted; p++) {
           await t.loadMore();
           index = find();
         }
@@ -903,7 +1000,6 @@ class TimelineViewState extends State<TimelineView> {
 
       final focusChat = _focusChat;
       final focusMessage = _focusMessage;
-      final left = _remembered[_memoryKey];
       var index = -1;
       if (_openAtNewest) {
         _openAtNewest = false;
@@ -942,6 +1038,8 @@ class TimelineViewState extends State<TimelineView> {
         _error = null;
         return;
       }
+      final atUnread = _openAtUnread;
+      _openAtUnread = false;
       if (focusChat != null && focusMessage != null) {
         bool isFocus(TimelineItem i) =>
             i.allPosts.any((p) => p.messageId == focusMessage);
@@ -954,11 +1052,15 @@ class TimelineViewState extends State<TimelineView> {
           _flash((focusChat, t.items[index].rowId));
         }
         _initialAlignment = t.anchored ? 0.55 : 0.3;
-      } else if (left != null) {
+      } else if (left != null && !atUnread) {
+        // Everything newer than that row is loaded on the way to it, the unread posts
+        // among them: the divider goes on the first of them, below the reader.
         index = await search(
           () => _indexOf(t, left.chatId, (i) => i.rowId == left.rowId),
+          pages: _openCap ~/ t.pageSize,
         );
         _initialAlignment = left.edge;
+        if (index >= 0 && entering) _markFirstUnread(t);
       }
       if (index < 0) {
         while (!t.reachedMarks(_marks) &&
@@ -971,8 +1073,7 @@ class TimelineViewState extends State<TimelineView> {
           index = 0;
           _initialAlignment = 0;
         } else {
-          final row = t.items[unread];
-          _firstUnread = (row.chatId, row.rowId);
+          _markFirstUnread(t, again: atUnread);
           // The divider sits on top of the first unread row. The list can only be aligned
           // by a row's bottom edge, so the row above it (older, or the footer) is put
           // just below the top of the screen.
@@ -994,6 +1095,7 @@ class TimelineViewState extends State<TimelineView> {
         if (reposition) {
           final at = _initialIndex;
           final alignment = _initialAlignment;
+          _repositioning = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && identical(t, _timeline) && _scrollCtl.isAttached) {
               _scrollCtl.jumpTo(
@@ -1001,9 +1103,12 @@ class TimelineViewState extends State<TimelineView> {
                 alignment: alignment,
               );
             }
+            // The jump is laid out in the next frame; its positions come after this.
+            WidgetsBinding.instance
+              ..addPostFrameCallback((_) => _repositioning = false)
+              ..scheduleFrame();
           });
         }
-        _coverHidden();
       }
     }
   }
@@ -1030,13 +1135,26 @@ class TimelineViewState extends State<TimelineView> {
     });
   }
 
-  /// Visible rows drive read marking, the "at the newest post" flag, the remembered position
-  /// and loading of older posts. The list is reversed: index 0 is the newest post at the
-  /// bottom, and a row's leading edge is its bottom, measured from the viewport's bottom.
+  /// The official app's rule for a channel: a post is read once 80 % of it has been above
+  /// the bottom edge of the screen, an album once all of it has. The list is reversed, so a
+  /// row's leading edge is its bottom and its trailing edge its top, both measured from the
+  /// bottom of the screen.
+  static bool _readable(TimelineItem item, ItemPosition p) {
+    final bottom = p.itemLeadingEdge;
+    final top = p.itemTrailingEdge;
+    if (top <= 0 || bottom >= 1) return false;
+    if (item.parts.isNotEmpty) return bottom >= 0;
+    return bottom + 0.2 * (top - bottom) >= 0;
+  }
+
+  /// Visible rows drive reading, the "at the newest post" flag, the position kept for the
+  /// next visit and loading of older posts. The list is reversed: index 0 is the newest post
+  /// at the bottom, and a row's leading edge is its bottom, measured from the viewport's
+  /// bottom.
   void _onPositions() {
     final t = _timeline;
     final positions = _positions.itemPositions.value;
-    if (t == null || positions.isEmpty || _opening) return;
+    if (t == null || positions.isEmpty || _opening || _repositioning) return;
     if (!_settled) {
       // First layout after opening.
       _settled = true;
@@ -1044,66 +1162,69 @@ class TimelineViewState extends State<TimelineView> {
     }
     final items = t.items;
     if (items.isEmpty) return;
+    final divider = _firstUnread;
     var newest = positions.first;
     var oldestIndex = positions.first.index;
-    final seen = <TimelineItem>[];
+    var readIndex = -1;
+    final viewed = <int, List<int>>{};
     for (final p in positions) {
       if (p.index < newest.index) newest = p;
       if (p.index > oldestIndex) oldestIndex = p.index;
-      // Read like in Telegram: the post has been on screen down to its end.
-      if (p.index < items.length &&
-          p.itemLeadingEdge >= 0 &&
-          p.itemLeadingEdge < 1) {
-        seen.add(items[p.index]);
+      if (p.index >= items.length) continue;
+      final item = items[p.index];
+      if (!_dividerSeen && divider == (item.chatId, item.rowId)) {
+        _dividerSeen = true;
+      }
+      if (_readable(item, p)) {
+        if (readIndex < 0 || p.index < readIndex) readIndex = p.index;
+        (viewed[item.chatId] ??= []).addAll(
+          item.allPosts.map((x) => x.messageId),
+        );
       }
     }
-    if (seen.isNotEmpty) {
-      _marker.seen(
-        seen,
-        coveredUpTo: (item) => t.coveredFrom(item.chatId, item.head.messageId),
+    final live = !t.anchored || t.exhaustedNewer;
+    if (readIndex >= 0) {
+      // The feed reads like one chat: everything older than the newest post read is read,
+      // in every channel of it.
+      final passed = t.passedAt(
+        readIndex,
+        throughNewest: readIndex == 0 && live && t.pendingNew == 0,
       );
-      // A single channel has no marks table to listen to; its dots clear here.
-      if (widget.feed == null) {
-        final chat = widget.channel!.chatId;
-        var newestSeen = _marks[chat] ?? 0;
-        for (final item in seen) {
-          if (item.head.messageId > newestSeen) {
-            newestSeen = item.head.messageId;
-          }
-        }
-        if (newestSeen != _marks[chat]) {
-          setState(() => _marks = {chat: newestSeen});
-        }
-      }
+      _marker.read(passed, viewed: viewed);
+      Map<int, int>? moved;
+      passed.forEach((chat, id) {
+        if (id > (_marks[chat] ?? 0)) (moved ??= {..._marks})[chat] = id;
+      });
+      if (moved != null) setState(() => _marks = moved!);
     }
     // The list is reversed, so the row on top of the screen is the one with the highest
     // index: its day is what the floating pill names.
     _show(_stickyDay, _dayOf(items[oldestIndex.clamp(0, items.length - 1)]));
-    if (newest.index < items.length && !t.anchored) {
+    if (newest.index < items.length) {
       final row = items[newest.index];
-      _remembered[_memoryKey] = _Anchor(
-        row.chatId,
-        row.rowId,
-        newest.itemLeadingEdge,
-      );
+      _hereKnown = true;
+      _here = (newest.index == 0 && live) || FeedTimeline.isUnread(row, _marks)
+          ? null
+          : SavedPosition(
+              chatId: row.chatId,
+              rowId: row.rowId,
+              edge: newest.itemLeadingEdge,
+            );
     }
     // Close to the newest loaded row of a jumped timeline: fetch the ones above it.
     if (t.anchored && !t.exhaustedNewer && newest.index <= 3) {
       unawaited(_loadNewer());
     }
     // A jumped timeline is only at the newest post once it has caught up with the live end.
-    final below = t.unreadBefore(newest.index, _marks) + t.pendingNew;
-    if (below != _unreadBelow) setState(() => _unreadBelow = below);
     final atNewest =
-        newest.index == 0 &&
-        newest.itemLeadingEdge >= -0.05 &&
-        (!t.anchored || t.exhaustedNewer);
+        newest.index == 0 && newest.itemLeadingEdge >= -0.05 && live;
     if (atNewest != t.atTop) {
       t.atTop = atNewest;
+      if (atNewest) _returnTo = null;
       if (atNewest && t.pendingNew > 0) {
         _release();
       } else {
-        setState(() {}); // the "to newest" button comes and goes
+        setState(() {}); // the button at the corner comes and goes
       }
     }
     if (oldestIndex >= items.length - 5) unawaited(_loadMore());
@@ -1190,7 +1311,6 @@ class TimelineViewState extends State<TimelineView> {
     try {
       await t.loadMore();
       _error = null;
-      _coverHidden();
     } on TelegramException catch (e) {
       _error = e.message;
     } finally {
@@ -1198,18 +1318,20 @@ class TimelineViewState extends State<TimelineView> {
     }
   }
 
-  /// Shows the posts that arrived while the user was reading older ones, scrolled so the
-  /// oldest of them is in view; without any, goes to the newest post.
-  void _release() {
+  /// Shows the posts that arrived while the reader was reading older ones. Reached by
+  /// scrolling, the oldest of them comes into view; from the button, the list goes to its
+  /// very end, as the official app's does.
+  void _release({bool toEnd = false}) {
     final t = _timeline;
     if (t == null) return;
     final arrived = t.pendingNew;
     t.releasePending();
     setState(() {});
     if (!_scrollCtl.isAttached) return;
+    final middle = !toEnd && arrived > 1;
     _scrollCtl.scrollTo(
-      index: arrived > 1 ? arrived - 1 : 0,
-      alignment: arrived > 1 ? 0.5 : 0,
+      index: middle ? arrived - 1 : 0,
+      alignment: middle ? 0.5 : 0,
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOut,
     );
@@ -1275,6 +1397,12 @@ class TimelineViewState extends State<TimelineView> {
     if (reply == null || reply.messageId == 0) return;
     final t = _timeline;
     if (t != null && t.chatIds.contains(reply.chatId)) {
+      // The button at the corner comes back here before it goes to the newest post.
+      _returnTo = (
+        chatId: item.chatId,
+        messageId: item.head.messageId,
+        date: item.head.date,
+      );
       unawaited(
         jumpToPost(
           chatId: reply.chatId,
@@ -1548,6 +1676,8 @@ class TimelineViewState extends State<TimelineView> {
 
   @override
   void dispose() {
+    _keepPosition();
+    WidgetsBinding.instance.removeObserver(this);
     _positions.itemPositions.removeListener(_onPositions);
     _stickyHide?.cancel();
     _stickyDay.dispose();
@@ -1555,7 +1685,7 @@ class TimelineViewState extends State<TimelineView> {
     _highlightTimer?.cancel();
     _events?.cancel();
     _sources?.cancel();
-    _marksSub?.cancel();
+    _readStates?.cancel();
     _feedSub?.cancel();
     unawaited(_marker.dispose());
     super.dispose();
@@ -1565,6 +1695,8 @@ class TimelineViewState extends State<TimelineView> {
   Widget build(BuildContext context) {
     final t = _timeline;
     final items = t?.items ?? const <TimelineItem>[];
+    // Unread posts as Telegram counts them, and the ones that arrived meanwhile.
+    final unread = t == null ? 0 : t.unreadPosts(_marks) + t.pendingNew;
     return Stack(
       children: [
         Positioned.fill(
@@ -1609,16 +1741,16 @@ class TimelineViewState extends State<TimelineView> {
             right: 16,
             bottom: 16,
             child: Badge.count(
-              count: _unreadBelow,
-              isLabelVisible: _unreadBelow > 0,
+              count: unread,
+              isLabelVisible: unread > 0,
               child: FloatingActionButton.small(
                 heroTag: null,
                 tooltip: t.pendingNew > 0
                     ? '${t.pendingNew} new post${t.pendingNew == 1 ? '' : 's'}'
-                    : _unreadBelow > 0
-                    ? '$_unreadBelow unread post${_unreadBelow == 1 ? '' : 's'}'
+                    : unread > 0
+                    ? '$unread unread post${unread == 1 ? '' : 's'}'
                     : 'Newest posts',
-                onPressed: _toNewest,
+                onPressed: _onDownButton,
                 child: const Icon(Icons.keyboard_arrow_down),
               ),
             ),
@@ -1705,7 +1837,6 @@ class TimelineViewState extends State<TimelineView> {
                 channelTitle: _titles[item.chatId] ?? '',
                 channelPhoto: _photos[item.chatId],
                 gateway: widget.gateway,
-                unread: FeedTimeline.isUnread(item, _marks),
                 onOpenInTelegram: () => _openInTelegram(item),
                 onShare: () => _share(item),
                 onCopyLink: () => _copyLink(item),

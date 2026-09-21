@@ -21,7 +21,7 @@ Dart pub workspace: run `flutter pub get` once at the root.
 app/                       Flutter application
 packages/core              core isolate: port protocol, timeline, search, rule engine, sync merge
 packages/telegram_gateway  TelegramGateway and its TDLib FFI implementation
-packages/app_db            Drift schema for feeds, sources, read marks, rules, settings
+packages/app_db            Drift schema for feeds, sources, rules, settings
 packages/rules             rule AST, parser, evaluator (pure Dart)
 packages/tdlib_bindings    generated TDLib JSON types
 packages/versioning        next version and changelog from conventional commits

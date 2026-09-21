@@ -1,5 +1,5 @@
 name: app_db
-description: "Drift/SQLite schema for feeds, feed sources, read marks, watched channels and settings."
+description: "Drift/SQLite schema for feeds, feed sources, watched channels, rules and settings."
 version: 0.1.0
 publish_to: none
 resolution: workspace

@@ -775,276 +775,6 @@ class FeedSourcesCompanion extends UpdateCompanion<FeedSource> {
   }
 }
 
-class $FeedReadMarksTable extends FeedReadMarks
-    with TableInfo<$FeedReadMarksTable, FeedReadMark> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $FeedReadMarksTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _feedIdMeta = const VerificationMeta('feedId');
-  @override
-  late final GeneratedColumn<int> feedId = GeneratedColumn<int>(
-    'feed_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES feeds (id) ON DELETE CASCADE',
-    ),
-  );
-  static const VerificationMeta _chatIdMeta = const VerificationMeta('chatId');
-  @override
-  late final GeneratedColumn<int> chatId = GeneratedColumn<int>(
-    'chat_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _lastReadMessageIdMeta = const VerificationMeta(
-    'lastReadMessageId',
-  );
-  @override
-  late final GeneratedColumn<int> lastReadMessageId = GeneratedColumn<int>(
-    'last_read_message_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [feedId, chatId, lastReadMessageId];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'feed_read_marks';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<FeedReadMark> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('feed_id')) {
-      context.handle(
-        _feedIdMeta,
-        feedId.isAcceptableOrUnknown(data['feed_id']!, _feedIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_feedIdMeta);
-    }
-    if (data.containsKey('chat_id')) {
-      context.handle(
-        _chatIdMeta,
-        chatId.isAcceptableOrUnknown(data['chat_id']!, _chatIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_chatIdMeta);
-    }
-    if (data.containsKey('last_read_message_id')) {
-      context.handle(
-        _lastReadMessageIdMeta,
-        lastReadMessageId.isAcceptableOrUnknown(
-          data['last_read_message_id']!,
-          _lastReadMessageIdMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_lastReadMessageIdMeta);
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {feedId, chatId};
-  @override
-  FeedReadMark map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return FeedReadMark(
-      feedId: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}feed_id'],
-      )!,
-      chatId: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}chat_id'],
-      )!,
-      lastReadMessageId: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}last_read_message_id'],
-      )!,
-    );
-  }
-
-  @override
-  $FeedReadMarksTable createAlias(String alias) {
-    return $FeedReadMarksTable(attachedDatabase, alias);
-  }
-}
-
-class FeedReadMark extends DataClass implements Insertable<FeedReadMark> {
-  final int feedId;
-  final int chatId;
-  final int lastReadMessageId;
-  const FeedReadMark({
-    required this.feedId,
-    required this.chatId,
-    required this.lastReadMessageId,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['feed_id'] = Variable<int>(feedId);
-    map['chat_id'] = Variable<int>(chatId);
-    map['last_read_message_id'] = Variable<int>(lastReadMessageId);
-    return map;
-  }
-
-  FeedReadMarksCompanion toCompanion(bool nullToAbsent) {
-    return FeedReadMarksCompanion(
-      feedId: Value(feedId),
-      chatId: Value(chatId),
-      lastReadMessageId: Value(lastReadMessageId),
-    );
-  }
-
-  factory FeedReadMark.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return FeedReadMark(
-      feedId: serializer.fromJson<int>(json['feedId']),
-      chatId: serializer.fromJson<int>(json['chatId']),
-      lastReadMessageId: serializer.fromJson<int>(json['lastReadMessageId']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'feedId': serializer.toJson<int>(feedId),
-      'chatId': serializer.toJson<int>(chatId),
-      'lastReadMessageId': serializer.toJson<int>(lastReadMessageId),
-    };
-  }
-
-  FeedReadMark copyWith({int? feedId, int? chatId, int? lastReadMessageId}) =>
-      FeedReadMark(
-        feedId: feedId ?? this.feedId,
-        chatId: chatId ?? this.chatId,
-        lastReadMessageId: lastReadMessageId ?? this.lastReadMessageId,
-      );
-  FeedReadMark copyWithCompanion(FeedReadMarksCompanion data) {
-    return FeedReadMark(
-      feedId: data.feedId.present ? data.feedId.value : this.feedId,
-      chatId: data.chatId.present ? data.chatId.value : this.chatId,
-      lastReadMessageId: data.lastReadMessageId.present
-          ? data.lastReadMessageId.value
-          : this.lastReadMessageId,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('FeedReadMark(')
-          ..write('feedId: $feedId, ')
-          ..write('chatId: $chatId, ')
-          ..write('lastReadMessageId: $lastReadMessageId')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(feedId, chatId, lastReadMessageId);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is FeedReadMark &&
-          other.feedId == this.feedId &&
-          other.chatId == this.chatId &&
-          other.lastReadMessageId == this.lastReadMessageId);
-}
-
-class FeedReadMarksCompanion extends UpdateCompanion<FeedReadMark> {
-  final Value<int> feedId;
-  final Value<int> chatId;
-  final Value<int> lastReadMessageId;
-  final Value<int> rowid;
-  const FeedReadMarksCompanion({
-    this.feedId = const Value.absent(),
-    this.chatId = const Value.absent(),
-    this.lastReadMessageId = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  FeedReadMarksCompanion.insert({
-    required int feedId,
-    required int chatId,
-    required int lastReadMessageId,
-    this.rowid = const Value.absent(),
-  }) : feedId = Value(feedId),
-       chatId = Value(chatId),
-       lastReadMessageId = Value(lastReadMessageId);
-  static Insertable<FeedReadMark> custom({
-    Expression<int>? feedId,
-    Expression<int>? chatId,
-    Expression<int>? lastReadMessageId,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (feedId != null) 'feed_id': feedId,
-      if (chatId != null) 'chat_id': chatId,
-      if (lastReadMessageId != null) 'last_read_message_id': lastReadMessageId,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  FeedReadMarksCompanion copyWith({
-    Value<int>? feedId,
-    Value<int>? chatId,
-    Value<int>? lastReadMessageId,
-    Value<int>? rowid,
-  }) {
-    return FeedReadMarksCompanion(
-      feedId: feedId ?? this.feedId,
-      chatId: chatId ?? this.chatId,
-      lastReadMessageId: lastReadMessageId ?? this.lastReadMessageId,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (feedId.present) {
-      map['feed_id'] = Variable<int>(feedId.value);
-    }
-    if (chatId.present) {
-      map['chat_id'] = Variable<int>(chatId.value);
-    }
-    if (lastReadMessageId.present) {
-      map['last_read_message_id'] = Variable<int>(lastReadMessageId.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('FeedReadMarksCompanion(')
-          ..write('feedId: $feedId, ')
-          ..write('chatId: $chatId, ')
-          ..write('lastReadMessageId: $lastReadMessageId, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
 class $WatchedChannelsTable extends WatchedChannels
     with TableInfo<$WatchedChannelsTable, WatchedChannel> {
   @override
@@ -2608,7 +2338,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $FeedsTable feeds = $FeedsTable(this);
   late final $FeedSourcesTable feedSources = $FeedSourcesTable(this);
-  late final $FeedReadMarksTable feedReadMarks = $FeedReadMarksTable(this);
   late final $WatchedChannelsTable watchedChannels = $WatchedChannelsTable(
     this,
   );
@@ -2622,7 +2351,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     feeds,
     feedSources,
-    feedReadMarks,
     watchedChannels,
     settings,
     rules,
@@ -2636,13 +2364,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('feed_sources', kind: UpdateKind.delete)],
-    ),
-    WritePropagation(
-      on: TableUpdateQuery.onTableName(
-        'feeds',
-        limitUpdateKind: UpdateKind.delete,
-      ),
-      result: [TableUpdate('feed_read_marks', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -2683,24 +2404,6 @@ final class $$FeedsTableReferences
     ).filter((f) => f.feedId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_feedSourcesRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
-
-  static MultiTypedResultKey<$FeedReadMarksTable, List<FeedReadMark>>
-  _feedReadMarksRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.feedReadMarks,
-    aliasName: 'feeds__id__feed_read_marks__feed_id',
-  );
-
-  $$FeedReadMarksTableProcessedTableManager get feedReadMarksRefs {
-    final manager = $$FeedReadMarksTableTableManager(
-      $_db,
-      $_db.feedReadMarks,
-    ).filter((f) => f.feedId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_feedReadMarksRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -2766,31 +2469,6 @@ class $$FeedsTableFilterComposer extends Composer<_$AppDatabase, $FeedsTable> {
           }) => $$FeedSourcesTableFilterComposer(
             $db: $db,
             $table: $db.feedSources,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
-  Expression<bool> feedReadMarksRefs(
-    Expression<bool> Function($$FeedReadMarksTableFilterComposer f) f,
-  ) {
-    final $$FeedReadMarksTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.feedReadMarks,
-      getReferencedColumn: (t) => t.feedId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$FeedReadMarksTableFilterComposer(
-            $db: $db,
-            $table: $db.feedReadMarks,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -2902,31 +2580,6 @@ class $$FeedsTableAnnotationComposer
     );
     return f(composer);
   }
-
-  Expression<T> feedReadMarksRefs<T extends Object>(
-    Expression<T> Function($$FeedReadMarksTableAnnotationComposer a) f,
-  ) {
-    final $$FeedReadMarksTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.feedReadMarks,
-      getReferencedColumn: (t) => t.feedId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$FeedReadMarksTableAnnotationComposer(
-            $db: $db,
-            $table: $db.feedReadMarks,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
 }
 
 class $$FeedsTableTableManager
@@ -2942,7 +2595,7 @@ class $$FeedsTableTableManager
           $$FeedsTableUpdateCompanionBuilder,
           (Feed, $$FeedsTableReferences),
           Feed,
-          PrefetchHooks Function({bool feedSourcesRefs, bool feedReadMarksRefs})
+          PrefetchHooks Function({bool feedSourcesRefs})
         > {
   $$FeedsTableTableManager(_$AppDatabase db, $FeedsTable table)
     : super(
@@ -2999,63 +2652,28 @@ class $$FeedsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback:
-              ({feedSourcesRefs = false, feedReadMarksRefs = false}) {
-                return PrefetchHooks(
-                  db: db,
-                  explicitlyWatchedTables: [
-                    if (feedSourcesRefs) db.feedSources,
-                    if (feedReadMarksRefs) db.feedReadMarks,
-                  ],
-                  addJoins: null,
-                  getPrefetchedDataCallback: (items) async {
-                    return [
-                      if (feedSourcesRefs)
-                        await $_getPrefetchedData<
-                          Feed,
-                          $FeedsTable,
-                          FeedSource
-                        >(
-                          currentTable: table,
-                          referencedTable: $$FeedsTableReferences
-                              ._feedSourcesRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$FeedsTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).feedSourcesRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.feedId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                      if (feedReadMarksRefs)
-                        await $_getPrefetchedData<
-                          Feed,
-                          $FeedsTable,
-                          FeedReadMark
-                        >(
-                          currentTable: table,
-                          referencedTable: $$FeedsTableReferences
-                              ._feedReadMarksRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$FeedsTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).feedReadMarksRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.feedId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                    ];
-                  },
-                );
+          prefetchHooksCallback: ({feedSourcesRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (feedSourcesRefs) db.feedSources],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (feedSourcesRefs)
+                    await $_getPrefetchedData<Feed, $FeedsTable, FeedSource>(
+                      currentTable: table,
+                      referencedTable: $$FeedsTableReferences
+                          ._feedSourcesRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$FeedsTableReferences(db, table, p0).feedSourcesRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.feedId == item.id),
+                      typedResults: items,
+                    ),
+                ];
               },
+            );
+          },
         ),
       );
 }
@@ -3072,7 +2690,7 @@ typedef $$FeedsTableProcessedTableManager =
       $$FeedsTableUpdateCompanionBuilder,
       (Feed, $$FeedsTableReferences),
       Feed,
-      PrefetchHooks Function({bool feedSourcesRefs, bool feedReadMarksRefs})
+      PrefetchHooks Function({bool feedSourcesRefs})
     >;
 typedef $$FeedSourcesTableCreateCompanionBuilder =
     FeedSourcesCompanion Function({
@@ -3368,289 +2986,6 @@ typedef $$FeedSourcesTableProcessedTableManager =
       $$FeedSourcesTableUpdateCompanionBuilder,
       (FeedSource, $$FeedSourcesTableReferences),
       FeedSource,
-      PrefetchHooks Function({bool feedId})
-    >;
-typedef $$FeedReadMarksTableCreateCompanionBuilder =
-    FeedReadMarksCompanion Function({
-      required int feedId,
-      required int chatId,
-      required int lastReadMessageId,
-      Value<int> rowid,
-    });
-typedef $$FeedReadMarksTableUpdateCompanionBuilder =
-    FeedReadMarksCompanion Function({
-      Value<int> feedId,
-      Value<int> chatId,
-      Value<int> lastReadMessageId,
-      Value<int> rowid,
-    });
-
-final class $$FeedReadMarksTableReferences
-    extends BaseReferences<_$AppDatabase, $FeedReadMarksTable, FeedReadMark> {
-  $$FeedReadMarksTableReferences(
-    super.$_db,
-    super.$_table,
-    super.$_typedResult,
-  );
-
-  static $FeedsTable _feedIdTable(_$AppDatabase db) =>
-      db.feeds.createAlias('feed_read_marks__feed_id__feeds__id');
-
-  $$FeedsTableProcessedTableManager get feedId {
-    final $_column = $_itemColumn<int>('feed_id')!;
-
-    final manager = $$FeedsTableTableManager(
-      $_db,
-      $_db.feeds,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_feedIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-}
-
-class $$FeedReadMarksTableFilterComposer
-    extends Composer<_$AppDatabase, $FeedReadMarksTable> {
-  $$FeedReadMarksTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<int> get chatId => $composableBuilder(
-    column: $table.chatId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get lastReadMessageId => $composableBuilder(
-    column: $table.lastReadMessageId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  $$FeedsTableFilterComposer get feedId {
-    final $$FeedsTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.feedId,
-      referencedTable: $db.feeds,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$FeedsTableFilterComposer(
-            $db: $db,
-            $table: $db.feeds,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$FeedReadMarksTableOrderingComposer
-    extends Composer<_$AppDatabase, $FeedReadMarksTable> {
-  $$FeedReadMarksTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<int> get chatId => $composableBuilder(
-    column: $table.chatId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get lastReadMessageId => $composableBuilder(
-    column: $table.lastReadMessageId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  $$FeedsTableOrderingComposer get feedId {
-    final $$FeedsTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.feedId,
-      referencedTable: $db.feeds,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$FeedsTableOrderingComposer(
-            $db: $db,
-            $table: $db.feeds,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$FeedReadMarksTableAnnotationComposer
-    extends Composer<_$AppDatabase, $FeedReadMarksTable> {
-  $$FeedReadMarksTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<int> get chatId =>
-      $composableBuilder(column: $table.chatId, builder: (column) => column);
-
-  GeneratedColumn<int> get lastReadMessageId => $composableBuilder(
-    column: $table.lastReadMessageId,
-    builder: (column) => column,
-  );
-
-  $$FeedsTableAnnotationComposer get feedId {
-    final $$FeedsTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.feedId,
-      referencedTable: $db.feeds,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$FeedsTableAnnotationComposer(
-            $db: $db,
-            $table: $db.feeds,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$FeedReadMarksTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $FeedReadMarksTable,
-          FeedReadMark,
-          $$FeedReadMarksTableFilterComposer,
-          $$FeedReadMarksTableOrderingComposer,
-          $$FeedReadMarksTableAnnotationComposer,
-          $$FeedReadMarksTableCreateCompanionBuilder,
-          $$FeedReadMarksTableUpdateCompanionBuilder,
-          (FeedReadMark, $$FeedReadMarksTableReferences),
-          FeedReadMark,
-          PrefetchHooks Function({bool feedId})
-        > {
-  $$FeedReadMarksTableTableManager(_$AppDatabase db, $FeedReadMarksTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$FeedReadMarksTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$FeedReadMarksTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$FeedReadMarksTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<int> feedId = const Value.absent(),
-                Value<int> chatId = const Value.absent(),
-                Value<int> lastReadMessageId = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => FeedReadMarksCompanion(
-                feedId: feedId,
-                chatId: chatId,
-                lastReadMessageId: lastReadMessageId,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                required int feedId,
-                required int chatId,
-                required int lastReadMessageId,
-                Value<int> rowid = const Value.absent(),
-              }) => FeedReadMarksCompanion.insert(
-                feedId: feedId,
-                chatId: chatId,
-                lastReadMessageId: lastReadMessageId,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable<$FeedReadMarksTable, FeedReadMark>(table),
-                  $$FeedReadMarksTableReferences(db, table, e),
-                ),
-              )
-              .toList(),
-          prefetchHooksCallback: ({feedId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (feedId) {
-                      state = state.withJoin(
-                        currentTable: table,
-                        currentColumn: table.feedId,
-                        referencedTable: $$FeedReadMarksTableReferences
-                            ._feedIdTable(db),
-                        referencedColumn: $$FeedReadMarksTableReferences
-                            ._feedIdTable(db)
-                            .id,
-                      ) as T;
-                    }
-
-                    return state;
-                  },
-              getPrefetchedDataCallback: (items) async {
-                return [];
-              },
-            );
-          },
-        ),
-      );
-}
-
-typedef $$FeedReadMarksTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $FeedReadMarksTable,
-      FeedReadMark,
-      $$FeedReadMarksTableFilterComposer,
-      $$FeedReadMarksTableOrderingComposer,
-      $$FeedReadMarksTableAnnotationComposer,
-      $$FeedReadMarksTableCreateCompanionBuilder,
-      $$FeedReadMarksTableUpdateCompanionBuilder,
-      (FeedReadMark, $$FeedReadMarksTableReferences),
-      FeedReadMark,
       PrefetchHooks Function({bool feedId})
     >;
 typedef $$WatchedChannelsTableCreateCompanionBuilder =
@@ -4522,8 +3857,6 @@ class $AppDatabaseManager {
       $$FeedsTableTableManager(_db, _db.feeds);
   $$FeedSourcesTableTableManager get feedSources =>
       $$FeedSourcesTableTableManager(_db, _db.feedSources);
-  $$FeedReadMarksTableTableManager get feedReadMarks =>
-      $$FeedReadMarksTableTableManager(_db, _db.feedReadMarks);
   $$WatchedChannelsTableTableManager get watchedChannels =>
       $$WatchedChannelsTableTableManager(_db, _db.watchedChannels);
   $$SettingsTableTableManager get settings =>

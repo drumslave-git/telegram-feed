@@ -4,8 +4,8 @@ import 'package:drift/drift.dart';
 
 part 'database.g.dart';
 
-// Schema per ARCHITECTURE.md section 5.1. TDLib owns messages and files; this database only
-// holds what the app adds on top: feeds, their sources, read marks and settings.
+// Schema per ARCHITECTURE.md section 5.1. TDLib owns messages, files and read state; this
+// database only holds what the app adds on top: feeds, their sources, rules and settings.
 
 /// Random id that names a feed or rule on every device (local row ids differ per device).
 String newSyncId() {
@@ -38,17 +38,6 @@ class FeedSources extends Table {
   IntColumn get chatId => integer()();
   IntColumn get position => integer()();
   DateTimeColumn get addedAt => dateTime()();
-
-  @override
-  Set<Column> get primaryKey => {feedId, chatId};
-}
-
-/// Newest message id the user has scrolled past, per feed and per channel.
-class FeedReadMarks extends Table {
-  IntColumn get feedId =>
-      integer().references(Feeds, #id, onDelete: KeyAction.cascade)();
-  IntColumn get chatId => integer()();
-  IntColumn get lastReadMessageId => integer()();
 
   @override
   Set<Column> get primaryKey => {feedId, chatId};
@@ -165,8 +154,12 @@ abstract final class SettingKeys {
   static const downloadMobile = 'media.download.mobile';
   static const downloadWifi = 'media.download.wifi';
   static const downloadRoaming = 'media.download.roaming';
-  static const syncReadToTelegram =
-      'syncReadToTelegram'; // 'true' | 'false', default true
+
+  /// Where the reader left a feed's or a channel's timeline scrolled up, as JSON (the app's
+  /// `feeds/saved_position.dart`); absent when they left it at the newest post, as the
+  /// official app keeps a chat's position. Kept on this device.
+  static String positionOfFeed(int feedId) => 'position.feed.$feedId';
+  static String positionOfChat(int chatId) => 'position.chat.$chatId';
 
   /// A video that loads by itself starts muted when it scrolls into view; 'true' | 'false',
   /// default true.
@@ -185,7 +178,6 @@ abstract final class SettingKeys {
   tables: [
     Feeds,
     FeedSources,
-    FeedReadMarks,
     WatchedChannels,
     Settings,
     Rules,
@@ -200,7 +192,7 @@ class AppDatabase extends _$AppDatabase {
   final DateTime Function() _clock;
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -231,6 +223,13 @@ class AppDatabase extends _$AppDatabase {
         );
       }
       if (from < 5) await m.addColumn(feeds, feeds.filterJson);
+      if (from < 6) {
+        // Read state is Telegram's own, one per channel, and reading always reaches it.
+        await m.deleteTable('feed_read_marks');
+        await customStatement(
+          "DELETE FROM settings WHERE key = 'syncReadToTelegram'",
+        );
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -330,12 +329,14 @@ class AppDatabase extends _$AppDatabase {
     }
   });
 
-  /// Deletes the feed, its sources and read marks (cascade), then prunes watched channels.
+  /// Deletes the feed and its sources (cascade) and the position the reader left it at,
+  /// then prunes watched channels.
   Future<void> deleteFeed(int feedId) => transaction(() async {
     final row = await (select(
       feeds,
     )..where((f) => f.id.equals(feedId))).getSingleOrNull();
     await (delete(feeds)..where((f) => f.id.equals(feedId))).go();
+    await deleteSetting(SettingKeys.positionOfFeed(feedId));
     await _pruneWatched();
     await _bury('feed', row?.syncId);
   });
@@ -465,9 +466,6 @@ class AppDatabase extends _$AppDatabase {
     await (delete(
       feedSources,
     )..where((s) => s.feedId.equals(feedId) & s.chatId.equals(chatId))).go();
-    await (delete(
-      feedReadMarks,
-    )..where((r) => r.feedId.equals(feedId) & r.chatId.equals(chatId))).go();
     await _pruneWatched();
     await _touchFeed(feedId);
   });
@@ -484,40 +482,6 @@ class AppDatabase extends _$AppDatabase {
         }
         await _touchFeed(feedId);
       });
-
-  // ---- read marks ----
-
-  /// Moves the mark forward only; older ids never overwrite newer ones.
-  Future<void> markRead(int feedId, int chatId, int messageId) =>
-      transaction(() async {
-        final current =
-            await (select(feedReadMarks)..where(
-                  (r) => r.feedId.equals(feedId) & r.chatId.equals(chatId),
-                ))
-                .getSingleOrNull();
-        if (current != null && current.lastReadMessageId >= messageId) return;
-        await into(feedReadMarks).insertOnConflictUpdate(
-          FeedReadMarksCompanion.insert(
-            feedId: feedId,
-            chatId: chatId,
-            lastReadMessageId: messageId,
-          ),
-        );
-      });
-
-  /// Emits whenever any read mark changes (badge recomputation).
-  Stream<List<FeedReadMark>> watchAllReadMarks() =>
-      select(feedReadMarks).watch();
-
-  /// chat id → last read message id for one feed (0 for sources never read).
-  Future<Map<int, int>> readMarks(int feedId) async {
-    final sources = await sourcesOf(feedId);
-    final marks = await (select(
-      feedReadMarks,
-    )..where((r) => r.feedId.equals(feedId))).get();
-    final byChat = {for (final m in marks) m.chatId: m.lastReadMessageId};
-    return {for (final s in sources) s.chatId: byChat[s.chatId] ?? 0};
-  }
 
   // ---- watched channels ----
 
@@ -575,8 +539,7 @@ class AppDatabase extends _$AppDatabase {
     readsFrom: {feeds, feedSources, rules, settings},
   ).watch().map((_) {});
 
-  /// Writes a feed as another device saved it. Its source list is replaced; read marks of
-  /// sources that stay are kept.
+  /// Writes a feed as another device saved it. Its source list is replaced.
   Future<void> applySyncedFeed({
     required String syncId,
     required String name,
@@ -615,9 +578,6 @@ class AppDatabase extends _$AppDatabase {
     await (delete(
       feedSources,
     )..where((s) => s.feedId.equals(feedId) & s.chatId.isNotIn(keep))).go();
-    await (delete(
-      feedReadMarks,
-    )..where((r) => r.feedId.equals(feedId) & r.chatId.isNotIn(keep))).go();
     for (var i = 0; i < sources.length; i++) {
       final src = sources[i];
       await into(feedSources).insertOnConflictUpdate(
@@ -688,13 +648,9 @@ class AppDatabase extends _$AppDatabase {
     syncTombstones,
   )..where((t) => t.deletedAt.isSmallerThanValue(olderThan))).go();
 
-  Future<bool> syncReadToTelegram() async =>
-      (await setting(SettingKeys.syncReadToTelegram)) != 'false';
-
   /// Logout: everything goes (ARCHITECTURE.md section 10).
   Future<void> wipe() => transaction(() async {
     await delete(rules).go();
-    await delete(feedReadMarks).go();
     await delete(feedSources).go();
     await delete(feeds).go();
     await delete(watchedChannels).go();

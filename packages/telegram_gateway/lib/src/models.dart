@@ -107,6 +107,32 @@ final class Channel {
   String toString() => 'Channel($chatId, $title)';
 }
 
+/// Telegram's own read state of a channel. There is one per channel, shared by every feed
+/// that holds it, the channel's own timeline and the official app.
+final class ReadState {
+  const ReadState({
+    required this.chatId,
+    required this.lastReadMessageId,
+    this.unreadCount = 0,
+    this.lastMessageId = 0,
+  });
+  final int chatId;
+
+  /// `last_read_inbox_message_id`: every post up to it is read.
+  final int lastReadMessageId;
+
+  /// Telegram's count of the unread posts after it.
+  final int unreadCount;
+
+  /// Newest post TDLib knows of; 0 where the answer does not say (a change of the read
+  /// state alone).
+  final int lastMessageId;
+
+  @override
+  String toString() =>
+      'ReadState($chatId, read $lastReadMessageId, unread $unreadCount)';
+}
+
 /// A Telegram chat folder, reduced to the channels in it (the app reads channels only).
 final class ChatFolder {
   const ChatFolder({

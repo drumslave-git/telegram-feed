@@ -453,6 +453,20 @@ PostEvent decodePostEvent(Map<Object?, Object?> m) => switch (m['kind']) {
   final other => throw ArgumentError('unknown post event $other'),
 };
 
+Map<String, Object?> encodeReadState(ReadState r) => {
+  'chatId': r.chatId,
+  'read': r.lastReadMessageId,
+  'unread': r.unreadCount,
+  'last': r.lastMessageId,
+};
+
+ReadState decodeReadState(Map<Object?, Object?> m) => ReadState(
+  chatId: m['chatId'] as int,
+  lastReadMessageId: m['read'] as int,
+  unreadCount: m['unread'] as int,
+  lastMessageId: m['last'] as int,
+);
+
 Map<String, Object?> encodeMembership(ChannelMembershipEvent e) => {
   'chatId': e.chatId,
   'isMember': e.isMember,

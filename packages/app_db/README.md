@@ -1,11 +1,11 @@
 # app_db
 
 Drift/SQLite database for everything TDLib does not own (ARCHITECTURE.md section 5.1):
-`feeds`, `feed_sources`, `feed_read_marks`, `watched_channels`, `rules`, `settings`,
-`sync_tombstones`. Schema version 5.
+`feeds`, `feed_sources`, `watched_channels`, `rules`, `settings`, `sync_tombstones`.
+Schema version 6. Read state is Telegram's own and lives in TDLib.
 
 `AppDatabase` exposes what the screens need (create, rename, reorder and delete feeds; add,
-remove and reorder sources; monotonic read marks; rules; settings; sync export and apply;
+remove and reorder sources; rules; settings; sync export and apply;
 `wipe` on logout) and keeps `watched_channels` equal to the union of all sources.
 
 ```bash

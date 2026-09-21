@@ -1,9 +1,5 @@
-import 'package:app_db/app_db.dart';
-import 'package:core/core.dart';
-import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/read_marker.dart';
-import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'fixtures.dart';
 
@@ -12,63 +8,59 @@ class ViewedGateway extends ChannelsGateway {
   final viewed = <String>[];
   @override
   Future<void> markViewed(int chatId, List<int> messageIds) async {
-    markedViewed[chatId] = messageIds;
     viewed.add('$chatId:${messageIds.join(',')}');
+    await super.markViewed(chatId, messageIds);
   }
 }
 
-TimelineItem item(int chat, int id, {List<int> parts = const []}) =>
-    TimelineItem(Post(chatId: chat, messageId: id, date: id, text: 'x'), [
-      for (final p in parts)
-        Post(chatId: chat, messageId: p, date: p, text: 'y'),
-    ]);
-
 void main() {
-  late AppDatabase db;
   late ViewedGateway gw;
-  late int feedId;
 
-  setUp(() async {
-    db = AppDatabase(NativeDatabase.memory());
-    gw = ViewedGateway();
-    feedId = (await db.createFeed('F')).id;
-    await db.addSource(feedId, -1, title: 'One');
-    await db.addSource(feedId, -2, title: 'Two');
+  setUp(() => gw = ViewedGateway());
+
+  test('reading reaches Telegram once, after the debounce', () async {
+    final m = ReadMarker(
+      gateway: gw,
+      debounce: const Duration(milliseconds: 20),
+    );
+    m.read(
+      {-1: 30, -2: 5},
+      viewed: {
+        -1: [30, 20],
+        -2: [5, 4, 3],
+      },
+    );
+    expect(gw.viewed, isEmpty); // not yet
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    // The posts on the screen, for their views; the newest read one moves the position.
+    expect(gw.viewed, unorderedEquals(['-1:20,30', '-2:3,4,5']));
+    expect(gw.readPositions, {-1: 30, -2: 5});
+
+    // Older posts seen later do not move the position back or report again.
+    m.read(
+      {-1: 10},
+      viewed: {
+        -1: [10],
+      },
+    );
+    await m.flush();
+    expect(gw.viewed.length, 2);
+    expect(gw.readPositions, {-1: 30, -2: 5});
   });
 
   test(
-    'debounced write of the newest id per chat, synced to Telegram',
+    'a channel passed over, never on the screen, is read up to there',
     () async {
-      final m = ReadMarker(
-        db: db,
-        gateway: gw,
-        feedId: feedId,
-        debounce: const Duration(milliseconds: 20),
+      final m = ReadMarker(gateway: gw);
+      m.read(
+        {-1: 30, -2: 12},
+        viewed: {
+          -1: [30],
+        },
       );
-      m.seen([
-        item(-1, 30),
-        item(-2, 5, parts: [4, 3]),
-        item(-1, 20),
-      ]);
-      expect(await db.readMarks(feedId), {-1: 0, -2: 0}); // not yet
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-      expect(await db.readMarks(feedId), {-1: 30, -2: 5});
-      expect(gw.viewed, unorderedEquals(['-1:20,30', '-2:3,4,5']));
-
-      // Older items scrolled past later do not move marks back or re-report.
-      m.seen([item(-1, 10)]);
-      await m.flush();
-      expect(await db.readMarks(feedId), {-1: 30, -2: 5});
-      expect(gw.viewed.length, 2);
+      await m.dispose();
+      expect(gw.viewed, unorderedEquals(['-1:30', '-2:12']));
+      expect(gw.readPositions, {-1: 30, -2: 12});
     },
   );
-
-  test('setting off: local marks only', () async {
-    await db.setSetting(SettingKeys.syncReadToTelegram, 'false');
-    final m = ReadMarker(db: db, gateway: gw, feedId: feedId);
-    m.seen([item(-1, 7)]);
-    await m.flush();
-    expect(await db.readMarks(feedId), {-1: 7, -2: 0});
-    expect(gw.viewed, isEmpty);
-  });
 }

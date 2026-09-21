@@ -61,7 +61,7 @@ void main() {
       await tester.runAsync(() async {
         feed = await db.createFeed('Voices');
         await db.addSource(feed.id, -1, title: 'One');
-        await db.markRead(feed.id, -1, 1);
+        gw.readPositions[-1] = 1;
         await db.setFeedFilter(
           feed.id,
           const FeedFilter(media: MediaPresence.withMedia).encode(),
@@ -79,10 +79,9 @@ void main() {
       expect(find.text('voice-4'), findsOneWidget);
       expect(find.textContaining('text-'), findsNothing);
 
-      await unmount(tester); // flushes the marks
-      final marks = await tester.runAsync(() => db.readMarks(feed.id));
-      // Both voice posts were on screen; the text posts after the last one are covered too.
-      expect(marks![-1], 6);
+      await unmount(tester); // flushes the reading
+      // At the newest post everything is read, the hidden text posts after it too.
+      expect(gw.readPositions[-1], 6);
     },
   );
 

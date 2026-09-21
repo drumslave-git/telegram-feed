@@ -112,6 +112,9 @@ final class CoreServer {
       gateway.connection.listen(
         (c) => _broadcast(CoreStream.connection, {'status': c.name}),
       ),
+      gateway.readUpdates.listen(
+        (r) => _broadcast(CoreStream.readStates, encodeReadState(r)),
+      ),
     ];
   }
 
@@ -236,6 +239,8 @@ final class CoreServer {
           a['chatId'] as int,
           (a['messageIds'] as List).cast<int>(),
         );
+      case 'readState':
+        return encodeReadState(await gateway.readState(a['chatId'] as int));
       case 'saveToSavedMessages':
         await gateway.saveToSavedMessages(
           a['chatId'] as int,

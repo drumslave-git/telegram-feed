@@ -31,47 +31,33 @@ void main() {
   tearDown(() => db.close());
 
   test(
-    'a feed is marked read up to the newest post of every channel',
+    'a feed is marked read up to the newest post of every channel, in Telegram',
     () async {
       final feed = await db.createFeed('News');
       await db.addSource(feed.id, -1, title: 'One');
       await db.addSource(feed.id, -2, title: 'Two');
       final moved = await MarkRead(db: db, gateway: gw).feed(feed.id);
       expect(moved, 2);
-      expect(await db.readMarks(feed.id), {-1: 100, -2: 200});
-      // Telegram was told as well, since read sync is on by default.
       expect(gw.markedViewed, {
         -1: [100],
         -2: [200],
       });
+      expect(gw.readPositions, {-1: 100, -2: 200});
     },
   );
 
-  test('channels are marked read in every feed that holds them', () async {
-    final a = await db.createFeed('A');
-    final b = await db.createFeed('B');
-    await db.addSource(a.id, -1, title: 'One');
-    await db.addSource(b.id, -1, title: 'One');
-    await db.addSource(b.id, -2, title: 'Two');
-
-    final moved = await MarkRead(db: db, gateway: gw).channels([-1]);
-    expect(moved, 1);
-    expect(await db.readMarks(a.id), {-1: 100});
-    // The other channel of B keeps the mark it started with.
-    expect(await db.readMarks(b.id), {-1: 100, -2: 0});
-    expect(gw.markedViewed, {
-      -1: [100],
-    });
-  });
-
-  test('with read sync off Telegram is left alone', () async {
-    await db.setSetting(SettingKeys.syncReadToTelegram, 'false');
-    final feed = await db.createFeed('News');
-    await db.addSource(feed.id, -1, title: 'One');
-    await MarkRead(db: db, gateway: gw).feed(feed.id);
-    expect(await db.readMarks(feed.id), {-1: 100});
-    expect(gw.markedViewed, isEmpty);
-  });
+  test(
+    'channels are read everywhere at once; read ones are left alone',
+    () async {
+      gw.readPositions[-2] = 200;
+      final moved = await MarkRead(db: db, gateway: gw).channels([-1, -2]);
+      expect(moved, 1);
+      expect(gw.markedViewed, {
+        -1: [100],
+      });
+      expect(gw.readPositions, {-1: 100, -2: 200});
+    },
+  );
 
   testWidgets('the feed menu and the folder tab carry the action', (
     tester,
@@ -103,12 +89,7 @@ void main() {
       }
     });
     expect(find.textContaining('marked read'), findsOneWidget);
-    expect(
-      await tester.runAsync(
-        () async => db.readMarks((await db.allFeeds()).single.id),
-      ),
-      {-1: 100},
-    );
+    expect(gw.readPositions[-1], 100);
 
     // The folder tab offers it too.
     await tester.longPress(find.text('Work'));

@@ -69,15 +69,6 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
         title: channel.title,
         username: channel.username,
       );
-      // The feed starts where Telegram's own read position is, so the channel's backlog
-      // does not count as unread here (ARCHITECTURE 5.4).
-      if (channel.lastReadMessageId > 0) {
-        await widget.db.markRead(
-          widget.feedId,
-          channel.chatId,
-          channel.lastReadMessageId,
-        );
-      }
     }
   }
 

@@ -102,7 +102,7 @@ void main() {
     await tester.runAsync(() async {
       feed = await db.createFeed('Unread');
       await db.addSource(feed.id, -1, title: 'One');
-      await db.markRead(feed.id, -1, 20);
+      gw.readPositions[-1] = 20;
     });
     await tester.pumpWidget(
       MaterialApp(
@@ -118,13 +118,18 @@ void main() {
     final divider = tester.getTopLeft(find.text('Unread posts')).dy;
     expect(divider, lessThan(200)); // near the top of the 600 px window
     expect(divider, lessThan(tester.getTopLeft(find.text('post-21')).dy));
-    // The button to the newest posts counts the unread ones below the reader: of the
-    // twenty unread posts, seven are on screen.
+    // The button to the newest posts counts the unread posts, as the official app's does:
+    // of the twenty, those at least 80 % above the bottom edge are read already.
     expect(find.byIcon(Icons.keyboard_arrow_down), findsOneWidget);
-    expect(
-      find.descendant(of: find.byType(Badge), matching: find.text('13')),
-      findsOneWidget,
-    );
+    final label = tester.widget<Badge>(find.byType(Badge)).label! as Text;
+    final read = [
+      for (var id = 21; id <= 40; id++)
+        if (find.text('post-$id').evaluate().isNotEmpty &&
+            tester.getRect(find.text('post-$id')).bottom < 600)
+          id,
+    ];
+    expect(read, isNotEmpty);
+    expect(int.parse(label.data!), 20 - read.length);
     await unmount(tester);
   });
 
@@ -135,7 +140,7 @@ void main() {
     await tester.runAsync(() async {
       feed = await db.createFeed('Read');
       await db.addSource(feed.id, -1, title: 'One');
-      await db.markRead(feed.id, -1, 40);
+      gw.readPositions[-1] = 40;
     });
     await tester.pumpWidget(
       MaterialApp(
@@ -157,7 +162,7 @@ void main() {
     await tester.runAsync(() async {
       feed = await db.createFeed('Few');
       await db.addSource(feed.id, -1, title: 'One');
-      await db.markRead(feed.id, -1, 39);
+      gw.readPositions[-1] = 39;
     });
     await tester.pumpWidget(
       MaterialApp(
@@ -180,7 +185,7 @@ void main() {
     await tester.runAsync(() async {
       feed = await db.createFeed('Marks');
       await db.addSource(feed.id, -1, title: 'One');
-      await db.markRead(feed.id, -1, 20);
+      gw.readPositions[-1] = 20;
     });
     await tester.pumpWidget(
       MaterialApp(
@@ -189,11 +194,10 @@ void main() {
     );
     await settle(tester);
     await tester.pumpAndSettle();
-    await unmount(tester); // closing the screen flushes the marks
-    final marks = await tester.runAsync(() => db.readMarks(feed.id));
+    await unmount(tester); // closing the screen sends the reading
     // The rows that fit under the divider were on screen; the newest posts were not.
-    expect(marks![-1], greaterThan(21));
-    expect(marks[-1], lessThan(40));
+    expect(gw.readPositions[-1], greaterThan(21));
+    expect(gw.readPositions[-1], lessThan(40));
   });
 
   testWidgets('reopening within the session lands on the same post', (
@@ -203,7 +207,7 @@ void main() {
     await tester.runAsync(() async {
       feed = await db.createFeed('Back');
       await db.addSource(feed.id, -1, title: 'One');
-      await db.markRead(feed.id, -1, 40);
+      gw.readPositions[-1] = 40;
     });
     Widget app() => MaterialApp(
       home: TimelineScreen(db: db, gateway: gw, feed: feed),
@@ -246,7 +250,7 @@ void main() {
     await tester.runAsync(() async {
       feed = await db.createFeed('Live');
       await db.addSource(feed.id, -1, title: 'One');
-      await db.markRead(feed.id, -1, 20);
+      gw.readPositions[-1] = 20;
     });
     await tester.pumpWidget(
       MaterialApp(
@@ -443,11 +447,8 @@ void main() {
       await tester.runAsync(() async {
         feed = await db.createFeed('V');
         await db.addSource(feed.id, -1, title: 'One');
-        await db.markRead(
-          feed.id,
-          -1,
-          4,
-        ); // opens at the newest post, both texts in view
+        gw.readPositions[-1] =
+            4; // opens at the newest post, both texts in view
       });
       await tester.pumpWidget(
         MaterialApp(
@@ -493,7 +494,7 @@ void main() {
     await tester.runAsync(() async {
       feed = await db.createFeed('P');
       await db.addSource(feed.id, -1, title: 'One');
-      await db.markRead(feed.id, -1, 3); // opens at the newest post
+      gw.readPositions[-1] = 3; // opens at the newest post
     });
     await tester.pumpWidget(
       MaterialApp(
@@ -754,7 +755,7 @@ void main() {
     await tester.runAsync(() async {
       feed = await db.createFeed('Days');
       await db.addSource(feed.id, -1, title: 'One');
-      await db.markRead(feed.id, -1, 40); // opens at the newest post
+      gw.readPositions[-1] = 40; // opens at the newest post
     });
     await tester.pumpWidget(
       MaterialApp(

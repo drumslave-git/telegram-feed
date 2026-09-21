@@ -31,6 +31,7 @@ final class CoreClient implements TelegramGateway {
   final _matchCtl = StreamController<MatchEvent>.broadcast();
   final _commentCtl = StreamController<Comment>.broadcast();
   final _connectionCtl = StreamController<ConnectionStatus>.broadcast();
+  final _readCtl = StreamController<ReadState>.broadcast();
 
   /// What the core last said about TDLib's connection.
   var _connection = ConnectionStatus.connecting;
@@ -78,6 +79,8 @@ final class CoreClient implements TelegramGateway {
               data['status']! as String,
             );
             _connectionCtl.add(_connection);
+          case 'readStates':
+            _readCtl.add(decodeReadState(data));
         }
     }
   }
@@ -214,6 +217,14 @@ final class CoreClient implements TelegramGateway {
   @override
   Future<void> markViewed(int chatId, List<int> messageIds) =>
       _call('markViewed', {'chatId': chatId, 'messageIds': messageIds});
+
+  @override
+  Future<ReadState> readState(int chatId) async => decodeReadState(
+    (await _call('readState', {'chatId': chatId}))! as Map<Object?, Object?>,
+  );
+
+  @override
+  Stream<ReadState> get readUpdates => _readCtl.stream;
 
   @override
   Future<void> saveToSavedMessages(int chatId, List<int> messageIds) => _call(
@@ -411,5 +422,6 @@ final class CoreClient implements TelegramGateway {
     await _matchCtl.close();
     await _pausedCtl.close();
     await _commentCtl.close();
+    await _readCtl.close();
   }
 }

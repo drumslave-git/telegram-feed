@@ -62,6 +62,7 @@ final class TdlibGateway implements TelegramGateway {
   final _memberCtl = StreamController<ChannelMembershipEvent>.broadcast();
   final _fileCtl = StreamController<FileProgress>.broadcast();
   final _commentCtl = StreamController<Comment>.broadcast();
+  final _readCtl = StreamController<ReadState>.broadcast();
   List<td.ChatFolderInfo> _folders = const [];
   final _supergroups = <int, td.Supergroup>{};
 
@@ -93,6 +94,8 @@ final class TdlibGateway implements TelegramGateway {
   Stream<PostEvent> get postEvents => _postCtl.stream;
   @override
   Stream<ChannelMembershipEvent> get membershipEvents => _memberCtl.stream;
+  @override
+  Stream<ReadState> get readUpdates => _readCtl.stream;
 
   Future<void> _onUpdate(td.Update u) async {
     switch (u) {
@@ -153,6 +156,20 @@ final class TdlibGateway implements TelegramGateway {
         if (chat?.type case td.ChatTypeSupergroup(:final isChannel)
             when isChannel) {
           _channelChatIds.add(chat!.id);
+        }
+      case td.UpdateChatReadInbox(
+        :final chatId,
+        :final lastReadInboxMessageId,
+        :final unreadCount,
+      ):
+        if (_isChannelChat(chatId)) {
+          _readCtl.add(
+            ReadState(
+              chatId: chatId,
+              lastReadMessageId: lastReadInboxMessageId,
+              unreadCount: unreadCount,
+            ),
+          );
         }
       case td.UpdateChatFolders(:final chatFolders):
         _folders = chatFolders;
@@ -485,6 +502,17 @@ final class TdlibGateway implements TelegramGateway {
       forceRead: true,
     ),
   );
+
+  @override
+  Future<ReadState> readState(int chatId) async {
+    final chat = await _client.call(td.GetChat(chatId: chatId));
+    return ReadState(
+      chatId: chatId,
+      lastReadMessageId: chat.lastReadInboxMessageId,
+      unreadCount: chat.unreadCount,
+      lastMessageId: chat.lastMessage?.id ?? 0,
+    );
+  }
 
   @override
   Future<FileRef> download(FileRef ref, {int priority = 16}) async {
@@ -993,5 +1021,6 @@ final class TdlibGateway implements TelegramGateway {
     await _fileCtl.close();
     await _commentCtl.close();
     await _connectionCtl.close();
+    await _readCtl.close();
   }
 }

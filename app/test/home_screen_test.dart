@@ -23,7 +23,11 @@ void main() {
     gw = TimelineGateway(
       {
         -1: [post(-1, 100, 'one-post')],
-        -2: [post(-2, 200, 'two-post')],
+        // Seven posts after Telegram's read position, as the channel list says.
+        -2: [
+          post(-2, 200, 'two-post'),
+          for (var id = 199; id >= 194; id--) post(-2, id, 'older-$id'),
+        ],
       },
       channels: const [
         Channel(
@@ -173,26 +177,24 @@ void main() {
         final f = await db.createFeed('News');
         await db.addSource(f.id, -1, title: 'One');
         await db.addSource(f.id, -2, title: 'Two');
-        await db.markRead(f.id, -1, 100); // One fully read, Two not
+        // One is read through (its channel says so), Two is not.
         await db.createFeed('Quiet');
       });
       await tester.pumpWidget(app());
       await settle(tester);
       expect(find.text('1 channel with new posts'), findsOneWidget);
-      // The badge of the Feeds tab; the folder tab has one of its own (H-14).
+      // The badge of the Feeds tab counts Two's seven unread posts; the folder tab has one
+      // of its own (H-14).
       final onFeedsTab = find.descendant(
         of: find.ancestor(of: find.text('Feeds'), matching: find.byType(Tab)),
         matching: find.byType(Badge),
       );
       expect(
-        find.descendant(of: onFeedsTab, matching: find.text('1')),
+        find.descendant(of: onFeedsTab, matching: find.text('7')),
         findsOneWidget,
       );
 
-      await tester.runAsync(() async {
-        final f = (await db.allFeeds()).first;
-        await db.markRead(f.id, -2, 200);
-      });
+      await tester.runAsync(() => gw.markViewed(-2, [200]));
       await settle(tester);
       expect(find.textContaining('with new posts'), findsNothing);
       expect(onFeedsTab, findsNothing);
@@ -246,10 +248,12 @@ void main() {
       await settle(tester);
       await tester.pumpAndSettle();
       expect(find.byType(TimelineScreen), findsOneWidget);
+      // At Telegram's read position: the first of its seven unread posts, under the divider.
+      expect(find.text('Unread posts'), findsOneWidget);
       expect(
         find.descendant(
           of: find.byType(PostCard),
-          matching: find.text('two-post'),
+          matching: find.text('older-194'),
         ),
         findsOneWidget,
       );
@@ -315,11 +319,8 @@ void main() {
       () => db.watchSourceChannels(feeds.single.id).first,
     ))!;
     expect(sources.map((s) => s.chatId), [-2, -1]); // the folder's order
-    // The feed starts at Telegram's read position of each channel.
-    expect(await tester.runAsync(() => db.readMarks(feeds.single.id)), {
-      -2: 0,
-      -1: 100,
-    });
+    // Read state is Telegram's own: creating a feed moves nothing.
+    expect(gw.markedViewed, isEmpty);
     // Back on the Feeds tab, with the new feed listed.
     expect(find.widgetWithText(ListTile, 'Work'), findsOneWidget);
     expect(find.textContaining('created with 2 channels'), findsOneWidget);
@@ -393,8 +394,8 @@ void main() {
       await tester.runAsync(() async {
         final f = await db.createFeed('News');
         await db.addSource(f.id, -2, title: 'Two');
-        await db.markRead(f.id, -2, 200);
       });
+      gw.readPositions[-2] = 200;
       await tester.pumpWidget(app());
       await settle(tester);
       // The channel list said 200 was the newest post; the history has three after it.
@@ -476,13 +477,14 @@ void main() {
     ))!;
     expect(sources.map((s) => s.chatId), [-2]);
 
-    // Marking it read from the same menu moves the feed's mark to the newest post.
+    // Marking it read from the same menu moves Telegram's read position to the newest
+    // post.
     await tester.longPress(find.text('Two'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Mark all read'));
     await settle(tester);
     await tester.pumpAndSettle();
-    expect(await tester.runAsync(() => db.readMarks(feed.id)), {-2: 200});
+    expect(gw.readPositions[-2], 200);
     await unmount(tester);
   });
 

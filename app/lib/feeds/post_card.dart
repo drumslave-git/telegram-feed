@@ -130,7 +130,6 @@ class PostCard extends StatelessWidget {
     required this.channelTitle,
     required this.gateway,
     this.channelPhoto,
-    this.unread = false,
     this.onOpenInTelegram,
     this.onShare,
     this.onCopyLink,
@@ -157,7 +156,6 @@ class PostCard extends StatelessWidget {
   final String channelTitle;
   final FileRef? channelPhoto;
   final TelegramGateway gateway;
-  final bool unread;
   final VoidCallback? onOpenInTelegram;
   final VoidCallback? onShare;
   final VoidCallback? onCopyLink;
@@ -312,7 +310,6 @@ class PostCard extends StatelessWidget {
       channelTitle: channelTitle,
       channelPhoto: channelPhoto,
       gateway: gateway,
-      unread: unread,
       onReact: onReact,
       onOpenThread: onOpenThread,
       onOpenLink: onOpenLink,
@@ -569,7 +566,6 @@ class _Bubble extends StatelessWidget {
     required this.channelTitle,
     required this.channelPhoto,
     required this.gateway,
-    required this.unread,
     required this.onReact,
     required this.onOpenThread,
     required this.onOpenLink,
@@ -587,7 +583,6 @@ class _Bubble extends StatelessWidget {
   final String channelTitle;
   final FileRef? channelPhoto;
   final TelegramGateway gateway;
-  final bool unread;
   final void Function(String emoji, bool remove)? onReact;
   final VoidCallback? onOpenThread;
   final void Function(String url)? onOpenLink;
@@ -622,7 +617,6 @@ class _Bubble extends StatelessWidget {
         text.isEmpty && reactions.isEmpty && other.isEmpty && visual.isNotEmpty;
     final footer = PostFooter(
       post: item.head,
-      unread: unread,
       color: footerOnMedia ? Colors.white : scheme.onSurfaceVariant,
     );
 
@@ -804,17 +798,11 @@ class _Bubble extends StatelessWidget {
   );
 }
 
-/// Views, "edited", the time and the unread dot. The dot has a slot of its own that stays
-/// when the post is read, so nothing moves when it goes.
+/// Views, "edited" and the time. A channel's post carries no read mark, as in the official
+/// app: the "Unread posts" divider and the counters say what is new.
 class PostFooter extends StatelessWidget {
-  const PostFooter({
-    super.key,
-    required this.post,
-    required this.unread,
-    required this.color,
-  });
+  const PostFooter({super.key, required this.post, required this.color});
   final Post post;
-  final bool unread;
   final Color color;
 
   @override
@@ -835,22 +823,6 @@ class PostFooter extends StatelessWidget {
           const SizedBox(width: 4),
         ],
         Text(formatTime(date), style: style),
-        SizedBox(
-          width: 12,
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: AnimatedOpacity(
-              opacity: unread ? 1 : 0,
-              duration: const Duration(milliseconds: 250),
-              child: Icon(
-                Icons.circle,
-                size: 8,
-                color: Theme.of(context).colorScheme.primary,
-                semanticLabel: unread ? 'unread' : null,
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }

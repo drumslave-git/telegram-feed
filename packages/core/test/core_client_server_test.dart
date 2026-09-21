@@ -13,6 +13,7 @@ final class FakeGateway implements TelegramGateway {
   final postCtl = StreamController<PostEvent>.broadcast();
   final memberCtl = StreamController<ChannelMembershipEvent>.broadcast();
   final fileCtl = StreamController<FileProgress>.broadcast();
+  final readCtl = StreamController<ReadState>.broadcast();
   AuthState auth = const AuthWaitPhoneNumber();
 
   @override
@@ -132,6 +133,20 @@ final class FakeGateway implements TelegramGateway {
   @override
   Future<void> markViewed(int chatId, List<int> messageIds) async =>
       calls.add('viewed:$chatId:${messageIds.join(",")}');
+
+  @override
+  Future<ReadState> readState(int chatId) async {
+    calls.add('readState:$chatId');
+    return ReadState(
+      chatId: chatId,
+      lastReadMessageId: 6,
+      unreadCount: 2,
+      lastMessageId: 9,
+    );
+  }
+
+  @override
+  Stream<ReadState> get readUpdates => readCtl.stream;
 
   @override
   Future<void> saveToSavedMessages(int chatId, List<int> messageIds) async =>
@@ -279,6 +294,20 @@ void main() {
 
       await client.markViewed(-1001, [7, 6]);
       expect(gw.calls.last, 'viewed:-1001:7,6');
+
+      // Telegram's own read state, asked for and pushed.
+      final read = await client.readState(-1001);
+      expect(gw.calls.last, 'readState:-1001');
+      expect(
+        (read.lastReadMessageId, read.unreadCount, read.lastMessageId),
+        (6, 2, 9),
+      );
+      final pushed = client.readUpdates.first;
+      gw.readCtl.add(
+        const ReadState(chatId: -1001, lastReadMessageId: 9, unreadCount: 0),
+      );
+      final update = await pushed;
+      expect((update.chatId, update.lastReadMessageId), (-1001, 9));
 
       await client.saveToSavedMessages(-1001, [7, 6]);
       expect(gw.calls.last, 'saved:-1001:7,6');

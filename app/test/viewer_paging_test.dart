@@ -71,7 +71,7 @@ void main() {
     await tester.runAsync(() async {
       feed = await db.createFeed('Pictures');
       await db.addSource(feed.id, -1, title: 'One');
-      await db.markRead(feed.id, -1, 40);
+      gw.readPositions[-1] = 40;
     });
     await tester.pumpWidget(
       MaterialApp(

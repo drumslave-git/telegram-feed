@@ -122,6 +122,11 @@ final class HistoryGateway implements TelegramGateway {
   @override
   Future<void> markViewed(int chatId, List<int> messageIds) async {}
   @override
+  Future<ReadState> readState(int chatId) async =>
+      ReadState(chatId: chatId, lastReadMessageId: 0);
+  @override
+  Stream<ReadState> get readUpdates => const Stream.empty();
+  @override
   Future<void> saveToSavedMessages(int chatId, List<int> messageIds) async {}
   @override
   Future<FileRef> download(FileRef ref, {int priority = 16}) async => ref;
@@ -275,16 +280,52 @@ void main() {
     },
   );
 
-  test('unreadBefore counts the unread rows below a position', () async {
-    final g = HistoryGateway({-1: series(-1, 10, start: 0, step: 10)});
-    final t = FeedTimeline(g, [-1], pageSize: 10);
+  test('unread posts are counted as Telegram counts them', () async {
+    final g = HistoryGateway({
+      -1: [
+        p(-1, 10, 100),
+        Post(chatId: -1, messageId: 9, date: 90, text: '', albumId: 5),
+        Post(chatId: -1, messageId: 8, date: 90, text: '', albumId: 5),
+        Post(chatId: -1, messageId: 7, date: 90, text: '', albumId: 5),
+        p(-1, 6, 60),
+        p(-1, 5, 50),
+      ],
+      -2: series(-2, 4, start: 0, step: 10),
+    });
+    final t = FeedTimeline(g, [-1, -2], pageSize: 20);
     await t.loadMore();
-    // Rows are newest first: ids 10..1, read up to id 6.
-    const marks = {-1: 6};
-    expect(t.unreadBefore(0, marks), 0); // at the newest post
-    expect(t.unreadBefore(3, marks), 3); // ids 10, 9, 8 are unread
-    expect(t.unreadBefore(t.items.length, marks), 4); // 10, 9, 8, 7
-    expect(t.unreadBefore(3, const {}), 3); // nothing read yet
+    // Post 10, and the three parts of the album, one post each.
+    expect(t.unreadPosts({-1: 6, -2: 4}), 4);
+    expect(t.unreadPosts({-1: 6, -2: 2}), 6);
+    expect(t.unreadPosts({-1: 10, -2: 4}), 0);
+  });
+
+  test('a read row passes everything older, in every channel', () async {
+    // -1 posts at 10, 20 ... 200; -2 five seconds later each time.
+    final g = HistoryGateway({
+      -1: series(-1, 20, start: 0, step: 10),
+      -2: series(-2, 20, start: 5, step: 10),
+    });
+    final t = FeedTimeline(g, [-1, -2], pageSize: 40);
+    await t.loadMore();
+    // Newest first: -2/20 (205), -1/20 (200), -2/19 (195), -1/19 (190) ...
+    expect((t.items[2].chatId, t.items[2].head.messageId), (-2, 19));
+    expect(t.passedAt(2), {-2: 19, -1: 19});
+    expect(t.passedAt(1), {-1: 20, -2: 19});
+    expect(t.passedAt(0), {-2: 20, -1: 20});
+    expect(t.passedAt(t.items.length), isEmpty);
+  });
+
+  test('a channel with nothing that old is passed up to its buffer', () async {
+    // -2 has only old posts; a short page leaves them in its buffer.
+    final g = HistoryGateway({
+      -1: series(-1, 10, start: 1000, step: 10),
+      -2: series(-2, 10, start: 0, step: 10),
+    });
+    final t = FeedTimeline(g, [-1, -2], pageSize: 5, historyLimit: 10);
+    await t.loadMore();
+    expect(t.items.map((i) => i.chatId).toSet(), {-1});
+    expect(t.passedAt(0), {-1: 10, -2: 10});
   });
 
   test('merges by date desc across sources and pages', () async {
@@ -459,7 +500,7 @@ void main() {
       expect(t.items.first.head.messageId, 7);
     });
 
-    test('reading a row covers the hidden posts that follow it', () async {
+    test('a read row passes the hidden posts older than it', () async {
       final gw = HistoryGateway({
         -1: [text(6), text(5), photo(4), text(3), photo(2), text(1)],
       });
@@ -467,24 +508,11 @@ void main() {
         -1,
       ], filter: const FeedFilter(media: MediaPresence.withMedia));
       await t.loadMore();
-      expect(t.coveredFrom(-1, 2), 3); // up to the next shown post (4)
-      expect(t.coveredFrom(-1, 4), 6); // everything newer is hidden
-      expect(t.coveredFrom(-1, 6), 6);
-      expect(t.sortedDownTo(-1, 1), isTrue);
-    });
-
-    test('a shown post waiting behind the button is not skipped', () async {
-      final gw = HistoryGateway({
-        -1: [photo(2)],
-      });
-      final t = FeedTimeline(gw, [
-        -1,
-      ], filter: const FeedFilter(media: MediaPresence.withMedia));
-      await t.loadMore();
-      t.atTop = false;
-      t.apply(PostAdded(photo(3))); // waits as pending
-      t.apply(PostAdded(text(4))); // hidden
-      expect(t.coveredFrom(-1, 2), 2);
+      expect(t.items.map((i) => i.head.messageId), [4, 2]);
+      expect(t.passedAt(1), {-1: 2}); // 3 is newer than the row
+      expect(t.passedAt(0), {-1: 4});
+      // At the newest post, with nothing waiting, the hidden posts after it are read too.
+      expect(t.passedAt(0, throughNewest: true), {-1: 6});
     });
 
     group('whole posts', () {
@@ -521,10 +549,8 @@ void main() {
         expect(t.items.single.head.messageId, 11);
         expect(t.items.single.parts, isEmpty);
         expect(t.items.single.text, '');
-        expect(
-          t.coveredFrom(-1, 11),
-          12,
-        ); // reading the video covers the picture
+        // At the newest post the hidden picture of the album is read with its video.
+        expect(t.passedAt(0, throughNewest: true), {-1: 12});
 
         // The same album, whole: the picture is the head and brings the caption.
         final whole = FeedTimeline(gw, [-1], filter: videosOnly);

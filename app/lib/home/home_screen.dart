@@ -354,10 +354,6 @@ class _HomeScreenState extends State<HomeScreen>
         title: c.title,
         username: c.username,
       );
-      // As in the feed editor: the feed starts at Telegram's own read position.
-      if (c.lastReadMessageId > 0) {
-        await widget.db.markRead(feed.id, c.chatId, c.lastReadMessageId);
-      }
     }
     if (!mounted) return;
     _tabCtl.animateTo(0);
@@ -533,13 +529,6 @@ class _HomeScreenState extends State<HomeScreen>
       title: channel.title,
       username: channel.username,
     );
-    if (channel.lastReadMessageId > 0) {
-      await widget.db.markRead(
-        feed.id,
-        channel.chatId,
-        channel.lastReadMessageId,
-      );
-    }
     messenger.showSnackBar(
       SnackBar(content: Text('${channel.title} added to "${feed.name}".')),
     );

@@ -92,9 +92,8 @@ void main() {
     expect(find.text('Beta Daily'), findsOneWidget);
     expect(find.text('@beta'), findsOneWidget);
     expect(find.byType(ChannelAvatar), findsOneWidget);
-    // The feed starts at Telegram's own read position for the channel.
-    final marks = await tester.runAsync(() => db.readMarks(feedId));
-    expect(marks, {-2: 700});
+    // Adding a channel leaves its read position, which is Telegram's, alone.
+    expect(gw.markedViewed, isEmpty);
 
     // Already-added channels are not offered again.
     await tester.tap(find.text('Add channel'));
@@ -229,11 +228,7 @@ void main() {
       () => db.watchSourceChannels(feedId).first,
     ))!;
     expect(sources.map((s) => s.title), ['Alpha News', 'Beta Daily']);
-    // Each one starts at Telegram's own read position.
-    expect(await tester.runAsync(() => db.readMarks(feedId)), {
-      -1: 500,
-      -2: 700,
-    });
+    expect(gw.markedViewed, isEmpty);
     await unmount(tester);
   });
 }
