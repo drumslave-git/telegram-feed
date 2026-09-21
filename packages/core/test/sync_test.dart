@@ -225,6 +225,7 @@ void main() {
   test('only whitelisted settings travel', () {
     expect(isSyncedSetting('themeMode'), isTrue);
     expect(isSyncedSetting(SettingKeys.countUnreadPosts), isTrue);
+    expect(isSyncedSetting(SettingKeys.postTextScale), isTrue);
     expect(isSyncedSetting('tts.rate'), isTrue);
     expect(isSyncedSetting('ai.model'), isTrue);
     expect(isSyncedSetting('ai.lastError'), isFalse);

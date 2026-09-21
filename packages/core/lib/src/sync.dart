@@ -31,6 +31,7 @@ bool isSyncedSetting(String key) =>
     key == SettingKeys.themeMode ||
     key == SettingKeys.syncReadToTelegram ||
     key == SettingKeys.countUnreadPosts ||
+    key == SettingKeys.postTextScale ||
     key.startsWith('tts.') ||
     key.startsWith('media.') ||
     key == 'ai.baseUrl' ||
