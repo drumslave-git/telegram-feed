@@ -505,7 +505,7 @@ screen under the automatic downloads, as the official app had them before Power 
   and the folder tabs 154 and 27; with the switch off the same rows say 3 and 12, the Feeds
   tab 2 (feeds with news) and the folder tabs 3 and 5. The first build counted nothing for a
   News2 channel never read (mark 0), which the newest-first fill fixed. The home golden was
-  regenerated, its fixture now with three posts past the Tech feed's mark.
+  regenerated, its fixture now with three posts past the Tech feed's mark. (4f92bec)
 
 ## Phase 4 — Extras
 
