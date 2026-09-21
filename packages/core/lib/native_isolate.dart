@@ -81,12 +81,12 @@ Future<void> coreIsolateMain(CoreBootstrap b) async {
       }
       e.update(
         rules: specs,
-        watched: {for (final w in await db.allWatched()) w.chatId},
-        filters: {
-          for (final entry in (await db.filtersByChat()).entries)
-            entry.key: [
-              for (final json in entry.value) FeedFilter.decode(json),
-            ],
+        feeds: {
+          for (final entry in (await db.feedsForRules()).entries)
+            entry.key: RuleFeed(
+              entry.value.chats,
+              FeedFilter.decode(entry.value.filterJson),
+            ),
         },
       );
     };

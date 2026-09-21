@@ -7,7 +7,31 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import '../ai/semantic_gate.dart';
 import 'rule_editor_screen.dart';
 
-/// All keyword rules with enable switches (SPEC: rules are global or per channel).
+/// Opens the rule editor: for [rule], or for a new rule in [feedId] (the first feed when
+/// null).
+void openRuleEditor(
+  BuildContext context, {
+  required AppDatabase db,
+  required TelegramGateway gateway,
+  Rule? rule,
+  int? feedId,
+  SemanticCheck? semanticCheck,
+}) => Navigator.of(context).push(
+  MaterialPageRoute<void>(
+    builder: (_) => RuleEditorScreen(
+      db: db,
+      gateway: gateway,
+      rule: rule,
+      feedId: feedId,
+      semanticCheck:
+          semanticCheck ??
+          SemanticGate(db: db, secrets: const SecureSecretStore()).check,
+    ),
+  ),
+);
+
+/// Every rule of every feed, grouped by feed: the overview behind the Rules button of the
+/// home screen. A feed's own rules are also on the Rules tab of its info screen.
 class RulesScreen extends StatelessWidget {
   const RulesScreen({
     super.key,
@@ -27,70 +51,92 @@ class RulesScreen extends StatelessWidget {
   /// Asks the AI endpoint (rule editor dry run); defaults to the configured endpoint.
   final SemanticCheck? semanticCheck;
 
-  void _edit(BuildContext context, Rule? rule) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => RuleEditorScreen(
-          db: db,
-          gateway: gateway,
-          rule: rule,
-          semanticCheck:
-              semanticCheck ??
-              SemanticGate(db: db, secrets: const SecureSecretStore()).check,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Rules')),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _edit(context, null),
+        onPressed: () => openRuleEditor(
+          context,
+          db: db,
+          gateway: gateway,
+          semanticCheck: semanticCheck,
+        ),
         tooltip: 'New rule',
         child: const Icon(Icons.add),
       ),
-      body: Column(
-        children: [
-          if (batteryExempt != null)
-            BatteryBanner(
-              exempt: batteryExempt!,
-              onRequest: onRequestBatteryExemption,
-            ),
-          StreamBuilder<String?>(
-            stream: db.watchSetting(AiKeys.lastError),
-            builder: (context, snap) {
-              final failure = AiFailure.decode(snap.data);
-              if (failure == null) return const SizedBox.shrink();
-              final t = TimeOfDay.fromDateTime(failure.at).format(context);
-              return ListTile(
-                dense: true,
-                leading: Icon(
-                  Icons.info_outline,
-                  color: Theme.of(context).colorScheme.error,
-                ),
-                title: const Text('AI rules are being skipped'),
-                subtitle: Text('${failure.message} (last tried $t)'),
-              );
-            },
+      body: RuleList(
+        db: db,
+        gateway: gateway,
+        batteryExempt: batteryExempt,
+        onRequestBatteryExemption: onRequestBatteryExemption,
+        semanticCheck: semanticCheck,
+      ),
+    );
+  }
+}
+
+/// Rules with their switches: those of one feed ([feedId]), or of all feeds under a
+/// header per feed. Above them the battery banner, where there is one, and the note that
+/// AI rules are being skipped.
+class RuleList extends StatelessWidget {
+  const RuleList({
+    super.key,
+    required this.db,
+    required this.gateway,
+    this.feedId,
+    this.batteryExempt,
+    this.onRequestBatteryExemption,
+    this.semanticCheck,
+  });
+  final AppDatabase db;
+  final TelegramGateway gateway;
+  final int? feedId;
+  final Future<bool> Function()? batteryExempt;
+  final Future<void> Function()? onRequestBatteryExemption;
+  final SemanticCheck? semanticCheck;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        if (batteryExempt != null)
+          BatteryBanner(
+            exempt: batteryExempt!,
+            onRequest: onRequestBatteryExemption,
           ),
-          Expanded(
-            child: StreamBuilder<List<Rule>>(
+        StreamBuilder<String?>(
+          stream: db.watchSetting(AiKeys.lastError),
+          builder: (context, snap) {
+            final failure = AiFailure.decode(snap.data);
+            if (failure == null) return const SizedBox.shrink();
+            final t = TimeOfDay.fromDateTime(failure.at).format(context);
+            return ListTile(
+              dense: true,
+              leading: Icon(
+                Icons.info_outline,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: const Text('AI rules are being skipped'),
+              subtitle: Text('${failure.message} (last tried $t)'),
+            );
+          },
+        ),
+        Expanded(
+          child: StreamBuilder<List<Feed>>(
+            stream: db.watchFeeds(),
+            builder: (context, feedsSnap) => StreamBuilder<List<Rule>>(
               stream: db.watchRules(),
               builder: (context, snap) {
-                final rules = snap.data ?? const <Rule>[];
-                if (rules.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Text(
-                        'No rules yet. A rule watches your feeds\' channels and notifies you, optionally reading the post aloud: give it words to look for, or leave the condition empty to be notified about every post.',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  );
-                }
+                final feeds = [
+                  for (final f in feedsSnap.data ?? const <Feed>[])
+                    if (feedId == null || f.id == feedId) f,
+                ];
+                final rules = [
+                  for (final r in snap.data ?? const <Rule>[])
+                    if (feedId == null || r.feedId == feedId) r,
+                ];
+                if (rules.isEmpty) return Center(child: _empty(feeds));
                 return FutureBuilder<List<WatchedChannel>>(
                   future: db.allWatched(),
                   builder: (context, w) {
@@ -98,41 +144,107 @@ class RulesScreen extends StatelessWidget {
                       for (final c in w.data ?? const <WatchedChannel>[])
                         c.chatId: c.title,
                     };
-                    return ListView.builder(
-                      itemCount: rules.length,
-                      itemBuilder: (context, i) {
-                        final r = rules[i];
-                        final scope = r.scopeKind == 'channel'
-                            ? (titles[r.scopeChatId] ??
-                                  'Channel ${r.scopeChatId}')
-                            : 'All channels';
-                        return ListTile(
-                          leading: Icon(switch (r.priority) {
-                            'urgent' => Icons.priority_high,
-                            'silent' => Icons.notifications_off_outlined,
-                            _ => Icons.notifications_outlined,
-                          }),
-                          title: Text(r.name),
-                          subtitle: Text(
-                            '$scope · ${_preview(r)}${r.readAloud ? ' · read aloud' : ''}',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: Switch(
-                            value: r.enabled,
-                            onChanged: (v) => db.setRuleEnabled(r.id, v),
-                          ),
-                          onTap: () => _edit(context, r),
-                        );
-                      },
+                    return ListView(
+                      padding: const EdgeInsets.only(bottom: 88),
+                      children: [
+                        for (final f in feeds)
+                          if (rules.any((r) => r.feedId == f.id)) ...[
+                            if (feedId == null) _FeedHeader(f.name),
+                            for (final r in rules)
+                              if (r.feedId == f.id)
+                                _RuleTile(
+                                  rule: r,
+                                  channelTitle: r.scopeChatId == null
+                                      ? null
+                                      : titles[r.scopeChatId] ??
+                                            'Channel ${r.scopeChatId}',
+                                  onChanged: (v) => db.setRuleEnabled(r.id, v),
+                                  onTap: () => openRuleEditor(
+                                    context,
+                                    db: db,
+                                    gateway: gateway,
+                                    rule: r,
+                                    semanticCheck: semanticCheck,
+                                  ),
+                                ),
+                          ],
+                      ],
                     );
                   },
                 );
               },
             ),
           ),
-        ],
+        ),
+      ],
+    );
+  }
+
+  Widget _empty(List<Feed> feeds) => Padding(
+    padding: const EdgeInsets.all(32),
+    child: Text(
+      feeds.isEmpty
+          ? 'Rules belong to feeds. Create a feed first, then give it rules.'
+          : feedId != null
+          ? 'No rules in this feed yet. A rule watches the feed\'s channels, or one of '
+                'them, and notifies you, optionally reading the post aloud: give it words '
+                'to look for, or leave the condition empty to be notified about every '
+                'post the feed shows.'
+          : 'No rules yet. Every feed has its own: a rule watches the feed\'s channels, '
+                'or one of them, and notifies you, optionally reading the post aloud.',
+      textAlign: TextAlign.center,
+    ),
+  );
+}
+
+/// The name of a feed above its rules in the overview.
+class _FeedHeader extends StatelessWidget {
+  const _FeedHeader(this.name);
+  final String name;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+    child: Text(
+      name,
+      style: Theme.of(context).textTheme.titleSmall
+          ?.copyWith(color: Theme.of(context).colorScheme.primary),
+    ),
+  );
+}
+
+class _RuleTile extends StatelessWidget {
+  const _RuleTile({
+    required this.rule,
+    required this.channelTitle,
+    required this.onChanged,
+    required this.onTap,
+  });
+  final Rule rule;
+
+  /// The one channel the rule watches; null for every channel of its feed.
+  final String? channelTitle;
+  final ValueChanged<bool> onChanged;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = rule;
+    final scope = channelTitle ?? 'Every channel';
+    return ListTile(
+      leading: Icon(switch (r.priority) {
+        'urgent' => Icons.priority_high,
+        'silent' => Icons.notifications_off_outlined,
+        _ => Icons.notifications_outlined,
+      }),
+      title: Text(r.name),
+      subtitle: Text(
+        '$scope · ${_preview(r)}${r.readAloud ? ' · read aloud' : ''}',
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
       ),
+      trailing: Switch(value: r.enabled, onChanged: onChanged),
+      onTap: onTap,
     );
   }
 

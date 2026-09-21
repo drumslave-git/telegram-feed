@@ -437,11 +437,14 @@ void main() {
             id: 1,
             name: 'hi',
             condition: RuleParser.parse('hello'),
+            feedId: 1,
             priority: RulePriority.urgent,
             readAloud: true,
           ),
         ],
-        watched: {-1},
+        feeds: const {
+          1: RuleFeed({-1}),
+        },
       );
     var refreshed = 0;
     final server = CoreServer(

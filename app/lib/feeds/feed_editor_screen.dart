@@ -4,22 +4,30 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../home/channel_list.dart' show ChannelAvatar, FeedTags;
+import '../rules/rules_screen.dart' show RuleList, openRuleEditor;
 import 'shared_media.dart';
 
-/// The feed's own info screen (founder decision 2026-09-19): its channels — add from a
-/// searchable picker, remove, reorder — and, in the tabs beside them, the shared media of
-/// all its channels at once, filtered like the feed. Only channels the account has joined
-/// can be added (SPEC section 7); the app never joins.
+/// The feed's own info screen: its channels (add from a searchable picker, remove,
+/// reorder), its rules, and, in the tabs beside them, the shared media of all its channels
+/// at once, filtered like the feed. Only channels the account has joined can be added; the
+/// app never joins.
 class FeedEditorScreen extends StatefulWidget {
   const FeedEditorScreen({
     super.key,
     required this.db,
     required this.gateway,
     required this.feedId,
+    this.initialTab = channelsTab,
   });
   final AppDatabase db;
   final TelegramGateway gateway;
   final int feedId;
+
+  /// The tab the screen opens on.
+  final int initialTab;
+
+  static const channelsTab = 0;
+  static const rulesTab = 1;
 
   @override
   State<FeedEditorScreen> createState() => _FeedEditorScreenState();
@@ -35,9 +43,10 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
       .watchSourceChannels(widget.feedId);
   late final Stream<Feed?> _feedStream = widget.db.watchFeed(widget.feedId);
 
-  /// Channels, then the media tabs.
+  /// Channels, rules, then the media tabs.
   late final TabController _tab = TabController(
-    length: SharedMediaTabs.kinds.length + 1,
+    length: SharedMediaTabs.kinds.length + 2,
+    initialIndex: widget.initialTab,
     vsync: this,
   )..addListener(() => setState(() {}));
 
@@ -98,23 +107,40 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
               tabAlignment: TabAlignment.start,
               tabs: [
                 const Tab(text: 'Channels'),
+                const Tab(text: 'Rules'),
                 for (final (label, _) in SharedMediaTabs.kinds)
                   Tab(text: label),
               ],
             ),
           ),
-          // Adding a channel belongs to the list of channels.
-          floatingActionButton: _tab.index != 0
-              ? null
-              : FloatingActionButton.extended(
-                  onPressed: () => _pick(sources),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add channel'),
-                ),
+          // Adding a channel belongs to the list of channels, a new rule to the rules.
+          floatingActionButton: switch (_tab.index) {
+            FeedEditorScreen.channelsTab => FloatingActionButton.extended(
+              onPressed: () => _pick(sources),
+              icon: const Icon(Icons.add),
+              label: const Text('Add channel'),
+            ),
+            FeedEditorScreen.rulesTab => FloatingActionButton.extended(
+              onPressed: () => openRuleEditor(
+                context,
+                db: widget.db,
+                gateway: widget.gateway,
+                feedId: widget.feedId,
+              ),
+              icon: const Icon(Icons.add),
+              label: const Text('New rule'),
+            ),
+            _ => null,
+          },
           body: TabBarView(
             controller: _tab,
             children: [
               _channelsTab(sources),
+              RuleList(
+                db: widget.db,
+                gateway: widget.gateway,
+                feedId: widget.feedId,
+              ),
               for (final (label, kind) in SharedMediaTabs.kinds)
                 if (chatIds.isEmpty)
                   const Center(

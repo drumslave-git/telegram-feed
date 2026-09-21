@@ -10,6 +10,32 @@ void main() {
         [MatchedRule(name: 'macro', priority: p, readAloud: false)],
       );
 
+  test('the payload names the feed of the rule that decides', () {
+    final m = MatchEvent.of(
+      Post(chatId: -1001, messageId: 7, date: 1, text: 'rates'),
+      const [
+        MatchedRule(
+          name: 'quiet',
+          priority: RulePriority.silent,
+          readAloud: false,
+          feedId: 3,
+        ),
+        MatchedRule(
+          name: 'loud',
+          priority: RulePriority.urgent,
+          readAloud: false,
+          feedId: 4,
+        ),
+      ],
+    );
+    final ref = PostRef.decode(
+      NotificationPlan.forMatch(m, channelTitle: 'News').payload,
+    )!;
+    expect((ref.chatId, ref.messageId, ref.feedId), (-1001, 7, 4));
+    // An older payload without a feed still opens the post.
+    expect(PostRef.decode('{"chatId":-1,"messageId":2}')!.feedId, 0);
+  });
+
   test('channel follows priority; ids are stable; payload round-trips', () {
     final plan = NotificationPlan.forMatch(
       match(RulePriority.urgent),

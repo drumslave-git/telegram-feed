@@ -84,7 +84,7 @@ API credentials: `api_id` and `api_hash` come from `--dart-define=TG_API_ID=... 
 
 ## 5. Feeds
 
-### 5.1 Data model (Drift, schema version 6)
+### 5.1 Data model (Drift, schema version 7)
 
 ```
 feeds            (id, name, position, created_at, sync_id, updated_at, filter_json?)
@@ -95,7 +95,7 @@ settings         (key, value, updated_at?)
 sync_tombstones  (kind, sync_id, deleted_at)                            -- PK (kind, sync_id)
 ```
 
-`watched_channels` is the union of all feed sources. It is what rules see as "global".
+`watched_channels` is the union of all feed sources: every channel the app watches.
 
 ### 5.2 Sources
 
@@ -140,9 +140,9 @@ Read state works as in the official Android app (`ChatActivity` in its source), 
 
 Feeds with their sources, rules and a whitelist of settings (`isSyncedSetting`: theme, post text size, "Count unread posts", `tts.*`, `media.*`, AI endpoint and model) are kept equal on all of a user's devices through one JSON file in the hidden app-data folder of the user's own Google Drive. Read state is Telegram's and reaches the other devices through Telegram. The kept timeline positions, the AI API key, the Telegram session and every other setting (background watching, rule sounds, app lock, recent searches, quick reaction) stay on the device.
 
-- **Identity.** Feeds and rules carry a random `sync_id` (local row ids differ per device) and an `updated_at` stamp; settings carry `updated_at`. A feed's sources are part of the feed: adding, removing or reordering sources stamps the feed. Deleting a feed or a rule leaves a row in `sync_tombstones`. Logout turns sync off before wiping the database and leaves no tombstones, so an emptied database is never merged into the file.
-- **Merge** (`SyncSnapshot.merge`, package `core`): item by item, the newer edit wins; a deletion beats edits made before it, and an edit made after the deletion restores the item. Tombstones expire after 180 days. The file is canonical JSON with format version 1; a file with a newer version is refused.
-- **Run** (`SyncEngine`): export the database, read the file, merge, apply the changes locally (`applySynced*` in `app_db`), write the file only if it differs. Two devices writing at once can hide each other's edits in the file but never lose them: every run merges the device's whole local state back in, so the next run repairs the file.
+- **Identity.** Feeds and rules carry a random `sync_id` (local row ids differ per device) and an `updated_at` stamp; settings carry `updated_at`. A feed's sources are part of the feed: adding, removing or reordering sources stamps the feed. A rule names its feed by the feed's `sync_id` (`feed`), and a device applies it to its own row of that feed; a rule whose feed it does not have stays out. Deleting a feed or a rule leaves a row in `sync_tombstones`, and so does every rule a deleted feed or a removed channel takes along. Logout turns sync off before wiping the database and leaves no tombstones, so an emptied database is never merged into the file.
+- **Merge** (`SyncSnapshot.merge`, package `core`): item by item, the newer edit wins; a deletion beats edits made before it, and an edit made after the deletion restores the item. Tombstones expire after 180 days. The file is canonical JSON with format version 2, in which every rule belongs to a feed. A file of version 1 is read without its rules, which belonged to no feed, and is written back as version 2; a file with a newer version is refused.
+- **Run** (`SyncEngine`): export the database, read the file, merge, apply the changes locally (`applySynced*` in `app_db`), write the file only if it differs from what is stored. Two devices writing at once can hide each other's edits in the file but never lose them: every run merges the device's whole local state back in, so the next run repairs the file.
 - **Schedule** (`SyncController`, UI isolate): at start, 15 seconds after a local edit, every 15 minutes while the app is open, and on demand from Settings. A change notification leads to a Drive request only when the synced data differs from what the device held after its last run. Pulled rule changes reach the core through the database watchers, like local edits.
 - **Drive access** (`DriveSyncStore`, `GoogleDriveAuth`): `google_sign_in` for the account and an access token with the single scope `drive.appdata`, then REST calls (`files.list` in `appDataFolder`, media download, multipart create, media update). A 401 gets one retry with a fresh token. A build needs an Android OAuth client (package name and signing SHA-1) in a Google Cloud project and that project's web client id: `--dart-define=GOOGLE_SERVER_CLIENT_ID=...`. Without it the Sync screen says the build cannot sync.
 
@@ -160,7 +160,7 @@ Feeds with their sources, rules and a whitelist of settings (`isSyncedSetting`: 
 `HomeScreen` is a tab bar of "Feeds", the Telegram chat folders and "All channels". The app bar holds the search over all channels, Rules and Settings. A floating button on the Feeds tab creates a feed and opens its channel editor; it shows only while the Feeds tab is up.
 
 - `ConnectionTitle` sits in the app bar of the home screen and of every timeline. It follows the gateway's `connection` stream (TDLib's `updateConnectionState`, carried over the core port as `CoreStream.connection`) and puts "Connecting…", "Waiting for network…", "Connecting to proxy…" or "Updating…" under the title until TDLib is ready.
-- The Feeds tab lists the feeds, each with its count (section 5.4) and a line naming the channels with new posts (`FeedsController`). The tab label carries the feeds' posts together, or the number of feeds with any. A tap opens the feed as `TimelineScreen(feed:)`; dragging reorders; the row's menu leads to its channels, rename, mark all read and delete.
+- The Feeds tab lists the feeds, each with its count (section 5.4) and a line naming the channels with new posts (`FeedsController`). The tab label carries the feeds' posts together, or the number of feeds with any. A tap opens the feed as `TimelineScreen(feed:)`; dragging reorders; the row's menu leads to its channels, its rules, rename, mark all read and delete.
 - Folder tabs come from `chatFolders()`: TDLib announces the folders in `updateChatFolders`; the chats of each are read with `getChats(chatListFolder)`, which applies the folder's include and exclude rules and Telegram's order, and only channels are kept. A folder without channels gets no tab. The app never edits folders. The `TabController` is replaced only when the set of folders changes, and the selected tab stays selected.
 - A folder tab's badge comes from Telegram's own `unreadCount` per channel: the unread posts of its channels together, or the number of its channels with any, as the "Count unread posts" switch says.
 - `myChannels()` walks the main chat list and every folder list, each channel once, because a channel joined through a folder invite link is in its folder's list and in no other. The home screen asks for the folders first so the gateway knows which lists to walk. The archive is not walked, so an archived channel appears in these lists only when a folder holds it.
@@ -168,7 +168,7 @@ Feeds with their sources, rules and a whitelist of settings (`isSyncedSetting`: 
 - A long press on a folder tab offers "Create feed from folder" (a feed with the folder's name and its current channels in the folder's order; the feed does not follow the folder afterwards) and "Mark all read".
 - Every tab carries its own padding (the bar's `labelPadding` is zero) and is at least 72 px wide, so the long press covers the whole tab, including a folder named with a single emoji.
 - A long press on a channel row opens its menu (mark all read, channel info, add to a feed). The row reports the point the finger was on, since a `ListTile` does not.
-- Channel lists (`ChannelList`) show photo, newest post, time and Telegram's unread count from `Channel`, and under that the tags of the feeds the channel is in (`AppDatabase.feedNamesByChat`, live through `watchFeeds` and `watchSourceChanges`). The feed editor's channel picker and the rule editor's scope list carry the same tags. Lists reload when the app resumes, three seconds after a new post, and on pull to refresh.
+- Channel lists (`ChannelList`) show photo, newest post, time and Telegram's unread count from `Channel`, and under that the tags of the feeds the channel is in (`AppDatabase.feedNamesByChat`, live through `watchFeeds` and `watchSourceChanges`). The feed editor's channel picker carries the same tags. Lists reload when the app resumes, three seconds after a new post, and on pull to refresh.
 - A channel opens as `TimelineScreen(channel:)`: the same timeline with one source. It reads and moves Telegram's read position like a feed does (section 5.4).
 - Saved Messages is the chat with oneself, handed over by `savedMessages()` as a `Channel` titled "Saved Messages" and opened from Settings as an ordinary timeline. It belongs to no feed.
 
@@ -180,7 +180,7 @@ An album is several messages, so the four content settings judge its parts one b
 
 - **Timeline.** `FeedTimeline` runs every post through the filter as it leaves a source's buffer or arrives live; hidden posts never become rows. A hidden part of a whole-post feed joins the row its siblings opened. If that row does not exist yet (parts arrive newest first from history, and one by one when live) the part waits in a small map keyed by chat and album, capped at eight, which the opening part empties. From then on it counts as shown.
 - **Read state.** Hidden posts must not stay unread, or a channel that only posts hidden things would keep its feed marked as new. The timeline remembers the ids and dates of the posts it hid, and `passedAt` counts them with the rows around them: a hidden post older than the newest row read is read, and at the newest post of a live timeline all of them are.
-- **Rules.** The rule engine gets, per channel, the filters of all feeds that contain it (`filtersByChat`). A post that every one of them hides is dropped before the conditions are evaluated; one feed that shows it is enough. It asks `mayShow`, so the caption of an album notifies when the feed shows whole posts. A rule can therefore notify about an album the timeline hides; the error is on the side of notifying.
+- **Rules.** A rule sees the posts of its own feed as that feed shows them: the engine gets every feed with its channels and filter (`feedsForRules`), and a rule is only evaluated for a post its feed's filter lets through. It asks `mayShow`, so the caption of an album notifies when the feed shows whole posts. A rule can therefore notify about an album the timeline hides; the error is on the side of notifying.
 - **Search.** `FeedSearch` asks `mayShow` for a search by words and `allows` for the shared media tabs, which list single media items by kind.
 - **Editing.** The feed editor's "Show" row opens a sheet with the four content controls and the "Show the whole post" checkbox (shown only for a feed with media); the row's subtitle is the filter in words.
 - **Sync.** The filter travels with the feed as the optional `filter` key of the sync snapshot.
@@ -225,7 +225,7 @@ Search, date jumps and shared media run over all of a feed's sources as one merg
 - **Button to the newest posts.** It carries the unread counter and leaves a jumped timeline (section 5.4).
 - **Channel info.** A channel's title in the timeline opens `ChannelInfoScreen`: photo (a tap opens it in the media viewer), name, subscribers, description, the link (`@username` for a public channel, the invite link for a private one), the channel's QR code (`qr_flutter`), similar channels (`similarChannels`, TDLib's suggestions; a tap opens one in the official app) and the shared media tabs. It has no mute and no leave.
 - **Shared media tabs** (`SharedMediaTabs`, `feeds/shared_media.dart`): Media, Files, Links, Music and Voice, each a `FeedSearch` with no query, paged as it scrolls. Media is a grid of cropped pictures with the length on videos; a tap opens the viewer over everything the tab has loaded. Files name the file before download and carry the timeline's download control. Links open in the browser. Music and Voice use the timeline's audio players.
-- **Feed info.** `FeedEditorScreen` is the feed's info screen: a "Channels" tab with the sources, the filter row and the picker, and the same five media tabs over all of the feed's channels, with the feed's filter. A tab's search starts over when the channels or the filter change. The feed's title in the timeline opens it.
+- **Feed info.** `FeedEditorScreen` is the feed's info screen: a "Channels" tab with the sources, the filter row and the picker, a "Rules" tab with the feed's rules (`RuleList`) and a button for a new one, and the same five media tabs over all of the feed's channels, with the feed's filter. A tab's search starts over when the channels or the filter change. The feed's title in the timeline opens it.
 
 ### 5.11 Settings
 
@@ -269,10 +269,14 @@ Automatic downloads and autoplay are one setting. `AutoDownloadScope` (`media/au
 ### 6.1 Rule model
 
 ```
-rules (id, name, enabled, scope_kind {global, channel}, scope_chat_id?,
+rules (id, name, enabled, feed_id, scope_chat_id?,
        condition_json, priority {silent, normal, urgent}, read_aloud,
        schedule_json?, created_at, semantic_prompt?, sync_id, updated_at)
 ```
+
+Every rule belongs to a feed (`feed_id`) and watches all of its channels, or the one in `scope_chat_id`. Deleting the feed deletes its rules; removing a channel from a feed deletes the feed's rules for that channel. Both leave tombstones for sync.
+
+The rules list (`RuleList`, `rules/rules_screen.dart`) shows the rules of one feed on the Rules tab of its info screen, which the feed row's menu also opens, and all rules under a header per feed behind the Rules button of the home screen (`RulesScreen`). The editor (`RuleEditorScreen`) picks the feed, preset to the feed it was opened from, and then one of that feed's channels or all of them.
 
 Condition AST (package `rules`):
 
@@ -288,10 +292,10 @@ A rule with no condition (`And([])`, which every post satisfies) notifies about 
 
 ### 6.2 Evaluation
 
-`RuleEngine` runs in the core isolate and reads rules, watched channels and feed filters from the database whenever the host signals a change (`refresh`). On every new post of a watched channel:
+`RuleEngine` runs in the core isolate and reads the rules and the feeds, each with its channels and filter (`RuleFeed`), from the database whenever the host signals a change (`refresh`). On every new post of a channel in some feed:
 
 1. Extract the text: message text or media caption, formatting flattened. Nothing else is matched (no forward origin, no URLs beyond their visible text). A post without text only reaches rules with no condition (section 6.1).
-2. Drop the post if every feed containing the channel hides it (section 5.8). Candidate rules are the enabled global rules plus the enabled rules scoped to this `chat_id`, filtered by schedule against the local clock.
+2. Candidate rules are the enabled rules of the feeds that hold the channel, for the whole feed or for this channel, whose feed shows the post (section 5.8), filtered by schedule against the local clock.
 3. Evaluate each condition and collect matches.
 4. If none match, stop. Otherwise priority is the maximum over the matches and read-aloud is true if any match asks for it.
 5. Send a `MatchEvent` to the service host, which shows the notification (section 6.3) and, if read-aloud is set, queues the post for speech (section 7).
@@ -310,7 +314,7 @@ Edited posts are not evaluated again. A deleted post cancels its notification.
 
 Sound and vibration are chosen per normal and urgent rules: a sound from Android's own picker (`tf/notifications.pickSound`, an activity result) and a vibration switch; silent rules stay silent. Android fixes a channel's sound when the channel is created, so the choice is part of the channel id: the default sound uses the plain ids (`posts_normal`, `posts_urgent`), any other choice adds a suffix derived from it, and channels of earlier choices are deleted, so the system settings show one row per priority. The service host reads these settings when it starts, so a change applies at the next start of the app.
 
-Each notification shows the channel title and a post excerpt, with the actions **Listen** and **Open in Telegram**. A tap opens the post inside the first feed that contains its channel. Notifications from the same channel are grouped. The group summary's "N new posts" counts what `getActiveNotifications` still reports for that group plus the post being shown, so posts the user swiped away or opened, and posts deleted in Telegram, stop counting. When a cancellation empties a group, the summary is cancelled with it.
+Each notification shows the channel title and a post excerpt, with the actions **Listen** and **Open in Telegram**. A tap opens the post in the feed of the rule that decided (the first of the highest priority, `MatchEvent.feedId`), which the notification's payload carries; in the first feed that holds the channel when that feed is gone. Notifications from the same channel are grouped. The group summary's "N new posts" counts what `getActiveNotifications` still reports for that group plus the post being shown, so posts the user swiped away or opened, and posts deleted in Telegram, stop counting. When a cancellation empties a group, the summary is cancelled with it.
 
 Every notification names its small icon, `ic_stat_feed` (a white glyph on transparency that Android tints). The plugin keeps its default icon in shared preferences, where the isolate that initialises last would decide it, so no notification relies on the default. The service's notification names the icon on every update, because Android restores a running foreground service with the content saved when it was started.
 

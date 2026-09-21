@@ -16,6 +16,7 @@ final class RuleSpec {
     required this.id,
     required this.name,
     required this.condition,
+    required this.feedId,
     this.enabled = true,
     this.scopeChatId,
     this.priority = RulePriority.normal,
@@ -31,7 +32,10 @@ final class RuleSpec {
   final Expr condition;
   final bool enabled;
 
-  /// Null = global (all watched channels), otherwise only this channel.
+  /// The feed the rule belongs to: it watches that feed's channels, as the feed shows them.
+  final int feedId;
+
+  /// Null for every channel of the feed, otherwise only this one of them.
   final int? scopeChatId;
   final RulePriority priority;
   final bool readAloud;
@@ -56,7 +60,8 @@ final class RuleSpec {
     id: row.id,
     name: row.name,
     enabled: row.enabled,
-    scopeChatId: row.scopeKind == 'channel' ? row.scopeChatId : null,
+    feedId: row.feedId,
+    scopeChatId: row.scopeChatId,
     condition: Expr.fromJson(
       jsonDecode(row.conditionJson) as Map<Object?, Object?>,
     ),
@@ -91,9 +96,13 @@ final class MatchedRule {
     required this.name,
     required this.priority,
     required this.readAloud,
+    this.feedId = 0,
     this.semanticPrompt,
   });
   final String name;
+
+  /// The feed of the rule; its notification opens the post there.
+  final int feedId;
   final RulePriority priority;
   final bool readAloud;
 
@@ -106,6 +115,7 @@ final class MatchedRule {
     name: r.name,
     priority: r.priority,
     readAloud: r.readAloud,
+    feedId: r.feedId,
     semanticPrompt: r.isSemantic ? r.semanticPrompt!.trim() : null,
   );
 
@@ -113,6 +123,7 @@ final class MatchedRule {
     'name': name,
     'priority': priority.name,
     'readAloud': readAloud,
+    'feedId': feedId,
     'prompt': semanticPrompt,
   };
 
@@ -120,6 +131,7 @@ final class MatchedRule {
     name: m['name'] as String,
     priority: RulePriority.values.byName(m['priority'] as String),
     readAloud: m['readAloud'] as bool,
+    feedId: m['feedId'] as int? ?? 0,
     semanticPrompt: m['prompt'] as String?,
   );
 }
@@ -139,6 +151,15 @@ final class MatchEvent {
   final List<MatchedRule> rules;
 
   List<String> get ruleNames => [for (final r in rules) r.name];
+
+  /// The feed the notification opens the post in: that of the first rule of the highest
+  /// priority; 0 without rules.
+  int get feedId {
+    for (final r in rules) {
+      if (r.priority == priority) return r.feedId;
+    }
+    return 0;
+  }
 
   /// Positions in [rules] and prompts of the semantic rules still to be checked.
   List<(int, String)> get pendingSemantic => [
@@ -175,6 +196,7 @@ final class MatchEvent {
             name: rules[i].name,
             priority: rules[i].priority,
             readAloud: rules[i].readAloud,
+            feedId: rules[i].feedId,
           ),
     ];
     return kept.isEmpty ? null : MatchEvent.of(post, kept);
@@ -192,11 +214,18 @@ final class MatchEvent {
       ]);
 }
 
+/// One feed as its rules see it: its channels and what it shows.
+final class RuleFeed {
+  const RuleFeed(this.chats, [this.filter = FeedFilter.none]);
+  final Set<int> chats;
+  final FeedFilter filter;
+}
+
 /// Evaluates rules against new posts (ARCHITECTURE.md section 6.2).
 ///
+/// - Every rule belongs to a feed and watches its channels, or one of them.
 /// - Only [PostAdded] is evaluated; edits are ignored.
 /// - [PostsDeleted] is forwarded on [cancellations] so a pending notification can be dropped.
-/// - Only chats in [watched] (the union of all feed sources) are considered.
 final class RuleEngine {
   RuleEngine({DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
 
@@ -205,52 +234,48 @@ final class RuleEngine {
   final _matches = StreamController<RuleMatch>.broadcast();
   final _cancels = StreamController<PostsDeleted>.broadcast();
   List<RuleSpec> _rules = const [];
+  Map<int, RuleFeed> _feeds = const {};
   Set<int> _watched = const {};
-  Map<int, List<FeedFilter>> _filters = const {};
 
   Stream<RuleMatch> get matches => _matches.stream;
   Stream<PostsDeleted> get cancellations => _cancels.stream;
   List<RuleSpec> get rules => _rules;
+
+  /// Every channel of every feed.
   Set<int> get watched => _watched;
 
-  /// Replaces the rule set, the watched channels and the feeds' filters (called whenever
-  /// the database changes). [filters] lists, per channel, the filter of every feed that
-  /// contains it.
-  void update({
-    List<RuleSpec>? rules,
-    Set<int>? watched,
-    Map<int, List<FeedFilter>>? filters,
-  }) {
+  /// Replaces the rule set and the feeds (called whenever the database changes).
+  void update({List<RuleSpec>? rules, Map<int, RuleFeed>? feeds}) {
     if (rules != null) _rules = List.unmodifiable(rules);
-    if (watched != null) _watched = Set.unmodifiable(watched);
-    if (filters != null) _filters = Map.unmodifiable(filters);
+    if (feeds != null) {
+      _feeds = Map.unmodifiable(feeds);
+      _watched = Set.unmodifiable({for (final f in feeds.values) ...f.chats});
+    }
   }
 
-  /// A post that every feed with its channel hides is not worth a notification either
-  /// (founder decision 2026-09-19). One feed that shows it is enough. An album part counts
-  /// as shown when the feed shows whole posts ([FeedFilter.mayShow]): the caption of an
-  /// album usually sits on its first picture, which a filter by media kind would drop
-  /// while the timeline still shows the post. Whether its siblings really carry what the
-  /// filter asks for cannot be seen from one post, so such a rule may notify about an
-  /// album the timeline hides after all.
-  bool _hiddenEverywhere(Post post) {
-    final filters = _filters[post.chatId];
-    if (filters == null || filters.isEmpty) return false;
-    return filters.every((f) => !f.mayShow(post));
-  }
+  /// A rule stays quiet about a post its feed hides. An album part counts as shown when
+  /// the feed shows whole posts ([FeedFilter.mayShow]): the caption of an album usually
+  /// sits on its first picture, which a filter by media kind would drop while the timeline
+  /// still shows the post. Whether its siblings really carry what the filter asks for
+  /// cannot be seen from one post, so such a rule may notify about an album the timeline
+  /// hides after all.
+  bool _shows(RuleSpec r, Post post) =>
+      _feeds[r.feedId]?.filter.mayShow(post) ?? false;
 
   /// A post without text (a picture with no caption) only matches a rule with no
-  /// condition, which is "every post" (founder decision 2026-09-19); a keyword has nothing
-  /// to match, and an AI rule nothing to send to the model.
+  /// condition, which is "every post"; a keyword has nothing to match, and an AI rule
+  /// nothing to send to the model.
   static bool _mayMatch(RuleSpec r, String text) =>
       text.isNotEmpty || (r.matchesEverything && !r.isSemantic);
 
-  /// Rules that apply to [chatId] right now.
+  /// Rules that apply to [chatId] right now: those of the feeds that hold it, for the
+  /// whole feed or for this channel.
   List<RuleSpec> candidates(int chatId, {DateTime? now}) {
     final t = now ?? _clock();
     return [
       for (final r in _rules)
         if (r.enabled &&
+            (_feeds[r.feedId]?.chats.contains(chatId) ?? false) &&
             (r.scopeChatId == null || r.scopeChatId == chatId) &&
             (r.schedule == null || r.schedule!.isActive(t)))
           r,
@@ -260,11 +285,13 @@ final class RuleEngine {
   /// Evaluates one post; returns the match or null. Pure apart from the clock.
   RuleMatch? evaluate(Post post, {DateTime? now}) {
     if (!_watched.contains(post.chatId)) return null;
-    if (_hiddenEverywhere(post)) return null;
     final text = post.text;
     final hits = [
       for (final r in candidates(post.chatId, now: now))
-        if (_mayMatch(r, text) && _evaluator.matches(r.condition, text)) r,
+        if (_shows(r, post) &&
+            _mayMatch(r, text) &&
+            _evaluator.matches(r.condition, text))
+          r,
     ];
     if (hits.isEmpty) return null;
     var priority = RulePriority.silent;

@@ -22,17 +22,26 @@ const notifierPortName = 'telegram_feed.notifier';
 
 /// Payload carried by every post notification and its actions.
 final class PostRef {
-  const PostRef(this.chatId, this.messageId);
+  const PostRef(this.chatId, this.messageId, {this.feedId = 0});
   final int chatId;
   final int messageId;
 
-  String encode() => jsonEncode({'chatId': chatId, 'messageId': messageId});
+  /// The feed of the rule that raised the notification; its post opens there. 0 when not
+  /// known.
+  final int feedId;
+
+  String encode() =>
+      jsonEncode({'chatId': chatId, 'messageId': messageId, 'feedId': feedId});
 
   static PostRef? decode(String? payload) {
     if (payload == null || payload.isEmpty) return null;
     try {
       final m = jsonDecode(payload) as Map<String, Object?>;
-      return PostRef(m['chatId'] as int, m['messageId'] as int);
+      return PostRef(
+        m['chatId'] as int,
+        m['messageId'] as int,
+        feedId: m['feedId'] as int? ?? 0,
+      );
     } on FormatException {
       return null;
     } on TypeError {
@@ -89,7 +98,11 @@ final class NotificationPlan {
       body: body,
       groupKey: 'chat-${m.post.chatId}',
       summaryId: summaryIdFor(m.post.chatId),
-      payload: PostRef(m.post.chatId, m.post.messageId).encode(),
+      payload: PostRef(
+        m.post.chatId,
+        m.post.messageId,
+        feedId: m.feedId,
+      ).encode(),
     );
   }
 }

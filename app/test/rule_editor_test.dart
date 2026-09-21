@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:core/core.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/ai/semantic_gate.dart';
-import 'package:telegram_feed/home/channel_list.dart' show FeedTags;
+import 'package:telegram_feed/feeds/feed_editor_screen.dart';
 import 'package:telegram_feed/rules/rule_editor_screen.dart';
 import 'package:telegram_feed/rules/rules_screen.dart';
 import 'package:rules/rules.dart';
@@ -18,6 +18,10 @@ void main() {
   late AppDatabase db;
   late TimelineGateway gw;
 
+  /// Feed F holds Crypto (-1); feed G holds Other (-2).
+  late int feedF;
+  late int feedG;
+
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     gw = TimelineGateway({
@@ -25,9 +29,12 @@ void main() {
         Post(chatId: -1, messageId: 2, date: 2, text: 'BTC breaks out'),
         Post(chatId: -1, messageId: 1, date: 1, text: 'quiet day'),
       ],
+      -2: [Post(chatId: -2, messageId: 1, date: 1, text: 'BTC elsewhere')],
     });
-    final f = await db.createFeed('F');
-    await db.addSource(f.id, -1, title: 'Crypto');
+    feedF = (await db.createFeed('F')).id;
+    await db.addSource(feedF, -1, title: 'Crypto');
+    feedG = (await db.createFeed('G')).id;
+    await db.addSource(feedG, -2, title: 'Other');
   });
 
   Future<void> settle(WidgetTester tester) => tester.runAsync(() async {
@@ -55,6 +62,7 @@ void main() {
 
   Widget editor({
     Rule? rule,
+    int? feedId,
     bool policy = true,
     SemanticCheck? semanticCheck,
   }) => MaterialApp(
@@ -62,6 +70,7 @@ void main() {
       db: db,
       gateway: gw,
       rule: rule,
+      feedId: feedId,
       policyGranted: () async => policy,
       openPolicySettings: () async {},
       semanticCheck: semanticCheck,
@@ -109,7 +118,9 @@ void main() {
 
       final rule = (await db.allRules()).single;
       expect(rule.name, 'Crypto alerts');
-      expect(rule.scopeKind, 'global');
+      // A new rule goes into the first feed and watches all of its channels.
+      expect(rule.feedId, feedF);
+      expect(rule.scopeChatId, isNull);
       expect(rule.readAloud, isTrue);
       expect(rule.priority, 'normal');
       expect(
@@ -122,27 +133,55 @@ void main() {
     },
   );
 
-  testWidgets('the scope list tags each channel with its feeds', (
+  testWidgets("the channels to pick are those of the rule's feed", (
     tester,
   ) async {
     tall(tester);
-    await tester.pumpWidget(editor());
+    await tester.pumpWidget(editor(feedId: feedF));
     await settle(tester);
-    await tester.tap(find.text('All channels in my feeds'));
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Mine');
+    await tester.tap(find.text('Every channel of the feed'));
     await tester.pumpAndSettle();
-
-    // The open dropdown shows the channel with the feed it belongs to.
-    expect(
-      tester
-          .widgetList<FeedTags>(find.byType(FeedTags))
-          .map((t) => t.names)
-          .toList(),
-      [
-        ['F'],
-      ],
-    );
+    expect(find.text('Crypto'), findsWidgets);
+    expect(find.text('Other'), findsNothing);
     await tester.tap(find.text('Crypto').last);
     await tester.pumpAndSettle();
+
+    // Another feed: its own channels, and the choice of one starts over.
+    await tester.tap(find.text('F'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('G').last);
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Every channel of the feed'), findsOneWidget);
+    await tester.tap(find.text('Every channel of the feed'));
+    await tester.pumpAndSettle();
+    expect(find.text('Other'), findsWidgets);
+    expect(find.text('Crypto'), findsNothing);
+    await tester.tap(find.text('Other').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Save'));
+    await settle(tester);
+    final rule = (await db.allRules()).single;
+    expect(rule.feedId, feedG);
+    expect(rule.scopeChatId, -2);
+    await unmount(tester);
+  });
+
+  testWidgets('without a feed there is no rule to save', (tester) async {
+    await tester.runAsync(() async {
+      await db.deleteFeed(feedF);
+      await db.deleteFeed(feedG);
+    });
+    tall(tester);
+    await tester.pumpWidget(editor());
+    await settle(tester);
+    expect(find.textContaining('create one first'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Orphan');
+    await tester.tap(find.text('Save'));
+    await settle(tester);
+    expect(await tester.runAsync(db.allRules), isEmpty);
     await unmount(tester);
   });
 
@@ -263,7 +302,7 @@ void main() {
     await db.insertRule(
       RulesCompanion.insert(
         name: 'One',
-        scopeKind: 'channel',
+        feedId: feedF,
         scopeChatId: const Value(-1),
         conditionJson: '{"term":"x"}',
         priority: 'silent',
@@ -344,7 +383,7 @@ void main() {
       await db.insertRule(
         RulesCompanion.insert(
           name: 'Rates',
-          scopeKind: 'global',
+          feedId: feedF,
           conditionJson: '{"term":"rate"}',
           priority: 'normal',
           semanticPrompt: const Value('central bank decisions'),
@@ -407,9 +446,77 @@ void main() {
       ),
     );
     await settle(tester);
-    expect(find.textContaining('All channels · every post'), findsOneWidget);
+    expect(find.textContaining('Every channel · every post'), findsOneWidget);
     await unmount(tester);
   });
+
+  testWidgets(
+    'the overview groups the rules by feed; a feed shows its own on a tab',
+    (tester) async {
+      Future<void> rule(String name, int feed) => db.insertRule(
+        RulesCompanion.insert(
+          name: name,
+          feedId: feed,
+          conditionJson: '{"term":"x"}',
+          priority: 'normal',
+          createdAt: DateTime(2026),
+        ),
+      );
+      await tester.runAsync(() async {
+        await rule('Of F', feedF);
+        await rule('Of G', feedG);
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RulesScreen(db: db, gateway: gw),
+        ),
+      );
+      await settle(tester);
+      // A header per feed, each above its rules.
+      expect(find.text('F'), findsOneWidget);
+      expect(find.text('G'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('F')).dy,
+        lessThan(tester.getTopLeft(find.text('Of F')).dy),
+      );
+      expect(
+        tester.getTopLeft(find.text('Of F')).dy,
+        lessThan(tester.getTopLeft(find.text('G')).dy),
+      );
+      await unmount(tester);
+
+      // The feed's info screen opens on its Rules tab, with that feed's rules only.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: FeedEditorScreen(
+            db: db,
+            gateway: gw,
+            feedId: feedG,
+            initialTab: FeedEditorScreen.rulesTab,
+          ),
+        ),
+      );
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('Of G'), findsOneWidget);
+      expect(find.text('Of F'), findsNothing);
+      expect(find.text('New rule'), findsOneWidget);
+      await tester.tap(find.text('New rule'));
+      await tester.pumpAndSettle();
+      await settle(tester);
+      await tester.pumpAndSettle();
+      // A new rule from there goes into that feed.
+      expect(find.byType(RuleEditorScreen), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(DropdownButtonFormField<int>),
+          matching: find.text('G'),
+        ),
+        findsOneWidget,
+      );
+      await unmount(tester);
+    },
+  );
 
   testWidgets('typing a term takes the every-post hint away', (tester) async {
     tall(tester);

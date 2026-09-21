@@ -12,6 +12,7 @@ Post post(int chat, int id, String text) =>
 RuleSpec rule(
   int id,
   String cond, {
+  int feed = 1,
   int? chat,
   RulePriority priority = RulePriority.normal,
   bool readAloud = false,
@@ -21,12 +22,18 @@ RuleSpec rule(
   id: id,
   name: 'r$id',
   condition: RuleParser.parse(cond),
+  feedId: feed,
   scopeChatId: chat,
   priority: priority,
   readAloud: readAloud,
   enabled: enabled,
   schedule: schedule,
 );
+
+/// Feed 1 holds channels -1 and -2.
+const oneFeed = {
+  1: RuleFeed({-1, -2}),
+};
 
 void main() {
   test('scope, priority merge and read-aloud flag', () {
@@ -44,7 +51,7 @@ void main() {
           rule(3, 'eth', chat: -2),
           rule(4, 'btc', enabled: false, priority: RulePriority.urgent),
         ],
-        watched: {-1, -2},
+        feeds: oneFeed,
       );
     final m1 = e.evaluate(post(-1, 1, 'BTC up'))!;
     expect(m1.rules.map((r) => r.id), [1, 2]);
@@ -54,13 +61,38 @@ void main() {
     final m2 = e.evaluate(post(-2, 2, 'btc up'))!;
     expect(m2.rules.map((r) => r.id), [
       1,
-    ]); // rule 2 is scoped to -1, rule 4 disabled
+    ]); // rule 2 watches -1 only, rule 4 is off
     expect(m2.priority, RulePriority.silent);
     expect(m2.readAloud, isFalse);
 
     expect(e.evaluate(post(-2, 3, 'nothing here')), isNull);
-    expect(e.evaluate(post(-3, 4, 'btc')), isNull); // not watched
+    expect(e.evaluate(post(-3, 4, 'btc')), isNull); // in no feed
     expect(e.evaluate(post(-1, 5, '')), isNull); // media without caption
+  });
+
+  test("a rule watches its own feed's channels only", () {
+    final e = RuleEngine()
+      ..update(
+        rules: [
+          rule(1, 'btc', feed: 1),
+          rule(2, 'btc', feed: 2, priority: RulePriority.urgent),
+        ],
+        feeds: const {
+          1: RuleFeed({-1}),
+          2: RuleFeed({-1, -2}),
+        },
+      );
+    expect(e.evaluate(post(-1, 1, 'btc'))!.rules.map((r) => r.id), [1, 2]);
+    expect(e.evaluate(post(-2, 2, 'btc'))!.rules.map((r) => r.id), [2]);
+    // The notification opens the post in the feed of the rule that decides.
+    expect(MatchEvent.fromMatch(e.evaluate(post(-1, 3, 'btc'))!).feedId, 2);
+    // A rule of a feed that is gone watches nothing.
+    e.update(
+      feeds: const {
+        1: RuleFeed({-1}),
+      },
+    );
+    expect(e.evaluate(post(-2, 4, 'btc')), isNull);
   });
 
   test('RuleSpec.fromRow parses a database row', () {
@@ -69,7 +101,7 @@ void main() {
         id: 7,
         name: 'crypto',
         enabled: true,
-        scopeKind: 'channel',
+        feedId: 3,
         scopeChatId: -1,
         conditionJson: '{"or":[{"term":"btc"},{"term":"eth","whole":false}]}',
         priority: 'urgent',
@@ -78,18 +110,18 @@ void main() {
         createdAt: DateTime(2026),
       ),
     );
+    expect(spec.feedId, 3);
     expect(spec.scopeChatId, -1);
     expect(spec.priority, RulePriority.urgent);
     expect(spec.readAloud, isTrue);
     expect(spec.condition, RuleParser.parse('btc OR ~eth'));
     expect(spec.schedule!.weekdays, {1, 2});
-    final global = RuleSpec.fromRow(
+    final whole = RuleSpec.fromRow(
       Rule(
         id: 8,
         name: 'g',
         enabled: false,
-        scopeKind: 'global',
-        scopeChatId: -5, // ignored for global rules
+        feedId: 3,
         conditionJson: '{"term":"x"}',
         priority: 'silent',
         readAloud: false,
@@ -97,8 +129,8 @@ void main() {
         createdAt: DateTime(2026),
       ),
     );
-    expect(global.scopeChatId, isNull);
-    expect(global.enabled, isFalse);
+    expect(whole.scopeChatId, isNull);
+    expect(whole.enabled, isFalse);
   });
 
   test('schedule filters candidates with an injectable clock', () {
@@ -112,7 +144,7 @@ void main() {
             schedule: Schedule(weekdays: {1}, from: 9 * 60, to: 12 * 60),
           ),
         ],
-        watched: {-1},
+        feeds: oneFeed,
       );
     expect(e.evaluate(post(-1, 1, 'x')), isNotNull);
     now = DateTime(2026, 9, 14, 13);
@@ -125,7 +157,7 @@ void main() {
     'attached to a gateway: adds match, edits ignored, deletes cancel',
     () async {
       final events = StreamController<PostEvent>();
-      final e = RuleEngine()..update(rules: [rule(1, 'hello')], watched: {-1});
+      final e = RuleEngine()..update(rules: [rule(1, 'hello')], feeds: oneFeed);
       final matches = <RuleMatch>[];
       final cancels = <PostsDeleted>[];
       e.matches.listen(matches.add);
@@ -136,9 +168,7 @@ void main() {
       events.add(PostEdited(post(-1, 2, 'hello edited'))); // ignored
       events.add(PostAdded(post(-1, 3, 'bye')));
       events.add(const PostsDeleted(chatId: -1, messageIds: [1]));
-      events.add(
-        const PostsDeleted(chatId: -9, messageIds: [1]),
-      ); // not watched
+      events.add(const PostsDeleted(chatId: -9, messageIds: [1])); // in no feed
       await Future<void>.delayed(Duration.zero);
       await sub.cancel();
 
@@ -150,24 +180,19 @@ void main() {
     },
   );
 
-  test(
-    'a post every feed hides raises nothing; one feed that shows it is enough',
-    () {
-      const mediaOnly = FeedFilter(media: MediaPresence.withMedia);
-      final e = RuleEngine()
-        ..update(
-          rules: [rule(1, 'btc')],
-          watched: {-1, -2, -3},
-          filters: {
-            -1: [mediaOnly],
-            -2: [mediaOnly, FeedFilter.none],
-          },
-        );
-      expect(e.evaluate(post(-1, 1, 'btc up')), isNull);
-      expect(e.evaluate(post(-2, 1, 'btc up')), isNotNull);
-      expect(e.evaluate(post(-3, 1, 'btc up')), isNotNull); // no filter known
-    },
-  );
+  test("a post the rule's feed hides raises nothing from that rule", () {
+    const mediaOnly = FeedFilter(media: MediaPresence.withMedia);
+    final e = RuleEngine()
+      ..update(
+        rules: [rule(1, 'btc', feed: 1), rule(2, 'btc', feed: 2)],
+        feeds: const {
+          1: RuleFeed({-1}, mediaOnly),
+          2: RuleFeed({-2}),
+        },
+      );
+    expect(e.evaluate(post(-1, 1, 'btc up')), isNull);
+    expect(e.evaluate(post(-2, 1, 'btc up'))!.rules.single.id, 2);
+  });
 
   test('a rule with no condition notifies about a post without text', () {
     final silent = Post(
@@ -177,11 +202,16 @@ void main() {
       text: '',
       media: const PhotoMedia(sizes: [FileRef(id: 1, remoteId: 'r', size: 1)]),
     );
-    const everyPost = RuleSpec(id: 1, name: 'every', condition: And([]));
+    const everyPost = RuleSpec(
+      id: 1,
+      name: 'every',
+      condition: And([]),
+      feedId: 1,
+    );
     expect(everyPost.matchesEverything, isTrue);
     expect(rule(2, 'btc').matchesEverything, isFalse);
 
-    final e = RuleEngine()..update(rules: [everyPost], watched: {-1});
+    final e = RuleEngine()..update(rules: [everyPost], feeds: oneFeed);
     expect(e.evaluate(silent), isNotNull);
     expect(e.evaluate(silent)!.rules.single.id, 1);
 
@@ -194,6 +224,7 @@ void main() {
           id: 3,
           name: 'ai',
           condition: And([]),
+          feedId: 1,
           semanticPrompt: 'anything at all',
         ),
       ],
@@ -214,11 +245,10 @@ void main() {
     );
     final e = RuleEngine()
       ..update(
-        rules: [rule(1, 'btc')],
-        watched: {-1, -2},
-        filters: {
-          -1: [videos],
-          -2: [videos.copyWith(wholePost: false)],
+        rules: [rule(1, 'btc', feed: 1), rule(2, 'btc', feed: 2)],
+        feeds: {
+          1: const RuleFeed({-1}, videos),
+          2: RuleFeed({-2}, videos.copyWith(wholePost: false)),
         },
       );
     expect(e.evaluate(caption(-1)), isNotNull); // the row shows it

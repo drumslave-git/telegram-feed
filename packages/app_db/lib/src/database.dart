@@ -53,15 +53,19 @@ class WatchedChannels extends Table {
   Set<Column> get primaryKey => {chatId};
 }
 
-/// Keyword rules (ARCHITECTURE.md section 6.1). `condition_json` and `schedule_json` are the
-/// JSON forms of `rules.Expr` and `rules.Schedule`; `app_db` does not parse them.
+/// Rules (ARCHITECTURE.md section 6.1). Each belongs to one feed. `condition_json` and
+/// `schedule_json` are the JSON forms of `rules.Expr` and `rules.Schedule`; `app_db` does
+/// not parse them.
 class Rules extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 100)();
   BoolColumn get enabled => boolean().withDefault(const Constant(true))();
 
-  /// 'global' or 'channel'.
-  TextColumn get scopeKind => text()();
+  /// The feed the rule belongs to; the rule goes with it.
+  IntColumn get feedId =>
+      integer().references(Feeds, #id, onDelete: KeyAction.cascade)();
+
+  /// The one channel of the feed the rule watches; null for every channel of the feed.
   IntColumn get scopeChatId => integer().nullable()();
   TextColumn get conditionJson => text()();
 
@@ -196,7 +200,7 @@ class AppDatabase extends _$AppDatabase {
   final DateTime Function() _clock;
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -234,6 +238,17 @@ class AppDatabase extends _$AppDatabase {
           "DELETE FROM settings WHERE key = 'syncReadToTelegram'",
         );
       }
+      if (from < 7) {
+        // Rules belong to feeds now. The rules of before (global or per channel) are
+        // deleted, and their tombstones delete them on every synced device too.
+        await customStatement(
+          "INSERT OR REPLACE INTO sync_tombstones (kind, sync_id, deleted_at) "
+          "SELECT 'rule', sync_id, CAST(strftime('%s', 'now') AS INTEGER) "
+          'FROM rules WHERE sync_id IS NOT NULL',
+        );
+        await m.deleteTable('rules');
+        await m.createTable(rules);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -247,6 +262,31 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<Rule>> watchRules() =>
       (select(rules)..orderBy([(r) => OrderingTerm.asc(r.createdAt)])).watch();
+
+  /// Every feed with its channels and its filter: what the rules of each feed watch.
+  Future<Map<int, ({Set<int> chats, String? filterJson})>>
+  feedsForRules() async {
+    final out = <int, ({Set<int> chats, String? filterJson})>{};
+    for (final f in await allFeeds()) {
+      out[f.id] = (
+        chats: {for (final s in await sourcesOf(f.id)) s.chatId},
+        filterJson: f.filterJson,
+      );
+    }
+    return out;
+  }
+
+  /// Deletes rules and remembers the deletions for sync.
+  Future<void> _deleteRules(
+    Expression<bool> Function($RulesTable r) where,
+  ) async {
+    final gone = await (select(rules)..where(where)).get();
+    if (gone.isEmpty) return;
+    await (delete(rules)..where(where)).go();
+    for (final r in gone) {
+      await _bury('rule', r.syncId);
+    }
+  }
 
   Future<Rule> insertRule(RulesCompanion rule) => into(rules).insertReturning(
     rule.updatedAt.present ? rule : rule.copyWith(updatedAt: Value(_clock())),
@@ -306,21 +346,6 @@ class AppDatabase extends _$AppDatabase {
   Stream<Feed?> watchFeed(int feedId) =>
       (select(feeds)..where((f) => f.id.equals(feedId))).watchSingleOrNull();
 
-  /// Per watched channel, the filters of the feeds that contain it (null = shows everything).
-  /// Rules stay quiet about a post only when every one of them hides it.
-  Future<Map<int, List<String?>>> filtersByChat() async {
-    final rows = await (select(
-      feedSources,
-    ).join([innerJoin(feeds, feeds.id.equalsExp(feedSources.feedId))])).get();
-    final out = <int, List<String?>>{};
-    for (final r in rows) {
-      (out[r.readTable(feedSources).chatId] ??= []).add(
-        r.readTable(feeds).filterJson,
-      );
-    }
-    return out;
-  }
-
   /// Rewrites positions so [orderedFeedIds] becomes the feed order.
   Future<void> reorderFeeds(List<int> orderedFeedIds) => transaction(() async {
     final now = _clock();
@@ -333,12 +358,13 @@ class AppDatabase extends _$AppDatabase {
     }
   });
 
-  /// Deletes the feed and its sources (cascade) and the position the reader left it at,
+  /// Deletes the feed with its sources and rules and the position the reader left it at,
   /// then prunes watched channels.
   Future<void> deleteFeed(int feedId) => transaction(() async {
     final row = await (select(
       feeds,
     )..where((f) => f.id.equals(feedId))).getSingleOrNull();
+    await _deleteRules((r) => r.feedId.equals(feedId));
     await (delete(feeds)..where((f) => f.id.equals(feedId))).go();
     await deleteSetting(SettingKeys.positionOfFeed(feedId));
     await _pruneWatched();
@@ -466,7 +492,11 @@ class AppDatabase extends _$AppDatabase {
     );
   });
 
+  /// Removes a channel from a feed, with the feed's rules that watched only that channel.
   Future<void> removeSource(int feedId, int chatId) => transaction(() async {
+    await _deleteRules(
+      (r) => r.feedId.equals(feedId) & r.scopeChatId.equals(chatId),
+    );
     await (delete(
       feedSources,
     )..where((s) => s.feedId.equals(feedId) & s.chatId.equals(chatId))).go();
@@ -603,6 +633,11 @@ class AppDatabase extends _$AppDatabase {
     await _pruneWatched();
   });
 
+  /// The local id of the feed another device knows by [syncId]; null when there is none.
+  Future<int?> feedIdOf(String syncId) async => (await (select(
+    feeds,
+  )..where((f) => f.syncId.equals(syncId))).getSingleOrNull())?.id;
+
   /// Writes a rule as another device saved it ([rule] carries `syncId` and `updatedAt`).
   Future<void> applySyncedRule(RulesCompanion rule) => transaction(() async {
     final existing = await (select(
@@ -622,6 +657,10 @@ class AppDatabase extends _$AppDatabase {
     DateTime deletedAt,
   ) => transaction(() async {
     if (kind == 'feed') {
+      final feed = await (select(
+        feeds,
+      )..where((f) => f.syncId.equals(syncId))).getSingleOrNull();
+      if (feed != null) await _deleteRules((r) => r.feedId.equals(feed.id));
       await (delete(feeds)..where((f) => f.syncId.equals(syncId))).go();
       await _pruneWatched();
     } else if (kind == 'rule') {

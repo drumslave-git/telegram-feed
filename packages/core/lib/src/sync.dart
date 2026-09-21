@@ -98,7 +98,8 @@ final class SyncedFeed {
   );
 }
 
-/// A rule. [fields] is the row as JSON (everything except the local id and sync columns).
+/// A rule. [fields] is the row as JSON (everything except the local ids and sync columns),
+/// with the feed it belongs to named by the feed's sync id under `feed`.
 final class SyncedRule {
   const SyncedRule({
     required this.id,
@@ -123,13 +124,17 @@ final class SyncedRule {
       ..remove('updatedAt'),
   );
 
-  static SyncedRule fromRow(Rule r) => SyncedRule(
+  /// The sync id of the rule's feed; null in a rule of the first file format, which had no
+  /// feeds.
+  String? get feed => fields['feed'] as String?;
+
+  static SyncedRule fromRow(Rule r, {required String feed}) => SyncedRule(
     id: r.syncId!,
     updatedAt: _ms(r.updatedAt ?? r.createdAt),
     fields: {
       'name': r.name,
       'enabled': r.enabled,
-      'scopeKind': r.scopeKind,
+      'feed': feed,
       'scopeChatId': r.scopeChatId,
       'conditionJson': r.conditionJson,
       'priority': r.priority,
@@ -140,10 +145,11 @@ final class SyncedRule {
     },
   );
 
-  RulesCompanion toCompanion() => RulesCompanion.insert(
+  /// The row for this device, where the rule's feed has the local id [feedId].
+  RulesCompanion toCompanion({required int feedId}) => RulesCompanion.insert(
     name: fields['name'] as String,
     enabled: Value(fields['enabled'] as bool? ?? true),
-    scopeKind: fields['scopeKind'] as String,
+    feedId: feedId,
     scopeChatId: Value(fields['scopeChatId'] as int?),
     conditionJson: fields['conditionJson'] as String,
     priority: fields['priority'] as String,
@@ -212,7 +218,9 @@ final class SyncSnapshot {
   final List<SyncedSetting> settings;
   final List<SyncedTombstone> tombstones;
 
-  static const formatVersion = 1;
+  /// 2: every rule belongs to a feed. A file of version 1 is read without its rules, which
+  /// belonged to no feed; a device on version 1 refuses a file of version 2.
+  static const formatVersion = 2;
 
   /// How long deletions are remembered. A device offline for longer may bring an item back.
   static const tombstoneLifetime = Duration(days: 180);
@@ -256,7 +264,10 @@ final class SyncSnapshot {
       ];
       return SyncSnapshot(
         feeds: list('feeds', SyncedFeed.fromJson),
-        rules: list('rules', SyncedRule.fromJson),
+        rules: [
+          for (final r in list('rules', SyncedRule.fromJson))
+            if (r.feed != null) r,
+        ],
         settings: list('settings', SyncedSetting.fromJson),
         tombstones: list('tombstones', SyncedTombstone.fromJson),
       );
@@ -368,7 +379,9 @@ final class SyncEngine {
   Future<SyncSnapshot> exportLocal() async {
     final watched = {for (final w in await db.allWatched()) w.chatId: w};
     final feeds = <SyncedFeed>[];
+    final feedSyncIds = <int, String>{};
     for (final f in await db.allFeeds()) {
+      if (f.syncId case final id?) feedSyncIds[f.id] = id;
       final id = f.syncId;
       if (id == null) continue;
       feeds.add(
@@ -393,7 +406,8 @@ final class SyncEngine {
       feeds: feeds,
       rules: [
         for (final r in await db.allRules())
-          if (r.syncId != null) SyncedRule.fromRow(r),
+          if (r.syncId != null && feedSyncIds[r.feedId] != null)
+            SyncedRule.fromRow(r, feed: feedSyncIds[r.feedId]!),
       ],
       settings: [
         for (final s in await db.allSettings())
@@ -417,7 +431,8 @@ final class SyncEngine {
     final merged = SyncSnapshot.merge(local, remote, now: now);
     final pulled = await _apply(local, merged);
     await db.pruneTombstones(now.subtract(SyncSnapshot.tombstoneLifetime));
-    final pushed = content == null || merged.encode() != remote.encode();
+    // Compared with the file as stored, so a file of an older format is rewritten too.
+    final pushed = merged.encode() != content;
     if (pushed) await store.write(merged.encode());
     return SyncResult(pulled: pulled, pushed: pushed);
   }
@@ -453,7 +468,10 @@ final class SyncEngine {
       if (mine != null && jsonEncode(mine.toJson()) == jsonEncode(r.toJson())) {
         continue;
       }
-      await db.applySyncedRule(r.toCompanion());
+      // Feeds are applied first; a rule whose feed is not here stays out.
+      final feedId = await db.feedIdOf(r.feed!);
+      if (feedId == null) continue;
+      await db.applySyncedRule(r.toCompanion(feedId: feedId));
       changed++;
     }
 

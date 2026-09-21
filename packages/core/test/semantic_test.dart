@@ -174,10 +174,13 @@ void main() {
             id: 1,
             name: 'ai',
             condition: And([]),
+            feedId: 1,
             semanticPrompt: 'anything about rates',
           ),
         ],
-        watched: {-1},
+        feeds: const {
+          1: RuleFeed({-1}),
+        },
       );
     final m = engine.evaluate(
       Post(chatId: -1, messageId: 1, date: 1, text: 'whatever'),

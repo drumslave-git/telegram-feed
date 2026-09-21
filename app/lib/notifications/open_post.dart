@@ -24,17 +24,22 @@ Future<void> openInTelegram(AppDatabase db, PostRef ref) async {
   await launchFirst([uri, web]);
 }
 
-/// Pushes the timeline of the first feed containing the post's channel, focused on the post.
+/// Pushes the timeline of the rule's feed, focused on the post; the first feed containing
+/// the post's channel when that feed is gone.
 Future<void> openPost(AppHost host, PostRef ref) async {
   final feeds = await host.db.feedsContaining(ref.chatId);
   final nav = navigatorKey.currentState;
   if (feeds.isEmpty || nav == null) return;
+  final feed = feeds.firstWhere(
+    (f) => f.id == ref.feedId,
+    orElse: () => feeds.first,
+  );
   await nav.push(
     MaterialPageRoute<void>(
       builder: (_) => TimelineScreen(
         db: host.db,
         gateway: host.gateway,
-        feed: feeds.first,
+        feed: feed,
         focusChatId: ref.chatId,
         focusMessageId: ref.messageId,
       ),

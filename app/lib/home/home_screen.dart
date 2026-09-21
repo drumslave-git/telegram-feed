@@ -370,12 +370,16 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Future<void> _editFeed(int feedId) => Navigator.of(context).push(
+  Future<void> _editFeed(
+    int feedId, {
+    int tab = FeedEditorScreen.channelsTab,
+  }) => Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => FeedEditorScreen(
         db: widget.db,
         gateway: widget.gateway,
         feedId: feedId,
+        initialTab: tab,
       ),
     ),
   );
@@ -603,6 +607,10 @@ class _HomeScreenState extends State<HomeScreen>
                       PopupMenuButton<String>(
                         onSelected: (v) => switch (v) {
                           'channels' => _editFeed(f.id),
+                          'rules' => _editFeed(
+                            f.id,
+                            tab: FeedEditorScreen.rulesTab,
+                          ),
                           'rename' => _renameFeed(f),
                           'read' => _markFeedRead(f),
                           'delete' => _deleteFeed(f),
@@ -613,6 +621,7 @@ class _HomeScreenState extends State<HomeScreen>
                             value: 'channels',
                             child: Text('Channels'),
                           ),
+                          PopupMenuItem(value: 'rules', child: Text('Rules')),
                           PopupMenuItem(value: 'rename', child: Text('Rename')),
                           PopupMenuItem(
                             value: 'read',

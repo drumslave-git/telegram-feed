@@ -1336,16 +1336,17 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
     ),
     defaultValue: const Constant(true),
   );
-  static const VerificationMeta _scopeKindMeta = const VerificationMeta(
-    'scopeKind',
-  );
+  static const VerificationMeta _feedIdMeta = const VerificationMeta('feedId');
   @override
-  late final GeneratedColumn<String> scopeKind = GeneratedColumn<String>(
-    'scope_kind',
+  late final GeneratedColumn<int> feedId = GeneratedColumn<int>(
+    'feed_id',
     aliasedName,
     false,
-    type: DriftSqlType.string,
+    type: DriftSqlType.int,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES feeds (id) ON DELETE CASCADE',
+    ),
   );
   static const VerificationMeta _scopeChatIdMeta = const VerificationMeta(
     'scopeChatId',
@@ -1454,7 +1455,7 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
     id,
     name,
     enabled,
-    scopeKind,
+    feedId,
     scopeChatId,
     conditionJson,
     priority,
@@ -1494,13 +1495,13 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
         enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
       );
     }
-    if (data.containsKey('scope_kind')) {
+    if (data.containsKey('feed_id')) {
       context.handle(
-        _scopeKindMeta,
-        scopeKind.isAcceptableOrUnknown(data['scope_kind']!, _scopeKindMeta),
+        _feedIdMeta,
+        feedId.isAcceptableOrUnknown(data['feed_id']!, _feedIdMeta),
       );
     } else if (isInserting) {
-      context.missing(_scopeKindMeta);
+      context.missing(_feedIdMeta);
     }
     if (data.containsKey('scope_chat_id')) {
       context.handle(
@@ -1595,9 +1596,9 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
         DriftSqlType.bool,
         data['${effectivePrefix}enabled'],
       )!,
-      scopeKind: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}scope_kind'],
+      feedId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}feed_id'],
       )!,
       scopeChatId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
@@ -1649,8 +1650,10 @@ class Rule extends DataClass implements Insertable<Rule> {
   final String name;
   final bool enabled;
 
-  /// 'global' or 'channel'.
-  final String scopeKind;
+  /// The feed the rule belongs to; the rule goes with it.
+  final int feedId;
+
+  /// The one channel of the feed the rule watches; null for every channel of the feed.
   final int? scopeChatId;
   final String conditionJson;
 
@@ -1671,7 +1674,7 @@ class Rule extends DataClass implements Insertable<Rule> {
     required this.id,
     required this.name,
     required this.enabled,
-    required this.scopeKind,
+    required this.feedId,
     this.scopeChatId,
     required this.conditionJson,
     required this.priority,
@@ -1688,7 +1691,7 @@ class Rule extends DataClass implements Insertable<Rule> {
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
     map['enabled'] = Variable<bool>(enabled);
-    map['scope_kind'] = Variable<String>(scopeKind);
+    map['feed_id'] = Variable<int>(feedId);
     if (!nullToAbsent || scopeChatId != null) {
       map['scope_chat_id'] = Variable<int>(scopeChatId);
     }
@@ -1716,7 +1719,7 @@ class Rule extends DataClass implements Insertable<Rule> {
       id: Value(id),
       name: Value(name),
       enabled: Value(enabled),
-      scopeKind: Value(scopeKind),
+      feedId: Value(feedId),
       scopeChatId: scopeChatId == null && nullToAbsent
           ? const Value.absent()
           : Value(scopeChatId),
@@ -1748,7 +1751,7 @@ class Rule extends DataClass implements Insertable<Rule> {
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       enabled: serializer.fromJson<bool>(json['enabled']),
-      scopeKind: serializer.fromJson<String>(json['scopeKind']),
+      feedId: serializer.fromJson<int>(json['feedId']),
       scopeChatId: serializer.fromJson<int?>(json['scopeChatId']),
       conditionJson: serializer.fromJson<String>(json['conditionJson']),
       priority: serializer.fromJson<String>(json['priority']),
@@ -1767,7 +1770,7 @@ class Rule extends DataClass implements Insertable<Rule> {
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
       'enabled': serializer.toJson<bool>(enabled),
-      'scopeKind': serializer.toJson<String>(scopeKind),
+      'feedId': serializer.toJson<int>(feedId),
       'scopeChatId': serializer.toJson<int?>(scopeChatId),
       'conditionJson': serializer.toJson<String>(conditionJson),
       'priority': serializer.toJson<String>(priority),
@@ -1784,7 +1787,7 @@ class Rule extends DataClass implements Insertable<Rule> {
     int? id,
     String? name,
     bool? enabled,
-    String? scopeKind,
+    int? feedId,
     Value<int?> scopeChatId = const Value.absent(),
     String? conditionJson,
     String? priority,
@@ -1798,7 +1801,7 @@ class Rule extends DataClass implements Insertable<Rule> {
     id: id ?? this.id,
     name: name ?? this.name,
     enabled: enabled ?? this.enabled,
-    scopeKind: scopeKind ?? this.scopeKind,
+    feedId: feedId ?? this.feedId,
     scopeChatId: scopeChatId.present ? scopeChatId.value : this.scopeChatId,
     conditionJson: conditionJson ?? this.conditionJson,
     priority: priority ?? this.priority,
@@ -1816,7 +1819,7 @@ class Rule extends DataClass implements Insertable<Rule> {
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       enabled: data.enabled.present ? data.enabled.value : this.enabled,
-      scopeKind: data.scopeKind.present ? data.scopeKind.value : this.scopeKind,
+      feedId: data.feedId.present ? data.feedId.value : this.feedId,
       scopeChatId: data.scopeChatId.present
           ? data.scopeChatId.value
           : this.scopeChatId,
@@ -1843,7 +1846,7 @@ class Rule extends DataClass implements Insertable<Rule> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('enabled: $enabled, ')
-          ..write('scopeKind: $scopeKind, ')
+          ..write('feedId: $feedId, ')
           ..write('scopeChatId: $scopeChatId, ')
           ..write('conditionJson: $conditionJson, ')
           ..write('priority: $priority, ')
@@ -1862,7 +1865,7 @@ class Rule extends DataClass implements Insertable<Rule> {
     id,
     name,
     enabled,
-    scopeKind,
+    feedId,
     scopeChatId,
     conditionJson,
     priority,
@@ -1880,7 +1883,7 @@ class Rule extends DataClass implements Insertable<Rule> {
           other.id == this.id &&
           other.name == this.name &&
           other.enabled == this.enabled &&
-          other.scopeKind == this.scopeKind &&
+          other.feedId == this.feedId &&
           other.scopeChatId == this.scopeChatId &&
           other.conditionJson == this.conditionJson &&
           other.priority == this.priority &&
@@ -1896,7 +1899,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
   final Value<int> id;
   final Value<String> name;
   final Value<bool> enabled;
-  final Value<String> scopeKind;
+  final Value<int> feedId;
   final Value<int?> scopeChatId;
   final Value<String> conditionJson;
   final Value<String> priority;
@@ -1910,7 +1913,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.enabled = const Value.absent(),
-    this.scopeKind = const Value.absent(),
+    this.feedId = const Value.absent(),
     this.scopeChatId = const Value.absent(),
     this.conditionJson = const Value.absent(),
     this.priority = const Value.absent(),
@@ -1925,7 +1928,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     this.id = const Value.absent(),
     required String name,
     this.enabled = const Value.absent(),
-    required String scopeKind,
+    required int feedId,
     this.scopeChatId = const Value.absent(),
     required String conditionJson,
     required String priority,
@@ -1936,7 +1939,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     this.syncId = const Value.absent(),
     this.updatedAt = const Value.absent(),
   }) : name = Value(name),
-       scopeKind = Value(scopeKind),
+       feedId = Value(feedId),
        conditionJson = Value(conditionJson),
        priority = Value(priority),
        createdAt = Value(createdAt);
@@ -1944,7 +1947,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     Expression<int>? id,
     Expression<String>? name,
     Expression<bool>? enabled,
-    Expression<String>? scopeKind,
+    Expression<int>? feedId,
     Expression<int>? scopeChatId,
     Expression<String>? conditionJson,
     Expression<String>? priority,
@@ -1959,7 +1962,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (enabled != null) 'enabled': enabled,
-      if (scopeKind != null) 'scope_kind': scopeKind,
+      if (feedId != null) 'feed_id': feedId,
       if (scopeChatId != null) 'scope_chat_id': scopeChatId,
       if (conditionJson != null) 'condition_json': conditionJson,
       if (priority != null) 'priority': priority,
@@ -1976,7 +1979,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     Value<int>? id,
     Value<String>? name,
     Value<bool>? enabled,
-    Value<String>? scopeKind,
+    Value<int>? feedId,
     Value<int?>? scopeChatId,
     Value<String>? conditionJson,
     Value<String>? priority,
@@ -1991,7 +1994,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
       id: id ?? this.id,
       name: name ?? this.name,
       enabled: enabled ?? this.enabled,
-      scopeKind: scopeKind ?? this.scopeKind,
+      feedId: feedId ?? this.feedId,
       scopeChatId: scopeChatId ?? this.scopeChatId,
       conditionJson: conditionJson ?? this.conditionJson,
       priority: priority ?? this.priority,
@@ -2016,8 +2019,8 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     if (enabled.present) {
       map['enabled'] = Variable<bool>(enabled.value);
     }
-    if (scopeKind.present) {
-      map['scope_kind'] = Variable<String>(scopeKind.value);
+    if (feedId.present) {
+      map['feed_id'] = Variable<int>(feedId.value);
     }
     if (scopeChatId.present) {
       map['scope_chat_id'] = Variable<int>(scopeChatId.value);
@@ -2055,7 +2058,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('enabled: $enabled, ')
-          ..write('scopeKind: $scopeKind, ')
+          ..write('feedId: $feedId, ')
           ..write('scopeChatId: $scopeChatId, ')
           ..write('conditionJson: $conditionJson, ')
           ..write('priority: $priority, ')
@@ -2365,6 +2368,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       ),
       result: [TableUpdate('feed_sources', kind: UpdateKind.delete)],
     ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'feeds',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('rules', kind: UpdateKind.delete)],
+    ),
   ]);
 }
 
@@ -2404,6 +2414,25 @@ final class $$FeedsTableReferences
     ).filter((f) => f.feedId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_feedSourcesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$RulesTable, List<Rule>> _rulesRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.rules,
+    aliasName: 'feeds__id__rules__feed_id',
+  );
+
+  $$RulesTableProcessedTableManager get rulesRefs {
+    final manager = $$RulesTableTableManager(
+      $_db,
+      $_db.rules,
+    ).filter((f) => f.feedId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_rulesRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -2469,6 +2498,31 @@ class $$FeedsTableFilterComposer extends Composer<_$AppDatabase, $FeedsTable> {
           }) => $$FeedSourcesTableFilterComposer(
             $db: $db,
             $table: $db.feedSources,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> rulesRefs(
+    Expression<bool> Function($$RulesTableFilterComposer f) f,
+  ) {
+    final $$RulesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.rules,
+      getReferencedColumn: (t) => t.feedId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RulesTableFilterComposer(
+            $db: $db,
+            $table: $db.rules,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -2580,6 +2634,31 @@ class $$FeedsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> rulesRefs<T extends Object>(
+    Expression<T> Function($$RulesTableAnnotationComposer a) f,
+  ) {
+    final $$RulesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.rules,
+      getReferencedColumn: (t) => t.feedId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RulesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.rules,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$FeedsTableTableManager
@@ -2595,7 +2674,7 @@ class $$FeedsTableTableManager
           $$FeedsTableUpdateCompanionBuilder,
           (Feed, $$FeedsTableReferences),
           Feed,
-          PrefetchHooks Function({bool feedSourcesRefs})
+          PrefetchHooks Function({bool feedSourcesRefs, bool rulesRefs})
         > {
   $$FeedsTableTableManager(_$AppDatabase db, $FeedsTable table)
     : super(
@@ -2652,28 +2731,55 @@ class $$FeedsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({feedSourcesRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (feedSourcesRefs) db.feedSources],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (feedSourcesRefs)
-                    await $_getPrefetchedData<Feed, $FeedsTable, FeedSource>(
-                      currentTable: table,
-                      referencedTable: $$FeedsTableReferences
-                          ._feedSourcesRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$FeedsTableReferences(db, table, p0).feedSourcesRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.feedId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({feedSourcesRefs = false, rulesRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (feedSourcesRefs) db.feedSources,
+                    if (rulesRefs) db.rules,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (feedSourcesRefs)
+                        await $_getPrefetchedData<
+                          Feed,
+                          $FeedsTable,
+                          FeedSource
+                        >(
+                          currentTable: table,
+                          referencedTable: $$FeedsTableReferences
+                              ._feedSourcesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$FeedsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).feedSourcesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.feedId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (rulesRefs)
+                        await $_getPrefetchedData<Feed, $FeedsTable, Rule>(
+                          currentTable: table,
+                          referencedTable: $$FeedsTableReferences
+                              ._rulesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$FeedsTableReferences(db, table, p0).rulesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.feedId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -2690,7 +2796,7 @@ typedef $$FeedsTableProcessedTableManager =
       $$FeedsTableUpdateCompanionBuilder,
       (Feed, $$FeedsTableReferences),
       Feed,
-      PrefetchHooks Function({bool feedSourcesRefs})
+      PrefetchHooks Function({bool feedSourcesRefs, bool rulesRefs})
     >;
 typedef $$FeedSourcesTableCreateCompanionBuilder =
     FeedSourcesCompanion Function({
@@ -3326,7 +3432,7 @@ typedef $$RulesTableCreateCompanionBuilder = RulesCompanion Function({
   Value<int> id,
   required String name,
   Value<bool> enabled,
-  required String scopeKind,
+  required int feedId,
   Value<int?> scopeChatId,
   required String conditionJson,
   required String priority,
@@ -3341,7 +3447,7 @@ typedef $$RulesTableUpdateCompanionBuilder = RulesCompanion Function({
   Value<int> id,
   Value<String> name,
   Value<bool> enabled,
-  Value<String> scopeKind,
+  Value<int> feedId,
   Value<int?> scopeChatId,
   Value<String> conditionJson,
   Value<String> priority,
@@ -3352,6 +3458,28 @@ typedef $$RulesTableUpdateCompanionBuilder = RulesCompanion Function({
   Value<String?> syncId,
   Value<DateTime?> updatedAt,
 });
+
+final class $$RulesTableReferences
+    extends BaseReferences<_$AppDatabase, $RulesTable, Rule> {
+  $$RulesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $FeedsTable _feedIdTable(_$AppDatabase db) =>
+      db.feeds.createAlias('rules__feed_id__feeds__id');
+
+  $$FeedsTableProcessedTableManager get feedId {
+    final $_column = $_itemColumn<int>('feed_id')!;
+
+    final manager = $$FeedsTableTableManager(
+      $_db,
+      $_db.feeds,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_feedIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
 
 class $$RulesTableFilterComposer extends Composer<_$AppDatabase, $RulesTable> {
   $$RulesTableFilterComposer({
@@ -3373,11 +3501,6 @@ class $$RulesTableFilterComposer extends Composer<_$AppDatabase, $RulesTable> {
 
   ColumnFilters<bool> get enabled => $composableBuilder(
     column: $table.enabled,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get scopeKind => $composableBuilder(
-    column: $table.scopeKind,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3425,6 +3548,29 @@ class $$RulesTableFilterComposer extends Composer<_$AppDatabase, $RulesTable> {
     column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$FeedsTableFilterComposer get feedId {
+    final $$FeedsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.feedId,
+      referencedTable: $db.feeds,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FeedsTableFilterComposer(
+            $db: $db,
+            $table: $db.feeds,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$RulesTableOrderingComposer
@@ -3448,11 +3594,6 @@ class $$RulesTableOrderingComposer
 
   ColumnOrderings<bool> get enabled => $composableBuilder(
     column: $table.enabled,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get scopeKind => $composableBuilder(
-    column: $table.scopeKind,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -3500,6 +3641,29 @@ class $$RulesTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$FeedsTableOrderingComposer get feedId {
+    final $$FeedsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.feedId,
+      referencedTable: $db.feeds,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FeedsTableOrderingComposer(
+            $db: $db,
+            $table: $db.feeds,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$RulesTableAnnotationComposer
@@ -3519,9 +3683,6 @@ class $$RulesTableAnnotationComposer
 
   GeneratedColumn<bool> get enabled =>
       $composableBuilder(column: $table.enabled, builder: (column) => column);
-
-  GeneratedColumn<String> get scopeKind =>
-      $composableBuilder(column: $table.scopeKind, builder: (column) => column);
 
   GeneratedColumn<int> get scopeChatId => $composableBuilder(
     column: $table.scopeChatId,
@@ -3557,6 +3718,29 @@ class $$RulesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$FeedsTableAnnotationComposer get feedId {
+    final $$FeedsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.feedId,
+      referencedTable: $db.feeds,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FeedsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.feeds,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$RulesTableTableManager
@@ -3570,9 +3754,9 @@ class $$RulesTableTableManager
           $$RulesTableAnnotationComposer,
           $$RulesTableCreateCompanionBuilder,
           $$RulesTableUpdateCompanionBuilder,
-          (Rule, BaseReferences<_$AppDatabase, $RulesTable, Rule>),
+          (Rule, $$RulesTableReferences),
           Rule,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool feedId})
         > {
   $$RulesTableTableManager(_$AppDatabase db, $RulesTable table)
     : super(
@@ -3590,7 +3774,7 @@ class $$RulesTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<bool> enabled = const Value.absent(),
-                Value<String> scopeKind = const Value.absent(),
+                Value<int> feedId = const Value.absent(),
                 Value<int?> scopeChatId = const Value.absent(),
                 Value<String> conditionJson = const Value.absent(),
                 Value<String> priority = const Value.absent(),
@@ -3604,7 +3788,7 @@ class $$RulesTableTableManager
                 id: id,
                 name: name,
                 enabled: enabled,
-                scopeKind: scopeKind,
+                feedId: feedId,
                 scopeChatId: scopeChatId,
                 conditionJson: conditionJson,
                 priority: priority,
@@ -3620,7 +3804,7 @@ class $$RulesTableTableManager
                 Value<int> id = const Value.absent(),
                 required String name,
                 Value<bool> enabled = const Value.absent(),
-                required String scopeKind,
+                required int feedId,
                 Value<int?> scopeChatId = const Value.absent(),
                 required String conditionJson,
                 required String priority,
@@ -3634,7 +3818,7 @@ class $$RulesTableTableManager
                 id: id,
                 name: name,
                 enabled: enabled,
-                scopeKind: scopeKind,
+                feedId: feedId,
                 scopeChatId: scopeChatId,
                 conditionJson: conditionJson,
                 priority: priority,
@@ -3649,15 +3833,50 @@ class $$RulesTableTableManager
               .map(
                 (e) => (
                   e.readTable<$RulesTable, Rule>(table),
-                  BaseReferences<_$AppDatabase, $RulesTable, Rule>(
-                    db,
-                    table,
-                    e,
-                  ),
+                  $$RulesTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({feedId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (feedId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.feedId,
+                        referencedTable: $$RulesTableReferences._feedIdTable(
+                          db,
+                        ),
+                        referencedColumn: $$RulesTableReferences
+                            ._feedIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -3672,9 +3891,9 @@ typedef $$RulesTableProcessedTableManager =
       $$RulesTableAnnotationComposer,
       $$RulesTableCreateCompanionBuilder,
       $$RulesTableUpdateCompanionBuilder,
-      (Rule, BaseReferences<_$AppDatabase, $RulesTable, Rule>),
+      (Rule, $$RulesTableReferences),
       Rule,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool feedId})
     >;
 typedef $$SyncTombstonesTableCreateCompanionBuilder =
     SyncTombstonesCompanion Function({

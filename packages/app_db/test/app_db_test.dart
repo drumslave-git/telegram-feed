@@ -180,10 +180,11 @@ void main() {
       'deleting a feed or rule leaves a tombstone; wipe leaves none',
       () async {
         final feed = await sdb.createFeed('F');
+        final kept = await sdb.createFeed('Kept');
         final rule = await sdb.insertRule(
           RulesCompanion.insert(
             name: 'r',
-            scopeKind: 'global',
+            feedId: kept.id,
             conditionJson: '{"term":"x"}',
             priority: 'normal',
             createdAt: now,
@@ -201,6 +202,24 @@ void main() {
           ('rule', rule.syncId),
         });
         expect(graves.map((t) => t.deletedAt), everyElement(now));
+
+        // A feed takes its rules along, and they are remembered as deleted too.
+        final withRule = await sdb.createFeed('With a rule');
+        final its = await sdb.insertRule(
+          RulesCompanion.insert(
+            name: 'its',
+            feedId: withRule.id,
+            conditionJson: '{"term":"x"}',
+            priority: 'normal',
+            createdAt: now,
+          ),
+        );
+        await sdb.deleteFeed(withRule.id);
+        expect(await sdb.allRules(), isEmpty);
+        expect(
+          (await sdb.allTombstones()).map((t) => (t.kind, t.syncId)),
+          contains(('rule', its.syncId)),
+        );
 
         await sdb.pruneTombstones(DateTime(2026, 3, 1));
         expect(await sdb.allTombstones(), isEmpty);
@@ -248,7 +267,7 @@ void main() {
         await sdb.applySyncedRule(
           RulesCompanion.insert(
             name: 'remote rule',
-            scopeKind: 'global',
+            feedId: feed.id,
             conditionJson: '{"term":"x"}',
             priority: 'urgent',
             createdAt: DateTime(2026, 5, 1),
@@ -259,7 +278,7 @@ void main() {
         await sdb.applySyncedRule(
           RulesCompanion.insert(
             name: 'remote rule 2',
-            scopeKind: 'global',
+            feedId: feed.id,
             conditionJson: '{"term":"y"}',
             priority: 'silent',
             createdAt: DateTime(2026, 5, 1),
@@ -275,6 +294,7 @@ void main() {
         await sdb.applySyncedDeletion('rule', 'rule-a', DateTime(2026, 6, 1));
         expect(await sdb.allFeeds(), isEmpty);
         expect(await sdb.allRules(), isEmpty);
+        expect(await sdb.feedIdOf('feed-a'), isNull);
         expect(await sdb.allTombstones(), hasLength(2));
 
         await sdb.applySyncedSetting('themeMode', 'dark', DateTime(2026, 6, 2));
@@ -299,10 +319,42 @@ void main() {
       final feeds = await fdb.allFeeds();
       expect(feeds.first.filterJson, '{"media":"withMedia"}');
       expect(feeds.first.updatedAt, DateTime(2026, 1, 2));
-      final byChat = await fdb.filtersByChat();
-      expect(byChat[-1], unorderedEquals(['{"media":"withMedia"}', null]));
-      expect(byChat[-2], [null]);
+      final forRules = await fdb.feedsForRules();
+      expect(forRules[a.id]!.chats, {-1});
+      expect(forRules[a.id]!.filterJson, '{"media":"withMedia"}');
+      expect(forRules[b.id]!.chats, {-1, -2});
+      expect(forRules[b.id]!.filterJson, isNull);
       await fdb.close();
+    },
+  );
+
+  test(
+    "a channel leaving a feed takes the feed's rules for it along",
+    () async {
+      final feed = await db.createFeed('F');
+      await db.addSource(feed.id, -1, title: 'One');
+      await db.addSource(feed.id, -2, title: 'Two');
+      Future<Rule> rule(String name, int? chat) => db.insertRule(
+        RulesCompanion.insert(
+          name: name,
+          feedId: feed.id,
+          scopeChatId: Value(chat),
+          conditionJson: '{"term":"x"}',
+          priority: 'normal',
+          createdAt: DateTime(2026),
+        ),
+      );
+      await rule('whole feed', null);
+      final one = await rule('only One', -1);
+      await rule('only Two', -2);
+      await db.removeSource(feed.id, -1);
+      expect((await db.allRules()).map((r) => r.name), [
+        'whole feed',
+        'only Two',
+      ]);
+      expect((await db.allTombstones()).map((t) => (t.kind, t.syncId)), [
+        ('rule', one.syncId),
+      ]);
     },
   );
 }

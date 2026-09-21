@@ -8,17 +8,18 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../notifications/notification_policy.dart';
 import '../ai/semantic_gate.dart';
-import '../home/channel_list.dart' show ChannelAvatar, FeedTags;
+import '../home/channel_list.dart' show ChannelAvatar;
 import 'rule_builder_model.dart';
 
-/// Create or edit one rule: visual builder or text form, scope, priority, read-aloud,
-/// schedule, and a dry run against recent posts (SPEC section 4).
+/// Create or edit one rule: visual builder or text form, its feed and channels, priority,
+/// read-aloud, schedule, and a dry run against recent posts (SPEC section 4).
 class RuleEditorScreen extends StatefulWidget {
   const RuleEditorScreen({
     super.key,
     required this.db,
     required this.gateway,
     this.rule,
+    this.feedId,
     this.policyGranted = NotificationPolicy.isGrantedFn,
     this.openPolicySettings = NotificationPolicy.openSettings,
     this.semanticCheck,
@@ -26,6 +27,9 @@ class RuleEditorScreen extends StatefulWidget {
   final AppDatabase db;
   final TelegramGateway gateway;
   final Rule? rule;
+
+  /// The feed a new rule goes into; the first feed when null.
+  final int? feedId;
 
   /// Injectable for tests: whether DND bypass is allowed (urgent rules).
   final Future<bool> Function() policyGranted;
@@ -45,6 +49,12 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     text: widget.rule?.semanticPrompt ?? '',
   );
   bool _aiConfigured = true;
+
+  /// The rule's feed; null only while there is no feed at all.
+  int? _feedId;
+  List<Feed> _feeds = const [];
+
+  /// One channel of the feed, or null for all of them.
   int? _scopeChatId;
   String _priority = 'normal';
   bool _readAloud = false;
@@ -57,20 +67,20 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   int _from = 9 * 60;
   int _to = 18 * 60;
   bool _saving = false;
+
+  /// The channels of the rule's feed.
   List<WatchedChannel> _channels = const [];
 
   /// Channel photos for the scope list; the database only keeps titles.
   Map<int, FileRef?> _photos = const {};
 
-  /// The feeds each channel is in, as tags in the scope list.
-  Map<int, List<String>> _feedTags = const {};
-
   @override
   void initState() {
     super.initState();
     final r = widget.rule;
+    _feedId = r?.feedId ?? widget.feedId;
     if (r != null) {
-      _scopeChatId = r.scopeKind == 'channel' ? r.scopeChatId : null;
+      _scopeChatId = r.scopeChatId;
       _priority = r.priority;
       _readAloud = r.readAloud;
       _enabled = r.enabled;
@@ -101,11 +111,16 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
         _textError = 'Stored condition could not be parsed; rewrite it.';
       }
     }
-    widget.db.allWatched().then((c) {
-      if (mounted) setState(() => _channels = c);
-    });
-    widget.db.feedNamesByChat().then((t) {
-      if (mounted) setState(() => _feedTags = t);
+    widget.db.allFeeds().then((feeds) {
+      if (!mounted) return;
+      setState(() {
+        _feeds = feeds;
+        if (_feedId == null || !feeds.any((f) => f.id == _feedId)) {
+          _feedId = feeds.firstOrNull?.id;
+          _scopeChatId = null;
+        }
+      });
+      _loadChannels();
     });
     widget.gateway.myChannels().then((channels) {
       if (!mounted) return;
@@ -117,6 +132,29 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   }
 
   static bool _isMatchAll(Expr e) => e is And && e.items.isEmpty;
+
+  /// The channels of the rule's feed, for the scope list and the dry run.
+  Future<void> _loadChannels() async {
+    final feed = _feedId;
+    if (feed == null) return;
+    final channels = await widget.db.watchSourceChannels(feed).first;
+    if (mounted && feed == _feedId) setState(() => _channels = channels);
+  }
+
+  void _setFeed(int? feed) {
+    if (feed == null || feed == _feedId) return;
+    setState(() {
+      _feedId = feed;
+      _scopeChatId = null;
+      _channels = const [];
+    });
+    _loadChannels();
+  }
+
+  /// What the rule's feed shows: the dry run tests only those posts, like the engine.
+  FeedFilter get _feedFilter => FeedFilter.decode(
+    _feeds.where((f) => f.id == _feedId).firstOrNull?.filterJson,
+  );
 
   /// How many posts a dry run of an AI rule sends to the model.
   static const _aiDryRunPosts = 8;
@@ -196,6 +234,15 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
           .showSnackBar(const SnackBar(content: Text('Give the rule a name.')));
       return;
     }
+    final feedId = _feedId;
+    if (feedId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A rule belongs to a feed: create one first.'),
+        ),
+      );
+      return;
+    }
     final cond = _condition();
     if (cond == null) return;
     if (_priority == 'urgent' && !await widget.policyGranted()) {
@@ -230,7 +277,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     final companion = RulesCompanion(
       name: Value(name),
       enabled: Value(_enabled),
-      scopeKind: Value(_scopeChatId == null ? 'global' : 'channel'),
+      feedId: Value(feedId),
       scopeChatId: Value(_scopeChatId),
       conditionJson: Value(jsonEncode(cond.toJson())),
       priority: Value(_priority),
@@ -244,7 +291,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
         RulesCompanion.insert(
           name: name,
           enabled: Value(_enabled),
-          scopeKind: _scopeChatId == null ? 'global' : 'channel',
+          feedId: feedId,
           scopeChatId: Value(_scopeChatId),
           conditionJson: jsonEncode(cond.toJson()),
           priority: _priority,
@@ -285,10 +332,12 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     }
   }
 
-  /// Dry run: evaluate the condition against the latest posts of the rule's channels.
+  /// Dry run: evaluate the condition against the latest posts of the rule's channels that
+  /// its feed shows.
   Future<void> _testOnRecent() async {
     final cond = _condition();
     if (cond == null) return;
+    final filter = _feedFilter;
     final chats = _scopeChatId != null
         ? [_scopeChatId!]
         : _channels.map((c) => c.chatId).take(10).toList();
@@ -299,7 +348,10 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     var scanned = 0;
     for (final chat in chats) {
       try {
-        final posts = await widget.gateway.history(chat, limit: 20);
+        final posts = [
+          for (final p in await widget.gateway.history(chat, limit: 20))
+            if (filter.mayShow(p)) p,
+        ];
         scanned += posts.length;
         hits.addAll(
           posts.where(
@@ -410,15 +462,35 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
             textInputAction: TextInputAction.next,
           ),
           const SizedBox(height: 12),
+          DropdownButtonFormField<int>(
+            key: ValueKey('feed-${_feeds.length}-$_feedId'),
+            initialValue: _feedId,
+            isExpanded: true,
+            decoration: InputDecoration(
+              labelText: 'Feed',
+              helperText: _feeds.isEmpty
+                  ? 'A rule belongs to a feed: create one first.'
+                  : null,
+            ),
+            items: [
+              for (final f in _feeds)
+                DropdownMenuItem<int>(value: f.id, child: Text(f.name)),
+            ],
+            onChanged: _setFeed,
+          ),
+          const SizedBox(height: 12),
           DropdownButtonFormField<int?>(
-            initialValue: _scopeChatId,
+            key: ValueKey('channels-$_feedId-${_channels.length}'),
+            initialValue: _channels.any((c) => c.chatId == _scopeChatId)
+                ? _scopeChatId
+                : null,
             // The items are rows with an avatar; they need the width of the field.
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'Channels'),
             items: [
               const DropdownMenuItem<int?>(
                 value: null,
-                child: Text('All channels in my feeds'),
+                child: Text('Every channel of the feed'),
               ),
               for (final c in _channels)
                 DropdownMenuItem<int?>(
@@ -435,18 +507,6 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                       Flexible(
                         child: Text(c.title, overflow: TextOverflow.ellipsis),
                       ),
-                      if (_feedTags[c.chatId] case final tags?
-                          when tags.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        // One line only here: the chips shrink rather than overflow.
-                        Flexible(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: FeedTags(names: tags),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),

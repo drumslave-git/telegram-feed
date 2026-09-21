@@ -23,7 +23,7 @@ It does not replace the official Telegram app. Chats, calls, stories and account
 | Read state | Telegram's own: one read position per channel, shared by every feed, the channel's own timeline and the official app. Reading, opening, the unread divider, the counters and the button to the newest posts work as in the official app. |
 | Media | Photos, video, voice and audio play in the app |
 | Interactions | Open in Telegram, share, copy link, react, comment, save to Saved Messages |
-| Rules | Boolean conditions (AND / OR / NOT, phrases, whole word, case sensitivity), scoped per channel or global, with optional schedules. Never per feed. AI semantic rules check a description in the user's words through an OpenAI-compatible endpoint the user configures. |
+| Rules | Every rule belongs to a feed and watches its channels, or one of them, as the feed shows them. Boolean conditions (AND / OR / NOT, phrases, whole word, case sensitivity), with optional schedules. AI semantic rules check a description in the user's words through an OpenAI-compatible endpoint the user configures. |
 | Rule text | Post text and media captions only. Forward origin, edits and link targets are not matched. |
 | Rule actions | Priority (silent, normal, urgent) and read-aloud |
 | Read aloud | Device text-to-speech with per-post language detection |
@@ -46,7 +46,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - A long press on a channel row offers to mark it read, open its info, or add it to one of my feeds.
 - I add channels to a feed from the channels I have joined, with a search box; I tick as many as I want and add them with one press. A checkbox hides the channels that are already in a feed, and the picker remembers it. Joining happens in the official app.
 - A channel can be in several feeds. Removing it from a feed does not leave the channel in Telegram.
-- I set what a feed shows: all posts, only posts with media or only text; which media types; videos from a minimum length; text posts from a minimum length. A post is shown whole: one picture or video that passes brings the rest of the album and its caption, unless the feed's "Show the whole post" box is off. Hidden posts are read along with the posts around them, and my rules stay quiet about them unless another feed with the same channel shows them.
+- I set what a feed shows: all posts, only posts with media or only text; which media types; videos from a minimum length; text posts from a minimum length. A post is shown whole: one picture or video that passes brings the rest of the album and its caption, unless the feed's "Show the whole post" box is off. Hidden posts are read along with the posts around them, and the feed's rules stay quiet about them.
 
 ### Reading
 
@@ -92,7 +92,8 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 
 ### Notification rules
 
-- A rule is scoped to one channel or to all channels in my feeds.
+- Every feed has rules of its own. A rule watches all channels of its feed, or one of them, and only the posts the feed shows. A channel that leaves the feed takes the feed's rules for it along; a deleted feed takes all of its rules.
+- I manage a feed's rules on the Rules tab of its info screen, which the feed's menu also opens. The Rules button of the home screen lists every rule under the name of its feed.
 - A rule's condition is built from terms combined with AND / OR / NOT. A term is a word or phrase with options: whole word, case sensitive.
 - A rule with an empty condition notifies about every post of its channels, including posts without text; the notification then says what the post is (a photo, a video, a file). It still takes a priority, a schedule and read-aloud.
 - A rule has a priority: silent (tray only), normal, urgent (breaks through Do Not Disturb where Android permits).
@@ -100,10 +101,10 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - A rule can request read-aloud.
 - A rule can have a schedule: active on selected weekdays between two times.
 - A rule can be switched off without deleting it.
-- A matching new post raises a notification that opens the post in its feed. When several rules match, the highest priority wins, and read-aloud happens if any matching rule asks for it.
+- A matching new post raises a notification that opens the post in the feed of the rule. When several rules match, the highest priority wins, and read-aloud happens if any matching rule asks for it.
 - Posts that match no rule raise no notification. The app does not replicate Telegram's own per-chat notifications.
 - Rules match post text and media captions. Edited posts are not matched again.
-- I test a rule against recent posts of a channel to see what it would have matched.
+- I test a rule against the recent posts of its channels to see what it would have matched.
 - Posts from the same channel collapse into one group whose "N new posts" counts only the ones still in the shade. A post deleted in Telegram takes its notification with it.
 
 ### Background watching
@@ -138,13 +139,13 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 
 1. **Login**: phone number, code, two-step password, new-account name, or QR-code login. States that the app reads the channels the account has joined.
 2. **Home**: search over all channels, Rules and Settings in the app bar; tabs Feeds (list of feeds with counts, and a button that creates one), one per folder, All channels.
-3. **Feed editor**, the feed's info screen: the ordered channels with the add-channel sheet and the filter row, and tabs with the shared media of all the feed's channels: Media, Files, Links, Music, Voice.
+3. **Feed editor**, the feed's info screen: the ordered channels with the add-channel sheet and the filter row, the feed's rules, and tabs with the shared media of all the feed's channels: Media, Files, Links, Music, Voice.
 4. **Timeline** of a feed or a channel: posts drawn like the official app, with full-width bubbles (coloured channel name and the channel's photo at the right end of that line, albums as a mosaic, formatted text, views and time in the corner, reactions, comments bar, link cards, day labels, the floating day), the "Unread posts" divider, and the button to the newest posts with the number of unread posts. A long press opens the post menu: reactions, Open in Telegram, Comments, Share, Copy text, Copy link, Save to Saved Messages, Select, and on video posts the autoplay and download settings.
 5. **Search** in a feed, a channel or all channels: results with channel, text and date, filter chips, recent queries, a calendar.
 6. **Channel info**, opened from the channel's title: photo (a tap opens it full screen), name, subscribers, description, link, QR code, similar channels (a tap opens one in the official app), and the shared media tabs. No mute and no leave.
 7. **Comments** of a post: the post on top, comments as bubbles, a reply field and a search.
 8. **Media viewer**: photos and videos full screen, with the mini player and picture-in-picture.
-9. **Rules list** and **rule editor** (visual builder and text form, scope, priority, read-aloud, schedule, AI description, dry run).
+9. **Rules list**, every rule under the name of its feed, and **rule editor** (feed and channels, visual builder and text form, priority, read-aloud, schedule, AI description, dry run).
 10. **Settings**, laid out like the official app's: the account profile (photo, name, username, phone, bio, Telegram ID), Accounts, Saved Messages; Chat settings (post text size, theme); Privacy and security (app lock); Notifications and sounds (rule sounds and vibration, badge counting, background watching, a row that opens Android's notification settings); Data and storage (storage usage and cache clearing, automatic downloads per connection, autoplay); Read aloud; AI rules; Google Drive sync; About and licenses, with the version at the bottom. Log out is in the menu.
 
 ## 5. Out of scope
@@ -153,7 +154,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - Stories, calls, secret chats, Telegram Premium features.
 - Joining or leaving channels, adding channels the account has not joined, editing Telegram's chat folders, muting a channel (rules take that place).
 - Server-side session storage. The app never uploads the Telegram session.
-- Algorithmic ranking of the feed. Per-feed rules.
+- Algorithmic ranking of the feed.
 - Polls, quizzes, giveaways, invoices and paid media; they show as unsupported content.
 - Selecting part of a post's text (the whole text can be copied).
 - Translating posts, transcribing voice messages, voice-message waveforms.

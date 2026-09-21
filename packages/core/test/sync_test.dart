@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:drift/native.dart';
@@ -33,10 +35,16 @@ final class Device {
       f.name: [for (final s in await db.sourcesOf(f.id)) s.chatId],
   };
 
-  Future<Rule> addRule(String name, {String term = 'x'}) => db.insertRule(
+  Future<Rule> addRule(
+    String name, {
+    required int feed,
+    String term = 'x',
+    int? chat,
+  }) => db.insertRule(
     RulesCompanion.insert(
       name: name,
-      scopeKind: 'global',
+      feedId: feed,
+      scopeChatId: Value(chat),
       conditionJson: '{"term":"$term"}',
       priority: 'normal',
       createdAt: clock(),
@@ -68,7 +76,7 @@ void main() {
       final feed = await phone.db.createFeed('News');
       await phone.db.addSource(feed.id, -1, title: 'One', username: 'one');
       await phone.db.addSource(feed.id, -2, title: 'Two');
-      await phone.addRule('rates');
+      await phone.addRule('rates', feed: feed.id, chat: -2);
       await phone.db.setSetting(SettingKeys.themeMode, 'dark');
       await phone.db.setSetting('ai.lastError', 'local only');
       final first = await phone.sync();
@@ -85,7 +93,11 @@ void main() {
         'one',
         null,
       });
-      expect((await tablet.db.allRules()).single.name, 'rates');
+      // The rule belongs to the tablet's copy of the feed, which has an id of its own.
+      final rule = (await tablet.db.allRules()).single;
+      expect(rule.name, 'rates');
+      expect(rule.feedId, (await tablet.db.allFeeds()).single.id);
+      expect(rule.scopeChatId, -2);
       expect(await tablet.db.setting(SettingKeys.themeMode), 'dark');
       expect(await tablet.db.setting('ai.lastError'), isNull);
 
@@ -98,7 +110,7 @@ void main() {
 
   test('edits to different items on two devices both survive', () async {
     final feed = await phone.db.createFeed('News');
-    await phone.addRule('rates');
+    await phone.addRule('rates', feed: feed.id);
     await phone.sync();
     await tablet.sync();
 
@@ -147,8 +159,8 @@ void main() {
     'deletions propagate, and an edit made after the deletion revives',
     () async {
       final a = await phone.db.createFeed('A');
-      await phone.db.createFeed('B');
-      final rule = await phone.addRule('r');
+      final b = await phone.db.createFeed('B');
+      final rule = await phone.addRule('r', feed: b.id);
       await phone.sync();
       await tablet.sync();
 
@@ -208,7 +220,7 @@ void main() {
 
       store.content = 'not json';
       await expectLater(phone.sync(), throwsA(isA<SyncException>()));
-      store.content = '{"version": 99}';
+      store.content = '{"version": ${SyncSnapshot.formatVersion + 1}}';
       await expectLater(
         phone.sync(),
         throwsA(
@@ -221,6 +233,35 @@ void main() {
       );
     },
   );
+
+  test('a deleted feed takes its rules along on the other device', () async {
+    final feed = await phone.db.createFeed('News');
+    await phone.addRule('rates', feed: feed.id);
+    await phone.sync();
+    await tablet.sync();
+    expect(await tablet.db.allRules(), hasLength(1));
+
+    tick();
+    await phone.db.deleteFeed(feed.id);
+    await phone.sync();
+    await tablet.sync();
+    expect(await tablet.db.allFeeds(), isEmpty);
+    expect(await tablet.db.allRules(), isEmpty);
+  });
+
+  test('a file of the first format is read without its rules', () async {
+    store.content =
+        '{"version":1,"feeds":[{"id":"f1","name":"Old","position":0,'
+        '"updatedAt":1,"sources":[]}],"rules":[{"id":"r1","updatedAt":1,'
+        '"name":"global","scopeKind":"global","conditionJson":"{}",'
+        '"priority":"normal"}],"settings":[],"tombstones":[]}';
+    await phone.sync();
+    expect((await phone.db.allFeeds()).single.name, 'Old');
+    expect(await phone.db.allRules(), isEmpty);
+    final written = SyncSnapshot.decode(store.content!);
+    expect(written.rules, isEmpty);
+    expect(jsonDecode(store.content!)['version'], SyncSnapshot.formatVersion);
+  });
 
   test('only whitelisted settings travel', () {
     expect(isSyncedSetting('themeMode'), isTrue);
