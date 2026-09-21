@@ -20,6 +20,20 @@ class NotificationsScreen extends StatelessWidget {
         const SettingsHeader('Rule notifications'),
         NotificationSoundSettings(db: db),
         const Divider(),
+        const SettingsHeader('Badge counter'),
+        StreamBuilder<String?>(
+          stream: db.watchSetting(SettingKeys.countUnreadPosts),
+          builder: (context, snap) => SwitchListTile(
+            title: const Text('Count unread posts'),
+            value: snap.data != 'false',
+            onChanged: (v) => db.setSetting(SettingKeys.countUnreadPosts, '$v'),
+          ),
+        ),
+        const SettingsFooter(
+          'The badges of the feeds and of the folder tabs count the unread posts. Off, '
+          'they count the channels that have unread posts.',
+        ),
+        const Divider(),
         const SettingsHeader('Background'),
         StreamBuilder<String?>(
           stream: db.watchSetting(SettingKeys.backgroundWatching),

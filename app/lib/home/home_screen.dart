@@ -588,38 +588,47 @@ class _HomeScreenState extends State<HomeScreen>
               },
               itemBuilder: (context, i) {
                 final f = feeds[i];
-                final fresh = _feeds.newSourcesOf(f.id);
+                // Posts or channels, as the Badge counter switch says (J-1); the line
+                // under the name always names the channels.
+                final unread = _feeds.unreadOf(f.id);
+                final fresh = _feeds.unreadChannelsOf(f.id);
                 return ListTile(
                   key: ValueKey(f.id),
                   title: Text(f.name),
-                  leading: fresh > 0
-                      ? Badge.count(
-                          count: fresh,
-                          child: const Icon(Icons.rss_feed),
-                        )
-                      : const Icon(Icons.rss_feed),
+                  leading: const Icon(Icons.rss_feed),
                   subtitle: fresh > 0
                       ? Text(
                           '$fresh channel${fresh == 1 ? '' : 's'} with new posts',
                         )
                       : null,
                   onTap: () => _openFeed(f),
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (v) => switch (v) {
-                      'channels' => _editFeed(f.id),
-                      'rename' => _renameFeed(f),
-                      'read' => _markFeedRead(f),
-                      'delete' => _deleteFeed(f),
-                      _ => null,
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(value: 'channels', child: Text('Channels')),
-                      PopupMenuItem(value: 'rename', child: Text('Rename')),
-                      PopupMenuItem(
-                        value: 'read',
-                        child: Text('Mark all read'),
+                  // The counter on the right of the row, as the official app has it in
+                  // its chat list: a long number never runs into the name.
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (unread > 0) Badge.count(count: unread),
+                      PopupMenuButton<String>(
+                        onSelected: (v) => switch (v) {
+                          'channels' => _editFeed(f.id),
+                          'rename' => _renameFeed(f),
+                          'read' => _markFeedRead(f),
+                          'delete' => _deleteFeed(f),
+                          _ => null,
+                        },
+                        itemBuilder: (context) => const [
+                          PopupMenuItem(
+                            value: 'channels',
+                            child: Text('Channels'),
+                          ),
+                          PopupMenuItem(value: 'rename', child: Text('Rename')),
+                          PopupMenuItem(
+                            value: 'read',
+                            child: Text('Mark all read'),
+                          ),
+                          PopupMenuItem(value: 'delete', child: Text('Delete')),
+                        ],
                       ),
-                      PopupMenuItem(value: 'delete', child: Text('Delete')),
                     ],
                   ),
                 );
@@ -692,14 +701,19 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  /// Channels of the folder with posts the account has not read, the way Telegram counts
-  /// unread chats on its own folder tabs.
+  /// What the folder's tab counts, from Telegram's own counter of each channel: its
+  /// unread posts together, or the channels that have any, as the Badge counter switch
+  /// says (J-1) — the two ways the official app counts on its tabs.
   int _unreadInFolder(ChatFolder folder) {
-    final unread = {
-      for (final c in _channels)
-        if (c.unreadCount > 0) c.chatId,
-    };
-    return folder.channelIds.where(unread.contains).length;
+    final inFolder = folder.channelIds.toSet();
+    var channels = 0;
+    var posts = 0;
+    for (final c in _channels) {
+      if (c.unreadCount <= 0 || !inFolder.contains(c.chatId)) continue;
+      channels++;
+      posts += c.unreadCount;
+    }
+    return _feeds.countPosts ? posts : channels;
   }
 
   /// The channels the account archived in Telegram, behind a row of their own at the top of
@@ -794,9 +808,7 @@ class _HomeScreenState extends State<HomeScreen>
                     ListenableBuilder(
                       listenable: _feeds,
                       builder: (context, _) {
-                        final fresh = _feeds.feeds
-                            .where((f) => _feeds.newSourcesOf(f.id) > 0)
-                            .length;
+                        final fresh = _feeds.unreadOnTab;
                         return Tab(
                           child: _tabLabel(
                             Row(
@@ -820,20 +832,25 @@ class _HomeScreenState extends State<HomeScreen>
                         onLongPressStart: (d) =>
                             _folderMenu(f, d.globalPosition),
                         child: Tab(
-                          child: _tabLabel(
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(f.title),
-                                if (_unreadInFolder(f) > 0)
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 6),
-                                    child: Badge.count(
-                                      count: _unreadInFolder(f),
-                                    ),
-                                  ),
-                              ],
-                            ),
+                          // The switch of the Badge counter lives in the feeds' controller.
+                          child: ListenableBuilder(
+                            listenable: _feeds,
+                            builder: (context, _) {
+                              final unread = _unreadInFolder(f);
+                              return _tabLabel(
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(f.title),
+                                    if (unread > 0)
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 6),
+                                        child: Badge.count(count: unread),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),

@@ -197,7 +197,8 @@ void main() {
       expect(find.textContaining('with new posts'), findsNothing);
       expect(onFeedsTab, findsNothing);
 
-      gw.posts.add(PostAdded(post(-2, 201, 'x')));
+      // A post that comes in: it is in the channel's history too, as in TDLib.
+      gw.arrive(post(-2, 201, 'x'));
       await settle(tester);
       expect(find.text('1 channel with new posts'), findsOneWidget);
       await unmount(tester);
@@ -235,7 +236,10 @@ void main() {
       ];
       expect(titles, ['Two', 'One']);
       expect(find.text('two-post'), findsOneWidget);
-      expect(find.text('7'), findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(ChannelTile), matching: find.text('7')),
+        findsOneWidget,
+      );
 
       await tester.tap(find.text('Two'));
       await tester.pumpAndSettle();
@@ -347,9 +351,8 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a folder tab counts the channels with unread posts', (
-    tester,
-  ) async {
+  testWidgets('a folder tab counts the unread posts, or the channels with '
+      'unread posts when the switch is off', (tester) async {
     await tester.pumpWidget(app());
     await settle(tester);
     // The folder holds Two (7 unread) and One (fully read).
@@ -359,11 +362,61 @@ void main() {
     );
     expect(onFolder, findsOneWidget);
     expect(
+      find.descendant(of: onFolder, matching: find.text('7')),
+      findsOneWidget,
+    );
+
+    await tester.runAsync(
+      () => db.setSetting(SettingKeys.countUnreadPosts, 'false'),
+    );
+    await settle(tester);
+    expect(
       find.descendant(of: onFolder, matching: find.text('1')),
       findsOneWidget,
     );
     await unmount(tester);
   });
+
+  testWidgets(
+    'a feed counts its unread posts, the line under it its channels',
+    (tester) async {
+      gw.histories[-2] = [
+        post(-2, 203, 'c'),
+        post(-2, 202, 'b'),
+        post(-2, 201, 'a'),
+        post(-2, 200, 'two-post'),
+      ];
+      await tester.runAsync(() async {
+        final f = await db.createFeed('News');
+        await db.addSource(f.id, -2, title: 'Two');
+        await db.markRead(f.id, -2, 200);
+      });
+      await tester.pumpWidget(app());
+      await settle(tester);
+      // The channel list said 200 was the newest post; the history has three after it.
+      gw.arrive(post(-2, 204, 'd'));
+      await settle(tester);
+      final onFeed = find.descendant(
+        of: find.widgetWithText(ListTile, 'News'),
+        matching: find.byType(Badge),
+      );
+      expect(
+        find.descendant(of: onFeed, matching: find.text('4')),
+        findsOneWidget,
+      );
+      expect(find.text('1 channel with new posts'), findsOneWidget);
+
+      await tester.runAsync(
+        () => db.setSetting(SettingKeys.countUnreadPosts, 'false'),
+      );
+      await settle(tester);
+      expect(
+        find.descendant(of: onFeed, matching: find.text('1')),
+        findsOneWidget,
+      );
+      await unmount(tester);
+    },
+  );
 
   testWidgets('All channels carries the Archive, which lists what is in it', (
     tester,

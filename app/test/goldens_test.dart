@@ -110,8 +110,9 @@ void main() {
       await db.markRead(a.id, -1, 100);
       await db.createFeed('Sports');
     });
+    // Beta Daily has three posts past Tech's mark: the feed's counter says 3 (J-1).
     final gw = TimelineGateway(
-      {},
+      {-2: fixtureHistory(-2, from: 198, to: 200)},
       channels: const [
         Channel(
           chatId: -1,

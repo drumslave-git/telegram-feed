@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 8 (founder, 2026-09-21); rounds 1 to 7 and P4-1, P4-2 are closed. **Next task:** J-1 feed unread count in posts or channels.
+**Current phase:** feedback round 8 (founder, 2026-09-21) is closed, with rounds 1 to 7 and P4-1, P4-2. **Next task:** none open; round 8 is closed. Waiting for the founder's next round.
 
 ## Phase 0 — Spikes
 
@@ -484,9 +484,28 @@ screen under the automatic downloads, as the official app had them before Power 
   itself`), two larger ones get their first 2 MB (`first 2097152 B loaded ahead`), a video in
   an album cell autoplays muted, photos load; the three rows show Telegram's summaries, the
   mobile-data screen shows the Low / Medium / High slider and the Videos sheet its limit and
-  "Preload larger videos".
-- [ ] J-1 The feed unread count shows posts or channels, chosen by the switch above; the
-  folder tabs follow it.
+  "Preload larger videos". (a6b5c66)
+- [x] J-1 The feed unread count shows posts or channels, chosen by the switch above; the
+  folder tabs follow it. Notifications and sounds has a Badge counter section with "Count
+  unread posts" (`badge.countPosts`, synced, on by default). `FeedsController` counts per
+  source the posts newer than the feed's mark as its timeline shows them — an album is one
+  post, what the feed's filter hides is none — from `history`, newest first in pages of 100
+  down to the mark, up to 1 000 per source ("999+"), all sources at once (paging up from the
+  mark with `historyAfter` counted nothing for a channel never read: TDLib pages newer posts
+  only from a message that exists, and a mark of 0 is none); reading drops what it passed without asking
+  again, an arriving post is added, a deleted one is taken out, and the channel count of a
+  feed comes at once, so the line under the name never waits and the row never grows. The
+  feed row's counter, now on the right of the row as in the official chat list (a three-digit
+  count on the icon ran into the name), shows posts or channels and the line under it names the
+  channels; the Feeds tab adds
+  up the feeds' posts, or counts the feeds with any; a folder tab adds up Telegram's own
+  counters of its channels, or counts the channels with any.
+  Verified on the emulator (2026-09-21, spare account; only the feeds list and settings were
+  captured): NewsFeed counts 86 posts in 3 channels and News2 999+ in 12, the Feeds tab 999+
+  and the folder tabs 154 and 27; with the switch off the same rows say 3 and 12, the Feeds
+  tab 2 (feeds with news) and the folder tabs 3 and 5. The first build counted nothing for a
+  News2 channel never read (mark 0), which the newest-first fill fixed. The home golden was
+  regenerated, its fixture now with three posts past the Tech feed's mark.
 
 ## Phase 4 — Extras
 

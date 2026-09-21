@@ -210,6 +210,23 @@ void main() {
     await tester.pumpWidget(app(NotificationsScreen(db: db)));
     await settle(tester);
     expect(find.text('Normal rules: sound'), findsOneWidget);
+    // The badges count posts until the switch says channels (J-1).
+    final countPosts = find.widgetWithText(
+      SwitchListTile,
+      'Count unread posts',
+    );
+    await tester.scrollUntilVisible(
+      countPosts,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(tester.widget<SwitchListTile>(countPosts).value, isTrue);
+    await tester.tap(countPosts);
+    await settle(tester);
+    await tester.runAsync(
+      () async =>
+          expect(await db.setting(SettingKeys.countUnreadPosts), 'false'),
+    );
     final background = find.widgetWithText(
       SwitchListTile,
       'Watch channels in the background',

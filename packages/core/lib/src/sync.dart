@@ -30,6 +30,7 @@ final class SyncException implements Exception {
 bool isSyncedSetting(String key) =>
     key == SettingKeys.themeMode ||
     key == SettingKeys.syncReadToTelegram ||
+    key == SettingKeys.countUnreadPosts ||
     key.startsWith('tts.') ||
     key.startsWith('media.') ||
     key == 'ai.baseUrl' ||

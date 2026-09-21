@@ -150,6 +150,11 @@ abstract final class SettingKeys {
   static const normalVibrate = 'notifications.normal.vibrate';
   static const urgentVibrate = 'notifications.urgent.vibrate';
 
+  /// The badges of the feeds and of the folder tabs count unread posts; 'false' counts the
+  /// channels with unread posts instead, as the official app's "Count unread messages"
+  /// does. Default true.
+  static const countUnreadPosts = 'badge.countPosts';
+
   /// The last words searched for, newest first, as a JSON list of strings.
   static const recentSearches = 'search.recent';
 

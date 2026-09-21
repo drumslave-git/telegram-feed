@@ -269,18 +269,25 @@ final class TimelineGateway extends ChannelsGateway {
     return 0;
   }
 
+  /// How often the posts after a mark were asked for: what counting unread posts costs.
+  var historyAfterCalls = 0;
+
   @override
   Future<List<Post>> historyAfter(
     int chatId, {
     required int afterMessageId,
     int limit = 30,
   }) async {
+    historyAfterCalls++;
     final newer = [
       for (final p in histories[chatId] ?? const <Post>[])
         if (p.messageId > afterMessageId) p,
     ];
     return newer.sublist(newer.length > limit ? newer.length - limit : 0);
   }
+
+  /// How often a page of older posts was asked for.
+  var historyCalls = 0;
 
   @override
   Future<List<Post>> history(
@@ -289,6 +296,7 @@ final class TimelineGateway extends ChannelsGateway {
     int limit = 30,
     bool onlyLocal = false,
   }) async {
+    historyCalls++;
     final all = histories[chatId] ?? const <Post>[];
     return (fromMessageId == 0
             ? all
