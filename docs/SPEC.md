@@ -10,7 +10,7 @@ It does not replace the official Telegram app. Chats, calls, stories and account
 
 | Topic | Decision |
 |---|---|
-| Name | `telegram-feed` until a public release |
+| Name | "Unofficial Telegram Feed" in the app and its notifications, "TG Feed" under the launcher icon: Telegram's API terms allow "Telegram" in an app's title only after "Unofficial". The repository and the package are `telegram-feed`. |
 | Platform | Android only. iOS cannot run a persistent background service, so real-time on-device rule notifications are impossible there. No web build. |
 | Telegram access | User account through TDLib (MTProto). The session lives on the device. Up to four accounts per device, each with its own session, feeds and rules. |
 | UI framework | Flutter |

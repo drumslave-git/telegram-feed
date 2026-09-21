@@ -64,12 +64,12 @@ void main() {
     );
     await settle(tester);
     // Ready: the name of the app alone.
-    expect(find.text('telegram-feed'), findsOneWidget);
+    expect(find.text('Unofficial Telegram Feed'), findsOneWidget);
     expect(find.textContaining('Connecting'), findsNothing);
 
     gw.connectionStatus.add(ConnectionStatus.connecting);
     await settle(tester);
-    expect(find.text('telegram-feed'), findsOneWidget);
+    expect(find.text('Unofficial Telegram Feed'), findsOneWidget);
     expect(find.textContaining('Connecting'), findsOneWidget);
 
     gw.connectionStatus.add(ConnectionStatus.ready);

@@ -241,7 +241,7 @@ Search, date jumps and shared media run over all of a feed's sources as one merg
 
 The viewer (`MediaViewerScreen`) pages through every picture and video the timeline holds, not only one post's album. The card asks the timeline for its media (`_viewerMedia`, newest first, the feed's filter already applied because it walks the loaded rows) and opens at the tapped one. Two pages from the older end it calls `onNeedOlder`, which pages the timeline and hands the list back grown; a list that does not grow is the end. A `ViewerDetail` per item carries the channel, the day and the caption, which the top bar and the band at the bottom show. The viewer's Share and Save to Saved Messages act on the post the picture belongs to (`onShare`, `onSave` by index).
 
-"Save to gallery" goes through the `tf/gallery` method channel: the Kotlin side inserts the file into `MediaStore` under `Pictures/telegram-feed` or `Movies/telegram-feed` (no permission needed for the app's own file on Android 10 and later) and answers with its uri. The file is downloaded first when the cache does not have it.
+"Save to gallery" goes through the `tf/gallery` method channel: the Kotlin side inserts the file into `MediaStore` under `Pictures/TG Feed` or `Movies/TG Feed` (no permission needed for the app's own file on Android 10 and later) and answers with its uri. The file is downloaded first when the cache does not have it.
 
 ### 5.14 Automatic downloads and autoplay
 

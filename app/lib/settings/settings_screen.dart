@@ -21,6 +21,7 @@ import 'notifications_screen.dart';
 import 'privacy_screen.dart';
 import 'read_aloud_screen.dart';
 import 'settings_tiles.dart';
+import '../app_name.dart';
 
 /// The profile and one row per screen of settings, as the official app lays out its
 /// Settings: the Telegram groups first, the app's own screens after them, About last.
@@ -50,7 +51,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   late Future<UserInfo> _me = widget.gateway.me();
 
-  /// "telegram-feed for Android v0.1.0 (1)" under the list, as the official app signs its
+  /// "Unofficial Telegram Feed for Android v0.1.0 (1)" under the list, as the official app signs its
   /// Settings; nothing where the platform cannot say (tests).
   final Future<String?> _version = PackageInfo.fromPlatform()
       .then<String?>((i) => 'v${i.version} (${i.buildNumber})')
@@ -194,7 +195,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SettingsHeader('About'),
           SettingsLink(
             icon: Icons.info_outline,
-            title: 'About telegram-feed',
+            title: 'About $appName',
             onTap: () => unawaited(_about(context)),
           ),
           SettingsLink(
@@ -202,7 +203,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: 'Open-source licenses',
             onTap: () => showLicensePage(
               context: context,
-              applicationName: 'telegram-feed',
+              applicationName: appName,
               applicationLegalese: 'GPL-3.0',
             ),
           ),
@@ -212,8 +213,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               child: Text(
                 snap.data == null
-                    ? 'telegram-feed for Android'
-                    : 'telegram-feed for Android ${snap.data}',
+                    ? '$appName for Android'
+                    : '$appName for Android ${snap.data}',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -229,7 +230,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _about(BuildContext context) => showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('telegram-feed'),
+      title: const Text(appName),
       content: const Text(
         'Free software under the GNU GPL v3. Reads your joined channels; nothing leaves the '
         'device except Telegram traffic and, if you create AI rules, the posts those rules '

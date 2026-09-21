@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 
 /// Copies a picture or a video the app has in Telegram's cache into the phone's own gallery
-/// (`Pictures/telegram-feed` or `Movies/telegram-feed`), which is what the official app's
+/// (`Pictures/TG Feed` or `Movies/TG Feed`), which is what the official app's
 /// "Save to gallery" does. MediaStore needs no permission for a file the app writes itself
 /// on Android 10 and later, the oldest version this app runs on.
 class Gallery {

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../app_name.dart';
+
 /// Shows the screen for the current [AuthState] and [child] once logged in.
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key, required this.gateway, required this.child});
@@ -172,7 +174,7 @@ class PhoneScreen extends StatelessWidget {
     return _StepForm(
       title: 'Log in to Telegram',
       explanation:
-          'telegram-feed reads the channels your Telegram account has joined. '
+          '$appName reads the channels your Telegram account has joined. '
           'Enter the phone number of that account in international format.',
       label: 'Phone number',
       action: 'Send code',

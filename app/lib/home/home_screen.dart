@@ -13,6 +13,7 @@ import '../feeds/timeline_screen.dart';
 import 'channel_info_screen.dart';
 import 'connection_title.dart';
 import 'channel_list.dart';
+import '../app_name.dart';
 
 /// The main screen: `+`, the "Feeds" tab (list of feeds), one tab per Telegram folder (its
 /// channels), and "All channels". Feeds and channels open as timelines of their own.
@@ -784,7 +785,12 @@ class _HomeScreenState extends State<HomeScreen>
       appBar: AppBar(
         title: ConnectionTitle(
           gateway: widget.gateway,
-          title: const Text('telegram-feed'),
+          // The whole name, made smaller on a narrow phone rather than cut off.
+          title: const FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(appName),
+          ),
         ),
         actions: [
           IconButton(

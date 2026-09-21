@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 
+import '../app_name.dart';
+
 /// Where the hash of the PIN is kept. The app uses the keystore, tests a map of their own.
 abstract interface class PinStore {
   Future<String?> read();
@@ -203,7 +205,7 @@ class _LockScreenState extends State<LockScreen> {
     final auth = widget.auth ?? LocalAuthentication();
     try {
       final ok = await auth.authenticate(
-        localizedReason: 'Unlock telegram-feed',
+        localizedReason: 'Unlock $appName',
         persistAcrossBackgrounding: true,
       );
       if (ok && mounted) widget.onUnlocked();
@@ -235,7 +237,7 @@ class _LockScreenState extends State<LockScreen> {
           children: [
             const Icon(Icons.lock_outline, size: 48),
             const SizedBox(height: 16),
-            const Text('telegram-feed is locked'),
+            const Text('$appName is locked'),
             const SizedBox(height: 16),
             TextField(
               controller: _pin,

@@ -83,7 +83,7 @@ void main() {
       }
     });
 
-    expect(find.text('telegram-feed is locked'), findsOneWidget);
+    expect(find.text('Unofficial Telegram Feed is locked'), findsOneWidget);
     // The feed is behind the lock, not on top of it.
     expect(find.text('Unlock'), findsOneWidget);
 
@@ -105,7 +105,7 @@ void main() {
         await tester.pump();
       }
     });
-    expect(find.text('telegram-feed is locked'), findsNothing);
+    expect(find.text('Unofficial Telegram Feed is locked'), findsNothing);
     expect(find.text('the feed'), findsOneWidget);
   });
 
@@ -126,7 +126,7 @@ void main() {
       }
     });
     expect(find.text('the feed'), findsOneWidget);
-    expect(find.text('telegram-feed is locked'), findsNothing);
+    expect(find.text('Unofficial Telegram Feed is locked'), findsNothing);
   });
 
   testWidgets('the settings set a PIN, a timeout and the device check', (

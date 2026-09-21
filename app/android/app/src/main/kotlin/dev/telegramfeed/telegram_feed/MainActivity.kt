@@ -160,7 +160,7 @@ class MainActivity : FlutterActivity() {
             cm.activeNetworkInfo?.isRoaming == true
         }
 
-    /** Copies the file into Pictures/telegram-feed (or Movies) and answers with its uri. */
+    /** Copies the file into Pictures/TG Feed (or Movies) and answers with its uri. */
     private fun saveToGallery(file: File, name: String, mime: String): String {
         val video = mime.startsWith("video")
         val collection = if (video) {
@@ -172,7 +172,7 @@ class MainActivity : FlutterActivity() {
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, name)
             put(MediaStore.MediaColumns.MIME_TYPE, mime)
-            put(MediaStore.MediaColumns.RELATIVE_PATH, "$folder/telegram-feed")
+            put(MediaStore.MediaColumns.RELATIVE_PATH, "$folder/TG Feed")
             put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
         val uri = contentResolver.insert(collection, values)

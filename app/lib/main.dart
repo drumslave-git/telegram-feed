@@ -14,6 +14,7 @@ import 'notifications/open_post.dart';
 import 'rules/rules_screen.dart';
 import 'settings/app_lock.dart';
 import 'settings/settings_screen.dart';
+import 'app_name.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,7 +65,7 @@ class _TelegramFeedAppState extends State<TelegramFeedApp> {
         stream: snap.data?.db.watchSetting(SettingKeys.themeMode),
         builder: (context, mode) => MaterialApp(
           navigatorKey: navigatorKey,
-          title: 'telegram-feed',
+          title: appName,
           theme: ThemeData(
             colorSchemeSeed: Colors.blue,
             useMaterial3: true,

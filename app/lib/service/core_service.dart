@@ -18,6 +18,7 @@ import '../credentials.dart';
 import '../host/accounts.dart';
 import 'notifier.dart';
 import 'tts_service.dart';
+import '../app_name.dart';
 
 /// Paths shared by the UI host and the service host. Each account has its own TDLib
 /// database and its own app database (H-35); account 1 keeps the paths the app has always
@@ -107,7 +108,7 @@ Future<bool> startCoreService() async {
   final r = await FlutterForegroundTask.startService(
     serviceId: coreServiceId,
     serviceTypes: [ForegroundServiceTypes.specialUse],
-    notificationTitle: 'telegram-feed',
+    notificationTitle: appName,
     notificationText: 'Starting…',
     notificationIcon: const NotificationIcon(metaDataName: serviceIconMetaData),
     notificationButtons: const [
@@ -280,7 +281,7 @@ class CoreServiceHandler extends TaskHandler {
     await _reloadTitles();
     final n = _titles.length;
     await FlutterForegroundTask.updateService(
-      notificationTitle: 'telegram-feed',
+      notificationTitle: appName,
       notificationText: _paused
           ? 'Paused: rules are not evaluated'
           : 'Watching $n channel${n == 1 ? '' : 's'}',

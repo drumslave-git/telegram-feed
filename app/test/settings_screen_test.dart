@@ -117,7 +117,7 @@ void main() {
       'Data and storage',
       'Read aloud',
       'AI rules',
-      'About telegram-feed',
+      'About Unofficial Telegram Feed',
       'Open-source licenses',
     ]) {
       await tester.scrollUntilVisible(
@@ -130,7 +130,7 @@ void main() {
     expect(find.byType(SwitchListTile), findsNothing);
     expect(find.byType(Slider), findsNothing);
     // The official app signs its list; tests have no platform to ask for the version.
-    expect(find.text('telegram-feed for Android'), findsOneWidget);
+    expect(find.text('Unofficial Telegram Feed for Android'), findsOneWidget);
     await unmount(tester);
   });
 
