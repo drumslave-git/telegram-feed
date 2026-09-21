@@ -68,36 +68,12 @@ class MainActivity : FlutterActivity() {
                             startActivityForResult(intent, SOUND_PICK_REQUEST)
                         }
                     }
-                    // Whether one channel's notifications show: null while the channel does
-                    // not exist yet, false when the user turned it, or all of the app's
-                    // notifications, off in Android's settings.
-                    "channelShown" -> {
-                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-                            result.error("unsupported", "no channels before Android 8", null)
-                            return@setMethodCallHandler
-                        }
-                        val channel = call.argument<String>("channel")
-                            ?.let { nm.getNotificationChannel(it) }
-                        result.success(
-                            channel?.let {
-                                nm.areNotificationsEnabled() &&
-                                    it.importance != NotificationManager.IMPORTANCE_NONE
-                            },
-                        )
-                    }
-                    // Android's settings page of one channel, where the user can turn it off.
-                    "openChannelSettings" -> {
-                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-                            result.error("unsupported", "no channels before Android 8", null)
-                            return@setMethodCallHandler
-                        }
+                    // Android's settings page of the app's notifications, where each channel,
+                    // the foreground service's included, can be turned off.
+                    "openAppSettings" -> {
                         startActivity(
-                            Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
-                                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                                .putExtra(
-                                    Settings.EXTRA_CHANNEL_ID,
-                                    call.argument<String>("channel"),
-                                ),
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName),
                         )
                         result.success(null)
                     }

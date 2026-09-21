@@ -109,7 +109,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 
 - While the app watches channels for me it keeps a permanent "Watching N channels" notification with a Pause action. That is what lets rules notify me when the app is closed.
 - That notification makes no sound. Whether it has a status-bar icon, and where it sits in the shade, depends on the phone.
-- I can hide it: Notifications and sounds shows whether it is visible and opens Android's settings for it. Hidden, it leaves the shade and the status bar, and watching goes on.
+- Notifications and sounds has a row that opens Android's notification settings of the app, where I can turn that notification off. Watching goes on without it.
 - I can turn background watching off. The permanent notification then goes away and rules only notify me while the app is open. The choice applies at the next start of the app and stays on this device.
 
 ### Read aloud
@@ -144,7 +144,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 7. **Comments** of a post: the post on top, comments as bubbles, a reply field and a search.
 8. **Media viewer**: photos and videos full screen, with the mini player and picture-in-picture.
 9. **Rules list** and **rule editor** (visual builder and text form, scope, priority, read-aloud, schedule, AI description, dry run).
-10. **Settings**, laid out like the official app's: the account profile (photo, name, username, phone, bio, Telegram ID), Accounts, Saved Messages; Chat settings (post text size, theme); Privacy and security (app lock, read sync); Notifications and sounds (rule sounds and vibration, badge counting, background watching, the watching notification); Data and storage (storage usage and cache clearing, automatic downloads per connection, autoplay); Read aloud; AI rules; Google Drive sync; About and licenses, with the version at the bottom. Log out is in the menu.
+10. **Settings**, laid out like the official app's: the account profile (photo, name, username, phone, bio, Telegram ID), Accounts, Saved Messages; Chat settings (post text size, theme); Privacy and security (app lock, read sync); Notifications and sounds (rule sounds and vibration, badge counting, background watching, a row that opens Android's notification settings); Data and storage (storage usage and cache clearing, automatic downloads per connection, autoplay); Read aloud; AI rules; Google Drive sync; About and licenses, with the version at the bottom. Log out is in the menu.
 
 ## 5. Out of scope
 

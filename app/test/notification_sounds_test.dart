@@ -88,16 +88,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  testWidgets('the watching notification row reads its channel and opens it', (
+  testWidgets("one row opens Android's notification settings of the app", (
     tester,
   ) async {
-    const channel = MethodChannel('tf/notifications-watching');
-    final calls = <Map<Object?, Object?>>[];
-    bool? shown = true;
+    const channel = MethodChannel('tf/notifications-system');
+    final calls = <String>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-          calls.add({'method': call.method, ...call.arguments as Map});
-          return call.method == 'channelShown' ? shown : null;
+          calls.add(call.method);
+          return null;
         });
     addTearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -106,45 +105,32 @@ void main() {
 
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(body: WatchingNotificationRow(channel: channel)),
+        home: Scaffold(body: SystemNotificationSettingsRow(channel: channel)),
       ),
     );
+    await tester.tap(find.text('System notification settings'));
     await tester.pump();
-    expect(find.text("Shown. Tap to hide it in Android's settings"), findsOne);
-    expect(calls.single, {'method': 'channelShown', 'channel': 'core'});
-
-    await tester.tap(find.text('Watching notification'));
-    await tester.pump();
-    expect(calls.last, {'method': 'openChannelSettings', 'channel': 'core'});
-
-    // The user turned the channel off and came back.
-    shown = false;
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await tester.pump();
-    expect(find.text('Hidden. Watching goes on'), findsOne);
-
-    // No channel yet: the watcher has not run since background watching went on.
-    shown = null;
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await tester.pump();
-    expect(find.text('Available after the next start of the app'), findsOne);
-    expect(tester.widget<ListTile>(find.byType(ListTile)).enabled, isFalse);
+    expect(calls, ['openAppSettings']);
   });
 
-  testWidgets('without the platform side there is no row', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: WatchingNotificationRow(
-            channel: MethodChannel('tf/notifications-none'),
-          ),
-        ),
-      ),
+  testWidgets('the screen has no watching notification row or note any more', (
+    tester,
+  ) async {
+    await tester.pumpWidget(MaterialApp(home: NotificationsScreen(db: db)));
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('System notification settings'),
+      200,
+    );
+    expect(find.text('System notification settings'), findsOneWidget);
+    expect(find.text('Watching notification'), findsNothing);
+    expect(find.textContaining('Android requires'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 30)),
     );
     await tester.pump();
-    expect(find.text('Watching notification'), findsNothing);
+    await tester.pump(const Duration(milliseconds: 1));
   });
 
   test(

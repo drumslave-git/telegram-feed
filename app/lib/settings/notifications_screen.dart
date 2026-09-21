@@ -4,7 +4,6 @@ import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../service/core_service.dart' show serviceChannel;
 import 'settings_tiles.dart';
 
 /// How rules notify and whether they run with the app closed: the official app's
@@ -38,45 +37,31 @@ class NotificationsScreen extends StatelessWidget {
         const SettingsHeader('Background'),
         StreamBuilder<String?>(
           stream: db.watchSetting(SettingKeys.backgroundWatching),
-          builder: (context, snap) {
-            final on = snap.data != 'false';
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SwitchListTile(
-                  title: const Text('Watch channels in the background'),
-                  subtitle: const Text(
-                    'Rules keep running while the app is closed. Off removes the '
-                    'permanent notification, and rules then only notify while the app is '
-                    'open. Takes effect the next time the app starts.',
-                  ),
-                  value: on,
-                  onChanged: (v) => db.setSetting(
-                    SettingKeys.backgroundWatching,
-                    v ? 'true' : 'false',
-                  ),
-                ),
-                if (on) const WatchingNotificationRow(),
-              ],
-            );
-          },
+          builder: (context, snap) => SwitchListTile(
+            title: const Text('Watch channels in the background'),
+            subtitle: const Text(
+              'Rules keep running while the app is closed. Off removes the '
+              'permanent notification, and rules then only notify while the app is '
+              'open. Takes effect the next time the app starts.',
+            ),
+            value: snap.data != 'false',
+            onChanged: (v) => db.setSetting(
+              SettingKeys.backgroundWatching,
+              v ? 'true' : 'false',
+            ),
+          ),
         ),
-        const SettingsFooter(
-          'While the app watches in the background, Android requires the "Watching N '
-          'channels" notification. It makes no sound; whether it has a status bar icon, '
-          'and where it sits in the shade, depends on the phone. Hidden, it leaves the '
-          'shade and the status bar, and watching goes on.',
-        ),
+        const Divider(),
+        const SystemNotificationSettingsRow(),
       ],
     ),
   );
 }
 
-/// Shows whether the permanent "Watching N channels" notification is visible and opens
-/// Android's settings page of its channel, the only place it can be turned off. The
-/// service keeps running without it. Absent where the platform side is missing.
-class WatchingNotificationRow extends StatefulWidget {
-  const WatchingNotificationRow({
+/// Opens Android's settings page of the app's notifications, where each kind of them, the
+/// permanent "Watching N channels" one included, is turned off or changed.
+class SystemNotificationSettingsRow extends StatelessWidget {
+  const SystemNotificationSettingsRow({
     super.key,
     this.channel = const MethodChannel('tf/notifications'),
   });
@@ -84,79 +69,22 @@ class WatchingNotificationRow extends StatefulWidget {
   /// The platform channel; tests hand in their own.
   final MethodChannel channel;
 
-  @override
-  State<WatchingNotificationRow> createState() =>
-      _WatchingNotificationRowState();
-}
-
-class _WatchingNotificationRowState extends State<WatchingNotificationRow>
-    with WidgetsBindingObserver {
-  /// False until the platform side answered; stays false without one.
-  bool _available = false;
-
-  /// Null while the channel does not exist yet (the watcher has not run).
-  bool? _shown;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    unawaited(_check());
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  // Back from Android's settings page.
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) unawaited(_check());
-  }
-
-  Future<void> _check() async {
+  Future<void> _open() async {
     try {
-      final shown = await widget.channel.invokeMethod<bool>('channelShown', {
-        'channel': serviceChannel,
-      });
-      if (!mounted) return;
-      setState(() {
-        _available = true;
-        _shown = shown;
-      });
+      await channel.invokeMethod<void>('openAppSettings');
     } on MissingPluginException {
-      return;
+      // No platform side (tests, desktop): nothing to open.
     } on PlatformException {
-      return;
+      // Android refused the page; the row stays as it is.
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (!_available) return const SizedBox.shrink();
-    final shown = _shown;
-    return ListTile(
-      leading: Icon(
-        shown == false
-            ? Icons.notifications_off_outlined
-            : Icons.notifications_none,
-      ),
-      title: const Text('Watching notification'),
-      subtitle: Text(switch (shown) {
-        null => 'Available after the next start of the app',
-        true => "Shown. Tap to hide it in Android's settings",
-        false => 'Hidden. Watching goes on',
-      }),
-      enabled: shown != null,
-      onTap: () => unawaited(
-        widget.channel.invokeMethod<void>('openChannelSettings', {
-          'channel': serviceChannel,
-        }),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ListTile(
+    leading: const Icon(Icons.settings_outlined),
+    title: const Text('System notification settings'),
+    onTap: () => unawaited(_open()),
+  );
 }
 
 /// The sound and the vibration of the notifications of normal and urgent rules (H-33).
