@@ -50,6 +50,9 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
   Future<void> _pick(List<WatchedChannel> current) async {
     final channels = await _channels;
     final tags = await widget.db.feedNamesByChat();
+    final hide =
+        await widget.db.setting(SettingKeys.pickerHidesChannelsInFeeds) ==
+        'true';
     if (!mounted) return;
     final taken = current.map((c) => c.chatId).toSet();
     final picked = await showModalBottomSheet<List<Channel>>(
@@ -60,6 +63,9 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
         channels: channels.where((c) => !taken.contains(c.chatId)).toList(),
         gateway: widget.gateway,
         feedsByChat: tags,
+        hideInFeeds: hide,
+        onHideInFeedsChanged: (v) =>
+            widget.db.setSetting(SettingKeys.pickerHidesChannelsInFeeds, '$v'),
       ),
     );
     for (final channel in picked ?? const <Channel>[]) {
@@ -420,6 +426,8 @@ class ChannelPicker extends StatefulWidget {
     required this.channels,
     this.gateway,
     this.feedsByChat = const {},
+    this.hideInFeeds = false,
+    this.onHideInFeedsChanged,
   });
   final List<Channel> channels;
 
@@ -428,6 +436,11 @@ class ChannelPicker extends StatefulWidget {
 
   /// Names of the feeds each channel is already in ([AppDatabase.feedNamesByChat]).
   final Map<int, List<String>> feedsByChat;
+
+  /// Whether the channels that are already in a feed are left out, as the reader last
+  /// chose; [onHideInFeedsChanged] keeps a new choice.
+  final bool hideInFeeds;
+  final ValueChanged<bool>? onHideInFeedsChanged;
 
   @override
   State<ChannelPicker> createState() => _ChannelPickerState();
@@ -439,7 +452,22 @@ class _ChannelPickerState extends State<ChannelPicker> {
   /// The channels ticked off so far, by chat id: several go in at once (H-37).
   final _picked = <int>{};
 
+  late bool _hideInFeeds = widget.hideInFeeds;
+
   List<String> _tagsOf(Channel c) => widget.feedsByChat[c.chatId] ?? const [];
+
+  /// A channel ticked and then hidden is not added unseen.
+  void _setHideInFeeds(bool hide) {
+    setState(() {
+      _hideInFeeds = hide;
+      if (hide) {
+        _picked.removeWhere(
+          (id) => widget.feedsByChat[id]?.isNotEmpty ?? false,
+        );
+      }
+    });
+    widget.onHideInFeedsChanged?.call(hide);
+  }
 
   void _toggle(Channel c) => setState(() {
     if (!_picked.remove(c.chatId)) _picked.add(c.chatId);
@@ -451,9 +479,10 @@ class _ChannelPickerState extends State<ChannelPicker> {
     final shown = widget.channels
         .where(
           (c) =>
-              q.isEmpty ||
-              c.title.toLowerCase().contains(q) ||
-              (c.username?.toLowerCase().contains(q) ?? false),
+              !(_hideInFeeds && _tagsOf(c).isNotEmpty) &&
+              (q.isEmpty ||
+                  c.title.toLowerCase().contains(q) ||
+                  (c.username?.toLowerCase().contains(q) ?? false)),
         )
         .toList();
     // The sheet ends above the keyboard, otherwise the last channels hide behind it.
@@ -480,12 +509,22 @@ class _ChannelPickerState extends State<ChannelPicker> {
               onChanged: (v) => setState(() => _query = v),
             ),
           ),
+          if (widget.channels.any((c) => _tagsOf(c).isNotEmpty))
+            CheckboxListTile(
+              dense: true,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: const Text('Hide channels already in a feed'),
+              value: _hideInFeeds,
+              onChanged: (v) => _setHideInFeeds(v ?? false),
+            ),
           Expanded(
             child: shown.isEmpty
                 ? Center(
                     child: Text(
                       widget.channels.isEmpty
                           ? 'All joined channels are already in this feed.'
+                          : _query.trim().isEmpty
+                          ? 'Every joined channel is already in a feed.'
                           : 'No channel matches "$_query".',
                     ),
                   )

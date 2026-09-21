@@ -155,6 +155,10 @@ abstract final class SettingKeys {
   static const downloadWifi = 'media.download.wifi';
   static const downloadRoaming = 'media.download.roaming';
 
+  /// The channel picker of the feed editor leaves out the channels that are already in a
+  /// feed; 'true' | 'false', default false. Kept on this device.
+  static const pickerHidesChannelsInFeeds = 'picker.hideInFeeds';
+
   /// Where the reader left a feed's or a channel's timeline scrolled up, as JSON (the app's
   /// `feeds/saved_position.dart`); absent when they left it at the newest post, as the
   /// official app keeps a chat's position. Kept on this device.

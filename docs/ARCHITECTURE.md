@@ -99,7 +99,7 @@ sync_tombstones  (kind, sync_id, deleted_at)                            -- PK (k
 
 ### 5.2 Sources
 
-Only channels the account has joined can be added. The picker lists `myChannels()` with a search box; several channels are ticked and added with one press. The app never calls `joinChat`, `leaveChat` or `searchPublicChat`, and never changes Telegram-side mute or folder settings. Every source is a joined chat, so TDLib delivers `updateNewMessage` for all of them and nothing is polled.
+Only channels the account has joined can be added. The picker lists `myChannels()` with a search box; several channels are ticked and added with one press. A checkbox under the search, shown when some channel is in a feed already, leaves those channels out (`picker.hideInFeeds`, kept on the device) and unticks the ones it hides. The app never calls `joinChat`, `leaveChat` or `searchPublicChat`, and never changes Telegram-side mute or folder settings. Every source is a joined chat, so TDLib delivers `updateNewMessage` for all of them and nothing is polled.
 
 When the user leaves a channel in the official app, `membershipEvents` reports it. The source stays in its feeds, marked as left, until the user removes it.
 

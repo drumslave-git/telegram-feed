@@ -231,4 +231,49 @@ void main() {
     expect(gw.markedViewed, isEmpty);
     await unmount(tester);
   });
+
+  testWidgets('the picker can hide the channels already in a feed', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final other = await db.createFeed('News');
+      await db.addSource(other.id, -1, title: 'Alpha News');
+      feedId = (await db.createFeed('Tech')).id;
+    });
+    await tester.pumpWidget(app());
+    await settle(tester);
+
+    await tester.tap(find.text('Add channel'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Alpha News'), findsOneWidget); // tagged with News
+    expect(find.text('Beta Daily'), findsOneWidget);
+    await tester.tap(find.text('Alpha News'));
+    await tester.pump();
+    expect(find.text('1 channel ticked'), findsOneWidget);
+
+    // Hidden, the channel in News goes, and it is not added unseen.
+    await tester.tap(find.text('Hide channels already in a feed'));
+    await tester.pump();
+    expect(find.text('Alpha News'), findsNothing);
+    expect(find.text('Beta Daily'), findsOneWidget);
+    expect(find.text('Tick the channels to add'), findsOneWidget);
+    await settle(tester);
+    expect(
+      await tester.runAsync(
+        () => db.setting(SettingKeys.pickerHidesChannelsInFeeds),
+      ),
+      'true',
+    );
+
+    // The choice stays for the next time the picker opens.
+    await tester.tapAt(const Offset(400, 20));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add channel'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Alpha News'), findsNothing);
+    expect(find.text('Beta Daily'), findsOneWidget);
+    await unmount(tester);
+  });
 }
