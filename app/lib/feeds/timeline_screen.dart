@@ -14,7 +14,8 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import '../home/channel_info_screen.dart';
 import '../home/connection_title.dart';
 import '../media/media_viewer.dart';
-import '../settings/data_storage_screen.dart' show showAutoplaySettings;
+import '../settings/data_storage_screen.dart' show DataStorageScreen;
+import '../settings/settings_tiles.dart' show openSettingsScreen;
 import 'feed_editor_screen.dart';
 import 'open_links.dart';
 import 'post_card.dart';
@@ -1713,8 +1714,10 @@ class TimelineViewState extends State<TimelineView> {
                 onReact: (emoji, remove) => _react(item, emoji, remove),
                 availableReactions: () => _availableReactions(item),
                 onOpenLink: _openLink,
-                onAutoplaySettings: () =>
-                    showAutoplaySettings(context, widget.db),
+                onAutoplaySettings: () => openSettingsScreen(
+                  context,
+                  DataStorageScreen(db: widget.db, gateway: widget.gateway),
+                ),
                 onOpenForward: item.head.forwardedFrom == null
                     ? null
                     : () => _openForward(item),

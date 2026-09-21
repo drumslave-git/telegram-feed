@@ -153,27 +153,22 @@ abstract final class SettingKeys {
   /// The last words searched for, newest first, as a JSON list of strings.
   static const recentSearches = 'search.recent';
 
-  /// Pictures load by themselves on an unmetered connection; 'true' | 'false', default true.
-  static const autoDownloadWifi = 'media.autoDownload.wifi';
-
-  /// The same on mobile data; 'true' | 'false', default true.
-  static const autoDownloadMobile = 'media.autoDownload.mobile';
-
-  /// Largest picture that loads by itself, in megabytes: on Wi-Fi (default 20) and on
-  /// mobile data (default 5).
-  static const autoDownloadWifiMaxMb = 'media.autoDownload.wifiMaxMb';
-  static const autoDownloadMobileMaxMb = 'media.autoDownload.mobileMaxMb';
+  /// What loads by itself on mobile data, on Wi-Fi and while roaming, as the official app's
+  /// automatic media download: a JSON `DownloadPreset` each (the app's
+  /// `media/auto_download.dart`), Telegram's Medium, High and Low until the reader changes
+  /// them.
+  static const downloadMobile = 'media.download.mobile';
+  static const downloadWifi = 'media.download.wifi';
+  static const downloadRoaming = 'media.download.roaming';
   static const syncReadToTelegram =
       'syncReadToTelegram'; // 'true' | 'false', default true
 
-  /// Short videos start muted when they scroll into view; 'true' | 'false', default true.
+  /// A video that loads by itself starts muted when it scrolls into view; 'true' | 'false',
+  /// default true.
   static const autoplay = 'media.autoplay';
 
-  /// Longest video that autoplays, in seconds (default 60).
-  static const autoplayMaxSeconds = 'media.autoplayMaxSeconds';
-
-  /// Largest video that autoplays, in megabytes (default 20).
-  static const autoplayMaxMegabytes = 'media.autoplayMaxMegabytes';
+  /// The same for GIFs; 'true' | 'false', default true.
+  static const autoplayGifs = 'media.autoplayGifs';
 
   /// Rules keep being evaluated while the app is closed, in the foreground service;
   /// 'true' | 'false', default true. Off means no permanent notification and no rule

@@ -257,6 +257,7 @@ final class CoreServer {
             fileId,
             offset: a['offset'] as int,
             priority: a['priority'] as int,
+            limit: a['limit'] as int? ?? 0,
           ),
         );
       case 'downloadedPrefix':

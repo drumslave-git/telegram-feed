@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/post_card.dart'
     show ChatPill, PostCard, formatDay;
 import 'package:telegram_feed/feeds/timeline_screen.dart';
+import 'package:telegram_feed/settings/data_storage_screen.dart';
 import 'package:telegram_feed/feeds/timeline_search.dart';
 import 'package:telegram_feed/home/channel_list.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
@@ -417,72 +418,74 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('the menu of a video post leads to the autoplay settings', (
-    tester,
-  ) async {
-    gw.histories[-1] = [
-      post(-1, 4, 400, 'just text'),
-      const Post(
-        chatId: -1,
-        messageId: 3,
-        date: 300,
-        text: 'with a video',
-        media: VideoMedia(
-          file: FileRef(
-            id: 9,
-            remoteId: 'v',
-            size: 100,
-            width: 640,
-            height: 360,
+  testWidgets(
+    'the menu of a video post leads to the autoplay and download settings',
+    (tester) async {
+      gw.histories[-1] = [
+        post(-1, 4, 400, 'just text'),
+        const Post(
+          chatId: -1,
+          messageId: 3,
+          date: 300,
+          text: 'with a video',
+          media: VideoMedia(
+            file: FileRef(
+              id: 9,
+              remoteId: 'v',
+              size: 100,
+              width: 640,
+              height: 360,
+            ),
+            durationSeconds: 12,
           ),
-          durationSeconds: 12,
         ),
-      ),
-    ];
-    await tester.runAsync(() async {
-      feed = await db.createFeed('V');
-      await db.addSource(feed.id, -1, title: 'One');
-      await db.markRead(
-        feed.id,
-        -1,
-        4,
-      ); // opens at the newest post, both texts in view
-    });
-    await tester.pumpWidget(
-      MaterialApp(
-        home: TimelineScreen(db: db, gateway: gw, feed: feed),
-      ),
-    );
-    await settle(tester);
+      ];
+      await tester.runAsync(() async {
+        feed = await db.createFeed('V');
+        await db.addSource(feed.id, -1, title: 'One');
+        await db.markRead(
+          feed.id,
+          -1,
+          4,
+        ); // opens at the newest post, both texts in view
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TimelineScreen(db: db, gateway: gw, feed: feed),
+        ),
+      );
+      await settle(tester);
 
-    await tester.longPress(find.text('just text'));
-    await tester.pumpAndSettle();
-    expect(find.text('Copy link'), findsOneWidget);
-    expect(find.text('Video autoplay settings'), findsNothing);
-    await tester.tapAt(const Offset(10, 10)); // the barrier closes the menu
-    await tester.pumpAndSettle();
+      await tester.longPress(find.text('just text'));
+      await tester.pumpAndSettle();
+      expect(find.text('Copy link'), findsOneWidget);
+      expect(find.text('Autoplay and download settings'), findsNothing);
+      await tester.tapAt(const Offset(10, 10)); // the barrier closes the menu
+      await tester.pumpAndSettle();
 
-    await tester.longPress(find.text('with a video'));
-    await tester.pumpAndSettle();
-    // The menu scrolls; its last entry is below the fold on this small screen.
-    await tester.ensureVisible(find.text('Video autoplay settings'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Video autoplay settings'));
-    await settle(tester);
-    await tester.pumpAndSettle();
-    final autoplay = find.widgetWithText(
-      SwitchListTile,
-      'Autoplay short videos',
-    );
-    expect(tester.widget<SwitchListTile>(autoplay).value, isTrue);
-    await tester.tap(autoplay);
-    await settle(tester);
-    expect(
-      await tester.runAsync(() => db.setting(SettingKeys.autoplay)),
-      'false',
-    );
-    await unmount(tester);
-  });
+      await tester.longPress(find.text('with a video'));
+      await tester.pumpAndSettle();
+      // The menu scrolls; its last entry is below the fold on this small screen.
+      await tester.ensureVisible(find.text('Autoplay and download settings'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Autoplay and download settings'));
+      await settle(tester);
+      await tester.pumpAndSettle();
+      // Data and storage, where the automatic downloads and the Autoplay switches are.
+      expect(find.byType(DataStorageScreen), findsOneWidget);
+      final autoplay = find.widgetWithText(SwitchListTile, 'Videos');
+      await tester.ensureVisible(autoplay);
+      await tester.pumpAndSettle();
+      expect(tester.widget<SwitchListTile>(autoplay).value, isTrue);
+      await tester.tap(autoplay);
+      await settle(tester);
+      expect(
+        await tester.runAsync(() => db.setting(SettingKeys.autoplay)),
+        'false',
+      );
+      await unmount(tester);
+    },
+  );
 
   testWidgets('the newest post keeps its distance from the bottom edge', (
     tester,

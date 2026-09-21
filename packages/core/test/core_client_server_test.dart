@@ -152,6 +152,7 @@ final class FakeGateway implements TelegramGateway {
     int fileId, {
     int offset = 0,
     int priority = 32,
+    int limit = 0,
   }) async => FileProgress(fileId: fileId, downloaded: 0, total: 0);
   @override
   Future<int> downloadedPrefix(int fileId, int offset) async => 0;

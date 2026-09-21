@@ -6,7 +6,6 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../media/auto_download.dart';
-import '../media/autoplay.dart';
 import '../media/media_viewer.dart';
 import '../media/video_downloads.dart';
 import '../media/video_sessions.dart';
@@ -39,72 +38,81 @@ class MediaView extends StatelessWidget {
   final double radius;
 
   @override
-  Widget build(BuildContext context) => switch (media) {
-    PhotoMedia(:final sizes) => PhotoView(
-      file: pickPhotoSize(sizes, MediaQuery.sizeOf(context).width),
-      gateway: gateway,
-      onTap: onOpen,
-      fill: fill,
-      radius: radius,
-    ),
-    // A sticker keeps its own size, so it must not be stretched by the bubble.
-    final StickerMedia sticker => Align(
-      alignment: Alignment.centerLeft,
-      child: StickerView(sticker: sticker, gateway: gateway),
-    ),
-    // A round video message: the same player, clipped to a circle as in the official app.
-    final VideoMedia video when video.isVideoNote => Align(
-      alignment: Alignment.centerLeft,
-      child: ClipOval(
-        child: SizedBox(
-          width: videoNoteSide,
-          height: videoNoteSide,
-          child: VideoView(
-            video: video,
-            gateway: gateway,
-            autoplay: AutoplayScope.of(context).allows(video),
-            onOpen: onOpen,
-            fill: true,
-            radius: 0,
+  Widget build(BuildContext context) {
+    final policy = AutoDownloadScope.of(context);
+    return switch (media) {
+      PhotoMedia(:final sizes) => PhotoView(
+        file: pickPhotoSize(sizes, MediaQuery.sizeOf(context).width),
+        gateway: gateway,
+        onTap: onOpen,
+        fill: fill,
+        radius: radius,
+      ),
+      // A sticker keeps its own size, so it must not be stretched by the bubble.
+      final StickerMedia sticker => Align(
+        alignment: Alignment.centerLeft,
+        child: StickerView(sticker: sticker, gateway: gateway),
+      ),
+      // A round video message: the same player, clipped to a circle as in the official app.
+      final VideoMedia video when video.isVideoNote => Align(
+        alignment: Alignment.centerLeft,
+        child: ClipOval(
+          child: SizedBox(
+            width: videoNoteSide,
+            height: videoNoteSide,
+            child: VideoView(
+              video: video,
+              gateway: gateway,
+              autoplay: policy.autoplay(video),
+              download: policy.video(video),
+              preload: policy.preload(video),
+              onOpen: onOpen,
+              fill: true,
+              radius: 0,
+            ),
           ),
         ),
       ),
-    ),
-    final VideoMedia video => VideoView(
-      video: video,
-      gateway: gateway,
-      autoplay: AutoplayScope.of(context).allows(video),
-      onOpen: onOpen,
-      fill: fill,
-      radius: radius,
-    ),
-    AudioMedia(
-      :final file,
-      :final durationSeconds,
-      :final title,
-      :final performer,
-      :final isVoice,
-    ) =>
-      AudioView(
-        file: file,
-        durationSeconds: durationSeconds,
-        label: isVoice
-            ? 'Voice message'
-            : [title, performer].where((s) => s.isNotEmpty).join(' – '),
+      final VideoMedia video => VideoView(
+        video: video,
         gateway: gateway,
+        autoplay: policy.autoplay(video),
+        download: policy.video(video),
+        preload: policy.preload(video),
+        onOpen: onOpen,
+        fill: fill,
+        radius: radius,
       ),
-    DocumentMedia(:final file, :final fileName, :final mimeType) =>
-      DocumentView(
-        file: file,
-        fileName: fileName,
-        mimeType: mimeType,
-        gateway: gateway,
+      AudioMedia(
+        :final file,
+        :final durationSeconds,
+        :final title,
+        :final performer,
+        :final isVoice,
+      ) =>
+        AudioView(
+          file: file,
+          durationSeconds: durationSeconds,
+          label: isVoice
+              ? 'Voice message'
+              : [title, performer].where((s) => s.isNotEmpty).join(' – '),
+          gateway: gateway,
+          autoLoad: policy.file(file.size),
+        ),
+      DocumentMedia(:final file, :final fileName, :final mimeType) =>
+        DocumentView(
+          file: file,
+          fileName: fileName,
+          mimeType: mimeType,
+          gateway: gateway,
+          autoStart: policy.file(file.size),
+        ),
+      UnsupportedMedia(:final tdType) => Chip(
+        label: Text(tdType.replaceFirst('message', '')),
+        visualDensity: VisualDensity.compact,
       ),
-    UnsupportedMedia(:final tdType) => Chip(
-      label: Text(tdType.replaceFirst('message', '')),
-      visualDensity: VisualDensity.compact,
-    ),
-  };
+    };
+  }
 }
 
 /// Smallest size that is at least as wide as the viewport (or the largest available).
@@ -249,11 +257,11 @@ class PhotoView extends StatelessWidget {
     final aspect = file.width > 0 && file.height > 0
         ? file.width / file.height
         : 4 / 3;
-    // A picture loads by itself only as far as the reader allowed for this connection.
+    // A picture loads by itself only where the reader allowed photos for this connection.
     // While the settings are still being read nothing starts, and nothing is offered
     // either: a moment later the policy is known.
     final policy = AutoDownloadScope.of(context);
-    final auto = policy.allows(file.size);
+    final auto = policy.photos;
     final picture = Downloaded(
       file: file,
       gateway: gateway,
@@ -295,14 +303,16 @@ const mediaMinAspect = 0.65;
 const mediaMaxAspect = 2.5;
 
 /// Thumbnail with a play button. A tap plays the video in the full-screen viewer at once, as
-/// the official app does; the timeline itself only shows muted autoplay ([AutoplayPolicy]),
-/// and a tap on that opens the viewer with sound too.
+/// the official app does; the timeline itself only shows muted autoplay of the videos that
+/// load by itself ([AutoDownloadPolicy]), and a tap on that opens the viewer with sound too.
 class VideoView extends StatefulWidget {
   const VideoView({
     super.key,
     required this.video,
     required this.gateway,
     this.autoplay = false,
+    this.download = false,
+    this.preload = false,
     this.onOpen,
     this.fill = false,
     this.radius = 8,
@@ -314,8 +324,15 @@ class VideoView extends StatefulWidget {
   final bool fill;
   final double radius;
 
-  /// Starts muted once most of it is visible ([AutoplayPolicy]).
+  /// Starts muted once most of it is visible ([AutoDownloadPolicy.autoplay]).
   final bool autoplay;
+
+  /// The whole file loads by itself, with its progress on the pill in the corner
+  /// ([AutoDownloadPolicy.video]).
+  final bool download;
+
+  /// Too large for that: its first seconds load ahead ([AutoDownloadPolicy.preload]).
+  final bool preload;
 
   /// Opens the viewer (the timeline pages through the post's album); by default the viewer
   /// shows this video alone.
@@ -339,6 +356,7 @@ class _VideoViewState extends State<VideoView> {
   void initState() {
     super.initState();
     _adopt(_sessions.find(_file.id));
+    _fetch();
   }
 
   @override
@@ -348,7 +366,27 @@ class _VideoViewState extends State<VideoView> {
       _session?.release();
       _session = null;
       _adopt(_sessions.find(_file.id));
+      _fetch();
+    } else if (widget.download != old.download ||
+        widget.preload != old.preload) {
+      // The settings arrived, or the connection changed.
+      _fetch();
     }
+  }
+
+  /// What loads without a tap: the whole file, or the first seconds of a larger one. Not
+  /// now: the downloads' listeners rebuild the pills of other rows.
+  void _fetch() {
+    if (_file.isDownloaded || !(widget.download || widget.preload)) return;
+    final file = _file;
+    final downloads = VideoDownloads.of(widget.gateway);
+    final whole = widget.download;
+    scheduleMicrotask(() {
+      if (!mounted || file.id != _file.id) return;
+      unawaited(
+        whole ? downloads.start(file, auto: true) : downloads.preload(file),
+      );
+    });
   }
 
   /// The route of the viewer is see-through (it can be dragged away), so rows below it stay
@@ -549,11 +587,16 @@ class AudioView extends StatefulWidget {
     required this.durationSeconds,
     required this.label,
     required this.gateway,
+    this.autoLoad = false,
   });
   final FileRef file;
   final int durationSeconds;
   final String label;
   final TelegramGateway gateway;
+
+  /// The file loads ahead without playing, so a tap plays it at once
+  /// ([AutoDownloadPolicy.file]).
+  final bool autoLoad;
 
   @override
   State<AudioView> createState() => _AudioViewState();
@@ -561,6 +604,32 @@ class AudioView extends StatefulWidget {
 
 class _AudioViewState extends State<AudioView> {
   bool _requested = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(AudioView old) {
+    super.didUpdateWidget(old);
+    if (widget.autoLoad && (!old.autoLoad || old.file.id != widget.file.id)) {
+      _load();
+    }
+  }
+
+  void _load() {
+    if (!widget.autoLoad || widget.file.isDownloaded) return;
+    widget.gateway
+        .download(widget.file, priority: 1)
+        .then<void>(
+          (_) {},
+          onError: (Object e) {
+            debugPrint('media: preload ${widget.file.id}: $e');
+          },
+        );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -595,18 +664,22 @@ class DocumentView extends StatelessWidget {
     required this.fileName,
     required this.mimeType,
     required this.gateway,
+    this.autoStart = false,
   });
   final FileRef file;
   final String fileName;
   final String mimeType;
   final TelegramGateway gateway;
 
+  /// Loads without a tap: within the file limit of the connection ([AutoDownloadPolicy]).
+  final bool autoStart;
+
   @override
   Widget build(BuildContext context) {
     return Downloaded(
       file: file,
       gateway: gateway,
-      autoStart: false,
+      autoStart: autoStart,
       builder: (context, path) => ListTile(
         contentPadding: EdgeInsets.zero,
         leading: const Icon(Icons.insert_drive_file_outlined),

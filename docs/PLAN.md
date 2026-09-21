@@ -4,7 +4,7 @@ Single source of truth for what is done, in progress, and next. Every session up
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch or session note), `[x]` done (commit hash), `[-]` dropped (reason).
 
-**Current phase:** feedback round 8 (founder, 2026-09-21); rounds 1 to 7 and P4-1, P4-2 are closed. **Next task:** J-2 autoplay and automatic downloads as one, like the official app.
+**Current phase:** feedback round 8 (founder, 2026-09-21); rounds 1 to 7 and P4-1, P4-2 are closed. **Next task:** J-1 feed unread count in posts or channels.
 
 ## Phase 0 — Spikes
 
@@ -463,11 +463,28 @@ screen under the automatic downloads, as the official app had them before Power 
   on the right; About, the licenses and the version line at the bottom. Log out moved into
   the app bar's menu. Found on the way: `AccountSwitch` sat in the home route, which the
   pushed Accounts screen cannot reach, so a switch only took effect at the next start; it
-  moved into `MaterialApp.builder`. The settings golden was regenerated.
-- [ ] J-2 Video autoplay and automatic downloads become one thing that works and looks like
-  the official app: per connection (mobile data, Wi-Fi, roaming) a switch, a data-usage
-  preset and the kinds of media with their size limits; a video within the limit loads and
-  autoplays.
+  moved into `MaterialApp.builder`. The settings golden was regenerated. (cac1eb9)
+- [x] J-2 Video autoplay and automatic downloads become one thing that works and looks like
+  the official app. Data and storage has a row per connection — mobile data, Wi-Fi and
+  roaming (`tf/network` now tells roaming apart) — with the summary ("Photos, Videos (10 MB),
+  Files (1 MB)") and the connection's switch behind a divider, a reset, and the Autoplay
+  switches for GIFs and videos under them. A connection's screen has the switch, the
+  data-usage slider over Telegram's Low, Medium and High (with a Custom stop for a choice of
+  one's own), and photos, videos and files; videos and files set their limit in a sheet,
+  videos with "Preload larger videos". Defaults are Telegram's: Medium on mobile data, High on
+  Wi-Fi, Low while roaming. `AutoDownloadPolicy` (one `DownloadPreset` per connection, JSON in
+  `media.download.*`) replaces `AutoplayPolicy` and the picture-only policy of H-24: a photo
+  loads with no size limit, a video within the limit downloads whole with its progress on the
+  pill (a stopped one stays stopped) and autoplays if its switch is on, a larger one gets its
+  first 2 MB (`downloadFrom` gained a `limit`), a file within the limit loads in its row and a
+  voice message or a song loads ahead. The 60 s / 20 MB autoplay limits are gone, and the post
+  menu's "Autoplay and download settings" opens Data and storage.
+  Verified on the emulator (2026-09-21, spare account, NewsFeed, light and dark): the
+  connection reads as mobile data, a 5.4 MB video loads by itself (`media: 2939 loads by
+  itself`), two larger ones get their first 2 MB (`first 2097152 B loaded ahead`), a video in
+  an album cell autoplays muted, photos load; the three rows show Telegram's summaries, the
+  mobile-data screen shows the Low / Medium / High slider and the Videos sheet its limit and
+  "Preload larger videos".
 - [ ] J-1 The feed unread count shows posts or channels, chosen by the switch above; the
   folder tabs follow it.
 

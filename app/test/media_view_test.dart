@@ -93,6 +93,9 @@ class DownloadGateway extends ChannelsGateway {
 
   /// (file id, offset) of every [downloadFrom].
   final aimed = <(int, int)>[];
+
+  /// The limit of every [downloadFrom] (0 = the whole rest).
+  final limits = <int>[];
   final priorities = <int>[];
   final cancelled = <int>[];
 
@@ -101,9 +104,11 @@ class DownloadGateway extends ChannelsGateway {
     int fileId, {
     int offset = 0,
     int priority = 32,
+    int limit = 0,
   }) async {
     aimed.add((fileId, offset));
     priorities.add(priority);
+    limits.add(limit);
     return FileProgress(fileId: fileId, downloaded: 0, total: 100);
   }
 

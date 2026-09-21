@@ -123,19 +123,33 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    /** "wifi", "mobile" or "none": metered connections count as mobile. */
+    /**
+     * "wifi", "mobile", "roaming" or "none": metered connections count as mobile, mobile data
+     * on a network abroad as roaming.
+     */
     private fun networkType(): String {
         val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
-        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return "none"
+        val network = cm.activeNetwork ?: return "none"
+        val caps = cm.getNetworkCapabilities(network) ?: return "none"
         if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return "none"
         val unmetered = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
         return when {
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) && unmetered -> "wifi"
             caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "wifi"
             unmetered -> "wifi"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) && roaming(cm, caps) ->
+                "roaming"
             else -> "mobile"
         }
     }
+
+    private fun roaming(cm: ConnectivityManager, caps: NetworkCapabilities): Boolean =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)
+        } else {
+            @Suppress("DEPRECATION")
+            cm.activeNetworkInfo?.isRoaming == true
+        }
 
     /** Copies the file into Pictures/telegram-feed (or Movies) and answers with its uri. */
     private fun saveToGallery(file: File, name: String, mime: String): String {

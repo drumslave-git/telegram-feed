@@ -241,11 +241,13 @@ final class CoreClient implements TelegramGateway {
     int fileId, {
     int offset = 0,
     int priority = 32,
+    int limit = 0,
   }) async => decodeFileProgress(
     (await _call('downloadFrom', {
       'fileId': fileId,
       'offset': offset,
       'priority': priority,
+      'limit': limit,
     })) as Map<Object?, Object?>,
   );
 

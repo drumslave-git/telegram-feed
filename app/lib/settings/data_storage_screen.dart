@@ -1,14 +1,16 @@
+import 'dart:async';
+
 import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../media/auto_download.dart';
-import '../media/autoplay.dart';
 import 'settings_screen.dart' show formatBytes;
 import 'settings_tiles.dart';
 
 /// What the app keeps on the phone and what it loads by itself: the official app's Data
-/// and Storage.
+/// and Storage, with the automatic downloads per connection and the Autoplay switches
+/// under them, as the official app had them before Power Saving.
 class DataStorageScreen extends StatefulWidget {
   const DataStorageScreen({super.key, required this.db, required this.gateway});
   final AppDatabase db;
@@ -34,30 +36,529 @@ class _DataStorageScreenState extends State<DataStorageScreen> {
     }
   }
 
+  Future<void> _reset(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset auto-download settings?'),
+        content: const Text(
+          'Mobile data goes back to Medium, Wi-Fi to High and roaming to Low.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+    if (!(ok ?? false)) return;
+    for (final c in Connection.values) {
+      await widget.db.setSetting(c.settingKey, c.defaults.encode());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final db = widget.db;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Data and storage')),
+      body: ListView(
+        children: [
+          const SettingsHeader('Disk and network usage'),
+          FutureBuilder<StorageStats>(
+            future: _storage,
+            builder: (context, snap) => SettingsLink(
+              icon: Icons.storage_outlined,
+              title: 'Storage usage',
+              value: snap.data == null
+                  ? null
+                  : formatBytes(snap.data!.totalBytes),
+              onTap: _openStorage,
+            ),
+          ),
+          const Divider(),
+          const SettingsHeader('Automatic media download'),
+          for (final c in Connection.values)
+            _PresetStream(
+              db: db,
+              connection: c,
+              builder: (context, preset) => SplitSwitchTile(
+                title: c.rowTitle,
+                subtitle: preset.summary,
+                value: preset.enabled,
+                onTap: () => openSettingsScreen(
+                  context,
+                  AutoDownloadScreen(db: db, connection: c),
+                ),
+                onChanged: (v) => db.setSetting(
+                  c.settingKey,
+                  preset.copyWith(enabled: v).encode(),
+                ),
+              ),
+            ),
+          _AllPresets(
+            db: db,
+            builder: (context, presets) {
+              final changed = [
+                for (final c in Connection.values)
+                  if (presets[c] != c.defaults) c,
+              ].isNotEmpty;
+              return ListTile(
+                enabled: changed,
+                title: const Text('Reset auto-download settings'),
+                onTap: () => unawaited(_reset(context)),
+              );
+            },
+          ),
+          const Divider(),
+          const SettingsHeader('Autoplay media'),
+          _SettingSwitch(
+            db: db,
+            settingKey: SettingKeys.autoplayGifs,
+            title: 'GIFs',
+          ),
+          _SettingSwitch(
+            db: db,
+            settingKey: SettingKeys.autoplay,
+            title: 'Videos',
+          ),
+          const SettingsFooter(
+            'A video that loads by itself on the connection the phone is on plays muted '
+            'in its post; a tap opens it with sound.',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One connection's automatic downloads, as the official app's "Using mobile data" screen:
+/// the switch of the whole connection, the data-usage slider over Telegram's presets, and
+/// the kinds of media with their limits.
+class AutoDownloadScreen extends StatelessWidget {
+  const AutoDownloadScreen({
+    super.key,
+    required this.db,
+    required this.connection,
+  });
+  final AppDatabase db;
+  final Connection connection;
+
+  Future<void> _write(DownloadPreset p) =>
+      db.setSetting(connection.settingKey, p.encode());
+
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Data and storage')),
-    body: ListView(
+    appBar: AppBar(title: Text(connection.screenTitle)),
+    body: _PresetStream(
+      db: db,
+      connection: connection,
+      builder: (context, p) {
+        final on = p.enabled;
+        return ListView(
+          children: [
+            _MasterSwitch(
+              value: on,
+              onChanged: (v) => _write(p.copyWith(enabled: v)),
+            ),
+            const SettingsHeader('Data usage'),
+            DataUsageSlider(
+              preset: p,
+              enabled: on,
+              onChanged: (chosen) => _write(p.adopt(chosen)),
+            ),
+            const Divider(),
+            const SettingsHeader('Types of media'),
+            SplitSwitchTile(
+              title: 'Photos',
+              subtitle: p.photos ? 'Every photo' : 'Off',
+              value: p.photos,
+              enabled: on,
+              onTap: () => _write(p.copyWith(photos: !p.photos)),
+              onChanged: (v) => _write(p.copyWith(photos: v)),
+            ),
+            SplitSwitchTile(
+              title: 'Videos',
+              subtitle: p.videos
+                  ? 'Up to ${formatLimit(p.videoMaxBytes)}'
+                  : 'Off',
+              value: p.videos,
+              enabled: on,
+              onTap: () => _sizeSheet(context, p, videos: true),
+              onChanged: (v) => _write(p.copyWith(videos: v)),
+            ),
+            SplitSwitchTile(
+              title: 'Files',
+              subtitle: p.files
+                  ? 'Up to ${formatLimit(p.fileMaxBytes)}'
+                  : 'Off',
+              value: p.files,
+              enabled: on,
+              onTap: () => _sizeSheet(context, p, videos: false),
+              onChanged: (v) => _write(p.copyWith(files: v)),
+            ),
+            const SettingsFooter(
+              'GIFs and round video messages count as videos, music and voice messages as '
+              'files. A video within the limit also autoplays, if Autoplay is on for it '
+              'in Data and storage.',
+            ),
+          ],
+        );
+      },
+    ),
+  );
+
+  Future<void> _sizeSheet(
+    BuildContext context,
+    DownloadPreset p, {
+    required bool videos,
+  }) async {
+    final chosen = await showModalBottomSheet<DownloadPreset>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => _SizeSheet(preset: p, videos: videos),
+    );
+    if (chosen != null) await _write(chosen);
+  }
+}
+
+/// The slider under "Data usage": Low, Medium, High, and the reader's own choice placed
+/// between them by how much it spends, as the official app shows it.
+class DataUsageSlider extends StatelessWidget {
+  const DataUsageSlider({
+    super.key,
+    required this.preset,
+    required this.enabled,
+    required this.onChanged,
+  });
+  final DownloadPreset preset;
+  final bool enabled;
+  final ValueChanged<DownloadPreset> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final stops = <(String, DownloadPreset)>[
+      for (var i = 0; i < DownloadPreset.presets.length; i++)
+        (DownloadPreset.presetNames[i], DownloadPreset.presets[i]),
+    ];
+    var at = preset.presetIndex;
+    if (at < 0) {
+      at = stops.indexWhere((s) => s.$2.weight > preset.weight);
+      if (at < 0) at = stops.length;
+      stops.insert(at, ('Custom', preset));
+    }
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        children: [
+          Slider(
+            value: at.toDouble(),
+            max: (stops.length - 1).toDouble(),
+            divisions: stops.length - 1,
+            onChanged: enabled
+                ? (v) {
+                    final chosen = stops[v.round()].$2;
+                    if (!identical(chosen, preset)) onChanged(chosen);
+                  }
+                : null,
+          ),
+          // Each name under its own stop: the track runs 24 px in from both ends.
+          LayoutBuilder(
+            builder: (context, box) {
+              final step = (box.maxWidth - 48) / (stops.length - 1);
+              return SizedBox(
+                height: 20,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    for (var i = 0; i < stops.length; i++)
+                      Positioned(
+                        left: 24 + i * step,
+                        top: 0,
+                        child: FractionalTranslation(
+                          translation: const Offset(-0.5, 0),
+                          child: Text(
+                            stops[i].$1,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: i == at
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurfaceVariant,
+                              fontWeight: i == at ? FontWeight.w600 : null,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+/// The largest video or file that loads by itself, in the steps the official app's slider
+/// has, and for videos whether the first seconds of larger ones are loaded ahead.
+class _SizeSheet extends StatefulWidget {
+  const _SizeSheet({required this.preset, required this.videos});
+  final DownloadPreset preset;
+  final bool videos;
+
+  @override
+  State<_SizeSheet> createState() => _SizeSheetState();
+}
+
+/// From 500 KB to 2 GB, finer where the choices matter.
+const downloadSizeSteps = [
+  500 * 1024,
+  1 * 1024 * 1024,
+  2 * 1024 * 1024,
+  3 * 1024 * 1024,
+  5 * 1024 * 1024,
+  10 * 1024 * 1024,
+  15 * 1024 * 1024,
+  20 * 1024 * 1024,
+  30 * 1024 * 1024,
+  50 * 1024 * 1024,
+  100 * 1024 * 1024,
+  200 * 1024 * 1024,
+  300 * 1024 * 1024,
+  500 * 1024 * 1024,
+  1000 * 1024 * 1024,
+  1500 * 1024 * 1024,
+  2000 * 1024 * 1024,
+];
+
+/// The step nearest to [bytes].
+int downloadSizeStep(int bytes) {
+  var best = 0;
+  for (var i = 1; i < downloadSizeSteps.length; i++) {
+    if ((downloadSizeSteps[i] - bytes).abs() <
+        (downloadSizeSteps[best] - bytes).abs()) {
+      best = i;
+    }
+  }
+  return best;
+}
+
+class _SizeSheetState extends State<_SizeSheet> {
+  late int _step = downloadSizeStep(
+    widget.videos ? widget.preset.videoMaxBytes : widget.preset.fileMaxBytes,
+  );
+  late bool _preload = widget.preset.preloadLargeVideos;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final size = downloadSizeSteps[_step];
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              widget.videos ? 'Videos' : 'Files',
+              style: theme.textTheme.titleMedium,
+            ),
+          ),
+          ListTile(
+            title: Text(
+              widget.videos ? 'Maximum video size' : 'Maximum file size',
+            ),
+            trailing: Text(
+              'Up to ${formatLimit(size)}',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Slider(
+              value: _step.toDouble(),
+              max: (downloadSizeSteps.length - 1).toDouble(),
+              divisions: downloadSizeSteps.length - 1,
+              label: formatLimit(size),
+              onChanged: (v) => setState(() => _step = v.round()),
+            ),
+          ),
+          if (widget.videos) ...[
+            SwitchListTile(
+              title: const Text('Preload larger videos'),
+              value: _preload,
+              onChanged: (v) => setState(() => _preload = v),
+            ),
+            SettingsFooter(
+              'The first seconds of videos larger than ${formatLimit(size)} are loaded '
+              'ahead, so that they start at once.',
+            ),
+          ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: FilledButton(
+              onPressed: () => Navigator.pop(
+                context,
+                widget.videos
+                    ? widget.preset.copyWith(
+                        videos: true,
+                        videoMaxBytes: size,
+                        preloadLargeVideos: _preload,
+                      )
+                    : widget.preset.copyWith(files: true, fileMaxBytes: size),
+              ),
+              child: const Text('Save'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A row whose text opens something and whose switch, behind a thin divider, only
+/// switches: the official app's cell for a connection or a kind of media.
+class SplitSwitchTile extends StatelessWidget {
+  const SplitSwitchTile({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onTap,
+    required this.onChanged,
+    this.enabled = true,
+  });
+  final String title;
+  final String subtitle;
+  final bool value;
+  final bool enabled;
+  final VoidCallback onTap;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
       children: [
-        const SettingsHeader('Disk and network usage'),
-        FutureBuilder<StorageStats>(
-          future: _storage,
-          builder: (context, snap) => SettingsLink(
-            icon: Icons.storage_outlined,
-            title: 'Storage usage',
-            value: snap.data == null
-                ? null
-                : formatBytes(snap.data!.totalBytes),
-            onTap: _openStorage,
+        Expanded(
+          child: ListTile(
+            enabled: enabled,
+            title: Text(title),
+            subtitle: Text(subtitle),
+            onTap: onTap,
           ),
         ),
-        const Divider(),
-        const SettingsHeader('Automatic downloads'),
-        AutoDownloadSettings(db: widget.db),
-        const Divider(),
-        const SettingsHeader('Video autoplay'),
-        AutoplaySettings(db: widget.db),
+        SizedBox(
+          height: 32,
+          child: VerticalDivider(width: 1, color: theme.dividerColor),
+        ),
+        // The same right edge as the switches of a SwitchListTile.
+        Padding(
+          padding: const EdgeInsets.only(left: 12, right: 24),
+          child: Switch(value: value, onChanged: enabled ? onChanged : null),
+        ),
       ],
+    );
+  }
+}
+
+/// The switch of the whole connection, on a tinted band at the top as in the official app.
+class _MasterSwitch extends StatelessWidget {
+  const _MasterSwitch({required this.value, required this.onChanged});
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      child: Material(
+        color: value ? scheme.primaryContainer : scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: SwitchListTile(
+          title: const Text('Auto-download media'),
+          value: value,
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingSwitch extends StatelessWidget {
+  const _SettingSwitch({
+    required this.db,
+    required this.settingKey,
+    required this.title,
+  });
+  final AppDatabase db;
+  final String settingKey;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => StreamBuilder<String?>(
+    stream: db.watchSetting(settingKey),
+    builder: (context, snap) => SwitchListTile(
+      title: Text(title),
+      value: snap.data != 'false',
+      onChanged: (v) => db.setSetting(settingKey, '$v'),
+    ),
+  );
+}
+
+/// One connection's preset as it is stored, its default until then.
+class _PresetStream extends StatelessWidget {
+  const _PresetStream({
+    required this.db,
+    required this.connection,
+    required this.builder,
+  });
+  final AppDatabase db;
+  final Connection connection;
+  final Widget Function(BuildContext, DownloadPreset) builder;
+
+  @override
+  Widget build(BuildContext context) => StreamBuilder<String?>(
+    stream: db.watchSetting(connection.settingKey),
+    builder: (context, snap) =>
+        builder(context, DownloadPreset.decode(snap.data, connection.defaults)),
+  );
+}
+
+/// The presets of all three connections, for the reset row.
+class _AllPresets extends StatelessWidget {
+  const _AllPresets({required this.db, required this.builder});
+  final AppDatabase db;
+  final Widget Function(BuildContext, Map<Connection, DownloadPreset>) builder;
+
+  @override
+  Widget build(BuildContext context) => _PresetStream(
+    db: db,
+    connection: Connection.mobile,
+    builder: (context, mobile) => _PresetStream(
+      db: db,
+      connection: Connection.wifi,
+      builder: (context, wifi) => _PresetStream(
+        db: db,
+        connection: Connection.roaming,
+        builder: (context, roaming) => builder(context, {
+          Connection.mobile: mobile,
+          Connection.wifi: wifi,
+          Connection.roaming: roaming,
+        }),
+      ),
     ),
   );
 }
@@ -147,184 +648,5 @@ class _StorageUsageScreenState extends State<StorageUsageScreen> {
         );
       },
     ),
-  );
-}
-
-/// Autoplay switch with its two limits (SettingKeys.autoplay*). In Data and storage, and in
-/// a sheet the menu of a video post opens ([showAutoplaySettings]).
-class AutoplaySettings extends StatelessWidget {
-  const AutoplaySettings({super.key, required this.db});
-  final AppDatabase db;
-
-  static const _seconds = [15, 30, 60, 120, 300];
-  static const _megabytes = [5, 10, 20, 50, 100];
-
-  Widget _limit({
-    required String settingKey,
-    required String title,
-    required List<int> choices,
-    required int fallback,
-    required String Function(int) label,
-    required bool enabled,
-  }) => StreamBuilder<String?>(
-    stream: db.watchSetting(settingKey),
-    builder: (context, snap) {
-      final value = int.tryParse(snap.data ?? '') ?? fallback;
-      return ListTile(
-        enabled: enabled,
-        contentPadding: const EdgeInsets.only(left: 72, right: 16),
-        title: Text(title),
-        trailing: DropdownButton<int>(
-          value: choices.contains(value) ? value : fallback,
-          onChanged: enabled
-              ? (v) => db.setSetting(settingKey, '${v ?? fallback}')
-              : null,
-          items: [
-            for (final c in choices)
-              DropdownMenuItem(value: c, child: Text(label(c))),
-          ],
-        ),
-      );
-    },
-  );
-
-  @override
-  Widget build(BuildContext context) => StreamBuilder<String?>(
-    stream: db.watchSetting(SettingKeys.autoplay),
-    builder: (context, snap) {
-      final on = snap.data != 'false';
-      return Column(
-        children: [
-          SwitchListTile(
-            secondary: const Icon(Icons.play_circle_outline),
-            title: const Text('Autoplay short videos'),
-            subtitle: const Text(
-              'Muted, when they scroll into view; tap one for sound',
-            ),
-            value: on,
-            onChanged: (v) =>
-                db.setSetting(SettingKeys.autoplay, v ? 'true' : 'false'),
-          ),
-          _limit(
-            settingKey: SettingKeys.autoplayMaxSeconds,
-            title: 'No longer than',
-            choices: _seconds,
-            fallback: AutoplayPolicy.defaultMaxSeconds,
-            label: (s) => s < 60 ? '$s s' : '${s ~/ 60} min',
-            enabled: on,
-          ),
-          _limit(
-            settingKey: SettingKeys.autoplayMaxMegabytes,
-            title: 'No larger than',
-            choices: _megabytes,
-            fallback: AutoplayPolicy.defaultMaxMegabytes,
-            label: (m) => '$m MB',
-            enabled: on,
-          ),
-        ],
-      );
-    },
-  );
-}
-
-/// The autoplay settings right where videos play: a sheet over the timeline.
-Future<void> showAutoplaySettings(BuildContext context, AppDatabase db) =>
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Text(
-                'Video autoplay',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
-            AutoplaySettings(db: db),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-
-/// Whether pictures load by themselves, per kind of connection, with a size limit each —
-/// the official app's automatic downloads, kept to what this app fetches on its own.
-class AutoDownloadSettings extends StatelessWidget {
-  const AutoDownloadSettings({super.key, required this.db});
-  final AppDatabase db;
-
-  Widget _row({
-    required String title,
-    required String subtitle,
-    required String flagKey,
-    required String limitKey,
-    required int defaultMb,
-  }) => StreamBuilder<String?>(
-    stream: db.watchSetting(flagKey),
-    builder: (context, flag) {
-      final on = flag.data != 'false';
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SwitchListTile(
-            value: on,
-            title: Text(title),
-            subtitle: Text(subtitle),
-            onChanged: (v) => db.setSetting(flagKey, '$v'),
-          ),
-          if (on)
-            StreamBuilder<String?>(
-              stream: db.watchSetting(limitKey),
-              builder: (context, limit) {
-                final mb = int.tryParse(limit.data ?? '') ?? defaultMb;
-                return ListTile(
-                  title: const Text('Largest picture'),
-                  subtitle: Text('$mb MB'),
-                  trailing: SizedBox(
-                    width: 180,
-                    child: Slider(
-                      value: mb.clamp(1, 50).toDouble(),
-                      min: 1,
-                      max: 50,
-                      divisions: 49,
-                      label: '$mb MB',
-                      onChanged: (v) => db.setSetting(limitKey, '${v.round()}'),
-                    ),
-                  ),
-                );
-              },
-            ),
-        ],
-      );
-    },
-  );
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      _row(
-        title: 'Pictures on Wi-Fi',
-        subtitle: 'Load pictures without asking on an unmetered connection',
-        flagKey: SettingKeys.autoDownloadWifi,
-        limitKey: SettingKeys.autoDownloadWifiMaxMb,
-        defaultMb: AutoDownloadPolicy.defaultWifiMaxMb,
-      ),
-      _row(
-        title: 'Pictures on mobile data',
-        subtitle: 'Metered Wi-Fi counts as mobile data',
-        flagKey: SettingKeys.autoDownloadMobile,
-        limitKey: SettingKeys.autoDownloadMobileMaxMb,
-        defaultMb: AutoDownloadPolicy.defaultMobileMaxMb,
-      ),
-      const SettingsFooter(
-        'Videos follow the autoplay limits below; files and voice messages always wait '
-        'for a tap.',
-      ),
-    ],
   );
 }

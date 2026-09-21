@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/media_view.dart';
-import 'package:telegram_feed/media/autoplay.dart';
 import 'package:telegram_feed/media/media_viewer.dart';
 import 'package:telegram_feed/media/video_sessions.dart';
 import 'package:telegram_feed/media/video_stage.dart';
@@ -24,20 +23,6 @@ VideoMedia _video({int seconds = 20, int megabytes = 5, bool gif = false}) =>
     );
 
 void main() {
-  test('policy: length and size limits, animations only by size', () {
-    const p = AutoplayPolicy(maxSeconds: 60, maxMegabytes: 20);
-    expect(p.allows(_video()), isTrue);
-    expect(p.allows(_video(seconds: 61)), isFalse);
-    expect(p.allows(_video(megabytes: 21)), isFalse);
-    expect(p.allows(_video(seconds: 600, gif: true)), isTrue);
-    expect(const AutoplayPolicy.off().allows(_video()), isFalse);
-    expect(AutoplayPolicy.fromSettings(enabled: 'false').enabled, isFalse);
-    expect(
-      AutoplayPolicy.fromSettings(maxSeconds: '30', maxMegabytes: '5'),
-      const AutoplayPolicy(maxSeconds: 30, maxMegabytes: 5),
-    );
-  });
-
   Future<void> startUp(WidgetTester tester) async {
     await tester.pump();
     await tester.runAsync(

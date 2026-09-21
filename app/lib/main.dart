@@ -9,7 +9,6 @@ import 'host/app_host.dart';
 import 'feeds/text_scale.dart';
 import 'media/audio_bar.dart';
 import 'media/auto_download.dart';
-import 'media/autoplay.dart';
 import 'media/system_pip.dart';
 import 'notifications/open_post.dart';
 import 'rules/rules_screen.dart';
@@ -78,7 +77,7 @@ class _TelegramFeedAppState extends State<TelegramFeedApp> {
             pageTransitionsTheme: appPageTransitions,
           ),
           themeMode: themeModeFrom(mode.data),
-          // Above the navigator, so every route's media sees the autoplay settings, and
+          // Above the navigator, so every route's media sees the download settings, and
           // every route reaches the account switch (the Accounts screen is pushed over
           // the home route, not built inside it).
           builder: (context, child) => AccountSwitch(
@@ -86,17 +85,14 @@ class _TelegramFeedAppState extends State<TelegramFeedApp> {
             child: PipHost(
               child: snap.data == null
                   ? child!
-                  : AutoplayScope(
+                  : AutoDownloadScope(
                       db: snap.data!.db,
-                      child: AutoDownloadScope(
+                      child: PostTextScale(
                         db: snap.data!.db,
-                        child: PostTextScale(
-                          db: snap.data!.db,
-                          // Under every screen while a voice message or a song plays.
-                          // The lock sits above every screen the navigator builds.
-                          child: AudioBarHost(
-                            child: LockGate(db: snap.data!.db, child: child!),
-                          ),
+                        // Under every screen while a voice message or a song plays.
+                        // The lock sits above every screen the navigator builds.
+                        child: AudioBarHost(
+                          child: LockGate(db: snap.data!.db, child: child!),
                         ),
                       ),
                     ),

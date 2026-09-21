@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/main.dart' show themeModeFrom;
 import 'package:telegram_feed/feeds/timeline_screen.dart';
+import 'package:telegram_feed/media/auto_download.dart';
 import 'package:telegram_feed/settings/chat_settings_screen.dart';
 import 'package:telegram_feed/settings/data_storage_screen.dart';
 import 'package:telegram_feed/settings/notifications_screen.dart';
@@ -245,6 +246,151 @@ void main() {
     await tester.pumpAndSettle();
     await settle(tester);
     expect(find.text('512 KB'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  Future<DownloadPreset> stored(WidgetTester tester, Connection c) async =>
+      DownloadPreset.decode(
+        await tester.runAsync<String?>(() => db.setting(c.settingKey)),
+        c.defaults,
+      );
+
+  testWidgets('data and storage: a row per connection with its switch, the '
+      'autoplay switches and the reset', (tester) async {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(DataStorageScreen(db: db, gateway: gw)));
+    await settle(tester);
+    expect(find.text('When using mobile data'), findsOneWidget);
+    expect(find.text('Photos, Videos (10 MB), Files (1 MB)'), findsOneWidget);
+    expect(find.text('When connected on Wi-Fi'), findsOneWidget);
+    expect(find.text('Photos, Videos (15 MB), Files (3 MB)'), findsOneWidget);
+    expect(find.text('When roaming'), findsOneWidget);
+    expect(find.text('Photos'), findsOneWidget);
+    final reset = find.widgetWithText(ListTile, 'Reset auto-download settings');
+    // Nothing to reset while every connection has Telegram's default.
+    expect(tester.widget<ListTile>(reset).enabled, isFalse);
+
+    // The switch beside a row turns the whole connection off, and only that.
+    final rowSwitches = find.descendant(
+      of: find.byType(SplitSwitchTile),
+      matching: find.byType(Switch),
+    );
+    await tester.tap(rowSwitches.first);
+    await settle(tester);
+    expect(find.text('Disabled'), findsOneWidget);
+    expect((await stored(tester, Connection.mobile)).enabled, isFalse);
+    expect(
+      (await stored(
+        tester,
+        Connection.mobile,
+      )).sameKindsAs(DownloadPreset.medium),
+      isTrue,
+    );
+    expect(tester.widget<ListTile>(reset).enabled, isTrue);
+
+    // Autoplay: GIFs and videos, each its own switch.
+    await tester.tap(find.widgetWithText(SwitchListTile, 'GIFs'));
+    await settle(tester);
+    await tester.runAsync(
+      () async => expect(await db.setting(SettingKeys.autoplayGifs), 'false'),
+    );
+    expect(
+      tester
+          .widget<SwitchListTile>(find.widgetWithText(SwitchListTile, 'Videos'))
+          .value,
+      isTrue,
+    );
+
+    await tester.tap(reset);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Reset'));
+    await tester.pumpAndSettle();
+    await settle(tester);
+    expect(await stored(tester, Connection.mobile), DownloadPreset.medium);
+    expect(find.text('Disabled'), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('a connection screen: the presets on the slider, the kinds of '
+      'media and their limits', (tester) async {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      app(AutoDownloadScreen(db: db, connection: Connection.mobile)),
+    );
+    await settle(tester);
+    expect(find.text('Using mobile data'), findsOneWidget);
+    expect(find.text('Auto-download media'), findsOneWidget);
+    for (final name in ['Low', 'Medium', 'High']) {
+      expect(find.text(name), findsOneWidget);
+    }
+    expect(find.text('Custom'), findsNothing);
+    expect(find.text('Up to 10 MB'), findsOneWidget);
+    expect(find.text('Up to 1 MB'), findsOneWidget);
+
+    // The slider picks Telegram's High.
+    final usage = find.descendant(
+      of: find.byType(DataUsageSlider),
+      matching: find.byType(Slider),
+    );
+    tester.widget<Slider>(usage).onChanged!(2);
+    await settle(tester);
+    expect(
+      (await stored(
+        tester,
+        Connection.mobile,
+      )).sameKindsAs(DownloadPreset.high),
+      isTrue,
+    );
+    expect(find.text('Up to 15 MB'), findsOneWidget);
+
+    // Videos: a larger limit and no preloading, saved from the sheet.
+    await tester.tap(find.text('Videos'));
+    await tester.pumpAndSettle();
+    expect(find.text('Maximum video size'), findsOneWidget);
+    final size = find.descendant(
+      of: find.byType(BottomSheet),
+      matching: find.byType(Slider),
+    );
+    tester.widget<Slider>(size).onChanged!(
+      downloadSizeStep(50 * 1024 * 1024).toDouble(),
+    );
+    await tester.pump();
+    expect(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('Up to 50 MB'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Preload larger videos'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+    await settle(tester);
+    final own = await stored(tester, Connection.mobile);
+    expect(own.videoMaxBytes, 50 * 1024 * 1024);
+    expect(own.preloadLargeVideos, isFalse);
+    // A choice of one's own sits on the slider as Custom, past High here.
+    expect(find.text('Custom'), findsOneWidget);
+    expect(find.text('Up to 50 MB'), findsOneWidget);
+
+    // Off, nothing below can be changed.
+    await tester.tap(find.text('Auto-download media'));
+    await settle(tester);
+    expect((await stored(tester, Connection.mobile)).enabled, isFalse);
+    final kinds = find.descendant(
+      of: find.byType(SplitSwitchTile),
+      matching: find.byType(Switch),
+    );
+    expect(kinds, findsNWidgets(3));
+    for (final e in kinds.evaluate()) {
+      expect((e.widget as Switch).onChanged, isNull);
+    }
+    expect(tester.widget<Slider>(usage).onChanged, isNull);
     await unmount(tester);
   });
 

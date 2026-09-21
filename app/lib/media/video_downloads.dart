@@ -8,9 +8,10 @@ import 'video_sessions.dart';
 
 enum DownloadPhase { idle, downloading, done }
 
-/// Downloads the user asked for with the button on a video: the whole file goes into
-/// Telegram's cache, so that it plays at once and offline later. Unlike the download that
-/// feeds a playing video, this one goes on when the viewer closes.
+/// Downloads the user asked for with the button on a video, and the ones the automatic
+/// downloads start by themselves: the whole file goes into Telegram's cache, so that it plays
+/// at once and offline later. Unlike the download that feeds a playing video, this one goes
+/// on when the viewer closes.
 final class VideoDownloads extends ChangeNotifier {
   VideoDownloads(this.gateway);
 
@@ -24,6 +25,15 @@ final class VideoDownloads extends ChangeNotifier {
 
   /// The user asked for the file; playback ending must not cancel its download.
   bool wants(int fileId) => _wanted.containsKey(fileId);
+
+  /// Files the reader stopped by hand: they do not start by themselves again in this run.
+  final _declined = <int>{};
+
+  /// Files whose first seconds were asked for already.
+  final _preloaded = <int>{};
+
+  /// How much of a larger video is loaded ahead: a few seconds of it.
+  static const preloadBytes = 2 * 1024 * 1024;
 
   DownloadPhase phase(FileRef file) =>
       file.isDownloaded || _done.contains(file.id)
@@ -51,14 +61,19 @@ final class VideoDownloads extends ChangeNotifier {
     }
   }
 
-  Future<void> start(FileRef file) async {
+  /// [auto] is the automatic download of a video within the limit: it shows on the pill
+  /// like one the user asked for, but one the user stopped stays stopped.
+  Future<void> start(FileRef file, {bool auto = false}) async {
+    if (auto && _declined.contains(file.id)) return;
     if (phase(file) != DownloadPhase.idle) return;
+    if (!auto) _declined.remove(file.id);
     _errors.remove(file.id);
     final w = _wanted[file.id] = _Wanted();
     w.sub = gateway
         .fileProgress(file.id)
         .listen((p) => _onProgress(file.id, p));
     notifyListeners();
+    if (auto) debugPrint('media: ${file.id} loads by itself (${file.size} B)');
     // A video that is playing already pulls the whole file; aiming the download at the
     // start would only take it away from where the player reads.
     if (VideoSessions.of(gateway).find(file.id) != null) return;
@@ -68,6 +83,20 @@ final class VideoDownloads extends ChangeNotifier {
       _drop(file.id);
       _errors[file.id] = e.message;
       notifyListeners();
+    }
+  }
+
+  /// The first seconds of a video too large to load by itself (the official app's "Preload
+  /// larger videos"). Nothing shows for it; a download or a player later takes over the
+  /// same file from where it got.
+  Future<void> preload(FileRef file) async {
+    if (phase(file) != DownloadPhase.idle || !_preloaded.add(file.id)) return;
+    if (VideoSessions.of(gateway).find(file.id) != null) return;
+    debugPrint('media: ${file.id} first $preloadBytes B loaded ahead');
+    try {
+      await gateway.downloadFrom(file.id, priority: 1, limit: preloadBytes);
+    } on TelegramException catch (e) {
+      debugPrint('media: preload ${file.id}: ${e.message}');
     }
   }
 
@@ -94,6 +123,7 @@ final class VideoDownloads extends ChangeNotifier {
   /// Keeps what is on disk; a later download goes on from there.
   Future<void> cancel(int fileId) async {
     if (!wants(fileId)) return;
+    _declined.add(fileId);
     _drop(fileId);
     notifyListeners();
     // A playing video still needs its download; it is cancelled with the player.

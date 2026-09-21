@@ -513,13 +513,14 @@ final class TdlibGateway implements TelegramGateway {
     int fileId, {
     int offset = 0,
     int priority = 32,
+    int limit = 0,
   }) async => _progress(
     await _client.call(
       td.DownloadFile(
         fileId: fileId,
         priority: priority,
         offset: offset,
-        limit: 0,
+        limit: limit,
         synchronous: false,
       ),
     ),

@@ -39,6 +39,7 @@ class PartialFileGateway extends ChannelsGateway {
     int fileId, {
     int offset = 0,
     int priority = 32,
+    int limit = 0,
   }) async {
     aims.add(offset);
     _cursor = offset ~/ block;

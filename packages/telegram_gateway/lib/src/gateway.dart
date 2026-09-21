@@ -64,11 +64,14 @@ abstract interface class TelegramGateway {
   Stream<FileProgress> fileProgress(int fileId);
 
   /// Playing while downloading: aims the download of [fileId] at [offset] (the bytes the
-  /// player needs next come first) and answers with the file's state right away.
+  /// player needs next come first) and answers with the file's state right away. A
+  /// [limit] stops it after that many bytes (0 = the whole rest): the first seconds of a
+  /// video loaded ahead.
   Future<FileProgress> downloadFrom(
     int fileId, {
     int offset = 0,
     int priority = 32,
+    int limit = 0,
   });
 
   /// Bytes readable from [offset] on in [FileProgress.partialPath].

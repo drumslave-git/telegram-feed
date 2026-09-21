@@ -174,16 +174,38 @@ the `tf/gallery` method channel: the Kotlin side inserts the file into `MediaSto
 file since Android 10) and answers with its uri; the file is downloaded first when the cache
 does not have it.
 
-### 5.5c Automatic downloads
+### 5.5c Automatic downloads and autoplay
 
-`AutoDownloadScope` (`media/auto_download.dart`) decides whether a picture loads by itself:
-a switch and a size limit per connection (`media.autoDownload.*`), with the connection read
-from the `tf/network` method channel (metered Wi-Fi counts as mobile data) and refreshed when
-the app resumes. Until the four settings and the connection are known the policy is `unknown`
-and nothing starts — a cold start must not spend mobile data the reader forbade — and the
-spinner stands in; when the policy then allows it, `Downloaded` starts on the flip instead of
-waiting for a tap. Videos keep the autoplay limits of F-6; files and voice messages always
-wait for a tap.
+Automatic downloads and autoplay are one thing, as in the official app (J-2).
+`AutoDownloadScope` (`media/auto_download.dart`) sits above the navigator and hands every
+media widget an `AutoDownloadPolicy`: the `DownloadPreset` of the connection the phone is on
+and the two Autoplay switches.
+
+- **Connections.** Mobile data, Wi-Fi and roaming, each with its own preset
+  (`media.download.mobile|wifi|roaming`, JSON, synced like every `media.*` setting). The
+  connection comes from the `tf/network` method channel — metered Wi-Fi counts as mobile
+  data, cellular without `NET_CAPABILITY_NOT_ROAMING` as roaming — and is read again when the
+  app resumes.
+- **A preset** is the official app's: a switch for the whole connection, photos (no size
+  limit, as there), videos up to a size, files up to a size, and "Preload larger videos".
+  Telegram's three are built in — Low (photos only), Medium (videos to 10 MB, files to 1 MB)
+  and High (15 MB and 3 MB) — and a fresh install has Medium on mobile data, High on Wi-Fi
+  and Low while roaming. GIFs and round video messages count as videos; music and voice
+  messages as files.
+- **What it does.** A photo within the preset loads as soon as its row is built. A video
+  within the limit is downloaded whole through `VideoDownloads.start(auto: true)`, so its
+  pill shows the progress as a download the user asked for would; a download the user stops
+  by hand does not start by itself again in this run. A larger video with preloading on gets
+  its first 2 MB (`downloadFrom` with a `limit`, TDLib's `downloadFile` limit), so a tap plays
+  it at once. A file within the limit starts in its row; a voice message or a song loads
+  ahead without playing. A size TDLib has not reported yet waits for a tap.
+- **Autoplay** follows the download: a video autoplays when it loads by itself and its
+  Autoplay switch (GIFs, videos) is on. There is no length limit and no size limit of its
+  own any more; the ones of F-6 are gone.
+- Until the settings and the connection are known the policy is `unknown` and nothing
+  starts — a cold start must not spend mobile data the reader forbade — and the spinner
+  stands in; when the policy then allows it, the row starts on the flip instead of waiting
+  for a tap. Without a scope (widget tests of a single view) only pictures load.
 
 ### 5.6 Video playback
 
@@ -192,7 +214,7 @@ wait for a tap.
 - **Viewer** (`MediaViewerScreen`, `VideoStage`, `ZoomablePhoto`): one full-screen viewer for the photos and videos of a post; a sideways swipe pages through the album, with the position (`2 of 5`) beside the back arrow. A tap on a video plays it there at once, as the official app does; the timeline has no player controls. Only the video page in front has a session: its neighbours are posters, and turning the page hands the session back exactly as leaving does. The viewer is immersive and leaves the orientation to the device. Controls: back arrow, tap shows or hides them, scrubber with the buffered range, speed, mute, replay at the end; double tap on the left or right third seeks 10 s, in the middle it zooms to 2.5× around the tapped point and back; a pinch zooms up to 6× and a drag moves the zoomed picture (`InteractiveViewer` around the player's texture, zoom helpers in `media/zoom.dart` shared with photos); a finger held down plays at 2× until it lifts, then the chosen speed returns. The gesture layer lies behind the buttons, not around them, so button taps do not wait out the double-tap window. A vertical drag with one finger carries the picture away while the black behind it fades, and closes the viewer past 120 px or with a flick (`SwipeToClose`); it is off while the picture is zoomed, and a second finger takes the drag recognizer out of the arena so a pinch stays a pinch. For that the viewer's route is not opaque, so timeline rows under it remain visible to the visibility detector: autoplay rests while the row's route is not the current one. Leaving the viewer pauses the video, disposes the player and cancels the unfinished streaming download at once (`releaseFromViewer`).
 - **Download button** (`VideoDownloads`, `VideoDownloadButton`): a pill in the top left corner of a video in the timeline and in the viewer's top bar, as in the official app: arrow and size, then a progress ring with the bytes that cancels on tap, nothing once the file is complete. It downloads the whole file into TDLib's cache (priority 16, below a playing video's 32); nothing is exported to the gallery. A file the user asked for is not cancelled when its player closes, and cancelling the wish leaves a playing video its download. Posts carry the `FileRef` of the time they were loaded, so the button asks TDLib (`getFileDownloadedPrefixSize`) whether the file is complete by now, and listens to the file's progress while it shows: a short video that autoplays under it is streamed whole within seconds.
 - **Picture-in-picture** has two parts, as in the official app. *Mini player* (`MiniPlayer`): the viewer's PiP button moves the session into a small window in the root navigator's overlay that floats over the timeline and every other screen; drag it (it rests at the nearer side), tap for pause and play, open it in the viewer again, or close it. A session counts its sound-watching holders separately (`retainForViewer` / `releaseFromViewer`), so the viewer and the mini player hand a video to each other without it stopping, and it ends when the last of them lets go. Opening the viewer ends a mini player that shows another video. *System window* (`SystemPip`, `PipHost`, `MainActivity`): Android's picture-in-picture shrinks the whole activity, so it cannot float over our own screens; it takes over when the app is left. While a video plays in the viewer or the mini player (`VideoSessions.foreground`, which counts only once the player is initialized, because the window needs the picture's size) the activity is armed over the channel `tf/pip` with the video's aspect ratio, clamped to Android's 1:2.39 to 2.39:1: auto-enter from Android 12, `onUserLeaveHint` on 8 to 11. In the window `PipHost`, which sits above the navigator, shows nothing but the video and keeps the screens alive offstage, since they were not made for a window that small. When the activity is stopped (the window was dragged away, or the device has no such window) the foreground video pauses; nothing plays from the background.
-- **Autoplay** (`AutoplayPolicy`, settings `media.autoplay*`, synced): a video up to 60 s and 20 MB (both adjustable; animations only by size) starts muted and looping in its row (`InlineVideo`) once 60 % of it is visible, and pauses below 20 %. A tap opens the viewer on the same player with sound; leaving the viewer mutes it again and it keeps autoplaying. A row that the list rebuilds picks its autoplay session up again within a grace period of 0.8 s; after that the player is disposed and the download cancelled. `AutoplayScope` sits above the navigator and hands the policy to the media widgets.
+- **Autoplay** (section 5.5c decides which videos): a video that loads by itself starts muted and looping in its row (`InlineVideo`) once 60 % of it is visible, and pauses below 20 %; it streams through the loopback server while its automatic download goes on. A tap opens the viewer on the same player with sound; leaving the viewer mutes it again and it keeps autoplaying. A row that the list rebuilds picks its autoplay session up again within a grace period of 0.8 s; after that the player is disposed, and the download goes on only because the automatic download wants the file.
 
 ### 5.7 Main screen
 
@@ -232,7 +254,7 @@ A timeline row (`PostCard`, `feeds/post_card.dart`) is drawn like a post in the 
 - "Copy text" in the menu copies the row's words; every `TextEntityKind.pre` block ends with a copy button of its own (a `WidgetSpan` inside the text, so it sits where the block ends instead of floating over it).
 - The unread dot has a reserved slot beside the time and only fades, so nothing moves when a post becomes read.
 - "Select" in the menu starts a selection: `TimelineViewState` keeps the picked rows by `(chat id, row id)`, each card gets a tick and a layer that swallows every other tap, and `TimelineScreen` replaces its app bar with "N selected" plus Copy text, Share and Save to Saved Messages, which run over the picked rows oldest first (saving groups them per channel, so an album goes in one call).
-- A long press on the bubble opens the menu: the emoji the channel allows, Open in Telegram, Comments, Share, Copy link, Save to Saved Messages (`saveToSavedMessages` forwards the whole album into the chat with oneself, source header and all), and for posts with a video the autoplay settings (`showAutoplaySettings`, the same switch and limits as in Settings). The menu scrolls: with the reactions on top its entries do not all fit on a short screen.
+- A long press on the bubble opens the menu: the emoji the channel allows, Open in Telegram, Comments, Share, Copy link, Save to Saved Messages (`saveToSavedMessages` forwards the whole album into the chat with oneself, source header and all), and for posts with a video "Autoplay and download settings", which opens Data and storage. The menu scrolls: with the reactions on top its entries do not all fit on a short screen.
 - The list keeps 8 px plus the system inset under the newest post, which in the reversed list is the bottom edge of the screen.
 - A forwarded post carries `Post.forwardedFrom` (`ForwardOrigin`: the name, the origin chat and post, the origin user, the author signature, and whether the sender hides itself). TDLib gives ids, not names, so `TdlibGateway._post` resolves them through the same sender cache the comments use: one `getChat` or `getUser` per origin and session. `ForwardedFrom` draws "Forwarded from <name> (signature)" under the title line, and a tap opens the original post when the account follows that channel — the app cannot read a channel it has not joined.
 - A post that answers another carries `Post.replyTo` (`ReplyTarget`: the answered post's chat and id, the quote with `manualQuote` when the author picked one, the words otherwise, a thumbnail, and the name for a reply across chats). TDLib sends the origin and the content only when the answered post is in another chat; inside the channel `TdlibGateway._reply` fetches that post once and keeps its words and thumbnail in a small map (cleared past 500 entries). `RepliedPost` draws the block above the text, and a tap jumps to the post when it belongs to the timeline's own channels, else opens that channel.
@@ -348,7 +370,11 @@ the app bar's menu, as in the official app. The rows, in order:
   security (`PrivacyScreen`: the app lock, and read sync, since it decides what Telegram
   learns of the reading), Notifications and sounds (`NotificationsScreen`: sound and
   vibration per rule priority, background watching), Data and storage (`DataStorageScreen`:
-  storage usage with its own screen and the cache button, automatic downloads, autoplay).
+  storage usage with its own screen and the cache button; the three connections, each a row
+  with the preset's summary and the connection's switch behind a divider, as in the official
+  app, and a screen of its own — `AutoDownloadScreen`: the switch, the data-usage slider over
+  Low, Medium and High with a Custom stop placed by how much it spends, and photos, videos and
+  files with their limits in a sheet — the reset, and the Autoplay switches).
 - The app's own screens: Read aloud, AI rules, Google Drive sync, each showing its state on
   the right where it has one.
 - About (a dialog with what leaves the device) and the licenses, then the version line
@@ -586,3 +612,4 @@ this: it keeps people out of the app, not out of the file system.
 | 2026-09-20 | The post menu opens on a long press only, and a double tap sends the quick reaction | Founder feedback round 7 (H-9): Flutter's gesture arena cannot give a plain tap the menu and still see the second tap of a double tap, and the official app works this way too |
 | 2026-09-21 | Fixture channels, histories and posts live in `app/test/fixtures.dart`, not inside test files | H-38: the gateway fake used to sit in two test files that twenty others imported, and the positioning tests need channels, paging histories and arriving posts in one place. No test needs the spare Telegram account |
 | 2026-09-21 | Settings is a list of screens as in the official app: the profile, Chat settings, Privacy and security, Notifications and sounds, Data and storage, then the app's own screens (Read aloud, AI rules, Google Drive sync) and About. Log out moves into the app bar's menu | Founder feedback round 8 (J-3): the single screen had grown too long |
+| 2026-09-21 | Automatic downloads and video autoplay are one setting, as in the official app: per connection (mobile data, Wi-Fi, roaming) a switch, Telegram's Low, Medium and High presets and photos, videos and files with their limits; a video autoplays only when it loads by itself, and the Autoplay switches (GIFs, videos) sit under the downloads on Data and storage | Founder feedback round 8 (J-2) and founder decision the same day; replaces the autoplay limits of 2026-09-19 (60 s, 20 MB) and the picture-only downloads of H-24 |

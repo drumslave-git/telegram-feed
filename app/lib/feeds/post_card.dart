@@ -287,7 +287,7 @@ class PostCard extends StatelessWidget {
                   item.allPosts.any((p) => p.media is VideoMedia))
                 ListTile(
                   leading: const Icon(Icons.play_circle_outline),
-                  title: const Text('Video autoplay settings'),
+                  title: const Text('Autoplay and download settings'),
                   onTap: () => Navigator.pop(context, onAutoplaySettings),
                 ),
             ],
