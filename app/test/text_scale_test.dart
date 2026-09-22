@@ -85,6 +85,26 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets("the factor goes on top of the phone's own text size", (
+    tester,
+  ) async {
+    // The phone draws text at 1.3; a post factor of 1.1 must not make posts smaller.
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpWidget(app());
+    await settle(tester);
+    final system = tester.getSize(find.text('measure me'));
+    await tester.runAsync(
+      () => db.setSetting(SettingKeys.postTextScale, '1.10'),
+    );
+    await settle(tester);
+    expect(
+      tester.getSize(find.text('measure me')).width,
+      greaterThan(system.width),
+    );
+    await unmount(tester);
+  });
+
   test('the factor is read, clamped and defaulted', () {
     expect(PostTextScale.parse(null), 1.0);
     expect(PostTextScale.parse('junk'), 1.0);

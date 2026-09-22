@@ -94,6 +94,19 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('the reaction shows at once, before Telegram answers', (
+    tester,
+  ) async {
+    await open(tester);
+    // Only the post's own "X 2" so far.
+    expect(find.textContaining(defaultQuickReaction), findsNothing);
+    await doubleTap(tester, find.text('react to me'));
+    await tester.pump();
+    // No update from Telegram came, yet the reader's reaction is there.
+    expect(find.textContaining(defaultQuickReaction), findsOneWidget);
+    await unmount(tester);
+  });
+
   testWidgets('reacting from the menu makes that emoji the quick one', (
     tester,
   ) async {
@@ -123,9 +136,10 @@ void main() {
     );
     expect(flame, 'fire'); // keeps the intent readable
 
-    // A double tap now sends the same emoji.
+    // A double tap now uses the same emoji; it shows as the reader's already, so the
+    // double tap takes it back, as in the official app.
     await doubleTap(tester, find.text('react to me'));
-    expect(gw.reactions.last, '-1/3 +$chosen');
+    expect(gw.reactions.last, '-1/3 -$chosen');
     await unmount(tester);
   });
 }

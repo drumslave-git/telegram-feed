@@ -344,12 +344,10 @@ class _TimelineScreenState extends State<TimelineScreen> {
           IconButton(
             tooltip: 'Jump to date',
             icon: const Icon(Icons.calendar_month),
-            onPressed: () {
-              // The calendar takes over from the search, as in the official app.
-              final view = _view.currentState;
-              _closeSearch();
-              unawaited(view?.pickDate());
-            },
+            // The calendar takes over from the search, as in the official app; cancelled,
+            // it leaves the search as it was.
+            onPressed: () =>
+                unawaited(_view.currentState?.pickDate(onPicked: _closeSearch)),
           ),
         ],
         // The kinds of post to look for, under the field as in the official app.
@@ -867,7 +865,9 @@ class TimelineViewState extends State<TimelineView>
   }
 
   /// Opens the calendar and jumps to the day the reader picks, as in the official app.
-  Future<void> pickDate({DateTime? around}) async {
+  /// Asks for a day and goes there; true when one was picked. [onPicked] runs first,
+  /// before the jump, so the search can close only when the reader did pick a day.
+  Future<bool> pickDate({DateTime? around, VoidCallback? onPicked}) async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
@@ -877,8 +877,10 @@ class TimelineViewState extends State<TimelineView>
       lastDate: now,
       helpText: 'Jump to date',
     );
-    if (picked == null || !mounted) return;
+    if (picked == null || !mounted) return false;
+    onPicked?.call();
     await jumpToDate(picked);
+    return true;
   }
 
   /// Opens the timeline at a day: every source starts at its newest post of that day (or
@@ -1559,8 +1561,59 @@ class TimelineViewState extends State<TimelineView>
     }
   }
 
+  /// Reactions the reader changed, shown at once, by post, with the list they were made
+  /// from: once Telegram's update gives the post a new list, the post's own is shown again.
+  final _optimistic = <(int, int), (List<Reaction>, List<Reaction>)>{};
+
+  /// The reactions to draw for a post: the reader's change while Telegram has not answered.
+  List<Reaction>? _reactionsOf(TimelineItem item) {
+    final o = _optimistic[(item.chatId, item.head.messageId)];
+    if (o == null || !identical(o.$1, item.head.reactions)) return null;
+    return o.$2;
+  }
+
+  /// The reactions after the reader's tap: one reaction of one's own, as Telegram allows
+  /// without Premium; its update corrects anything else.
+  static List<Reaction> _toggled(
+    List<Reaction> from,
+    String emoji, {
+    required bool remove,
+  }) {
+    final out = <Reaction>[];
+    var found = false;
+    for (final r in from) {
+      final mine = r.emoji == emoji;
+      found = found || mine;
+      // Removing takes the reader's one away; adding moves it from any other emoji.
+      final drop = mine ? remove : (r.chosen && !remove);
+      final add = mine && !remove && !r.chosen;
+      if (drop) {
+        if (r.count > 1) out.add(Reaction(emoji: r.emoji, count: r.count - 1));
+      } else if (add) {
+        out.add(Reaction(emoji: r.emoji, count: r.count + 1, chosen: true));
+      } else {
+        out.add(r);
+      }
+    }
+    if (!remove && !found) {
+      out.add(Reaction(emoji: emoji, count: 1, chosen: true));
+    }
+    return out;
+  }
+
   Future<void> _react(TimelineItem item, String emoji, bool remove) async {
     final messenger = ScaffoldMessenger.of(context);
+    final key = (item.chatId, item.head.messageId);
+    // A second tap before Telegram answered would undo the first.
+    if (_reacting.contains(key)) return;
+    _reacting.add(key);
+    final shown = _reactionsOf(item) ?? item.head.reactions;
+    setState(
+      () => _optimistic[key] = (
+        item.head.reactions,
+        _toggled(shown, emoji, remove: remove),
+      ),
+    );
     try {
       await widget.gateway.react(
         item.chatId,
@@ -1574,9 +1627,14 @@ class TimelineViewState extends State<TimelineView>
         await widget.db.setSetting(SettingKeys.quickReaction, emoji);
       }
     } on TelegramException catch (e) {
+      if (mounted) setState(() => _optimistic.remove(key));
       messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
+    } finally {
+      _reacting.remove(key);
     }
   }
+
+  final _reacting = <(int, int)>{};
 
   /// The post each picture in the viewer came from, in the same order as the media.
   List<TimelineItem> _viewerOwners = const [];
@@ -1692,7 +1750,9 @@ class TimelineViewState extends State<TimelineView>
   /// does not allow that emoji says so through Telegram's own answer.
   Future<void> _quickReact(TimelineItem item) async {
     final emoji = _quick;
-    final chosen = item.head.reactions.any((r) => r.emoji == emoji && r.chosen);
+    final chosen = (_reactionsOf(item) ?? item.head.reactions).any(
+      (r) => r.emoji == emoji && r.chosen,
+    );
     await _react(item, emoji, chosen);
   }
 
@@ -1765,7 +1825,8 @@ class TimelineViewState extends State<TimelineView>
         if (t != null && !_opening && (!t.atTop || t.anchored))
           Positioned(
             right: 16,
-            bottom: 16,
+            // Above the gesture bar: the app draws edge to edge.
+            bottom: 16 + MediaQuery.paddingOf(context).bottom,
             // The accent colour, as the official app counts on its page-down button.
             child: Badge.count(
               count: unread,
@@ -1885,6 +1946,7 @@ class TimelineViewState extends State<TimelineView>
                     ? null
                     : () => _openReply(item),
                 onOpenChannel: _channelInfoOf(item.chatId),
+                reactions: _reactionsOf(item),
                 onQuickReact: () => unawaited(_quickReact(item)),
                 onViewerMedia: _viewerMedia,
                 onMoreViewerMedia: _moreViewerMedia,

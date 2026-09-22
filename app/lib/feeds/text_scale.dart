@@ -26,13 +26,10 @@ class PostTextScale extends StatefulWidget {
     final factor = of(context);
     if (factor == 1.0) return child;
     final media = MediaQuery.of(context);
+    // On top of the phone's own text size, never instead of it: a reader who needs large
+    // text keeps it, and the setting makes posts larger or smaller than the rest.
     return MediaQuery(
-      data: media.copyWith(
-        textScaler: media.textScaler.clamp(
-          minScaleFactor: factor,
-          maxScaleFactor: factor,
-        ),
-      ),
+      data: media.copyWith(textScaler: _ScaledBy(media.textScaler, factor)),
       child: child,
     );
   }
@@ -74,4 +71,25 @@ class _ScaleInherited extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_ScaleInherited old) => old.factor != factor;
+}
+
+/// The phone's text scaling times the reader's post factor.
+class _ScaledBy extends TextScaler {
+  const _ScaledBy(this.base, this.factor);
+  final TextScaler base;
+  final double factor;
+
+  @override
+  double scale(double fontSize) => base.scale(fontSize) * factor;
+
+  @override
+  // ignore: deprecated_member_use
+  double get textScaleFactor => base.textScaleFactor * factor;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ScaledBy && other.base == base && other.factor == factor;
+
+  @override
+  int get hashCode => Object.hash(base, factor);
 }

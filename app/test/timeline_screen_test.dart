@@ -359,10 +359,11 @@ void main() {
     await settle(tester);
     await tester.pumpAndSettle();
     expect(find.text('Open in Telegram'), findsOneWidget);
+    // 👍 shows as the reader's since the tap above, so the menu takes it back.
     await tester.tap(find.text('👍'));
     await settle(tester);
     await tester.pumpAndSettle();
-    expect(gw.reactions.last, '-1/3 +👍');
+    expect(gw.reactions.last, '-1/3 -👍');
     await unmount(tester);
   });
 
@@ -742,10 +743,13 @@ void main() {
       await tester.tap(find.byTooltip('Jump to date'));
       await tester.pumpAndSettle();
       expect(find.byType(DatePickerDialog), findsOneWidget);
-      // The search bar made way for the calendar.
-      expect(find.byTooltip('Search'), findsOneWidget);
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
+      // Cancelled, the calendar leaves the search as it was.
+      expect(find.byType(TextField), findsOneWidget);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Search'), findsOneWidget);
 
       // Jumping to the first day lands on its first post, with the older ones above it.
       final first = DateTime.fromMillisecondsSinceEpoch(

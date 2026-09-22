@@ -61,12 +61,12 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - A forwarded post names the channel it came from; a tap opens the original post when I follow that channel.
 - A post with a link shows the site's card (site, title, description, picture, with a play badge for a video); a tap opens the link.
 - A Telegram link in a post that leads to a channel I follow opens here, at that post. Other links open in the app that handles them.
-- A double tap on a post sends my quick reaction.
+- A double tap on a post sends my quick reaction. A reaction shows on the post at once, before Telegram confirms it.
 - I copy a post's text from its menu, and a block of code with the button at its end.
 - I select several posts and copy, share or save them together.
 - I open the original post in the official Telegram app.
 - The day of the topmost post floats over the list while I scroll.
-- I set the text size of posts.
+- I set the text size of posts, on top of the phone's own text size.
 - I close any screen with a swipe from the left edge. Back closes an open search or selection first, then the screen.
 - When the app cannot reach Telegram, the title says so.
 
@@ -86,7 +86,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - The magnifier on the home screen searches the posts of every channel I follow.
 - The magnifier in a feed or a channel searches all of its channels at once; what the feed hides is not found. Results name the channel, show the text and the date; a tap opens the timeline at that post, with arrows and a counter to step through the matches.
 - Chips pick the kind of post: media, links, files, music, voice. A chip works without words.
-- A calendar, and a tap on any day label, jumps to a date.
+- A calendar, and a tap on any day label, jumps to a date. Cancelling the calendar leaves the search open.
 - An open search bar offers the words I looked for last.
 - The comments of a post can be searched.
 

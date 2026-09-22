@@ -144,6 +144,7 @@ class PostCard extends StatelessWidget {
     this.onOpenReply,
     this.onOpenChannel,
     this.onQuickReact,
+    this.reactions,
     this.onSelect,
     this.selecting = false,
     this.selected = false,
@@ -185,6 +186,10 @@ class PostCard extends StatelessWidget {
 
   /// Tap on the quote block: jumps to the post this one answers.
   final VoidCallback? onOpenReply;
+
+  /// The reactions to draw instead of the post's own: the reader's tap, shown before
+  /// Telegram confirms it.
+  final List<Reaction>? reactions;
 
   /// A tap on the channel's name or photo: its info. Set in a feed, where posts of several
   /// channels mix; a channel's own timeline has its info in the app bar.
@@ -238,7 +243,7 @@ class PostCard extends StatelessWidget {
                 _ReactionStrip(
                   load: availableReactions!,
                   chosen: {
-                    for (final r in item.head.reactions)
+                    for (final r in reactions ?? item.head.reactions)
                       if (r.chosen) r.emoji,
                   },
                   onPick: (emoji, remove) =>
@@ -321,6 +326,7 @@ class PostCard extends StatelessWidget {
       onOpenForward: onOpenForward,
       onOpenReply: onOpenReply,
       onOpenChannel: selecting ? null : onOpenChannel,
+      reactions: reactions ?? item.head.reactions,
       onQuickReact: onQuickReact,
       onViewerMedia: onViewerMedia,
       onMoreViewerMedia: onMoreViewerMedia,
@@ -598,6 +604,7 @@ class _Bubble extends StatelessWidget {
     required this.onOpenForward,
     required this.onOpenReply,
     required this.onOpenChannel,
+    required this.reactions,
     required this.onQuickReact,
     required this.onViewerMedia,
     required this.onMoreViewerMedia,
@@ -616,6 +623,7 @@ class _Bubble extends StatelessWidget {
   final VoidCallback? onOpenForward;
   final VoidCallback? onOpenReply;
   final VoidCallback? onOpenChannel;
+  final List<Reaction> reactions;
   final VoidCallback? onQuickReact;
   final List<Media> Function()? onViewerMedia;
   final Future<List<Media>> Function()? onMoreViewerMedia;
@@ -636,7 +644,6 @@ class _Bubble extends StatelessWidget {
       for (final m in media)
         if (!visual.contains(m)) m,
     ];
-    final reactions = item.head.reactions;
     final text = item.text;
     // Only a text post carries a link preview, so it never belongs to an album.
     final preview = item.textPost.linkPreview;
