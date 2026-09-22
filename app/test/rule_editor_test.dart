@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:app_db/app_db.dart';
@@ -88,18 +89,19 @@ void main() {
         'Crypto alerts',
       );
       await tester.pump();
-      // TextFields in tree order: 0 = name, 1 = AI description, then one per term.
-      await tester.enterText(find.byType(TextField).at(2), 'btc');
+      // TextFields in tree order: 0 = name, then one per term; the AI description
+      // is there only while "Also ask the AI" is on.
+      await tester.enterText(find.byType(TextField).at(1), 'btc');
       await tester.pump();
       await tester.tap(find.text('AND another word'));
       await tester.pump();
-      await tester.enterText(find.byType(TextField).at(3), 'airdrop');
+      await tester.enterText(find.byType(TextField).at(2), 'airdrop');
       await tester.pump();
-      await tester.tap(find.byIcon(Icons.block).last);
+      await tester.tap(find.text('Must not contain').last);
       await tester.pump();
       await tester.tap(find.text('OR alternative'));
       await tester.pump();
-      await tester.enterText(find.byType(TextField).at(4), 'ethereum');
+      await tester.enterText(find.byType(TextField).at(3), 'ethereum');
       await tester.pump();
       await tester.scrollUntilVisible(
         find.text('Read the post aloud'),
@@ -198,14 +200,16 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Text'));
     await tester.pump();
-    await tester.enterText(find.byType(TextField).at(2), '(a OR b');
+    await tester.enterText(find.byType(TextField).at(1), '(a OR b');
     await tester.pump();
     await tester.tap(find.text('Save'));
     await tester.pump();
-    expect(find.textContaining('rule syntax'), findsOneWidget);
+    // The error says what is wrong in words; the cursor marks where.
+    expect(find.textContaining('where the cursor is'), findsOneWidget);
+    expect(find.textContaining('rule syntax'), findsNothing);
     expect(await db.allRules(), isEmpty);
 
-    await tester.enterText(find.byType(TextField).at(2), '(a OR b) AND NOT c');
+    await tester.enterText(find.byType(TextField).at(1), '(a OR b) AND NOT c');
     await tester.pump();
     await tester.scrollUntilVisible(
       find.text('Only at certain times'),
@@ -341,11 +345,18 @@ void main() {
         find.widgetWithText(TextField, 'Name'),
         'Breakouts',
       );
-      await tester.enterText(find.byType(TextField).at(1), ' price breakouts ');
       await tester.pump();
-      expect(find.textContaining('every new post'), findsOneWidget);
+      await tester.ensureVisible(find.text('Also ask the AI'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Also ask the AI'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'What the post should be about'),
+        ' price breakouts ',
+      );
+      await tester.pump();
+      expect(find.textContaining('goes to the AI'), findsOneWidget);
       expect(find.textContaining('not set up yet'), findsOneWidget);
-      expect(find.text('Keywords (pre-filter)'), findsOneWidget);
 
       await tester.ensureVisible(find.text('Test on recent posts'));
       await tester.tap(find.text('Test on recent posts'));
@@ -372,10 +383,107 @@ void main() {
       await tester.pumpWidget(editor(rule: rule));
       await settle(tester);
       expect(find.text('price breakouts'), findsOneWidget);
-      expect(find.textContaining('every new post'), findsOneWidget);
+      expect(find.textContaining('goes to the AI'), findsOneWidget);
       await unmount(tester);
     },
   );
+
+  testWidgets('removing a term leaves the next one its own words', (
+    tester,
+  ) async {
+    tall(tester);
+    await tester.pumpWidget(editor());
+    await settle(tester);
+    await tester.enterText(find.byType(TextField).at(1), 'first');
+    await tester.pump();
+    await tester.tap(find.text('AND another word'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField).at(2), 'second');
+    await tester.pump();
+    await tester.tap(find.byTooltip('Remove').first);
+    await tester.pump();
+    final words = tester
+        .widgetList<TextField>(find.byType(TextField))
+        .skip(1)
+        .map((f) => f.controller!.text)
+        .toList();
+    expect(words, ['second']);
+    await unmount(tester);
+  });
+
+  testWidgets('switching between builder and text never strands the words', (
+    tester,
+  ) async {
+    tall(tester);
+    await tester.pumpWidget(editor());
+    await settle(tester);
+    // An empty text form goes back to an empty builder.
+    await tester.tap(find.text('Text'));
+    await tester.pump();
+    await tester.tap(find.text('Builder'));
+    await tester.pump();
+    expect(find.widgetWithText(TextField, 'word or phrase'), findsOneWidget);
+    expect(find.textContaining('where the cursor is'), findsNothing);
+
+    // Terms typed so far go to the text form, rows without words stay behind.
+    await tester.enterText(find.byType(TextField).at(1), 'btc');
+    await tester.pump();
+    await tester.tap(find.text('AND another word'));
+    await tester.pump();
+    await tester.tap(find.text('Text'));
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(1)).controller!.text,
+      'btc',
+    );
+    await unmount(tester);
+  });
+
+  testWidgets('leaving with changes asks first; unchanged leaves at once', (
+    tester,
+  ) async {
+    final nav = GlobalKey<NavigatorState>();
+    tall(tester);
+    await tester.pumpWidget(
+      MaterialApp(navigatorKey: nav, home: const Text('rules')),
+    );
+    void push() => unawaited(
+      nav.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => RuleEditorScreen(
+            db: db,
+            gateway: gw,
+            policyGranted: () async => true,
+            openPolicySettings: () async {},
+          ),
+        ),
+      ),
+    );
+    push();
+    await settle(tester);
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('rules'), findsOneWidget);
+
+    push();
+    await settle(tester);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Half');
+    await tester.pump();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Discard changes?'), findsOneWidget);
+    await tester.tap(find.text('Keep editing'));
+    await tester.pumpAndSettle();
+    expect(find.text('New rule'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Discard'));
+    await tester.pumpAndSettle();
+    expect(find.text('rules'), findsOneWidget);
+    await unmount(tester);
+  });
 
   testWidgets(
     'rules list: AI rules show their description; failures show a quiet warning',
@@ -525,7 +633,7 @@ void main() {
     expect(find.textContaining('every new post'), findsOneWidget);
     await tester.tap(find.text('Text'));
     await tester.pump();
-    await tester.enterText(find.byType(TextField).at(2), 'bitcoin');
+    await tester.enterText(find.byType(TextField).at(1), 'bitcoin');
     await tester.pump();
     expect(find.textContaining('every new post'), findsNothing);
     await unmount(tester);

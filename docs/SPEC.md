@@ -104,7 +104,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - A matching new post raises a notification that opens the post in the feed of the rule. When several rules match, the highest priority wins, and read-aloud happens if any matching rule asks for it.
 - Posts that match no rule raise no notification. The app does not replicate Telegram's own per-chat notifications.
 - Rules match post text and media captions. Edited posts are not matched again.
-- I test a rule against the recent posts of its channels to see what it would have matched.
+- I test a rule against the recent posts of its channels to see what it would have matched. The result says how many posts and channels it checked.
 - Posts from the same channel collapse into one group whose "N new posts" counts only the ones still in the shade. A post deleted in Telegram takes its notification with it.
 
 ### Background watching
@@ -145,7 +145,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 6. **Channel info**, opened from the channel's title: photo (a tap opens it full screen), name, subscribers, description, link, QR code, similar channels (a tap opens one in the official app), and the shared media tabs. No mute and no leave.
 7. **Comments** of a post: the post on top, comments as bubbles, a reply field and a search.
 8. **Media viewer**: photos and videos full screen, with the mini player and picture-in-picture.
-9. **Rules list**, every rule under the name of its feed, and **rule editor** (feed and channels, visual builder and text form, priority, read-aloud, schedule, AI description, dry run).
+9. **Rules list**, every rule under the name of its feed, and **rule editor** (feed and channels; the condition as a visual builder, where each term has labelled options, or as text; the dry run; priority, read-aloud and schedule; an AI description behind an "Also ask the AI" switch). Leaving it with unsaved changes asks first.
 10. **Settings**, laid out like the official app's: the account profile (photo, name, username, phone, bio, Telegram ID), Accounts, Saved Messages; Chat settings (post text size, theme); Privacy and security (app lock); Notifications and sounds (rule sounds and vibration, badge counting, background watching, a row that opens Android's notification settings); Data and storage (storage usage and cache clearing, automatic downloads per connection, autoplay); Read aloud; AI rules; Google Drive sync; About and licenses, with the version at the bottom. Log out is in the menu.
 
 ## 5. Out of scope

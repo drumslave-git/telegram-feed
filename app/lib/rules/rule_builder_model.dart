@@ -69,6 +69,21 @@ final class BuilderModel {
         (g) => g.isNotEmpty && g.every((t) => t.text.trim().isNotEmpty),
       );
 
+  /// The same groups without the terms that have no word yet, and without groups left
+  /// empty by that; null when no term has a word.
+  BuilderModel? withoutBlankTerms() {
+    final kept = [
+      for (final g in groups)
+        if ([
+              for (final t in g)
+                if (t.text.trim().isNotEmpty) t,
+            ]
+            case final filled when filled.isNotEmpty)
+          filled,
+    ];
+    return kept.isEmpty ? null : BuilderModel(kept);
+  }
+
   Expr toExpr() {
     final ands = [
       for (final g in groups)

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:app_db/app_db.dart';
@@ -51,6 +52,15 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   );
   bool _aiConfigured = true;
 
+  /// "Also ask the AI" is on: the description below it decides with the keywords.
+  bool _useAi = false;
+
+  /// A dry run is in progress.
+  bool _testing = false;
+
+  /// What the form held when it opened, to ask before changes are thrown away.
+  String? _initial;
+
   /// The rule's feed; null only while there is no feed at all.
   int? _feedId;
   List<Feed> _feeds = const [];
@@ -80,6 +90,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     super.initState();
     final r = widget.rule;
     _feedId = r?.feedId ?? widget.feedId;
+    _useAi = (r?.semanticPrompt ?? '').trim().isNotEmpty;
     if (r != null) {
       _scopeChatId = r.scopeChatId;
       _priority = r.priority;
@@ -112,8 +123,10 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
         _textError = 'Stored condition could not be parsed; rewrite it.';
       }
     }
+    _initial = _snapshot();
     widget.db.allFeeds().then((feeds) {
       if (!mounted) return;
+      final untouched = _snapshot() == _initial;
       setState(() {
         _feeds = feeds;
         if (_feedId == null || !feeds.any((f) => f.id == _feedId)) {
@@ -121,6 +134,8 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
           _scopeChatId = null;
         }
       });
+      // The feed picked for a new rule is where the form starts, not an edit.
+      if (untouched) _initial = _snapshot();
       _loadChannels();
     });
     widget.gateway.myChannels().then((channels) {
@@ -160,8 +175,68 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   /// How many posts a dry run of an AI rule sends to the model.
   static const _aiDryRunPosts = 8;
 
-  /// AI rule: the description is filled in.
-  bool get _isSemantic => _prompt.text.trim().isNotEmpty;
+  /// AI rule: the AI is asked and the description is filled in.
+  bool get _isSemantic => _useAi && _prompt.text.trim().isNotEmpty;
+
+  /// Everything the form would save, as one string: a change makes it differ.
+  String _snapshot() => [
+    _name.text.trim(),
+    _feedId,
+    _scopeChatId,
+    _priority,
+    _readAloud,
+    _enabled,
+    _useAi ? _prompt.text.trim() : '',
+    _textMode ? _text.text.trim() : _formatModel(_model),
+    _scheduled ? '${_weekdays.toList()..sort()} $_from-$_to' : '',
+  ].join('|');
+
+  bool get _dirty => _initial != null && _snapshot() != _initial;
+
+  /// The builder's terms as the text form writes them, leaving out rows without words.
+  static String _formatModel(BuilderModel m) {
+    final filled = m.withoutBlankTerms();
+    return filled == null ? '' : RuleParser.format(filled.toExpr());
+  }
+
+  /// A parser error in words, without the parser's prefix and position; the cursor shows
+  /// the position instead.
+  static String _syntaxMessage(FormatException e) {
+    var m = e.message.replaceFirst('rule syntax: ', '');
+    m = m.replaceFirst(RegExp(r' at \d+$'), '');
+    if (m.isEmpty) return 'This condition cannot be read.';
+    return '${m[0].toUpperCase()}${m.substring(1)} where the cursor is.';
+  }
+
+  void _showSyntaxError(FormatException e) {
+    final at = e.offset;
+    if (at != null && at >= 0 && at <= _text.text.length) {
+      _text.selection = TextSelection.collapsed(offset: at);
+    }
+    setState(() => _textError = _syntaxMessage(e));
+  }
+
+  /// Leaving with changes: asks whether to throw them away.
+  Future<void> _confirmLeave() async {
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Discard changes?'),
+        content: const Text('The changes to this rule are not saved.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep editing'),
+          ),
+          DestructiveButton(
+            onPressed: () => Navigator.pop(context, true),
+            label: 'Discard',
+          ),
+        ],
+      ),
+    );
+    if ((leave ?? false) && mounted) Navigator.of(context).pop();
+  }
 
   /// No keyword typed in the active editor.
   bool get _keywordsBlank => _textMode
@@ -188,7 +263,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
         setState(() => _textError = null);
         return e;
       } on FormatException catch (e) {
-        setState(() => _textError = e.message);
+        _showSyntaxError(e);
         return null;
       }
     }
@@ -202,9 +277,22 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   }
 
   void _switchMode(bool toText) {
+    if (toText == _textMode) return;
     if (toText) {
-      if (_model.isValid) _text.text = RuleParser.format(_model.toExpr());
-      setState(() => _textMode = true);
+      // The words typed so far go along; rows still without a word are left behind.
+      _text.text = _formatModel(_model);
+      setState(() {
+        _textMode = true;
+        _textError = null;
+      });
+      return;
+    }
+    if (_text.text.trim().isEmpty) {
+      setState(() {
+        _model = BuilderModel.empty;
+        _textMode = false;
+        _textError = null;
+      });
       return;
     }
     try {
@@ -224,7 +312,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
         _textError = null;
       });
     } on FormatException catch (e) {
-      setState(() => _textError = e.message);
+      _showSyntaxError(e);
     }
   }
 
@@ -338,10 +426,24 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   Future<void> _testOnRecent() async {
     final cond = _condition();
     if (cond == null) return;
+    setState(() => _testing = true);
+    try {
+      await _runTest(cond);
+    } finally {
+      if (mounted) setState(() => _testing = false);
+    }
+  }
+
+  /// How many channels of the feed a dry run reads.
+  static const _dryRunChannels = 10;
+
+  Future<void> _runTest(Expr cond) async {
     final filter = _feedFilter;
-    final chats = _scopeChatId != null
+    final all = _scopeChatId != null
         ? [_scopeChatId!]
-        : _channels.map((c) => c.chatId).take(10).toList();
+        : _channels.map((c) => c.chatId).toList();
+    final chats = all.take(_dryRunChannels).toList();
+    var failed = 0;
     final titles = {for (final c in _channels) c.chatId: c.title};
     final evaluator = RuleEvaluator();
     final matchesEverything = _isMatchAll(cond) && !_isSemantic;
@@ -363,9 +465,16 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
           ),
         );
       } on TelegramException {
-        // skip channels that fail; the dry run is best effort
+        // The dry run is best effort; the sheet says how many channels it could not read.
+        failed++;
       }
     }
+    final read = chats.length - failed;
+    final scope = [
+      'from $read channel${read == 1 ? '' : 's'}',
+      if (all.length > chats.length) 'of ${all.length}',
+      if (failed > 0) '($failed could not be read)',
+    ].join(' ');
     // AI rule: the newest few posts that pass the keywords go to the model, like live.
     String? headline;
     final check = widget.semanticCheck;
@@ -392,6 +501,8 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
         ..addAll(confirmed);
     }
     if (!mounted) return;
+    // Done: the results take over from the spinner.
+    setState(() => _testing = false);
     await showModalBottomSheet<void>(
       context: context,
       builder: (context) => ListView(
@@ -403,6 +514,13 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                     ? 'No match in the last $scanned posts.'
                     : '${hits.length} of the last $scanned posts match:'),
             style: Theme.of(context).textTheme.titleMedium,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 8),
+            child: Text(
+              'Checked the latest posts $scope.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ),
           for (final p in hits.take(30))
             ListTile(
@@ -438,249 +556,265 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.rule == null ? 'New rule' : 'Edit rule'),
-        actions: [
-          if (widget.rule != null)
-            IconButton(
-              tooltip: 'Delete',
-              icon: const Icon(Icons.delete_outline),
-              onPressed: _delete,
-            ),
-          TextButton(
-            onPressed: _saving ? null : _save,
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          TextField(
-            controller: _name,
-            decoration: const InputDecoration(labelText: 'Name'),
-            textInputAction: TextInputAction.next,
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<int>(
-            key: ValueKey('feed-${_feeds.length}-$_feedId'),
-            initialValue: _feedId,
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: 'Feed',
-              helperText: _feeds.isEmpty
-                  ? 'A rule belongs to a feed: create one first.'
-                  : null,
-            ),
-            items: [
-              for (final f in _feeds)
-                DropdownMenuItem<int>(value: f.id, child: Text(f.name)),
-            ],
-            onChanged: _setFeed,
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<int?>(
-            key: ValueKey('channels-$_feedId-${_channels.length}'),
-            initialValue: _channels.any((c) => c.chatId == _scopeChatId)
-                ? _scopeChatId
-                : null,
-            // The items are rows with an avatar; they need the width of the field.
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Channels'),
-            items: [
-              const DropdownMenuItem<int?>(
-                value: null,
-                child: Text('Every channel of the feed'),
+    return PopScope(
+      canPop: !_dirty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(_confirmLeave());
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.rule == null ? 'New rule' : 'Edit rule'),
+          actions: [
+            if (widget.rule != null)
+              IconButton(
+                tooltip: 'Delete',
+                icon: const Icon(Icons.delete_outline),
+                onPressed: _delete,
               ),
-              for (final c in _channels)
-                DropdownMenuItem<int?>(
-                  value: c.chatId,
-                  child: Row(
-                    children: [
-                      ChannelAvatar(
-                        photo: _photos[c.chatId],
-                        title: c.title,
-                        gateway: widget.gateway,
-                        radius: 12,
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(c.title, overflow: TextOverflow.ellipsis),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-            onChanged: (v) => setState(() => _scopeChatId = v),
-          ),
-          const SizedBox(height: 16),
-          Text('Meaning (AI, optional)', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _prompt,
-            minLines: 1,
-            maxLines: 4,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              hintText: 'Central bank interest rate decisions',
-              helperText: 'Describe what the post should be about. A model you configure in Settings decides; leave empty for a plain keyword rule.',
-              helperMaxLines: 3,
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
-          if (_isSemantic && !_aiConfigured)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                'The AI endpoint is not set up yet (Settings, AI rules). Until then this rule is skipped.',
-                style: TextStyle(color: theme.colorScheme.error),
-              ),
-            ),
-          if (_isSemantic && _keywordsBlank)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                'No keywords below: every new post from this rule\'s channels is sent to your AI endpoint. Add keywords to send only posts that contain them.',
-                style: TextStyle(color: theme.colorScheme.error),
-              ),
-            ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Text(
-                _isSemantic ? 'Keywords (pre-filter)' : 'Condition',
-                style: theme.textTheme.titleMedium,
-              ),
-              const Spacer(),
-              SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(value: false, label: Text('Builder')),
-                  ButtonSegment(value: true, label: Text('Text')),
-                ],
-                selected: {_textMode},
-                onSelectionChanged: (s) => _switchMode(s.first),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (!_isSemantic && _keywordsBlank)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                'No condition: every new post from this rule\'s channels notifies. Add terms to notify only about some of them.',
-                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-              ),
-            ),
-          if (_textMode)
-            TextField(
-              controller: _text,
-              minLines: 2,
-              maxLines: 5,
-              decoration: InputDecoration(
-                hintText: '("bitcoin" OR btc) AND NOT airdrop',
-                helperText: 'Words or "phrases"; AND, OR, NOT; ~word = part of a word; =Word = exact case',
-                helperMaxLines: 3,
-                errorText: _textError,
-              ),
-              onChanged: (_) => setState(() => _textError = null),
-            )
-          else
-            _Builder(
-              model: _model,
-              onChanged: (m) => setState(() => _model = m),
-            ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: _testOnRecent,
-              icon: const Icon(Icons.science_outlined),
-              label: const Text('Test on recent posts'),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text('Notification', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(
-                value: 'silent',
-                label: Text('Silent'),
-                icon: Icon(Icons.notifications_off_outlined),
-              ),
-              ButtonSegment(
-                value: 'normal',
-                label: Text('Normal'),
-                icon: Icon(Icons.notifications_outlined),
-              ),
-              ButtonSegment(
-                value: 'urgent',
-                label: Text('Urgent'),
-                icon: Icon(Icons.priority_high),
-              ),
-            ],
-            selected: {_priority},
-            onSelectionChanged: (s) => setState(() => _priority = s.first),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Read the post aloud'),
-            value: _readAloud,
-            onChanged: (v) => setState(() => _readAloud = v),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Enabled'),
-            value: _enabled,
-            onChanged: (v) => setState(() => _enabled = v),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Only at certain times'),
-            value: _scheduled,
-            onChanged: (v) => setState(() => _scheduled = v),
-          ),
-          if (_scheduled) ...[
-            Wrap(
-              spacing: 6,
-              children: [
-                for (var d = 1; d <= 7; d++)
-                  FilterChip(
-                    label: Text(
-                      const [
-                        'Mon',
-                        'Tue',
-                        'Wed',
-                        'Thu',
-                        'Fri',
-                        'Sat',
-                        'Sun',
-                      ][d - 1],
-                    ),
-                    selected: _weekdays.contains(d),
-                    onSelected: (on) => setState(
-                      () => on ? _weekdays.add(d) : _weekdays.remove(d),
-                    ),
-                  ),
-              ],
-            ),
-            Row(
-              children: [
-                TextButton(
-                  onPressed: () => _pickTime(true),
-                  child: Text('From ${Schedule.formatTime(_from)}'),
-                ),
-                TextButton(
-                  onPressed: () => _pickTime(false),
-                  child: Text('To ${Schedule.formatTime(_to)}'),
-                ),
-                if (_to < _from)
-                  Text('(next day)', style: theme.textTheme.bodySmall),
-              ],
+            TextButton(
+              onPressed: _saving ? null : _save,
+              child: const Text('Save'),
             ),
           ],
-        ],
+        ),
+        body: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextField(
+              controller: _name,
+              decoration: const InputDecoration(labelText: 'Name'),
+              textInputAction: TextInputAction.next,
+              // The back guard compares the form with how it opened.
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              key: ValueKey('feed-${_feeds.length}-$_feedId'),
+              initialValue: _feedId,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Feed',
+                helperText: _feeds.isEmpty
+                    ? 'A rule belongs to a feed: create one first.'
+                    : null,
+              ),
+              items: [
+                for (final f in _feeds)
+                  DropdownMenuItem<int>(value: f.id, child: Text(f.name)),
+              ],
+              onChanged: _setFeed,
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int?>(
+              key: ValueKey('channels-$_feedId-${_channels.length}'),
+              initialValue: _channels.any((c) => c.chatId == _scopeChatId)
+                  ? _scopeChatId
+                  : null,
+              // The items are rows with an avatar; they need the width of the field.
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Channels'),
+              items: [
+                const DropdownMenuItem<int?>(
+                  value: null,
+                  child: Text('Every channel of the feed'),
+                ),
+                for (final c in _channels)
+                  DropdownMenuItem<int?>(
+                    value: c.chatId,
+                    child: Row(
+                      children: [
+                        ChannelAvatar(
+                          photo: _photos[c.chatId],
+                          title: c.title,
+                          gateway: widget.gateway,
+                          radius: 12,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(c.title, overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+              onChanged: (v) => setState(() => _scopeChatId = v),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Text('Condition', style: theme.textTheme.titleMedium),
+                const Spacer(),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('Builder')),
+                    ButtonSegment(value: true, label: Text('Text')),
+                  ],
+                  selected: {_textMode},
+                  onSelectionChanged: (s) => _switchMode(s.first),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_keywordsBlank || _isSemantic)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  !_isSemantic
+                      ? 'No condition: every new post from this rule\'s channels notifies. Add terms to notify only about some of them.'
+                      : _keywordsBlank
+                      ? 'No keywords: every new post from this rule\'s channels goes to the AI. Add terms to send only posts that contain them.'
+                      : 'The AI checks only the posts that pass these keywords.',
+                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ),
+            if (_textMode)
+              TextField(
+                controller: _text,
+                minLines: 2,
+                maxLines: 5,
+                decoration: InputDecoration(
+                  hintText: '("bitcoin" OR btc) AND NOT airdrop',
+                  helperText: 'Words or "phrases" joined by AND, OR, NOT, with brackets. ~word also finds it inside longer words; =Word matches the exact case.',
+                  helperMaxLines: 3,
+                  errorText: _textError,
+                  errorMaxLines: 3,
+                ),
+                onChanged: (_) => setState(() => _textError = null),
+              )
+            else
+              _Builder(
+                model: _model,
+                onChanged: (m) => setState(() => _model = m),
+              ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: _testing ? null : _testOnRecent,
+                icon: _testing
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.science_outlined),
+                label: Text(
+                  _testing ? 'Testing\u2026' : 'Test on recent posts',
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Notification', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(
+                  value: 'silent',
+                  label: Text('Silent'),
+                  icon: Icon(Icons.notifications_off_outlined),
+                ),
+                ButtonSegment(
+                  value: 'normal',
+                  label: Text('Normal'),
+                  icon: Icon(Icons.notifications_outlined),
+                ),
+                ButtonSegment(
+                  value: 'urgent',
+                  label: Text('Urgent'),
+                  icon: Icon(Icons.priority_high),
+                ),
+              ],
+              selected: {_priority},
+              onSelectionChanged: (s) => setState(() => _priority = s.first),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Read the post aloud'),
+              value: _readAloud,
+              onChanged: (v) => setState(() => _readAloud = v),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Only at certain times'),
+              value: _scheduled,
+              onChanged: (v) => setState(() => _scheduled = v),
+            ),
+            if (_scheduled) ...[
+              Wrap(
+                spacing: 6,
+                children: [
+                  for (var d = 1; d <= 7; d++)
+                    FilterChip(
+                      label: Text(
+                        const [
+                          'Mon',
+                          'Tue',
+                          'Wed',
+                          'Thu',
+                          'Fri',
+                          'Sat',
+                          'Sun',
+                        ][d - 1],
+                      ),
+                      selected: _weekdays.contains(d),
+                      onSelected: (on) => setState(
+                        () => on ? _weekdays.add(d) : _weekdays.remove(d),
+                      ),
+                    ),
+                ],
+              ),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () => _pickTime(true),
+                    child: Text('From ${Schedule.formatTime(_from)}'),
+                  ),
+                  TextButton(
+                    onPressed: () => _pickTime(false),
+                    child: Text('To ${Schedule.formatTime(_to)}'),
+                  ),
+                  if (_to < _from)
+                    Text('(next day)', style: theme.textTheme.bodySmall),
+                ],
+              ),
+            ],
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Also ask the AI'),
+              subtitle: const Text(
+                'A model you set up in Settings decides whether a post is about what you describe.',
+              ),
+              value: _useAi,
+              onChanged: (v) => setState(() => _useAi = v),
+            ),
+            if (_useAi) ...[
+              TextField(
+                controller: _prompt,
+                minLines: 1,
+                maxLines: 4,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'What the post should be about',
+                  hintText: 'Central bank interest rate decisions',
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              if (!_aiConfigured)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'The AI endpoint is not set up yet (Settings, AI rules). Until then this rule is skipped.',
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                ),
+            ],
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Enabled'),
+              value: _enabled,
+              onChanged: (v) => setState(() => _enabled = v),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -789,50 +923,79 @@ class _TermRowState extends State<_TermRow> {
   late final _ctl = TextEditingController(text: widget.term.text);
 
   @override
+  void didUpdateWidget(_TermRow old) {
+    super.didUpdateWidget(old);
+    // A row above was removed and this state now shows another term: its own words.
+    if (widget.term.text != _ctl.text) {
+      _ctl.value = TextEditingValue(
+        text: widget.term.text,
+        selection: TextSelection.collapsed(offset: widget.term.text.length),
+      );
+    }
+  }
+
+  @override
   void dispose() {
     _ctl.dispose();
     super.dispose();
   }
 
+  Widget _option(String label, bool on, BuilderTerm Function() toggled) =>
+      FilterChip(
+        label: Text(label),
+        selected: on,
+        visualDensity: VisualDensity.compact,
+        onSelected: (_) => widget.onChanged(toggled()),
+      );
+
   @override
   Widget build(BuildContext context) {
     final t = widget.term;
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        IconButton(
-          tooltip: t.negated ? 'Must NOT contain' : 'Must contain',
-          isSelected: t.negated,
-          icon: const Icon(Icons.block),
-          onPressed: () => widget.onChanged(t.copyWith(negated: !t.negated)),
-        ),
-        Expanded(
-          child: TextField(
-            controller: _ctl,
-            decoration: const InputDecoration(
-              hintText: 'word or phrase',
-              isDense: true,
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _ctl,
+                decoration: InputDecoration(
+                  hintText: t.negated
+                      ? 'word it must not have'
+                      : 'word or phrase',
+                  isDense: true,
+                ),
+                onChanged: (v) => widget.onChanged(t.copyWith(text: v)),
+              ),
             ),
-            onChanged: (v) => widget.onChanged(t.copyWith(text: v)),
-          ),
+            IconButton(
+              tooltip: 'Remove',
+              icon: const Icon(Icons.close),
+              onPressed: widget.onRemove,
+            ),
+          ],
         ),
-        IconButton(
-          tooltip: t.wholeWord ? 'Whole word' : 'Part of a word',
-          isSelected: !t.wholeWord,
-          icon: const Icon(Icons.text_fields),
-          onPressed: () =>
-              widget.onChanged(t.copyWith(wholeWord: !t.wholeWord)),
-        ),
-        IconButton(
-          tooltip: t.caseSensitive ? 'Exact case' : 'Any case',
-          isSelected: t.caseSensitive,
-          icon: const Icon(Icons.abc),
-          onPressed: () =>
-              widget.onChanged(t.copyWith(caseSensitive: !t.caseSensitive)),
-        ),
-        IconButton(
-          tooltip: 'Remove',
-          icon: const Icon(Icons.close),
-          onPressed: widget.onRemove,
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          children: [
+            _option(
+              'Must not contain',
+              t.negated,
+              () => t.copyWith(negated: !t.negated),
+            ),
+            _option(
+              'Whole word',
+              t.wholeWord,
+              () => t.copyWith(wholeWord: !t.wholeWord),
+            ),
+            _option(
+              'Match case',
+              t.caseSensitive,
+              () => t.copyWith(caseSensitive: !t.caseSensitive),
+            ),
+          ],
         ),
       ],
     );
