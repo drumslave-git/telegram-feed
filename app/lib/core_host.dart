@@ -6,7 +6,6 @@ import 'dart:ui';
 import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:core/native_isolate.dart';
-import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
@@ -29,7 +28,7 @@ final class CoreHost implements AppHost {
 
   static Future<CoreHost> start() async {
     final paths = await appPaths();
-    final db = AppDatabase(NativeDatabase.createInBackground(File(paths.db)));
+    final db = AppDatabase(appDatabaseFile(File(paths.db), inBackground: true));
     final host = CoreHost._(db, paths);
     await host._connect();
     host._forwardChanges();

@@ -97,6 +97,8 @@ sync_tombstones  (kind, sync_id, deleted_at)                            -- PK (k
 
 `watched_channels` is the union of all feed sources: every channel the app watches.
 
+The UI, the background service and the core each open their own connection to the file (`appDatabaseFile`). Every connection sets `busy_timeout` to five seconds, so a write waits for another connection's write instead of failing with "database is locked".
+
 ### 5.2 Sources
 
 Only channels the account has joined can be added. The picker lists `myChannels()` with a search box; several channels are ticked and added with one press. A checkbox under the search, shown when some channel is in a feed already, leaves those channels out (`picker.hideInFeeds`, kept on the device) and unticks the ones it hides. The app never calls `joinChat`, `leaveChat` or `searchPublicChat`, and never changes Telegram-side mute or folder settings. Every source is a joined chat, so TDLib delivers `updateNewMessage` for all of them and nothing is polled.

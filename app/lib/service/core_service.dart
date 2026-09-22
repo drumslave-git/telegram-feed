@@ -6,7 +6,6 @@ import 'dart:ui';
 import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:core/native_isolate.dart';
-import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -157,7 +156,7 @@ class CoreServiceHandler extends TaskHandler {
   Future<void> _start(TaskStarter starter) async {
     _log('onStart ($starter)');
     final paths = await appPaths();
-    _db = AppDatabase(NativeDatabase(File(paths.db)));
+    _db = AppDatabase(appDatabaseFile(File(paths.db)));
     final reply = ReceivePort();
     _core = await Isolate.spawn(
       coreIsolateMain,

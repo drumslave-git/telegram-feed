@@ -6,4 +6,5 @@ library;
 
 export 'package:drift/drift.dart' show Value;
 
+export 'src/connection.dart';
 export 'src/database.dart';

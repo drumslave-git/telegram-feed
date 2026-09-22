@@ -11,7 +11,6 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:app_db/app_db.dart';
-import 'package:drift/native.dart';
 import 'package:telegram_gateway/tdlib_ffi.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -67,7 +66,7 @@ Future<void> coreIsolateMain(CoreBootstrap b) async {
   Future<void> Function()? refresh;
   final dbPath = b.appDatabasePath;
   if (dbPath != null) {
-    final db = AppDatabase(NativeDatabase(File(dbPath)));
+    final db = AppDatabase(appDatabaseFile(File(dbPath)));
     final e = engine = RuleEngine();
     refresh = () async {
       final rows = await db.allRules();
