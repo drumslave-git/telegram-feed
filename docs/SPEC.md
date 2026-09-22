@@ -38,7 +38,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 ### Feeds and channels
 
 - I log in with my Telegram account so the app sees the channels I already follow.
-- I create, rename, reorder and delete feeds on the "Feeds" tab. Its floating button creates one, dragging reorders, and a row's menu edits its channels, renames, marks it read or deletes it.
+- I create, rename, reorder and delete feeds on the "Feeds" tab. Its floating button creates one, empty or with the channels of a Telegram folder, dragging reorders, and a row's menu edits its channels, renames, marks it read or deletes it.
 - My Telegram chat folders appear as tabs, each listing the folder's channels the way Telegram lists chats (photo, newest post, time, unread count), including channels I joined through a folder invite link.
 - "All channels" lists every joined channel with a search box. Channels I archived in Telegram are left out of it and appear behind an "Archive" row at its top.
 - A long press on a folder tab creates a feed from the folder's channels (a one-time copy) or marks the folder read.

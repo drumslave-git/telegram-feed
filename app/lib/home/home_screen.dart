@@ -280,6 +280,64 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  /// The + of the Feeds tab: an empty feed, or one that starts with a folder's channels.
+  /// Without folders there is nothing to choose, and the name is asked for at once.
+  Future<void> _newFeed() async {
+    if (_folders.isEmpty) return _createFeed();
+    final byId = {for (final c in _channels) c.chatId: c};
+    final choice = await showModalBottomSheet<Object>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.7,
+          ),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.add),
+                title: const Text('Empty feed'),
+                subtitle: const Text('Name it, then pick its channels'),
+                onTap: () => Navigator.pop(context, 'empty'),
+              ),
+              const Divider(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: Text(
+                  'From a folder',
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(color: Theme.of(context).colorScheme.primary),
+                ),
+              ),
+              for (final f in _folders)
+                Builder(
+                  builder: (context) {
+                    final n = f.channelIds.where(byId.containsKey).length;
+                    return ListTile(
+                      leading: const Icon(Icons.folder_outlined),
+                      title: Text(f.title),
+                      subtitle: Text('$n channel${n == 1 ? '' : 's'}'),
+                      onTap: () => Navigator.pop(context, f),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    switch (choice) {
+      case 'empty':
+        await _createFeed();
+      case final ChatFolder folder:
+        await _createFeedFromFolder(folder);
+    }
+  }
+
   Future<void> _createFeed() async {
     final name = await _askName();
     if (name == null || name.isEmpty) return;
@@ -589,7 +647,7 @@ class _HomeScreenState extends State<HomeScreen>
           child: Padding(
             padding: EdgeInsets.all(32),
             child: Text(
-              'No feeds yet. Tap + to create one and add the channels you want to read together.',
+              'No feeds yet. Tap + to create one: empty, or with the channels of one of your Telegram folders.',
               textAlign: TextAlign.center,
             ),
           ),
@@ -916,7 +974,7 @@ class _HomeScreenState extends State<HomeScreen>
       floatingActionButton: _tabCtl.index == 0
           ? FloatingActionButton(
               tooltip: 'New feed',
-              onPressed: _createFeed,
+              onPressed: () => unawaited(_newFeed()),
               child: const Icon(Icons.add),
             )
           : null,

@@ -4,11 +4,10 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Round L, UI and UX fixes from the full review. **Next task:** L-6.
+**Current phase:** Round L, UI and UX fixes from the full review. **Next task:** L-7.
 
 ## Round L — UI and UX fixes
 
-- [ ] L-6 The + on the Feeds tab offers "Empty feed" and "From a folder…".
 - [ ] L-7 Rule editor: condition first, AI meaning below behind a switch; term options as labelled chips; rows keep their own text after a term is removed; switching Builder and Text never strands the user; leaving with changes asks; the test shows progress and how many posts and channels it checked.
 - [ ] L-8 A tap on the channel name or photo of a post in a feed opens the channel's info.
 - [ ] L-9 Notifications settings: background watching and sounds apply at once; a picked sound shows its name; a warning row when Android blocks the app's notifications.

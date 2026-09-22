@@ -117,6 +117,8 @@ void main() {
 
     await tester.tap(find.byTooltip('New feed'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Empty feed'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Tech');
     await tester.pump(); // Create is enabled once there is a name
     await tester.tap(find.text('Create'));
@@ -128,6 +130,31 @@ void main() {
     await tester.pumpAndSettle();
     await settle(tester);
     expect(find.widgetWithText(ListTile, 'Tech'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('+ makes a feed from a folder in one step', (tester) async {
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.tap(find.byTooltip('New feed'));
+    await tester.pumpAndSettle();
+    expect(find.text('From a folder'), findsOneWidget);
+    expect(find.text('2 channels'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ListTile, 'Work'));
+    await tester.pumpAndSettle();
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Feed "Work" created with 2 channels'),
+      findsOneWidget,
+    );
+    final feeds = await tester.runAsync(db.allFeeds);
+    expect(feeds!.single.name, 'Work');
+    expect(
+      (await tester.runAsync(() => db.sourcesOf(feeds.single.id)))!
+          .map((s) => s.chatId),
+      [-2, -1],
+    );
     await unmount(tester);
   });
 
