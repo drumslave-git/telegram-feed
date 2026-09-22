@@ -8,6 +8,7 @@ import 'package:telegram_feed/feeds/post_card.dart'
 import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_feed/settings/data_storage_screen.dart';
 import 'package:telegram_feed/feeds/timeline_search.dart';
+import 'package:telegram_feed/home/channel_info_screen.dart';
 import 'package:telegram_feed/home/channel_list.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -87,6 +88,31 @@ void main() {
     gw.posts.add(const PostsDeleted(chatId: -1, messageIds: [3]));
     await settle(tester);
     expect(find.text('one-newest'), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('in a feed, the channel name of a post opens its info', (
+    tester,
+  ) async {
+    gw = TimelineGateway(
+      {
+        -1: [post(-1, 1, 100, 'one-old')],
+      },
+      channels: const [Channel(chatId: -1, title: 'One', lastMessageId: 1)],
+    );
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Mix');
+      await db.addSource(feed.id, -1, title: 'One');
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+    await tester.tap(find.text('One'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ChannelInfoScreen), findsOneWidget);
     await unmount(tester);
   });
 

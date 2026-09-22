@@ -1643,6 +1643,20 @@ class TimelineViewState extends State<TimelineView>
     widget.onSelectionChanged?.call(_selected.length);
   }
 
+  /// In a feed, a post's channel name opens that channel's info, as a name does in the
+  /// official app. A channel the account no longer follows has none to show.
+  VoidCallback? _channelInfoOf(int chatId) {
+    if (widget.feed == null) return null;
+    final channel = _known[chatId];
+    if (channel == null) return null;
+    return () => Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            ChannelInfoScreen(gateway: widget.gateway, channel: channel),
+      ),
+    );
+  }
+
   void clearSelection() {
     if (_selected.isEmpty) return;
     setState(_selected.clear);
@@ -1870,6 +1884,7 @@ class TimelineViewState extends State<TimelineView>
                 onOpenReply: item.textPost.replyTo == null
                     ? null
                     : () => _openReply(item),
+                onOpenChannel: _channelInfoOf(item.chatId),
                 onQuickReact: () => unawaited(_quickReact(item)),
                 onViewerMedia: _viewerMedia,
                 onMoreViewerMedia: _moreViewerMedia,

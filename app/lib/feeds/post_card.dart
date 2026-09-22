@@ -142,6 +142,7 @@ class PostCard extends StatelessWidget {
     this.onAutoplaySettings,
     this.onOpenForward,
     this.onOpenReply,
+    this.onOpenChannel,
     this.onQuickReact,
     this.onSelect,
     this.selecting = false,
@@ -184,6 +185,10 @@ class PostCard extends StatelessWidget {
 
   /// Tap on the quote block: jumps to the post this one answers.
   final VoidCallback? onOpenReply;
+
+  /// A tap on the channel's name or photo: its info. Set in a feed, where posts of several
+  /// channels mix; a channel's own timeline has its info in the app bar.
+  final VoidCallback? onOpenChannel;
 
   /// Double tap on the bubble: sends the quick reaction, as the official app does.
   final VoidCallback? onQuickReact;
@@ -315,6 +320,7 @@ class PostCard extends StatelessWidget {
       onOpenLink: onOpenLink,
       onOpenForward: onOpenForward,
       onOpenReply: onOpenReply,
+      onOpenChannel: selecting ? null : onOpenChannel,
       onQuickReact: onQuickReact,
       onViewerMedia: onViewerMedia,
       onMoreViewerMedia: onMoreViewerMedia,
@@ -396,8 +402,12 @@ class BubbleTitle extends StatelessWidget {
     required this.colorId,
     required this.photo,
     required this.gateway,
+    this.onTap,
   });
   final String name;
+
+  /// Opens the channel's info; null where the name only labels the post.
+  final VoidCallback? onTap;
 
   /// Chat or user id; picks the colour of the name ([peerColor]).
   final int colorId;
@@ -405,24 +415,40 @@ class BubbleTitle extends StatelessWidget {
   final TelegramGateway gateway;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: Text(
-          name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: peerColor(colorId, Theme.of(context).colorScheme.brightness),
+  Widget build(BuildContext context) {
+    final row = Row(
+      children: [
+        Expanded(
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: peerColor(
+                colorId,
+                Theme.of(context).colorScheme.brightness,
+              ),
+            ),
           ),
         ),
+        const SizedBox(width: 8),
+        ChannelAvatar(photo: photo, title: name, gateway: gateway, radius: 12),
+      ],
+    );
+    final tap = onTap;
+    if (tap == null) return row;
+    return Semantics(
+      button: true,
+      label: 'Channel info of $name',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: tap,
+        child: row,
       ),
-      const SizedBox(width: 8),
-      ChannelAvatar(photo: photo, title: name, gateway: gateway, radius: 12),
-    ],
-  );
+    );
+  }
 }
 
 /// "Forwarded from `<name>`", the line the official app draws above a forwarded post. The
@@ -571,6 +597,7 @@ class _Bubble extends StatelessWidget {
     required this.onOpenLink,
     required this.onOpenForward,
     required this.onOpenReply,
+    required this.onOpenChannel,
     required this.onQuickReact,
     required this.onViewerMedia,
     required this.onMoreViewerMedia,
@@ -588,6 +615,7 @@ class _Bubble extends StatelessWidget {
   final void Function(String url)? onOpenLink;
   final VoidCallback? onOpenForward;
   final VoidCallback? onOpenReply;
+  final VoidCallback? onOpenChannel;
   final VoidCallback? onQuickReact;
   final List<Media> Function()? onViewerMedia;
   final Future<List<Media>> Function()? onMoreViewerMedia;
@@ -688,6 +716,7 @@ class _Bubble extends StatelessWidget {
             colorId: item.chatId,
             photo: channelPhoto,
             gateway: gateway,
+            onTap: onOpenChannel,
           ),
         ),
         if (item.head.forwardedFrom != null)

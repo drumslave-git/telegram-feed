@@ -4,11 +4,10 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Round L, UI and UX fixes from the full review. **Next task:** L-8.
+**Current phase:** Round L, UI and UX fixes from the full review. **Next task:** L-9.
 
 ## Round L — UI and UX fixes
 
-- [ ] L-8 A tap on the channel name or photo of a post in a feed opens the channel's info.
 - [ ] L-9 Notifications settings: background watching and sounds apply at once; a picked sound shows its name; a warning row when Android blocks the app's notifications.
 - [ ] L-10 Privacy and storage: app-lock settings ask for the PIN first, the lock timeout defaults to one hour; clearing the cache asks first; accounts show their names; sync says when it last synced with the day.
 - [ ] L-11 Read aloud: voices listed by language name, only languages with a chosen voice, an "Add language" picker; the preview uses one speaker and stops when the screen closes.
