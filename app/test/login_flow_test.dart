@@ -244,6 +244,25 @@ void main() {
     expect(tester.widget<TextField>(find.byType(TextField)).enabled, isTrue);
   });
 
+  testWidgets('the code screen can go back to change the number', (
+    tester,
+  ) async {
+    final g = ScriptedGateway()
+      ..state = const AuthWaitCode(
+        phoneNumber: '+1',
+        codeLength: 5,
+        viaSms: true,
+      );
+    await tester.pumpWidget(app(g));
+    await tester.pump();
+    await tester.tap(find.text('Change number'));
+    await tester.pump();
+    expect(g.calls.last, 'logout');
+    g.go(const AuthWaitPhoneNumber());
+    await tester.pump();
+    expect(find.text('Log in to Telegram'), findsOneWidget);
+  });
+
   testWidgets('QR login shows the link as a code and can go back to phone', (
     tester,
   ) async {

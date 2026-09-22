@@ -138,7 +138,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 
 ## 4. Screens
 
-1. **Login**: phone number, code, two-step password, new-account name, or QR-code login. States that the app reads the channels the account has joined.
+1. **Login**: phone number, code (with "Change number" to go back), two-step password, new-account name, or QR-code login. States that the app reads the channels the account has joined.
 2. **Home**: search over all channels, Rules and Settings in the app bar; tabs Feeds (list of feeds with counts, and a button that creates one), one per folder, All channels.
 3. **Feed editor**, the feed's info screen: the ordered channels with the add-channel sheet and the filter row, the feed's rules, and tabs with the shared media of all the feed's channels: Media, Files, Links, Music, Voice.
 4. **Timeline** of a feed or a channel: posts drawn like the official app, with full-width bubbles (coloured channel name and the channel's photo at the right end of that line, albums as a mosaic, formatted text, views and time in the corner, reactions, comments bar, link cards, day labels, the floating day), the "Unread posts" divider, and the button to the newest posts with the number of unread posts. A long press opens the post menu: reactions, Open in Telegram, Comments, Share, Copy text, Copy link, Save to Saved Messages, Select, and on video posts the autoplay and download settings.

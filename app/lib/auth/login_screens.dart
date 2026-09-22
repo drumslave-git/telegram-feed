@@ -103,7 +103,8 @@ class _StepFormState extends State<_StepForm> {
     } on TelegramException catch (e) {
       setState(() => _error = _describe(e));
     } catch (e) {
-      setState(() => _error = '$e');
+      debugPrint('login: $e');
+      setState(() => _error = 'Something went wrong. Try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -113,41 +114,45 @@ class _StepFormState extends State<_StepForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
-      body: Padding(
+      // Scrolls, so the keyboard never pushes the buttons off a small screen.
+      body: ListView(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(widget.explanation),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _ctl,
-              autofocus: true,
-              enabled: !_busy,
-              keyboardType: widget.keyboardType,
-              obscureText: widget.obscure,
-              maxLength: widget.maxLength,
-              decoration: InputDecoration(
-                labelText: widget.label,
-                errorText: _error,
-              ),
-              onSubmitted: (_) => _submit(),
+        children: [
+          Text(widget.explanation),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _ctl,
+            autofocus: true,
+            enabled: !_busy,
+            keyboardType: widget.keyboardType,
+            obscureText: widget.obscure,
+            maxLength: widget.maxLength,
+            decoration: InputDecoration(
+              labelText: widget.label,
+              errorText: _error,
             ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _busy ? null : _submit,
-              child: Text(widget.action),
+            onSubmitted: (_) => _submit(),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: _busy ? null : _submit,
+            // Telegram can take a few seconds; the button shows it is working.
+            child: _busy
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(widget.action),
+          ),
+          if (widget.onSecondary != null) ...[
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : () => _guard(widget.onSecondary!),
+              icon: Icon(widget.secondaryIcon),
+              label: Text(widget.secondaryLabel ?? ''),
             ),
-            if (widget.onSecondary != null) ...[
-              const SizedBox(height: 24),
-              OutlinedButton.icon(
-                onPressed: _busy ? null : () => _guard(widget.onSecondary!),
-                icon: Icon(widget.secondaryIcon),
-                label: Text(widget.secondaryLabel ?? ''),
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
@@ -156,7 +161,8 @@ class _StepFormState extends State<_StepForm> {
 String _describe(TelegramException e) => switch (e.message) {
   'PHONE_NUMBER_INVALID' => 'That phone number is not valid.',
   'PHONE_CODE_INVALID' => 'Wrong code.',
-  'PHONE_CODE_EXPIRED' => 'The code expired. Start again.',
+  'PHONE_CODE_EXPIRED' =>
+    'The code expired. Change the number to get a new one.',
   'PASSWORD_HASH_INVALID' => 'Wrong password.',
   'API_ID_INVALID' =>
     'This build has no valid Telegram api_id/api_hash (see README).',
@@ -209,6 +215,11 @@ class CodeScreen extends StatelessWidget {
       keyboardType: TextInputType.number,
       maxLength: codeLength > 0 ? codeLength : null,
       onSubmit: gateway.checkCode,
+      // A mistyped number, or a code that never came: back to the number, as the
+      // official app's "Wrong number?".
+      secondaryLabel: 'Change number',
+      secondaryIcon: Icons.edit_outlined,
+      onSecondary: gateway.logOut,
     );
   }
 }

@@ -4,11 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Round L, UI and UX fixes from the full review. **Next task:** L-14.
-
-## Round L — UI and UX fixes
-
-- [ ] L-14 Login: the code screen can change the number.
+**Current phase:** Phase 4, extras. **Next task:** none; the founder names the next task.
 
 ## Phase 4 — Extras
 
