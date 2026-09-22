@@ -35,6 +35,8 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
           calls.add({'method': call.method, ...call.arguments as Map});
+          // Android names the sound as its picker lists it.
+          if (call.method == 'soundTitle') return 'Argon';
           return 'content://media/chosen';
         });
     addTearDown(() {
@@ -61,11 +63,16 @@ void main() {
         await tester.pump();
       }
     });
-    expect(calls.single['method'], 'pickSound');
+    expect(calls.first['method'], 'pickSound');
     expect(
       await tester.runAsync(() => db.setting(SettingKeys.normalSound)),
       'content://media/chosen',
     );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 40)),
+    );
+    await tester.pump();
+    expect(find.text('Argon'), findsOneWidget);
 
     // Vibration is a plain switch.
     await tester.tap(find.text('Urgent rules: vibrate'));
@@ -111,6 +118,70 @@ void main() {
     await tester.tap(find.text('System notification settings'));
     await tester.pump();
     expect(calls, ['openAppSettings']);
+  });
+
+  testWidgets('a warning row when Android blocks the notifications', (
+    tester,
+  ) async {
+    const channel = MethodChannel('tf/notifications-off');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'areNotificationsEnabled') return false;
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NotificationsScreen(db: db, channel: channel),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Notifications are off for this app'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 30)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('turning background watching off offers a restart', (
+    tester,
+  ) async {
+    var restarts = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NotificationsScreen(db: db, onRestart: () async => restarts++),
+      ),
+    );
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('Watch channels in the background'),
+      200,
+    );
+    await tester.tap(find.text('Watch channels in the background'));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 40)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Restart the app?'), findsOneWidget);
+    await tester.tap(find.text('Restart now'));
+    await tester.pumpAndSettle();
+    expect(restarts, 1);
+    expect(
+      await tester.runAsync(() => db.setting(SettingKeys.backgroundWatching)),
+      'false',
+    );
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 30)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
   });
 
   testWidgets('the screen has no watching notification row or note any more', (

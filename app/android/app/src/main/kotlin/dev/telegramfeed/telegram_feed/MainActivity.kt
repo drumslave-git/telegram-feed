@@ -68,6 +68,19 @@ class MainActivity : FlutterActivity() {
                             startActivityForResult(intent, SOUND_PICK_REQUEST)
                         }
                     }
+                    // Android's own name of a sound the picker returned, as its list shows it.
+                    "soundTitle" -> {
+                        val uri = call.argument<String>("uri")
+                        val title = try {
+                            if (uri.isNullOrEmpty()) null
+                            else RingtoneManager.getRingtone(this, Uri.parse(uri))?.getTitle(this)
+                        } catch (e: Exception) {
+                            null
+                        }
+                        result.success(title)
+                    }
+                    // False when the user turned the app's notifications off in Android.
+                    "areNotificationsEnabled" -> result.success(nm.areNotificationsEnabled())
                     // Android's settings page of the app's notifications, where each channel,
                     // the foreground service's included, can be turned off.
                     "openAppSettings" -> {
@@ -76,6 +89,22 @@ class MainActivity : FlutterActivity() {
                                 .putExtra(Settings.EXTRA_APP_PACKAGE, packageName),
                         )
                         result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        // A fresh start of the app, for settings that decide where the core runs. Dart has
+        // already stopped the core, so TDLib is closed when RestartActivity ends this process.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "tf/app")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "restart" -> {
+                        result.success(null)
+                        startActivity(
+                            Intent(this, RestartActivity::class.java)
+                                .putExtra(RestartActivity.EXTRA_PID, android.os.Process.myPid())
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
                     }
                     else -> result.notImplemented()
                 }

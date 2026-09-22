@@ -8,17 +8,112 @@ import 'settings_tiles.dart';
 
 /// How rules notify and whether they run with the app closed: the official app's
 /// Notifications and Sounds.
-class NotificationsScreen extends StatelessWidget {
-  const NotificationsScreen({super.key, required this.db});
+class NotificationsScreen extends StatefulWidget {
+  const NotificationsScreen({
+    super.key,
+    required this.db,
+    this.onRestart,
+    this.channel = const MethodChannel('tf/notifications'),
+  });
   final AppDatabase db;
+
+  /// Starts the app afresh; background watching changes where the core runs, which only
+  /// a new start can do. Null where the host cannot (tests).
+  final Future<void> Function()? onRestart;
+
+  /// Asks Android whether the app may notify at all; tests hand in their own.
+  final MethodChannel channel;
+
+  @override
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  /// False when the user turned the app's notifications off in Android: no rule notifies.
+  bool _enabled = true;
+  late final AppLifecycleListener _lifecycle = AppLifecycleListener(
+    // Back from Android's settings, where the user may just have turned them on.
+    onResume: () => unawaited(_check()),
+  );
+
+  AppDatabase get db => widget.db;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle;
+    unawaited(_check());
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  Future<void> _check() async {
+    bool? enabled;
+    try {
+      enabled = await widget.channel.invokeMethod<bool>(
+        'areNotificationsEnabled',
+      );
+    } on MissingPluginException {
+      enabled = null;
+    } on PlatformException {
+      enabled = null;
+    }
+    if (mounted && enabled != null) setState(() => _enabled = enabled!);
+  }
+
+  /// Background watching moves the core between the service and the app, which a fresh
+  /// start does; the user decides when.
+  Future<void> _setBackground(bool on) async {
+    await db.setSetting(SettingKeys.backgroundWatching, on ? 'true' : 'false');
+    final restart = widget.onRestart;
+    if (restart == null || !mounted) return;
+    final now = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Restart the app?'),
+        content: Text(
+          on ? 'Watching in the background starts when the app starts again.' : 'The permanent notification goes away when the app starts again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Later'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Restart now'),
+          ),
+        ],
+      ),
+    );
+    if (now ?? false) await restart();
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Notifications and sounds')),
     body: ListView(
       children: [
+        if (!_enabled)
+          ListTile(
+            leading: Icon(
+              Icons.notifications_off_outlined,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            title: const Text('Notifications are off for this app'),
+            subtitle: const Text(
+              'Android blocks them, so no rule can notify. Tap to turn them on.',
+            ),
+            onTap: () => unawaited(
+              SystemNotificationSettingsRow.openSettings(widget.channel),
+            ),
+          ),
         const SettingsHeader('Rule notifications'),
-        NotificationSoundSettings(db: db),
+        NotificationSoundSettings(db: db, channel: widget.channel),
         const Divider(),
         const SettingsHeader('Badge counter'),
         StreamBuilder<String?>(
@@ -42,17 +137,14 @@ class NotificationsScreen extends StatelessWidget {
             subtitle: const Text(
               'Rules keep running while the app is closed. Off removes the '
               'permanent notification, and rules then only notify while the app is '
-              'open. Takes effect the next time the app starts.',
+              'open. The app restarts to apply it.',
             ),
             value: snap.data != 'false',
-            onChanged: (v) => db.setSetting(
-              SettingKeys.backgroundWatching,
-              v ? 'true' : 'false',
-            ),
+            onChanged: (v) => unawaited(_setBackground(v)),
           ),
         ),
         const Divider(),
-        const SystemNotificationSettingsRow(),
+        SystemNotificationSettingsRow(channel: widget.channel),
       ],
     ),
   );
@@ -69,7 +161,7 @@ class SystemNotificationSettingsRow extends StatelessWidget {
   /// The platform channel; tests hand in their own.
   final MethodChannel channel;
 
-  Future<void> _open() async {
+  static Future<void> openSettings(MethodChannel channel) async {
     try {
       await channel.invokeMethod<void>('openAppSettings');
     } on MissingPluginException {
@@ -83,14 +175,13 @@ class SystemNotificationSettingsRow extends StatelessWidget {
   Widget build(BuildContext context) => ListTile(
     leading: const Icon(Icons.settings_outlined),
     title: const Text('System notification settings'),
-    onTap: () => unawaited(_open()),
+    onTap: () => unawaited(openSettings(channel)),
   );
 }
 
-/// The sound and the vibration of the notifications of normal and urgent rules (H-33).
-/// Silent rules stay silent, and Android fixes a channel's sound when it is created, so a
-/// change here takes effect when the watcher is next brought up — the same rule as the
-/// background switch.
+/// The sound and the vibration of the notifications of normal and urgent rules. Silent
+/// rules stay silent. A change reaches the watcher at once, which makes its notification
+/// channels again (Android fixes a channel's sound when it is created).
 class NotificationSoundSettings extends StatelessWidget {
   const NotificationSoundSettings({
     super.key,
@@ -134,9 +225,13 @@ class NotificationSoundSettings extends StatelessWidget {
           return ListTile(
             leading: const Icon(Icons.notifications_active_outlined),
             title: Text('$title: sound'),
-            subtitle: Text(
-              sound.isEmpty ? 'The system default' : _soundName(sound),
-            ),
+            subtitle: sound.isEmpty
+                ? const Text('The system default')
+                : FutureBuilder<String?>(
+                    future: _soundTitle(sound),
+                    builder: (context, title) =>
+                        Text(title.data ?? 'A chosen sound'),
+                  ),
             trailing: sound.isEmpty
                 ? null
                 : IconButton(
@@ -159,10 +254,15 @@ class NotificationSoundSettings extends StatelessWidget {
     ],
   );
 
-  /// The last part of the uri, which is as much of a name as Android gives us here.
-  static String _soundName(String uri) {
-    final parts = uri.split('/');
-    return parts.isEmpty ? uri : 'Sound ${parts.last}';
+  /// Android's own name of the sound, as its picker lists it; null when it has none.
+  Future<String?> _soundTitle(String uri) async {
+    try {
+      return await channel.invokeMethod<String>('soundTitle', {'uri': uri});
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    }
   }
 
   @override
@@ -179,10 +279,7 @@ class NotificationSoundSettings extends StatelessWidget {
         soundKey: SettingKeys.urgentSound,
         vibrateKey: SettingKeys.urgentVibrate,
       ),
-      const SettingsFooter(
-        'Silent rules stay silent. Android fixes a sound when it creates the channel, so a '
-        'change here takes effect the next time the app starts.',
-      ),
+      const SettingsFooter('Silent rules stay silent.'),
     ],
   );
 }

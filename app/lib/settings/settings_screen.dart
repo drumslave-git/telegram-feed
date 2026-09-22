@@ -33,6 +33,7 @@ class SettingsScreen extends StatefulWidget {
     required this.onLogOut,
     this.secrets = const SecureSecretStore(),
     this.sync,
+    this.onRestart,
   });
   final AppDatabase db;
   final TelegramGateway gateway;
@@ -43,6 +44,9 @@ class SettingsScreen extends StatefulWidget {
 
   /// Drive sync; the entry is hidden when the host has none (tests).
   final SyncController? sync;
+
+  /// Starts the app afresh, which a change of background watching needs.
+  final Future<void> Function()? onRestart;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -157,7 +161,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SettingsLink(
             icon: Icons.notifications_none,
             title: 'Notifications and sounds',
-            onTap: () => _open(NotificationsScreen(db: db)),
+            onTap: () =>
+                _open(NotificationsScreen(db: db, onRestart: widget.onRestart)),
           ),
           SettingsLink(
             icon: Icons.data_usage,

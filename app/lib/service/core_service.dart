@@ -183,16 +183,7 @@ class CoreServiceHandler extends TaskHandler {
       _paused = p;
       unawaited(_updateNotification());
     });
-    await _notifier.init(
-      sounds: NotificationSounds(
-        normalSound: await _db!.setting(SettingKeys.normalSound),
-        urgentSound: await _db!.setting(SettingKeys.urgentSound),
-        normalVibrate:
-            (await _db!.setting(SettingKeys.normalVibrate)) != 'false',
-        urgentVibrate:
-            (await _db!.setting(SettingKeys.urgentVibrate)) != 'false',
-      ),
-    );
+    await _notifier.init(sounds: await _sounds());
     final tts = TtsService(db: _db!, speaker: FlutterTtsSpeaker());
     try {
       await tts.init();
@@ -302,12 +293,24 @@ class CoreServiceHandler extends TaskHandler {
   @override
   void onRepeatEvent(DateTime timestamp) => unawaited(_updateNotification());
 
+  /// The rule sounds and vibrations as the settings say.
+  Future<NotificationSounds> _sounds() async => NotificationSounds(
+    normalSound: await _db!.setting(SettingKeys.normalSound),
+    urgentSound: await _db!.setting(SettingKeys.urgentSound),
+    normalVibrate: (await _db!.setting(SettingKeys.normalVibrate)) != 'false',
+    urgentVibrate: (await _db!.setting(SettingKeys.urgentVibrate)) != 'false',
+  );
+
   @override
   void onReceiveData(Object data) {
-    // The UI sends 'refresh' after database changes (feeds, sources, rules).
+    // The UI sends 'refresh' after database changes (feeds, sources, rules), and 'sounds'
+    // after a rule sound or vibration changed.
     if (data == 'refresh') {
       unawaited(_client?.refresh());
       unawaited(_updateNotification());
+    }
+    if (data == 'sounds' && _db != null) {
+      unawaited(_sounds().then(_notifier.setSounds));
     }
   }
 

@@ -8,6 +8,7 @@ import 'package:core/core.dart';
 import 'package:core/native_isolate.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -57,10 +58,10 @@ final class CoreHost implements AppHost {
   @override
   bool get runningInService => _inService;
 
-  /// Where the core runs, and how loud the service notification is, are settled here.
-  /// The core cannot move between the service and the app while it is up — TDLib is polled
-  /// by one isolate per engine group (`native_isolate.dart`) — so both settings take effect
-  /// the next time the app starts.
+  /// Where the core runs is settled here. The core cannot move between the service and the
+  /// app while it is up (TDLib is polled by one isolate per engine group,
+  /// `native_isolate.dart`), so a change of background watching takes effect when the app
+  /// starts again; [restart] does that on request.
   Future<void> _connect() async {
     final background =
         await db.setting(SettingKeys.backgroundWatching) != 'false';
@@ -148,9 +149,30 @@ final class CoreHost implements AppHost {
     }
 
     _subs.add(db.watchRules().listen((_) => refresh()));
+    // Rule sounds live in the service's notification channels, which it makes again.
+    for (final key in const [
+      SettingKeys.normalSound,
+      SettingKeys.urgentSound,
+      SettingKeys.normalVibrate,
+      SettingKeys.urgentVibrate,
+    ]) {
+      _subs.add(
+        db.watchSetting(key).skip(1).listen((_) {
+          if (_inService) FlutterForegroundTask.sendDataToTask('sounds');
+        }),
+      );
+    }
     _subs.add(db.watchSourceChanges().listen((_) => refresh()));
     // Feed filters decide which posts may notify (ARCHITECTURE 5.8).
     _subs.add(db.watchFeeds().skip(1).listen((_) => refresh()));
+  }
+
+  /// Starts the app afresh: the core goes down first, from the service or from this
+  /// process, so TDLib is closed; the new process then settles where the core runs.
+  @override
+  Future<void> restart() async {
+    if (Platform.isAndroid) await _stopService();
+    await const MethodChannel('tf/app').invokeMethod<void>('restart');
   }
 
   /// Battery optimisation: without the exemption Android kills the service after a while.

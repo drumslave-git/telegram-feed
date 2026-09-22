@@ -22,6 +22,9 @@ abstract interface class AppHost {
   Future<bool> get isBatteryExempt;
   Future<void> requestBatteryExemption();
 
+  /// Closes the core and starts the app afresh, for a change of background watching.
+  Future<void> restart();
+
   /// Logs out and wipes everything the app stored (ARCHITECTURE section 10).
   Future<void> logOutAndWipe();
   Future<void> dispose();

@@ -97,7 +97,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - A rule's condition is built from terms combined with AND / OR / NOT. A term is a word or phrase with options: whole word, case sensitive.
 - A rule with an empty condition notifies about every post of its channels, including posts without text; the notification then says what the post is (a photo, a video, a file). It still takes a priority, a schedule and read-aloud.
 - A rule has a priority: silent (tray only), normal, urgent (breaks through Do Not Disturb where Android permits).
-- I choose the sound and the vibration of normal and urgent notifications; silent ones stay silent. A change applies at the next start of the app.
+- I choose the sound and the vibration of normal and urgent notifications; silent ones stay silent. A change applies at once, and the row names the sound as Android's picker does.
 - A rule can request read-aloud.
 - A rule can have a schedule: active on selected weekdays between two times.
 - A rule can be switched off without deleting it.
@@ -112,7 +112,8 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - While the app watches channels for me it keeps a permanent "Watching N channels" notification with a Pause action. That is what lets rules notify me when the app is closed.
 - That notification makes no sound. Whether it has a status-bar icon, and where it sits in the shade, depends on the phone.
 - Notifications and sounds has a row that opens Android's notification settings of the app, where I can turn that notification off. Watching goes on without it.
-- I can turn background watching off. The permanent notification then goes away and rules only notify me while the app is open. The choice applies at the next start of the app and stays on this device.
+- I can turn background watching off. The permanent notification then goes away and rules only notify me while the app is open. Changing it offers to restart the app, which applies it; the choice stays on this device.
+- When Android blocks the app's notifications, Notifications and sounds says so at its top and opens the setting that turns them on.
 
 ### Read aloud
 

@@ -70,6 +70,19 @@ final class Notifier {
       ),
     );
     _actual[channelSilent] = channelSilent;
+    await setSounds(sounds);
+  }
+
+  /// Applies the sound and vibration choices: channels under new ids where a choice
+  /// changed, the channels of earlier choices deleted. Runs at start and whenever the
+  /// user changes a choice, so a change needs no restart.
+  Future<void> setSounds(NotificationSounds sounds) async {
+    _sounds = sounds;
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (android == null) return;
     final normalId =
         channelNormal + _suffixOf(sounds.normalSound, sounds.normalVibrate);
     await android.createNotificationChannel(
@@ -85,6 +98,8 @@ final class Notifier {
       ),
     );
     _actual[channelNormal] = normalId;
+    // The urgent channel is made again for the new choice.
+    _actual.remove(channelUrgent);
     await _ensureUrgentChannel();
     // One row per priority in the system settings: the channels of earlier choices go.
     await _deleteStaleChannels(android);
