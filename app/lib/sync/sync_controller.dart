@@ -11,6 +11,8 @@ import 'drive_sync_store.dart';
 abstract final class SyncKeys {
   static const enabled = 'sync.enabled'; // 'true' while the user has sync on
   static const lastSyncedAt = 'sync.lastSyncedAt'; // Unix ms
+  static const account =
+      'sync.account'; // the Google account's email, on this device
 }
 
 /// What the sync settings screen shows.
@@ -96,13 +98,16 @@ final class SyncController {
       );
     }
     if (await db.setting(SyncKeys.enabled) != 'true') return;
-    final account = await auth.restore();
+    final account = await auth.restore(
+      knownEmail: await db.setting(SyncKeys.account),
+    );
     if (account == null) {
       status.value = status.value.copyWith(
         error: () => 'Signed out of Google. Sign in again to keep syncing.',
       );
       return;
     }
+    await db.setSetting(SyncKeys.account, account);
     status.value = status.value.copyWith(account: () => account);
     _watch();
     unawaited(syncNow());
@@ -114,6 +119,7 @@ final class SyncController {
     try {
       final account = await auth.signIn();
       await db.setSetting(SyncKeys.enabled, 'true');
+      await db.setSetting(SyncKeys.account, account);
       status.value = status.value.copyWith(account: () => account);
       _watch();
       await syncNow();

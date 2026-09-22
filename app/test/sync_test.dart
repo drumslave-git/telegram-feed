@@ -75,8 +75,13 @@ final class FakeAuth implements DriveAuth {
   @override
   bool get isConfigured => configured;
 
+  String? restoredWith;
+
   @override
-  Future<String?> restore() async => account;
+  Future<String?> restore({String? knownEmail}) async {
+    restoredWith = knownEmail;
+    return account;
+  }
 
   @override
   Future<String> signIn() async {
@@ -234,6 +239,8 @@ void main() {
 
       final resumed = controller();
       await resumed.start();
+      // The account signed in with before is handed over, so no Google sheet is needed.
+      expect(auth.restoredWith, 'me@example.com');
       await resumed.syncNow();
       expect(resumed.status.value.account, 'me@example.com');
       expect(resumed.status.value.lastSyncedAt, isNotNull);

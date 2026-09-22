@@ -4,11 +4,10 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Round L, UI and UX fixes from the full review. **Next task:** L-3.
+**Current phase:** Round L, UI and UX fixes from the full review. **Next task:** L-4.
 
 ## Round L — UI and UX fixes
 
-- [ ] L-3 Google Drive sync signs in silently without showing Google's sheet when the app starts.
 - [ ] L-4 Home lists: feed rows keep their height ("N channels" or "M of N channels with new posts"), one blue unread badge everywhere, a spinner instead of empty-state text while lists load, the + button no longer covers the last row.
 - [ ] L-5 Removing a channel from a feed says which rules go with it; deleting a feed says its rules go; destructive buttons are red; Create and Rename need a name.
 - [ ] L-6 The + on the Feeds tab offers "Empty feed" and "From a folder…".
