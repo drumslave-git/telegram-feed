@@ -13,6 +13,7 @@ import '../feeds/timeline_screen.dart';
 import 'channel_info_screen.dart';
 import 'connection_title.dart';
 import 'channel_list.dart';
+import 'unread_badge.dart';
 import '../app_name.dart';
 
 /// The main screen: `+`, the "Feeds" tab (list of feeds), one tab per Telegram folder (its
@@ -40,6 +41,10 @@ class _HomeScreenState extends State<HomeScreen>
   StreamSubscription<PostEvent>? _posts;
   Timer? _reload;
   List<Channel> _channels = const [];
+
+  /// False until the first channel list arrived (or failed), so no tab says "No channels"
+  /// while they are still loading.
+  bool _channelsLoaded = false;
   List<ChatFolder> _folders = const [];
   Map<int, List<String>> _feedTags = const {};
   StreamSubscription<void>? _tagSources;
@@ -205,10 +210,14 @@ class _HomeScreenState extends State<HomeScreen>
       final channels = await widget.gateway.myChannels();
       if (!mounted) return;
       _channels = channels;
+      _channelsLoaded = true;
       _error = null;
     } on TelegramException catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.message);
+      setState(() {
+        _channelsLoaded = true;
+        _error = e.message;
+      });
       return;
     }
     // The controller is replaced only when the folders changed; the selected tab stays.
@@ -545,11 +554,20 @@ class _HomeScreenState extends State<HomeScreen>
     ),
   );
 
+  /// The line under a feed's name: how many channels it has, and how many have news.
+  static String _feedLine(int fresh, int channels) {
+    final all = '$channels channel${channels == 1 ? '' : 's'}';
+    return fresh > 0 ? '$fresh of $all with new posts' : all;
+  }
+
   /// The list of feeds: tap opens, drag reorders, the menu edits.
   Widget _feedsTab() => ListenableBuilder(
     listenable: _feeds,
     builder: (context, _) {
       final feeds = _feeds.feeds;
+      if (!_feeds.loaded) {
+        return const Center(child: CircularProgressIndicator());
+      }
       if (feeds.isEmpty) {
         return const Center(
           child: Padding(
@@ -575,6 +593,8 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           Expanded(
             child: ReorderableListView.builder(
+              // The + button floats over the end of the list; the last row stays reachable.
+              padding: const EdgeInsets.only(bottom: 88),
               itemCount: feeds.length,
               onReorderItem: (from, to) {
                 final ids = feeds.map((f) => f.id).toList();
@@ -592,18 +612,15 @@ class _HomeScreenState extends State<HomeScreen>
                   key: ValueKey(f.id),
                   title: Text(f.name),
                   leading: const Icon(Icons.rss_feed),
-                  subtitle: fresh > 0
-                      ? Text(
-                          '$fresh channel${fresh == 1 ? '' : 's'} with new posts',
-                        )
-                      : null,
+                  // Always one line, so a row keeps its height as the feed is read.
+                  subtitle: Text(_feedLine(fresh, _feeds.channelsIn(f.id))),
                   onTap: () => _openFeed(f),
                   // The counter on the right of the row, as the official app has it in
                   // its chat list: a long number never runs into the name.
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (unread > 0) Badge.count(count: unread),
+                      if (unread > 0) UnreadBadge(unread),
                       PopupMenuButton<String>(
                         onSelected: (v) => switch (v) {
                           'channels' => _editFeed(f.id),
@@ -759,6 +776,8 @@ class _HomeScreenState extends State<HomeScreen>
       onMenu: _channelMenu,
       searchable: folder == null,
       onRefresh: _loadChannels,
+      loading: !_channelsLoaded,
+      error: _channels.isEmpty ? null : _error,
       emptyText: folder == null
           ? (_error == null
                 ? 'No channels yet. Join channels in Telegram and they show up here.'
@@ -833,7 +852,7 @@ class _HomeScreenState extends State<HomeScreen>
                                 if (fresh > 0)
                                   Padding(
                                     padding: const EdgeInsets.only(left: 6),
-                                    child: Badge.count(count: fresh),
+                                    child: UnreadBadge(fresh),
                                   ),
                               ],
                             ),
@@ -860,7 +879,7 @@ class _HomeScreenState extends State<HomeScreen>
                                     if (unread > 0)
                                       Padding(
                                         padding: const EdgeInsets.only(left: 6),
-                                        child: Badge.count(count: unread),
+                                        child: UnreadBadge(unread),
                                       ),
                                   ],
                                 ),

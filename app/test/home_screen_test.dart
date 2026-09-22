@@ -182,7 +182,9 @@ void main() {
       });
       await tester.pumpWidget(app());
       await settle(tester);
-      expect(find.text('1 channel with new posts'), findsOneWidget);
+      expect(find.text('1 of 2 channels with new posts'), findsOneWidget);
+      // A feed without news still names its channels, so its row keeps its height.
+      expect(find.text('0 channels'), findsOneWidget);
       // The badge of the Feeds tab counts Two's seven unread posts; the folder tab has one
       // of its own (H-14).
       final onFeedsTab = find.descendant(
@@ -197,15 +199,27 @@ void main() {
       await tester.runAsync(() => gw.markViewed(-2, [200]));
       await settle(tester);
       expect(find.textContaining('with new posts'), findsNothing);
+      expect(find.text('2 channels'), findsOneWidget);
       expect(onFeedsTab, findsNothing);
 
       // A post that comes in: it is in the channel's history too, as in TDLib.
       gw.arrive(post(-2, 201, 'x'));
       await settle(tester);
-      expect(find.text('1 channel with new posts'), findsOneWidget);
+      expect(find.text('1 of 2 channels with new posts'), findsOneWidget);
       await unmount(tester);
     },
   );
+
+  testWidgets('lists show a spinner, not their empty text, until they load', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    expect(find.byType(CircularProgressIndicator), findsWidgets);
+    expect(find.textContaining('No feeds yet'), findsNothing);
+    await settle(tester);
+    expect(find.textContaining('No feeds yet'), findsOneWidget);
+    await unmount(tester);
+  });
 
   testWidgets('reordering feeds persists', (tester) async {
     late int a, b;
@@ -409,7 +423,7 @@ void main() {
         find.descendant(of: onFeed, matching: find.text('4')),
         findsOneWidget,
       );
-      expect(find.text('1 channel with new posts'), findsOneWidget);
+      expect(find.text('1 of 1 channel with new posts'), findsOneWidget);
 
       await tester.runAsync(
         () => db.setSetting(SettingKeys.countUnreadPosts, 'false'),

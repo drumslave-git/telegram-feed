@@ -1752,9 +1752,12 @@ class TimelineViewState extends State<TimelineView>
           Positioned(
             right: 16,
             bottom: 16,
+            // The accent colour, as the official app counts on its page-down button.
             child: Badge.count(
               count: unread,
               isLabelVisible: unread > 0,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              textColor: Theme.of(context).colorScheme.onPrimary,
               child: FloatingActionButton.small(
                 heroTag: null,
                 tooltip: t.pendingNew > 0

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../feeds/media_view.dart' show Downloaded;
+import 'unread_badge.dart';
 
 /// Channels as the official app lists chats: photo, title, newest post, time, unread count.
 /// Used by the folder tabs and, with a search box, by "All channels".
@@ -19,6 +21,8 @@ class ChannelList extends StatefulWidget {
     this.onRefresh,
     this.emptyText = 'No channels here.',
     this.feedsByChat = const {},
+    this.loading = false,
+    this.error,
   });
   final List<Channel> channels;
   final TelegramGateway gateway;
@@ -32,6 +36,12 @@ class ChannelList extends StatefulWidget {
   final bool searchable;
   final Future<void> Function()? onRefresh;
   final String emptyText;
+
+  /// True while the channels are still coming: a spinner instead of [emptyText].
+  final bool loading;
+
+  /// A failed reload while channels are shown: a banner with Retry above them.
+  final String? error;
 
   /// Names of the feeds each channel belongs to, by chat id ([AppDatabase.feedNamesByChat]).
   final Map<int, List<String>> feedsByChat;
@@ -58,6 +68,9 @@ class _ChannelListState extends State<ChannelList>
             (c.username?.toLowerCase().contains(q) ?? false))
           c,
     ];
+    if (widget.loading && widget.channels.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
     Widget list = shown.isEmpty
         ? ListView(
             children: [
@@ -93,9 +106,33 @@ class _ChannelListState extends State<ChannelList>
     if (widget.onRefresh != null) {
       list = RefreshIndicator(onRefresh: widget.onRefresh!, child: list);
     }
-    if (!widget.searchable) return list;
+    final error = widget.error;
+    final banner = error == null
+        ? null
+        : MaterialBanner(
+            content: Text('Telegram: $error'),
+            actions: [
+              TextButton(
+                onPressed: widget.onRefresh == null
+                    ? null
+                    : () => unawaited(widget.onRefresh!()),
+                child: const Text('Retry'),
+              ),
+            ],
+          );
+    if (!widget.searchable) {
+      return banner == null
+          ? list
+          : Column(
+              children: [
+                banner,
+                Expanded(child: list),
+              ],
+            );
+    }
     return Column(
       children: [
+        ?banner,
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: TextField(
@@ -179,11 +216,7 @@ class ChannelTile extends StatelessWidget {
           if (c.unreadCount > 0)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Badge(
-                label: Text(c.unreadCount > 999 ? '999+' : '${c.unreadCount}'),
-                backgroundColor: theme.colorScheme.primary,
-                textColor: theme.colorScheme.onPrimary,
-              ),
+              child: UnreadBadge(c.unreadCount),
             ),
         ],
       ),

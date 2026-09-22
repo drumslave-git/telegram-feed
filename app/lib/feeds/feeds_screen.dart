@@ -16,6 +16,10 @@ final class FeedsController extends ChangeNotifier {
   FeedsController({required this.db, required this.gateway}) {
     _feedsSub = db.watchFeeds().listen((f) {
       _feeds = f;
+      if (!_loaded) {
+        _loaded = true;
+        notifyListeners();
+      }
       _schedule();
     });
     _sourcesSub = db.watchSourceChanges().listen((_) => _schedule());
@@ -57,6 +61,14 @@ final class FeedsController extends ChangeNotifier {
   static const cap = 1000;
 
   List<Feed> get feeds => _feeds;
+
+  /// False until the database answered with the feeds the first time.
+  bool get loaded => _loaded;
+  bool _loaded = false;
+
+  /// How many channels a feed has.
+  int channelsIn(int feedId) => _sizes[feedId] ?? 0;
+  Map<int, int> _sizes = const {};
   bool get channelsLoaded => _channelsLoaded;
 
   /// Whether the badges count posts (the default) or channels with unread posts.
@@ -174,9 +186,12 @@ final class FeedsController extends ChangeNotifier {
   Future<void> _count() async {
     final pairs = <_Pair>[];
     final seen = <(int, int)>{};
+    final sizes = <int, int>{};
     for (final f in _feeds) {
       final filter = FeedFilter.decode(f.filterJson);
-      for (final source in await db.sourcesOf(f.id)) {
+      final sources = await db.sourcesOf(f.id);
+      sizes[f.id] = sources.length;
+      for (final source in sources) {
         final chat = source.chatId;
         final state = await _stateOf(chat);
         if (state == null) continue;
@@ -203,6 +218,7 @@ final class FeedsController extends ChangeNotifier {
       }
     }
     _unread.removeWhere((key, _) => !seen.contains(key));
+    _sizes = sizes;
     _publish(pairs);
     final enough = _countPosts ? cap : 1;
     await Future.wait([
