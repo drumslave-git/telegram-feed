@@ -420,74 +420,86 @@ class _TimelineScreenState extends State<TimelineScreen> {
   @override
   Widget build(BuildContext context) {
     final session = _session;
-    return Scaffold(
-      appBar: _appBar(context),
-      body: Column(
-        children: [
-          Expanded(
-            child: Stack(
-              children: [
-                TimelineView(
-                  key: _view,
-                  db: widget.db,
-                  gateway: widget.gateway,
-                  onSelectionChanged: (n) => setState(() => _selected = n),
-                  feed: widget.feed,
-                  channel: widget.channel,
-                  focusChatId: widget.focusChatId,
-                  focusMessageId: widget.focusMessageId,
-                  share: widget.share,
-                  onSources: _onSources,
-                ),
-                if (_searchOpen && _listOpen)
-                  Positioned.fill(
-                    child: Material(
-                      color: Theme.of(context).colorScheme.surface,
-                      child: SearchResults(
-                        results: session?.results ?? const [],
-                        gateway: widget.gateway,
-                        look: (chatId) => (
-                          title: _sources.titles[chatId] ?? '',
-                          photo: _sources.photos[chatId],
+    return PopScope(
+      canPop: _selected == 0 && !_searchOpen,
+      // Back first leaves the selection, then the search, as in the official app.
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_selected > 0) {
+          _view.currentState?.clearSelection();
+        } else {
+          _closeSearch();
+        }
+      },
+      child: Scaffold(
+        appBar: _appBar(context),
+        body: Column(
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  TimelineView(
+                    key: _view,
+                    db: widget.db,
+                    gateway: widget.gateway,
+                    onSelectionChanged: (n) => setState(() => _selected = n),
+                    feed: widget.feed,
+                    channel: widget.channel,
+                    focusChatId: widget.focusChatId,
+                    focusMessageId: widget.focusMessageId,
+                    share: widget.share,
+                    onSources: _onSources,
+                  ),
+                  if (_searchOpen && _listOpen)
+                    Positioned.fill(
+                      child: Material(
+                        color: Theme.of(context).colorScheme.surface,
+                        child: SearchResults(
+                          results: session?.results ?? const [],
+                          gateway: widget.gateway,
+                          look: (chatId) => (
+                            title: _sources.titles[chatId] ?? '',
+                            photo: _sources.photos[chatId],
+                          ),
+                          onOpen: (i) => unawaited(_openResult(i)),
+                          onLoadMore: () => unawaited(_loadMoreResults()),
+                          query: _queryCtl.text,
+                          loading: session?.loading ?? false,
+                          exhausted: session?.exhausted ?? false,
+                          error: session?.error,
+                          current: _current,
+                          recent: _recent,
+                          onRecent: (words) {
+                            _queryCtl.text = words;
+                            unawaited(_startSearch(words));
+                          },
+                          onClearRecent: () async {
+                            await RecentSearches(widget.db).clear();
+                            if (mounted) setState(() => _recent = const []);
+                          },
                         ),
-                        onOpen: (i) => unawaited(_openResult(i)),
-                        onLoadMore: () => unawaited(_loadMoreResults()),
-                        query: _queryCtl.text,
-                        loading: session?.loading ?? false,
-                        exhausted: session?.exhausted ?? false,
-                        error: session?.error,
-                        current: _current,
-                        recent: _recent,
-                        onRecent: (words) {
-                          _queryCtl.text = words;
-                          unawaited(_startSearch(words));
-                        },
-                        onClearRecent: () async {
-                          await RecentSearches(widget.db).clear();
-                          if (mounted) setState(() => _recent = const []);
-                        },
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-          if (_searchOpen && !_listOpen && session != null)
-            SearchStepper(
-              current: _current,
-              total: session.total,
-              loading: _jumping,
-              onOlder:
-                  _jumping ||
-                      (session.exhausted &&
-                          _current + 1 >= session.results.length)
-                  ? null
-                  : () => unawaited(_openResult(_current + 1)),
-              onNewer: _jumping || _current <= 0
-                  ? null
-                  : () => unawaited(_openResult(_current - 1)),
-            ),
-        ],
+            if (_searchOpen && !_listOpen && session != null)
+              SearchStepper(
+                current: _current,
+                total: session.total,
+                loading: _jumping,
+                onOlder:
+                    _jumping ||
+                        (session.exhausted &&
+                            _current + 1 >= session.results.length)
+                    ? null
+                    : () => unawaited(_openResult(_current + 1)),
+                onNewer: _jumping || _current <= 0
+                    ? null
+                    : () => unawaited(_openResult(_current - 1)),
+              ),
+          ],
+        ),
       ),
     );
   }

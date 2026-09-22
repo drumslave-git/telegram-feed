@@ -214,142 +214,150 @@ class _ThreadScreenState extends State<ThreadScreen> {
   Widget build(BuildContext context) {
     final colors = ChatColors.of(context);
     final found = _found;
-    return Scaffold(
-      appBar: _searchOpen
-          ? AppBar(
-              leading: BackButton(onPressed: _closeSearch),
-              titleSpacing: 0,
-              title: TextField(
-                controller: _queryCtl,
-                autofocus: true,
-                textInputAction: TextInputAction.search,
-                decoration: const InputDecoration(
-                  hintText: 'Search comments',
-                  border: InputBorder.none,
+    return PopScope(
+      canPop: !_searchOpen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _closeSearch();
+      },
+      child: Scaffold(
+        appBar: _searchOpen
+            ? AppBar(
+                leading: BackButton(onPressed: _closeSearch),
+                titleSpacing: 0,
+                title: TextField(
+                  controller: _queryCtl,
+                  autofocus: true,
+                  textInputAction: TextInputAction.search,
+                  decoration: const InputDecoration(
+                    hintText: 'Search comments',
+                    border: InputBorder.none,
+                  ),
+                  onChanged: _onQuery,
                 ),
-                onChanged: _onQuery,
+                actions: [
+                  if (_queryCtl.text.isNotEmpty)
+                    IconButton(
+                      tooltip: 'Clear',
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        _queryCtl.clear();
+                        _onQuery('');
+                      },
+                    ),
+                ],
+              )
+            : AppBar(
+                title: Text(
+                  widget.channelTitle.isEmpty
+                      ? 'Comments'
+                      : 'Comments · ${widget.channelTitle}',
+                ),
+                actions: [
+                  if (!_noThread)
+                    IconButton(
+                      tooltip: 'Search comments',
+                      icon: const Icon(Icons.search),
+                      onPressed: _openSearch,
+                    ),
+                ],
               ),
-              actions: [
-                if (_queryCtl.text.isNotEmpty)
-                  IconButton(
-                    tooltip: 'Clear',
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      _queryCtl.clear();
-                      _onQuery('');
-                    },
-                  ),
-              ],
-            )
-          : AppBar(
-              title: Text(
-                widget.channelTitle.isEmpty
-                    ? 'Comments'
-                    : 'Comments · ${widget.channelTitle}',
-              ),
-              actions: [
-                if (!_noThread)
-                  IconButton(
-                    tooltip: 'Search comments',
-                    icon: const Icon(Icons.search),
-                    onPressed: _openSearch,
-                  ),
-              ],
-            ),
-      // The comments follow the reader's text size, like the posts.
-      body: PostTextScale.wrap(
-        context,
-        ColoredBox(
-          color: colors.background,
-          child: Column(
-            children: [
-              Expanded(
-                child: _noThread
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Text(
-                            'This channel has no discussion group, so posts cannot be commented on.',
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      )
-                    : _error != null && _comments.isEmpty
-                    ? Center(child: Text('Telegram: $_error'))
-                    // While searching, what was found takes the place of the thread.
-                    : found != null
-                    ? (found.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(32),
-                                child: Text(
-                                  _searching
-                                      ? 'Searching…'
-                                      : 'Nothing found for "${_queryCtl.text}".',
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              itemCount: found.length,
-                              itemBuilder: (context, i) => CommentBubble(
-                                comment: found[i],
-                                gateway: widget.gateway,
-                                onOpenLink: _openLink,
-                              ),
-                            ))
-                    : ListView.builder(
-                        controller: _scroll,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: _comments.length + 2,
-                        itemBuilder: (context, i) {
-                          if (i == 0) return _header();
-                          if (i == _comments.length + 1) {
-                            return _comments.isEmpty && !_loading
-                                ? const ChatPill('No comments yet.')
-                                : const SizedBox(height: 8);
-                          }
-                          return CommentBubble(
-                            comment: _comments[i - 1],
-                            gateway: widget.gateway,
-                            onOpenLink: _openLink,
-                          );
-                        },
-                      ),
-              ),
-              if (_thread != null)
-                Material(
-                  color: Theme.of(context).colorScheme.surface,
-                  child: SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _composer,
-                              minLines: 1,
-                              maxLines: 4,
-                              decoration: const InputDecoration(
-                                hintText: 'Write a comment',
-                                isDense: true,
-                              ),
-                              onSubmitted: (_) => _send(),
+        // The comments follow the reader's text size, like the posts.
+        body: PostTextScale.wrap(
+          context,
+          ColoredBox(
+            color: colors.background,
+            child: Column(
+              children: [
+                Expanded(
+                  child: _noThread
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Text(
+                              'This channel has no discussion group, so posts cannot be commented on.',
+                              textAlign: TextAlign.center,
                             ),
                           ),
-                          IconButton(
-                            tooltip: 'Send',
-                            icon: const Icon(Icons.send),
-                            onPressed: _sending ? null : _send,
-                          ),
-                        ],
+                        )
+                      : _error != null && _comments.isEmpty
+                      ? Center(child: Text('Telegram: $_error'))
+                      // While searching, what was found takes the place of the thread.
+                      : found != null
+                      ? (found.isEmpty
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(32),
+                                  child: Text(
+                                    _searching
+                                        ? 'Searching…'
+                                        : 'Nothing found for "${_queryCtl.text}".',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
+                                itemCount: found.length,
+                                itemBuilder: (context, i) => CommentBubble(
+                                  comment: found[i],
+                                  gateway: widget.gateway,
+                                  onOpenLink: _openLink,
+                                ),
+                              ))
+                      : ListView.builder(
+                          controller: _scroll,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: _comments.length + 2,
+                          itemBuilder: (context, i) {
+                            if (i == 0) return _header();
+                            if (i == _comments.length + 1) {
+                              return _comments.isEmpty && !_loading
+                                  ? const ChatPill('No comments yet.')
+                                  : const SizedBox(height: 8);
+                            }
+                            return CommentBubble(
+                              comment: _comments[i - 1],
+                              gateway: widget.gateway,
+                              onOpenLink: _openLink,
+                            );
+                          },
+                        ),
+                ),
+                if (_thread != null)
+                  Material(
+                    color: Theme.of(context).colorScheme.surface,
+                    child: SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _composer,
+                                minLines: 1,
+                                maxLines: 4,
+                                decoration: const InputDecoration(
+                                  hintText: 'Write a comment',
+                                  isDense: true,
+                                ),
+                                onSubmitted: (_) => _send(),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Send',
+                              icon: const Icon(Icons.send),
+                              onPressed: _sending ? null : _send,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

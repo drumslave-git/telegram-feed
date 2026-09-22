@@ -778,7 +778,16 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (_searchOpen) return _searchScaffold();
+    if (_searchOpen) {
+      // Back closes the search first, as in the official app.
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _closeSearch();
+        },
+        child: _searchScaffold(),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: ConnectionTitle(

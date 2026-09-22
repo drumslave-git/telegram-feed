@@ -67,7 +67,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - I open the original post in the official Telegram app.
 - The day of the topmost post floats over the list while I scroll.
 - I set the text size of posts.
-- I close any screen with a swipe from the left edge.
+- I close any screen with a swipe from the left edge. Back closes an open search or selection first, then the screen.
 - When the app cannot reach Telegram, the title says so.
 
 ### Media

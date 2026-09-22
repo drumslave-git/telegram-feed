@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_db/app_db.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -104,6 +106,49 @@ void main() {
     await tester.tap(find.byTooltip('Cancel'));
     await tester.pumpAndSettle();
     expect(find.textContaining('selected'), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('back leaves the selection, then the search, then the screen', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Pick');
+      await db.addSource(feed.id, -1, title: 'One');
+      gw.readPositions[-1] = 3;
+    });
+    final nav = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(navigatorKey: nav, home: const Text('home')),
+    );
+    unawaited(
+      nav.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => TimelineScreen(db: db, gateway: gw, feed: feed),
+        ),
+      ),
+    );
+    await settle(tester);
+    await tester.pumpAndSettle();
+
+    await select(tester, 'second');
+    expect(find.text('1 selected'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.textContaining('selected'), findsNothing);
+    expect(find.text('second'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('second'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('home'), findsOneWidget);
     await unmount(tester);
   });
 

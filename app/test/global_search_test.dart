@@ -92,6 +92,26 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('back closes the search and stays on the home screen', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(db: db, gateway: gw),
+      ),
+    );
+    await settle(tester);
+    await tester.tap(find.byTooltip('Search posts'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsOneWidget);
+    final handled = await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(handled, isTrue);
+    expect(find.text('Type to search the posts.'), findsNothing);
+    expect(find.byTooltip('Search posts'), findsOneWidget);
+    await unmount(tester);
+  });
+
   testWidgets('a chip narrows the search to a kind of post', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
