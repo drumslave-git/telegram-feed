@@ -115,6 +115,15 @@ void main() {
       find.ancestor(of: find.text(text), matching: find.byType(PostCard));
 
   /// Telegram's read position of the feed's channels: the only read state there is.
+  /// Lets the read marker's debounce run out, so what the opening screen read is written
+  /// before a test takes its "before" picture; otherwise a busy machine decides whether
+  /// it lands before or after.
+  Future<void> flushReads(WidgetTester tester) async {
+    await settleFixtures(tester);
+    await tester.pump(const Duration(milliseconds: 400));
+    await settleFixtures(tester);
+  }
+
   Future<Map<int, int>> marksOf(WidgetTester tester, Feed feed) async {
     final sources = (await tester.runAsync(() => db.sourcesOf(feed.id)))!;
     return {for (final s in sources) s.chatId: gw.readPositions[s.chatId] ?? 0};
@@ -314,6 +323,7 @@ void main() {
   ) async {
     final feed = await feedOf(tester, 'Resume', marks: {-1: 20, -2: 20});
     await open(tester, app(feed));
+    await flushReads(tester);
     final before = top(tester, 'a-21');
     final dividerBefore = divider(tester);
     final marksBefore = await marksOf(tester, feed);
@@ -332,6 +342,7 @@ void main() {
   ) async {
     final feed = await feedOf(tester, 'Away', marks: {-1: 20, -2: 20});
     await open(tester, app(feed));
+    await flushReads(tester);
     final before = top(tester, 'a-21');
 
     await pauseAndResume(
