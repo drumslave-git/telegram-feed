@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:app_db/app_db.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 import '../service/tts_service.dart' show TtsKeys;
+import 'settings_tiles.dart';
 
 /// Engine voices as `{name, locale}`; injectable so tests need no engine.
 typedef VoiceLister = Future<List<Map<String, String>>> Function();
@@ -27,6 +29,10 @@ Future<List<Map<String, String>>> engineVoices() async {
   ];
 }
 
+/// One speaker for every preview, so a second tap replaces the first instead of talking
+/// over it.
+final FlutterTts _previewTts = FlutterTts();
+
 Future<void> enginePreview({
   required String text,
   required String language,
@@ -34,12 +40,136 @@ Future<void> enginePreview({
   double? rate,
   double? pitch,
 }) async {
-  final tts = FlutterTts();
+  final tts = _previewTts;
+  await tts.stop();
   await tts.setLanguage(language);
   if (voice != null) await tts.setVoice(voice);
   if (rate != null) await tts.setSpeechRate(rate);
   if (pitch != null) await tts.setPitch(pitch);
   await tts.speak(text, focus: true);
+}
+
+Future<void> engineStopPreview() => _previewTts.stop();
+
+/// English names of the languages speech engines offer, by ISO 639 code.
+const _languageNames = <String, String>{
+  'af': 'Afrikaans',
+  'am': 'Amharic',
+  'ar': 'Arabic',
+  'as': 'Assamese',
+  'az': 'Azerbaijani',
+  'be': 'Belarusian',
+  'bg': 'Bulgarian',
+  'bn': 'Bengali',
+  'brx': 'Bodo',
+  'bs': 'Bosnian',
+  'ca': 'Catalan',
+  'cmn': 'Mandarin',
+  'cs': 'Czech',
+  'cy': 'Welsh',
+  'da': 'Danish',
+  'de': 'German',
+  'doi': 'Dogri',
+  'el': 'Greek',
+  'en': 'English',
+  'es': 'Spanish',
+  'et': 'Estonian',
+  'eu': 'Basque',
+  'fa': 'Persian',
+  'fi': 'Finnish',
+  'fil': 'Filipino',
+  'fr': 'French',
+  'ga': 'Irish',
+  'gl': 'Galician',
+  'gu': 'Gujarati',
+  'he': 'Hebrew',
+  'hi': 'Hindi',
+  'hr': 'Croatian',
+  'hu': 'Hungarian',
+  'hy': 'Armenian',
+  'id': 'Indonesian',
+  'is': 'Icelandic',
+  'it': 'Italian',
+  'ja': 'Japanese',
+  'jv': 'Javanese',
+  'ka': 'Georgian',
+  'kk': 'Kazakh',
+  'km': 'Khmer',
+  'kn': 'Kannada',
+  'ko': 'Korean',
+  'kok': 'Konkani',
+  'ks': 'Kashmiri',
+  'ky': 'Kyrgyz',
+  'lo': 'Lao',
+  'lt': 'Lithuanian',
+  'lv': 'Latvian',
+  'mai': 'Maithili',
+  'mk': 'Macedonian',
+  'ml': 'Malayalam',
+  'mn': 'Mongolian',
+  'mni': 'Manipuri',
+  'mr': 'Marathi',
+  'ms': 'Malay',
+  'my': 'Burmese',
+  'nb': 'Norwegian',
+  'ne': 'Nepali',
+  'nl': 'Dutch',
+  'no': 'Norwegian',
+  'or': 'Odia',
+  'pa': 'Punjabi',
+  'pl': 'Polish',
+  'pt': 'Portuguese',
+  'ro': 'Romanian',
+  'ru': 'Russian',
+  'sa': 'Sanskrit',
+  'sat': 'Santali',
+  'sd': 'Sindhi',
+  'si': 'Sinhala',
+  'sk': 'Slovak',
+  'sl': 'Slovenian',
+  'sq': 'Albanian',
+  'sr': 'Serbian',
+  'su': 'Sundanese',
+  'sv': 'Swedish',
+  'sw': 'Swahili',
+  'ta': 'Tamil',
+  'te': 'Telugu',
+  'th': 'Thai',
+  'tr': 'Turkish',
+  'uk': 'Ukrainian',
+  'ur': 'Urdu',
+  'uz': 'Uzbek',
+  'vi': 'Vietnamese',
+  'yue': 'Cantonese',
+  'zh': 'Chinese',
+  'zu': 'Zulu',
+};
+
+/// The language's English name, or its code where the table has none.
+String languageName(String code) =>
+    _languageNames[code.toLowerCase()] ?? code.toUpperCase();
+
+/// A voice as a person reads it: "Female 1 · US", "Voice SFG · GB · online". Engines name
+/// voices like `en-us-x-sfg#female_1-local`.
+String voiceLabel(Map<String, String> voice) {
+  final name = voice['name'] ?? '';
+  final locale = voice['locale'] ?? '';
+  final parts = locale.split(RegExp('[-_]'));
+  final region = parts.length > 1 ? parts[1].toUpperCase() : '';
+  final tail = name.contains('-x-') ? name.split('-x-').last : name;
+  final hash = tail.split('#');
+  String who;
+  if (hash.length > 1) {
+    final g = hash[1].split('-').first.split('_');
+    who =
+        '${g.first[0].toUpperCase()}${g.first.substring(1)}'
+        '${g.length > 1 ? ' ${g[1]}' : ''}';
+  } else {
+    final id = tail.split('-').first;
+    who = id.isEmpty ? name : 'Voice ${id.toUpperCase()}';
+  }
+  final online = name.endsWith('-network') ? 'online' : '';
+  return [who, region, online].where((s) => s.isNotEmpty).join(' · ');
 }
 
 /// Read-aloud preferences (ARCHITECTURE.md section 7): the service's TtsService reads the
@@ -50,10 +180,14 @@ class ReadAloudScreen extends StatefulWidget {
     required this.db,
     this.voices = engineVoices,
     this.preview = enginePreview,
+    this.stopPreview = engineStopPreview,
   });
   final AppDatabase db;
   final VoiceLister voices;
   final Previewer preview;
+
+  /// Stops a preview still speaking; called when the screen closes.
+  final Future<void> Function() stopPreview;
 
   @override
   State<ReadAloudScreen> createState() => _ReadAloudScreenState();
@@ -65,12 +199,21 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
   int _maxChars = 600;
   String _language = 'en';
   List<Map<String, String>> _voices = const [];
+
+  /// Languages with a voice of their own, by code; every other one uses the default.
+  final Map<String, Map<String, String>> _chosen = {};
   bool _loaded = false;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    unawaited(widget.stopPreview().catchError((Object _) {}));
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -84,10 +227,15 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
     } catch (_) {
       _voices = const [];
     }
+    for (final l in _languages) {
+      final json = await db.setting(TtsKeys.voiceFor(l));
+      if (json == null || json.isEmpty) continue;
+      _chosen[l] = (jsonDecode(json) as Map).cast<String, String>();
+    }
     if (mounted) setState(() => _loaded = true);
   }
 
-  /// Languages the engine has voices for, plus the current default.
+  /// Languages the engine has voices for, plus the current default, by name.
   List<String> get _languages {
     final codes = <String>{_language};
     for (final v in _voices) {
@@ -96,7 +244,8 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
         codes.add(locale.split(RegExp('[-_]')).first.toLowerCase());
       }
     }
-    return codes.toList()..sort();
+    return codes.toList()
+      ..sort((a, b) => languageName(a).compareTo(languageName(b)));
   }
 
   List<Map<String, String>> _voicesFor(String language) => [
@@ -106,18 +255,95 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
   ];
 
   Future<void> _preview() async {
-    final voiceJson = await widget.db.setting(TtsKeys.voiceFor(_language));
-    Map<String, String>? voice;
-    if (voiceJson != null) {
-      voice = (jsonDecode(voiceJson) as Map).cast<String, String>();
-    }
     await widget.preview(
       text: 'New post in Example channel. This is how posts will sound.',
       language: _language,
-      voice: voice,
+      voice: _chosen[_language],
       rate: _rate,
       pitch: _pitch,
     );
+  }
+
+  Future<void> _setVoice(String language, Map<String, String>? voice) async {
+    await widget.db.setSetting(
+      TtsKeys.voiceFor(language),
+      voice == null
+          ? ''
+          : jsonEncode({'name': voice['name'], 'locale': voice['locale']}),
+    );
+    if (!mounted) return;
+    setState(() {
+      if (voice == null) {
+        _chosen.remove(language);
+      } else {
+        _chosen[language] = voice;
+      }
+    });
+  }
+
+  /// The voices of one language, the chosen one ticked; the answer is null when the
+  /// sheet was dismissed, and an empty map for the default voice.
+  Future<void> _pickVoice(String language) async {
+    final current = _chosen[language]?['name'];
+    final picked = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.7,
+          ),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  languageName(language),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              ListTile(
+                leading: Icon(
+                  current == null ? Icons.check : null,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: const Text('The phone\'s default voice'),
+                onTap: () => Navigator.pop(context, const <String, String>{}),
+              ),
+              for (final v in _voicesFor(language))
+                ListTile(
+                  leading: Icon(
+                    v['name'] == current ? Icons.check : null,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  title: Text(voiceLabel(v)),
+                  onTap: () => Navigator.pop(context, v),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked == null) return;
+    await _setVoice(language, picked.isEmpty ? null : picked);
+  }
+
+  /// A language without a voice of its own yet, from a searchable list, then its voice.
+  Future<void> _addLanguage() async {
+    final options = [
+      for (final l in _languages)
+        if (!_chosen.containsKey(l) && _voicesFor(l).isNotEmpty) l,
+    ];
+    final code = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => _LanguagePicker(codes: options),
+    );
+    if (code == null || !mounted) return;
+    await _pickVoice(code);
   }
 
   @override
@@ -129,6 +355,8 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
       );
     }
     final db = widget.db;
+    final chosen = _chosen.keys.toList()
+      ..sort((a, b) => languageName(a).compareTo(languageName(b)));
     return Scaffold(
       appBar: AppBar(
         title: const Text('Read aloud'),
@@ -151,6 +379,8 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
               max: 1.0,
               divisions: 8,
               label: '${(_rate * 2).toStringAsFixed(1)}x',
+              semanticFormatterCallback: (v) =>
+                  'Speed ${(v * 2).toStringAsFixed(1)} times',
               onChanged: (v) => setState(() => _rate = v),
               onChangeEnd: (v) => db.setSetting(TtsKeys.rate, v.toString()),
             ),
@@ -163,6 +393,7 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
               max: 2.0,
               divisions: 6,
               label: _pitch.toStringAsFixed(2),
+              semanticFormatterCallback: (v) => 'Pitch ${v.toStringAsFixed(2)}',
               onChanged: (v) => setState(() => _pitch = v),
               onChangeEnd: (v) => db.setSetting(TtsKeys.pitch, v.toString()),
             ),
@@ -196,7 +427,7 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
               value: _language,
               items: [
                 for (final l in _languages)
-                  DropdownMenuItem(value: l, child: Text(l)),
+                  DropdownMenuItem(value: l, child: Text(languageName(l))),
               ],
               onChanged: (v) {
                 if (v == null) return;
@@ -206,13 +437,7 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
             ),
           ),
           const Divider(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Text(
-              'Voice per language',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-          ),
+          const SettingsHeader('Voices'),
           if (_voices.isEmpty)
             const ListTile(
               title: Text('No voices reported by the speech engine'),
@@ -220,54 +445,94 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
                 'The system default voice is used for every language',
               ),
             )
-          else
-            for (final l in _languages)
-              StreamBuilder<String?>(
-                stream: db.watchSetting(TtsKeys.voiceFor(l)),
-                builder: (context, snap) {
-                  final current = snap.data == null
-                      ? null
-                      : (jsonDecode(snap.data!) as Map)['name'] as String?;
-                  final voices = _voicesFor(l);
-                  return ListTile(
-                    title: Text(l),
-                    subtitle: Text(current ?? 'System default'),
-                    trailing: DropdownButton<String?>(
-                      value: voices.any((v) => v['name'] == current)
-                          ? current
-                          : null,
-                      items: [
-                        const DropdownMenuItem<String?>(
-                          value: null,
-                          child: Text('Default'),
-                        ),
-                        for (final v in voices)
-                          DropdownMenuItem<String?>(
-                            value: v['name'],
-                            child: Text(v['name'] ?? ''),
-                          ),
-                      ],
-                      onChanged: (name) {
-                        final v = voices
-                            .where((x) => x['name'] == name)
-                            .firstOrNull;
-                        if (v == null) {
-                          db.setSetting(TtsKeys.voiceFor(l), '');
-                        } else {
-                          db.setSetting(
-                            TtsKeys.voiceFor(l),
-                            jsonEncode({
-                              'name': v['name'],
-                              'locale': v['locale'],
-                            }),
-                          );
-                        }
-                      },
-                    ),
-                  );
-                },
+          else ...[
+            for (final l in chosen)
+              ListTile(
+                title: Text(languageName(l)),
+                subtitle: Text(voiceLabel(_chosen[l]!)),
+                onTap: () => unawaited(_pickVoice(l)),
+                trailing: IconButton(
+                  tooltip: 'Use the default voice',
+                  icon: const Icon(Icons.close),
+                  onPressed: () => unawaited(_setVoice(l, null)),
+                ),
               ),
+            ListTile(
+              leading: const Icon(Icons.add),
+              title: const Text('Add language'),
+              onTap: () => unawaited(_addLanguage()),
+            ),
+            const SettingsFooter(
+              'Every other language is read with the phone\'s default voice for it.',
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// Languages by name with a search box; answers with the code picked.
+class _LanguagePicker extends StatefulWidget {
+  const _LanguagePicker({required this.codes});
+  final List<String> codes;
+
+  @override
+  State<_LanguagePicker> createState() => _LanguagePickerState();
+}
+
+class _LanguagePickerState extends State<_LanguagePicker> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _query.trim().toLowerCase();
+    final shown = [
+      for (final c in widget.codes)
+        if (q.isEmpty ||
+            languageName(c).toLowerCase().contains(q) ||
+            c.contains(q))
+          c,
+    ];
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.7,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: TextField(
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: 'Search languages',
+                    isDense: true,
+                  ),
+                  onChanged: (v) => setState(() => _query = v),
+                ),
+              ),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final c in shown)
+                      ListTile(
+                        title: Text(languageName(c)),
+                        onTap: () => Navigator.pop(context, c),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

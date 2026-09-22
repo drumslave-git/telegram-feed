@@ -121,7 +121,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - Every rule notification carries a "Listen" action that speaks the post on demand.
 - The app detects the post's language and picks a matching voice.
 - Posts are queued, never spoken over each other and never dropped. Other audio is ducked, and a phone call pauses speech.
-- Settings: speed, pitch, maximum length, language when detection fails, voice per language, and a preview.
+- Settings: speed, pitch, maximum length, language when detection fails, and a preview. Voices are listed by language name for the languages I gave one; "Add language" picks another from a searchable list, and every other language uses the phone's default voice.
 
 ### Interactions
 

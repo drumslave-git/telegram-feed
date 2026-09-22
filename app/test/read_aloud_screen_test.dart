@@ -40,6 +40,7 @@ void main() {
         {'name': 'en-gb-x-b', 'locale': 'en-GB'},
         {'name': 'ru-ru-x-c', 'locale': 'ru-RU'},
       ],
+      stopPreview: () async {},
       preview: ({required text, required language, voice, rate, pitch}) async {
         previews.add({
           'text': text,
@@ -52,33 +53,58 @@ void main() {
     ),
   );
 
-  testWidgets('lists languages from voices, stores a voice, previews with it', (
+  testWidgets('a voice is added by language name, stored, and previewed', (
     tester,
   ) async {
     await tester.pumpWidget(app());
     await settle(tester);
-    expect(find.text('en'), findsWidgets);
-    expect(find.text('ru'), findsWidgets);
+    // Nothing chosen yet: no language rows, only the way to add one.
+    expect(find.text('English'), findsOneWidget); // the "when unknown" dropdown
+    expect(find.text('Add language'), findsOneWidget);
 
-    // Pick a voice for English.
-    await tester.tap(
-      find.widgetWithText(DropdownButton<String?>, 'Default').first,
-    );
+    await tester.tap(find.text('Add language'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('en-gb-x-b').last);
+    expect(find.text('Russian'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'eng');
+    await tester.pump();
+    expect(find.text('Russian'), findsNothing);
+    await tester.tap(find.text('English').last);
+    await tester.pumpAndSettle();
+    // The voices of English, by a readable name.
+    expect(find.text('Voice B · GB'), findsOneWidget);
+    await tester.tap(find.text('Voice B · GB'));
     await tester.pumpAndSettle();
     await settle(tester);
     final stored =
         jsonDecode((await db.setting(TtsKeys.voiceFor('en')))!) as Map;
     expect(stored['name'], 'en-gb-x-b');
-    expect(find.text('en-gb-x-b'), findsWidgets);
+    expect(find.text('Voice B · GB'), findsOneWidget); // the new row
 
     await tester.tap(find.byIcon(Icons.volume_up));
     await settle(tester);
     expect(previews.single['language'], 'en');
     expect((previews.single['voice'] as Map)['name'], 'en-gb-x-b');
     expect(previews.single['rate'], 0.5);
+
+    // Back to the default: the row goes.
+    await tester.tap(find.byTooltip('Use the default voice'));
+    await settle(tester);
+    expect(await db.setting(TtsKeys.voiceFor('en')), '');
+    expect(find.text('Voice B · GB'), findsNothing);
     await unmount(tester);
+  });
+
+  test('voice names read like names', () {
+    expect(
+      voiceLabel({'name': 'en-us-x-sfg#female_1-local', 'locale': 'en-US'}),
+      'Female 1 · US',
+    );
+    expect(
+      voiceLabel({'name': 'uk-ua-x-hfd-network', 'locale': 'uk-UA'}),
+      'Voice HFD · UA · online',
+    );
+    expect(languageName('uk'), 'Ukrainian');
+    expect(languageName('xx'), 'XX');
   });
 
   testWidgets('max length and default language are persisted', (tester) async {
@@ -93,7 +119,7 @@ void main() {
 
     await tester.tap(find.byType(DropdownButton<String>));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('ru').last);
+    await tester.tap(find.text('Russian').last);
     await tester.pumpAndSettle();
     await settle(tester);
     expect(await db.setting(TtsKeys.defaultLanguage), 'ru');
