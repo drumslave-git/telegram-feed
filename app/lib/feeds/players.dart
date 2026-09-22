@@ -33,6 +33,9 @@ class AudioPlayerWidget extends StatefulWidget {
 class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   AudioSessions get _sessions => widget.sessions ?? AudioSessions.instance;
 
+  /// Where the finger holds the thumb while it drags; null otherwise.
+  double? _scrub;
+
   @override
   void initState() {
     super.initState();
@@ -93,17 +96,28 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                     child: Slider(
                       value: length.inMilliseconds == 0
                           ? 0
-                          : at.inMilliseconds
-                                .clamp(0, length.inMilliseconds)
-                                .toDouble(),
+                          : (_scrub ?? at.inMilliseconds.toDouble()).clamp(
+                              0,
+                              length.inMilliseconds.toDouble(),
+                            ),
                       max: length.inMilliseconds == 0
                           ? 1
                           : length.inMilliseconds.toDouble(),
+                      // The thumb follows the finger; the player seeks once, when it
+                      // lifts, so the position it reports does not pull the thumb back.
                       onChanged: length.inMilliseconds == 0
                           ? null
-                          : (v) => unawaited(
-                              _sessions.seek(Duration(milliseconds: v.round())),
-                            ),
+                          : (v) => setState(() => _scrub = v),
+                      onChangeEnd: length.inMilliseconds == 0
+                          ? null
+                          : (v) {
+                              setState(() => _scrub = null);
+                              unawaited(
+                                _sessions.seek(
+                                  Duration(milliseconds: v.round()),
+                                ),
+                              );
+                            },
                     ),
                   ),
                   Text(

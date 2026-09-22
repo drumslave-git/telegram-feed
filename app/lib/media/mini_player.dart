@@ -24,6 +24,8 @@ abstract final class MiniPlayer {
     required List<Media> items,
     required int index,
     required TelegramGateway gateway,
+    Future<void> Function(BuildContext context, List<Media> items, int index)?
+    reopen,
   }) {
     dismiss();
     final overlay = Navigator.of(context, rootNavigator: true).overlay;
@@ -35,12 +37,14 @@ abstract final class MiniPlayer {
         onClose: dismiss,
         onExpand: () => unawaited(
           // The viewer takes the session over and dismisses this window once it is up.
-          MediaViewerScreen.open(
-            context,
-            items: items,
-            gateway: gateway,
-            initialIndex: index,
-          ),
+          reopen != null
+              ? reopen(context, items, index)
+              : MediaViewerScreen.open(
+                  context,
+                  items: items,
+                  gateway: gateway,
+                  initialIndex: index,
+                ),
         ),
       ),
     );

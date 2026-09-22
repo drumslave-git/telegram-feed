@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/players.dart';
 import 'package:telegram_feed/media/audio_bar.dart';
 import 'package:telegram_feed/media/audio_session.dart';
+import 'package:telegram_feed/media/media_viewer.dart';
 
 /// An engine that answers without a plugin, and records what it was asked to do.
 class FakeEngine implements AudioEngine {
@@ -129,10 +130,10 @@ void main() {
     await tester.pump(); // the notifier rebuilds on the frame after it fires
     expect(find.textContaining('0:09 / 0:30'), findsOneWidget);
 
-    // Dragging the bar seeks.
+    // Dragging the bar seeks once, when the finger lifts.
     await tester.drag(find.byType(Slider), const Offset(200, 0));
     await tester.pump();
-    expect(engine.calls.where((c) => c.startsWith('seek')), isNotEmpty);
+    expect(engine.calls.where((c) => c.startsWith('seek')), hasLength(1));
 
     await tester.tap(find.text('1x'));
     await tester.pump();
@@ -179,6 +180,14 @@ void main() {
     // The row of the post is nowhere in sight, and the sound goes on.
     expect(find.byType(AudioPlayerWidget), findsNothing);
     expect(sessions.playing.value, isTrue);
+
+    // The full-screen viewer has the screen to itself; the bar waits under it.
+    MediaViewerScreen.showing.value++;
+    await tester.pump();
+    expect(find.byType(AudioBar), findsNothing);
+    MediaViewerScreen.showing.value--;
+    await tester.pump();
+    expect(find.byType(AudioBar), findsOneWidget);
 
     await tester.tap(
       find.descendant(

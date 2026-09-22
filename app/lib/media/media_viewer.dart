@@ -5,8 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import '../feeds/media_view.dart' show Downloaded;
+import '../feeds/media_view.dart' show Downloaded, pickPhotoSize;
 import '../feeds/post_card.dart' show formatDay;
+import 'audio_session.dart';
 import 'gallery.dart';
 import 'mini_player.dart';
 import 'swipe_to_close.dart';
@@ -110,6 +111,9 @@ class MediaViewerScreen extends StatefulWidget {
     ),
   );
 
+  /// How many viewers are open; the audio bar stays out of their way.
+  static final showing = ValueNotifier<int>(0);
+
   @override
   State<MediaViewerScreen> createState() => _MediaViewerScreenState();
 }
@@ -132,18 +136,42 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    MediaViewerScreen.showing.value++;
+    _quietAudioFor(_index);
     // Once the first page holds its session: a mini player that was opened in the viewer
     // again goes on here, any other one ends.
     WidgetsBinding.instance.addPostFrameCallback((_) => MiniPlayer.dismiss());
   }
 
+  /// A video plays with its sound, so voice and music stop, as in the official app.
+  void _quietAudioFor(int index) {
+    if (index < _items.length && _items[index] is VideoMedia) {
+      unawaited(AudioSessions.instance.pause());
+    }
+  }
+
   void _toMiniPlayer(VideoSession session) {
+    final w = widget;
     MiniPlayer.show(
       context,
       session: session,
       items: _items,
       index: _index,
-      gateway: widget.gateway,
+      gateway: w.gateway,
+      // Back to the viewer with everything it had: channel and day, caption, actions and
+      // the older pictures of the feed.
+      reopen: (context, items, index) => MediaViewerScreen.open(
+        context,
+        items: items,
+        gateway: w.gateway,
+        initialIndex: index,
+        onNeedOlder: w.onNeedOlder,
+        details: _details,
+        onShare: w.onShare,
+        onSave: w.onSave,
+        onDetails: w.onDetails,
+        gallery: w.gallery,
+      ),
     );
     Navigator.of(context).maybePop();
   }
@@ -151,6 +179,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
   @override
   void dispose() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    MediaViewerScreen.showing.value--;
     _pages.dispose();
     super.dispose();
   }
@@ -240,7 +269,10 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
           ),
         Text(
           [
-            if (items.length > 1) '${_index + 1} of ${items.length}',
+            // One post's album is counted; a feed's pictures, which grow as older ones
+            // load, are not.
+            if (items.length > 1 && widget.onNeedOlder == null)
+              '${_index + 1} of ${items.length}',
             if (detail != null && detail.date > 0)
               formatDay(
                 DateTime.fromMillisecondsSinceEpoch(detail.date * 1000),
@@ -287,6 +319,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
               _index = i;
               _zoomed = false;
             });
+            _quietAudioFor(i);
             // One page short of the end: the next ones are on their way.
             if (i >= items.length - 2) unawaited(_loadOlder());
           },
@@ -445,6 +478,17 @@ class _ZoomablePhotoState extends State<ZoomablePhoto> {
 
   void _report() => widget.onZoomChanged(_transform.isZoomed);
 
+  /// The size the timeline drew, when it is not the largest: already on the phone.
+  FileRef? _smaller(BuildContext context) {
+    final sizes = widget.photo.sizes;
+    if (sizes.length < 2) return null;
+    for (final f in sizes.reversed.skip(1)) {
+      if (f.isDownloaded) return f;
+    }
+    final picked = pickPhotoSize(sizes, MediaQuery.sizeOf(context).width);
+    return picked.id == widget.photo.largest.id ? null : picked;
+  }
+
   @override
   void dispose() {
     _transform.dispose();
@@ -464,8 +508,26 @@ class _ZoomablePhotoState extends State<ZoomablePhoto> {
           child: Downloaded(
             file: widget.photo.largest,
             gateway: widget.gateway,
-            placeholder: const Center(
-              child: CircularProgressIndicator(color: Colors.white70),
+            // What the timeline showed stands in while the full size loads, so the page
+            // never starts black.
+            placeholder: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (_smaller(context) case final small?)
+                  Downloaded(
+                    file: small,
+                    gateway: widget.gateway,
+                    autoStart: false,
+                    placeholder: const SizedBox.shrink(),
+                    builder: (context, path) => Image.file(
+                      File(path),
+                      fit: BoxFit.contain,
+                      width: double.infinity,
+                      height: double.infinity,
+                    ),
+                  ),
+                const CircularProgressIndicator(color: Colors.white70),
+              ],
             ),
             builder: (context, path) => Image.file(
               File(path),

@@ -73,10 +73,10 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 ### Media
 
 - Photos show inline. Video, voice and audio play in the app. Albums show as a mosaic.
-- Stickers are drawn, animated ones included, and a round video message plays in place.
-- Voice and music can be dragged to seek and played at 1×, 1.5× or 2×. A bar at the bottom keeps them playing while I scroll or open another screen.
+- Stickers are drawn, animated ones included, and a round video message plays in place with its sound on a tap.
+- Voice and music can be dragged to seek and played at 1×, 1.5× or 2×. A bar at the bottom keeps them playing while I scroll or open another screen. The full-screen viewer covers that bar, and a video there stops them.
 - A tap on a video plays it full screen at once, in the orientation I hold the phone, from the beginning. There I seek, zoom with a double tap or a pinch and move the zoomed picture, hold a finger down for 2× speed, and swipe down to close.
-- The viewer pages sideways through the pictures and videos of the whole feed, loading older ones as I go. It shows which channel a picture came from, its day and caption, and lets me share it, save it to Saved Messages, save it to the phone's gallery, or shrink the video to a floating player. Leaving the app while a video plays moves it into Android's picture-in-picture window.
+- The viewer pages sideways through the pictures and videos of the whole feed, loading older ones as I go. It shows which channel a picture came from, its day and caption, and lets me share it, save it to Saved Messages, save it to the phone's gallery, or shrink the video to a floating player, which opens back into the viewer with all of that. While the picture loads at full size, the one the timeline showed stands in. "N of M" counts the pictures of one post only. Leaving the app while a video plays moves it into Android's picture-in-picture window.
 - Leaving full screen stops the video and its download, unless the video loads by itself; a video that autoplays in the timeline goes on playing there without sound.
 - Every video has a download button in its top left corner that keeps the whole file in Telegram's cache, with progress and cancel.
 - Automatic downloads are set per connection (mobile data, Wi-Fi, roaming) as in the official app: a switch, Telegram's Low, Medium and High presets, and photos, videos and files with size limits. Larger videos can have their first seconds loaded ahead. A video autoplays when it loads by itself and autoplay for GIFs or videos is on.

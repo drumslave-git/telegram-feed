@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../feeds/media_view.dart' show formatDuration;
 import 'audio_session.dart';
+import 'media_viewer.dart' show MediaViewerScreen;
 
 /// Keeps the player bar under every screen while something plays, the way the official app
 /// keeps its music bar. The sound itself lives in [AudioSessions] and is not tied to the
@@ -18,14 +19,19 @@ class AudioBarHost extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = sessions ?? AudioSessions.instance;
-    return ValueListenableBuilder<AudioTrack?>(
-      valueListenable: s.track,
-      builder: (context, track, _) => Column(
-        children: [
-          Expanded(child: child),
-          if (track != null) AudioBar(track: track, sessions: s),
-        ],
-      ),
+    return ListenableBuilder(
+      listenable: Listenable.merge([s.track, MediaViewerScreen.showing]),
+      builder: (context, _) {
+        final track = s.track.value;
+        // The full-screen viewer has the whole screen; the bar waits under it.
+        final shown = track != null && MediaViewerScreen.showing.value == 0;
+        return Column(
+          children: [
+            Expanded(child: child),
+            if (shown) AudioBar(track: track, sessions: s),
+          ],
+        );
+      },
     );
   }
 }

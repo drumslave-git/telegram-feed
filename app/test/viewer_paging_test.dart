@@ -138,15 +138,15 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pump(); // the route is pushed
     await tester.pump(const Duration(milliseconds: 400)); // the fade finishes
-    expect(find.text('1 of 3'), findsOneWidget);
+    // The pictures of a feed grow as older ones load, so no "N of M" is shown.
+    expect(find.textContaining(' of '), findsNothing);
 
     // Swiping to the second page is already within two of the end: more are asked for.
     await tester.drag(find.byType(PageView), const Offset(-500, 0));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 400));
     expect(asked, 1);
-    // Both the page in front and its neighbour carry the counter.
-    expect(find.text('2 of 4'), findsWidgets);
+    expect(find.textContaining(' of '), findsNothing);
     await unmount(tester);
   });
 

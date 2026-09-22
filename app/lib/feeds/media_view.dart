@@ -415,7 +415,27 @@ class _VideoViewState extends State<VideoView> {
     _session = s;
   }
 
+  /// A round video message plays where it is, with its sound, as in the official app; a
+  /// second tap pauses it.
+  Future<void> _playInCircle() async {
+    var s = _session;
+    if (s == null) {
+      s = _sessions.open(_file, loop: false, autoplay: true);
+      setState(() => _adopt(s));
+    }
+    if (s.muted) {
+      await s.setMuted(false);
+      await s.play();
+    } else {
+      await s.togglePlay();
+    }
+  }
+
   void _open() {
+    if (widget.video.isVideoNote) {
+      unawaited(_playInCircle());
+      return;
+    }
     final onOpen = widget.onOpen;
     if (onOpen != null) return onOpen();
     unawaited(
