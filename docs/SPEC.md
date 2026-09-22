@@ -45,7 +45,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - Every list of channels tags each channel with the feeds it belongs to.
 - A long press on a channel row offers to mark it read, open its info, or add it to one of my feeds.
 - I add channels to a feed from the channels I have joined, with a search box; I tick as many as I want and add them with one press. A checkbox hides the channels that are already in a feed, and the picker remembers it. Joining happens in the official app.
-- A channel can be in several feeds. Removing it from a feed does not leave the channel in Telegram.
+- A channel can be in several feeds. Removing it from a feed does not leave the channel in Telegram. When rules of the feed watch only that channel, I am asked first, because they go with it; otherwise Undo puts the channel back in its place. Deleting a feed says how many rules go with it.
 - I set what a feed shows: all posts, only posts with media or only text; which media types; videos from a minimum length; text posts from a minimum length. A post is shown whole: one picture or video that passes brings the rest of the album and its caption, unless the feed's "Show the whole post" box is off. Hidden posts are read along with the posts around them, and the feed's rules stay quiet about them.
 
 ### Reading

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/destructive_button.dart';
+
 /// Asks before a logout and runs it on a yes: the official app's Log Out in the Settings
 /// menu.
 Future<void> confirmLogOut(
@@ -18,9 +20,9 @@ Future<void> confirmLogOut(
           onPressed: () => Navigator.pop(context, false),
           child: const Text('Cancel'),
         ),
-        FilledButton(
+        DestructiveButton(
           onPressed: () => Navigator.pop(context, true),
-          child: const Text('Log out'),
+          label: 'Log out',
         ),
       ],
     ),

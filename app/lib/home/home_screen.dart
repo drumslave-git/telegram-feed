@@ -14,6 +14,7 @@ import 'channel_info_screen.dart';
 import 'connection_title.dart';
 import 'channel_list.dart';
 import 'unread_badge.dart';
+import '../widgets/destructive_button.dart';
 import '../app_name.dart';
 
 /// The main screen: `+`, the "Feeds" tab (list of feeds), one tab per Telegram folder (its
@@ -255,16 +256,24 @@ class _HomeScreenState extends State<HomeScreen>
           controller: c,
           autofocus: true,
           decoration: const InputDecoration(labelText: 'Name'),
-          onSubmitted: (v) => Navigator.pop(context, v.trim()),
+          onSubmitted: (v) {
+            if (v.trim().isNotEmpty) Navigator.pop(context, v.trim());
+          },
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, c.text.trim()),
-            child: Text(initial == null ? 'Create' : 'Rename'),
+          // Enabled once there is a name to give.
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: c,
+            builder: (context, v, _) => FilledButton(
+              onPressed: v.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.pop(context, v.text.trim()),
+              child: Text(initial == null ? 'Create' : 'Rename'),
+            ),
           ),
         ],
       ),
@@ -420,21 +429,28 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _deleteFeed(Feed f) async {
+    final rules = (await widget.db.allRules())
+        .where((r) => r.feedId == f.id)
+        .length;
+    if (!mounted) return;
+    final what = switch (rules) {
+      0 => 'The feed and its kept positions are removed.',
+      1 => 'The feed, its rule and its kept positions are removed.',
+      _ => 'The feed, its $rules rules and its kept positions are removed.',
+    };
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Delete "${f.name}"?'),
-        content: const Text(
-          'The feed and its read positions are removed. Channels stay joined in Telegram.',
-        ),
+        content: Text('$what Channels stay joined in Telegram.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          DestructiveButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            label: 'Delete',
           ),
         ],
       ),

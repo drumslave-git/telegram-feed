@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +7,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../home/channel_list.dart' show ChannelAvatar, FeedTags;
 import '../rules/rules_screen.dart' show RuleList, openRuleEditor;
+import '../widgets/destructive_button.dart';
 import 'shared_media.dart';
 
 /// The feed's own info screen: its channels (add from a searchable picker, remove,
@@ -179,6 +182,64 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
     );
   }
 
+  /// Takes a channel out of the feed. Rules that watch only that channel go with it, so
+  /// the user is asked first when there are any; otherwise an Undo puts it back in place.
+  Future<void> _removeSource(WatchedChannel s, List<int> order) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final rules = [
+      for (final r in await widget.db.allRules())
+        if (r.feedId == widget.feedId && r.scopeChatId == s.chatId) r,
+    ];
+    if (!mounted) return;
+    if (rules.isNotEmpty) {
+      final names = rules.map((r) => '"${r.name}"').join(', ');
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Remove ${s.title}?'),
+          content: Text(
+            rules.length == 1
+                ? 'The rule $names watches only this channel and is deleted with it.'
+                : 'The rules $names watch only this channel and are deleted with it.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            DestructiveButton(
+              onPressed: () => Navigator.pop(context, true),
+              label: 'Remove',
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      await widget.db.removeSource(widget.feedId, s.chatId);
+      return;
+    }
+    await widget.db.removeSource(widget.feedId, s.chatId);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('${s.title} removed'),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () => unawaited(() async {
+              await widget.db.addSource(
+                widget.feedId,
+                s.chatId,
+                title: s.title,
+                username: s.username,
+              );
+              await widget.db.reorderSources(widget.feedId, order);
+            }()),
+          ),
+        ),
+      );
+  }
+
   Widget _channelsTab(List<WatchedChannel> sources) {
     return FutureBuilder<List<Channel>>(
       future: _channels,
@@ -191,14 +252,22 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
           for (final c in chSnap.data ?? const <Channel>[]) c.chatId: c.photo,
         };
         if (sources.isEmpty) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: Text(
-                'No channels yet. Add channels your Telegram account has joined.',
-                textAlign: TextAlign.center,
+          // The filter is set before the channels as well as after.
+          return Column(
+            children: [
+              FeedFilterTile(db: widget.db, feedId: widget.feedId),
+              const Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Text(
+                      'No channels yet. Add channels your Telegram account has joined.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
               ),
-            ),
+            ],
           );
         }
         return ReorderableListView.builder(
@@ -229,8 +298,9 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
               trailing: IconButton(
                 tooltip: 'Remove',
                 icon: const Icon(Icons.remove_circle_outline),
-                onPressed: () =>
-                    widget.db.removeSource(widget.feedId, s.chatId),
+                onPressed: () => unawaited(
+                  _removeSource(s, [for (final x in sources) x.chatId]),
+                ),
               ),
             );
           },

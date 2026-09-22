@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../host/accounts.dart';
 import '../service/core_service.dart' show appPaths;
+import '../widgets/destructive_button.dart';
 
 /// The accounts of this device: which one is in use, one more up to four, and taking one
 /// off the device again (H-35). Switching takes the core and the database of this account
@@ -89,9 +90,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          DestructiveButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remove'),
+            label: 'Remove',
           ),
         ],
       ),

@@ -120,6 +120,71 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('removing a channel: Undo puts it back where it was', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      feedId = (await db.createFeed('Tech')).id;
+      await db.addSource(feedId, -1, title: 'Alpha News', username: 'alpha');
+      await db.addSource(feedId, -2, title: 'Beta Daily', username: 'beta');
+    });
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.tap(find.byIcon(Icons.remove_circle_outline).first);
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Alpha News removed'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await settle(tester);
+    await settle(tester);
+    final titles = tester
+        .widgetList<ListTile>(find.byType(ListTile))
+        .map((t) => (t.title as Text).data)
+        .toList();
+    expect(titles, ['Show', 'Alpha News', 'Beta Daily']);
+    await unmount(tester);
+  });
+
+  testWidgets('removing a channel with a rule of its own asks first', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      feedId = (await db.createFeed('Tech')).id;
+      await db.addSource(feedId, -1, title: 'Alpha News', username: 'alpha');
+      await db.insertRule(
+        RulesCompanion.insert(
+          name: 'Launches',
+          feedId: feedId,
+          scopeChatId: const Value(-1),
+          conditionJson: '{"term":"x"}',
+          priority: 'normal',
+          createdAt: DateTime(2026),
+        ),
+      );
+    });
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.tap(find.byIcon(Icons.remove_circle_outline));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Remove Alpha News?'), findsOneWidget);
+    expect(find.textContaining('"Launches"'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    await settle(tester);
+    expect(find.text('Alpha News'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.remove_circle_outline));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove'));
+    await tester.pumpAndSettle();
+    await settle(tester);
+    expect(find.text('Alpha News'), findsNothing);
+    expect(await tester.runAsync(db.allRules), isEmpty);
+    await unmount(tester);
+  });
+
   testWidgets('the picker tags a channel with its other feeds', (tester) async {
     await tester.runAsync(() async {
       feedId = (await db.createFeed('Tech')).id;

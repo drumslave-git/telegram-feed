@@ -10,6 +10,7 @@ import '../notifications/notification_policy.dart';
 import '../ai/semantic_gate.dart';
 import '../home/channel_list.dart' show ChannelAvatar;
 import 'rule_builder_model.dart';
+import '../widgets/destructive_button.dart';
 
 /// Create or edit one rule: visual builder or text form, its feed and channels, priority,
 /// read-aloud, schedule, and a dry run against recent posts (SPEC section 4).
@@ -319,9 +320,9 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          DestructiveButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            label: 'Delete',
           ),
         ],
       ),

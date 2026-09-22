@@ -118,6 +118,7 @@ void main() {
     await tester.tap(find.byTooltip('New feed'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Tech');
+    await tester.pump(); // Create is enabled once there is a name
     await tester.tap(find.text('Create'));
     await settle(tester);
     await tester.pumpAndSettle();
@@ -154,6 +155,7 @@ void main() {
     await tester.tap(find.text('Rename'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Alpha');
+    await tester.pump();
     await tester.tap(find.text('Rename').last);
     await tester.pumpAndSettle();
     await settle(tester);
