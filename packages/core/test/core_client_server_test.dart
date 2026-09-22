@@ -269,6 +269,18 @@ void main() {
       expect(client.currentAuthState, isA<AuthWaitPhoneNumber>());
     });
 
+    test(
+      'a client that attaches later learns the current connection',
+      () async {
+        // The gateway reported "ready" before this second client said hello; no change
+        // follows, so only the welcome can tell it.
+        await Future<void>.delayed(Duration.zero);
+        final late = await CoreClient.connect(server.sendPort);
+        expect(await late.connection.first, ConnectionStatus.ready);
+        await late.close();
+      },
+    );
+
     test('calls, results and typed errors round-trip', () async {
       await client.setPhoneNumber('+1');
       expect(gw.calls, ['phone:+1']);

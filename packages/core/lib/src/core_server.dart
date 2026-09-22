@@ -73,6 +73,9 @@ final class CoreServer {
   var _subs = <StreamSubscription<void>>[];
   AuthState _auth = const AuthStarting();
 
+  /// TDLib's connection as the gateway last reported it, for clients that attach later.
+  ConnectionStatus _connection = ConnectionStatus.connecting;
+
   TelegramGateway get gateway => _gateway;
 
   /// Swaps in a fresh gateway (after TDLib closed its client on logout). Clients keep their
@@ -88,6 +91,7 @@ final class CoreServer {
     final old = _gateway;
     _gateway = next;
     _auth = const AuthStarting();
+    _connection = ConnectionStatus.connecting;
     _broadcast(CoreStream.auth, encodeAuthState(_auth));
     _subscribe();
     await old.close();
@@ -109,9 +113,10 @@ final class CoreServer {
       gateway.comments.listen(
         (c) => _broadcast(CoreStream.comments, encodeComment(c)),
       ),
-      gateway.connection.listen(
-        (c) => _broadcast(CoreStream.connection, {'status': c.name}),
-      ),
+      gateway.connection.listen((c) {
+        _connection = c;
+        _broadcast(CoreStream.connection, {'status': c.name});
+      }),
       gateway.readUpdates.listen(
         (r) => _broadcast(CoreStream.readStates, encodeReadState(r)),
       ),
@@ -134,7 +139,11 @@ final class CoreServer {
       case 'hello':
         final p = m['port'] as SendPort;
         _clients.add(p);
-        p.send({'type': 'welcome', 'auth': encodeAuthState(_auth)});
+        p.send({
+          'type': 'welcome',
+          'auth': encodeAuthState(_auth),
+          'connection': _connection.name,
+        });
       case 'bye':
         _clients.remove(m['port'] as SendPort);
       case 'call':

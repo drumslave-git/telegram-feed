@@ -47,6 +47,11 @@ final class CoreClient implements TelegramGateway {
     switch (m['type']) {
       case 'welcome':
         _auth = decodeAuthState(m['auth'] as Map<Object?, Object?>);
+        final status = m['connection'] as String?;
+        if (status != null) {
+          _connection = ConnectionStatus.values.byName(status);
+          _connectionCtl.add(_connection);
+        }
         if (!_welcome.isCompleted) _welcome.complete();
       case 'result':
         _pending.remove(m['id'] as int)?.complete(m['value']);
