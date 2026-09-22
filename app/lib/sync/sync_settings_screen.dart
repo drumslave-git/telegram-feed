@@ -7,14 +7,26 @@ class SyncSettingsScreen extends StatelessWidget {
   const SyncSettingsScreen({super.key, required this.controller});
   final SyncController controller;
 
+  /// When the last sync ran, with the day unless it was today: "at 14:32",
+  /// "yesterday at 14:32", "Sep 20 at 14:32".
+  static String syncedAt(DateTime t, BuildContext context, {DateTime? now}) {
+    final today = DateUtils.dateOnly(now ?? DateTime.now());
+    final day = DateUtils.dateOnly(t);
+    final time = TimeOfDay.fromDateTime(t).format(context);
+    if (day == today) return 'at $time';
+    if (day == today.subtract(const Duration(days: 1))) {
+      return 'yesterday at $time';
+    }
+    return '${MaterialLocalizations.of(context).formatShortMonthDay(t)} at $time';
+  }
+
   static String describe(SyncStatus s, BuildContext context) {
     if (!s.available) return 'Not available in this build';
     if (!s.isOn) return 'Off';
     final last = s.lastSyncedAt;
     if (s.error != null) return 'Problem: ${s.error}';
     if (last == null) return 'On, ${s.account}';
-    final time = TimeOfDay.fromDateTime(last).format(context);
-    return 'On, ${s.account} · last synced $time';
+    return 'On, ${s.account} · last synced ${syncedAt(last, context)}';
   }
 
   @override
@@ -59,7 +71,7 @@ class SyncSettingsScreen extends StatelessWidget {
                       ? 'Syncing…'
                       : s.lastSyncedAt == null
                       ? 'Not synced yet'
-                      : 'Last synced ${TimeOfDay.fromDateTime(s.lastSyncedAt!).format(context)}',
+                      : 'Last synced ${syncedAt(s.lastSyncedAt!, context)}',
                 ),
               ),
               Wrap(

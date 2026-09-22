@@ -129,6 +129,39 @@ void main() {
     expect(find.text('Unofficial Telegram Feed is locked'), findsNothing);
   });
 
+  testWidgets('with a PIN set, the lock settings ask for it first', (
+    tester,
+  ) async {
+    await tester.runAsync(() => lock.setPin('4321'));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppLockScreen(db: db, lock: lock),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 40)),
+    );
+    await tester.pump();
+    expect(find.text('Enter your PIN to change the lock'), findsOneWidget);
+    expect(find.text('Remove the lock'), findsNothing);
+    await tester.enterText(find.byType(TextField), '4321');
+    await tester.tap(find.text('Unlock'));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 40)),
+    );
+    await tester.pump();
+    expect(find.text('Remove the lock'), findsOneWidget);
+    // Until the reader picks another, the lock asks again after an hour.
+    expect(await tester.runAsync(() => lock.timeout), const Duration(hours: 1));
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 30)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
   testWidgets('the settings set a PIN, a timeout and the device check', (
     tester,
   ) async {
@@ -177,6 +210,9 @@ void main() {
     );
 
     await tester.tap(find.text('Remove the lock'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remove the lock?'), findsOneWidget);
+    await tester.tap(find.text('Remove'));
     await tester.runAsync(() async {
       for (var i = 0; i < 3; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 40));

@@ -318,4 +318,25 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(c.dispose);
   });
+
+  testWidgets('the last sync names its day unless it was today', (
+    tester,
+  ) async {
+    late BuildContext ctx;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            ctx = context;
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+    final now = DateTime(2026, 9, 22, 18);
+    String at(DateTime t) => SyncSettingsScreen.syncedAt(t, ctx, now: now);
+    expect(at(DateTime(2026, 9, 22, 14, 32)), 'at 2:32 PM');
+    expect(at(DateTime(2026, 9, 21, 14, 32)), 'yesterday at 2:32 PM');
+    expect(at(DateTime(2026, 9, 20, 14, 32)), 'Sep 20 at 2:32 PM');
+  });
 }

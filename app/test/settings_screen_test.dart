@@ -247,6 +247,10 @@ void main() {
     expect(find.text('3 files'), findsOneWidget);
     expect(find.text('512 KB'), findsOneWidget);
     await tester.tap(find.text('Clear cache (3.0 MB)'));
+    await tester.pumpAndSettle();
+    // It asks first, naming how much goes.
+    expect(find.text('Clear 3.0 MB of cache?'), findsOneWidget);
+    await tester.tap(find.text('Clear'));
     await settle(tester);
     expect(find.text('0 files'), findsOneWidget);
     // Back on Data and storage, the row says what is left.

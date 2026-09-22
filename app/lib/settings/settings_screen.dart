@@ -66,10 +66,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _openAccounts() async {
     final switched = AccountSwitch.of(context)?.onSwitched;
     final paths = await appPaths();
+    final store = AccountStore(paths.support);
+    // The account in use is named after its profile, so the list tells them apart.
+    try {
+      final me = await _me;
+      final name = '${me.firstName} ${me.lastName}'.trim();
+      final phone = me.phoneNumber.isEmpty ? '' : me.phoneDisplay;
+      final label = [name, phone].where((s) => s.isNotEmpty).join(' · ');
+      if (label.isNotEmpty) {
+        await store.rename((await store.load()).active, label);
+      }
+    } on Object {
+      // Without the profile the list keeps the names it has.
+    }
     if (!mounted) return;
     await openSettingsScreen(
       context,
-      AccountsScreen(store: AccountStore(paths.support), onSwitched: switched),
+      AccountsScreen(store: store, onSwitched: switched),
     );
   }
 
@@ -192,7 +205,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               builder: (context, status, _) => SettingsLink(
                 icon: Icons.cloud_sync_outlined,
                 title: 'Google Drive sync',
-                value: status.available && status.isOn ? 'On' : 'Off',
+                // Sync still on for this device, but Google wants a new sign-in.
+                value: !status.available
+                    ? 'Off'
+                    : status.isOn
+                    ? 'On'
+                    : status.error != null
+                    ? 'Signed out'
+                    : 'Off',
                 onTap: () => _open(SyncSettingsScreen(controller: sync)),
               ),
             ),

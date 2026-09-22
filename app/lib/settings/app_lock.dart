@@ -9,6 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../app_name.dart';
+import '../widgets/destructive_button.dart';
 
 /// Where the hash of the PIN is kept. The app uses the keystore, tests a map of their own.
 abstract interface class PinStore {
@@ -47,6 +48,10 @@ class AppLock {
   /// How long the app may rest before it asks again.
   static const timeouts = <int>[0, 60, 300, 3600];
 
+  /// The rest before the lock asks again until the reader picks another: an hour, as the
+  /// official app's passcode starts.
+  static const defaultTimeout = 3600;
+
   Future<bool> get enabled async =>
       (await db.setting(SettingKeys.lockEnabled)) == 'true' && await hasPin();
 
@@ -56,7 +61,9 @@ class AppLock {
       (await db.setting(SettingKeys.lockBiometrics)) == 'true';
 
   Future<Duration> get timeout async => Duration(
-    seconds: int.tryParse(await db.setting(SettingKeys.lockTimeout) ?? '') ?? 0,
+    seconds:
+        int.tryParse(await db.setting(SettingKeys.lockTimeout) ?? '') ??
+        defaultTimeout,
   );
 
   /// Sets (or replaces) the PIN and turns the lock on.
@@ -174,10 +181,14 @@ class LockScreen extends StatefulWidget {
     required this.lock,
     required this.onUnlocked,
     this.auth,
+    this.title = '$appName is locked',
   });
   final AppLock lock;
   final VoidCallback onUnlocked;
   final LocalAuthentication? auth;
+
+  /// What the screen asks for: unlocking the app, or opening the lock's own settings.
+  final String title;
 
   @override
   State<LockScreen> createState() => _LockScreenState();
@@ -187,6 +198,9 @@ class _LockScreenState extends State<LockScreen> {
   final _pin = TextEditingController();
   String? _error;
   bool _checking = false;
+
+  /// The reader allowed the device's own check; only then is its button shown.
+  bool _biometricsAllowed = false;
 
   @override
   void initState() {
@@ -202,6 +216,7 @@ class _LockScreenState extends State<LockScreen> {
 
   Future<void> _biometrics() async {
     if (!await widget.lock.biometrics) return;
+    if (mounted) setState(() => _biometricsAllowed = true);
     final auth = widget.auth ?? LocalAuthentication();
     try {
       final ok = await auth.authenticate(
@@ -211,6 +226,11 @@ class _LockScreenState extends State<LockScreen> {
       if (ok && mounted) widget.onUnlocked();
     } on Object {
       // The PIN is always there as the way in.
+      if (mounted) {
+        setState(
+          () => _error = 'The phone\'s check is not available; use the PIN.',
+        );
+      }
     }
   }
 
@@ -237,7 +257,7 @@ class _LockScreenState extends State<LockScreen> {
           children: [
             const Icon(Icons.lock_outline, size: 48),
             const SizedBox(height: 16),
-            const Text('$appName is locked'),
+            Text(widget.title, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             TextField(
               controller: _pin,
@@ -257,10 +277,11 @@ class _LockScreenState extends State<LockScreen> {
               onPressed: _checking ? null : () => unawaited(_check()),
               child: const Text('Unlock'),
             ),
-            TextButton(
-              onPressed: () => unawaited(_biometrics()),
-              child: const Text('Use fingerprint or face'),
-            ),
+            if (_biometricsAllowed)
+              TextButton(
+                onPressed: () => unawaited(_biometrics()),
+                child: const Text('Use fingerprint or face'),
+              ),
           ],
         ),
       ),
@@ -270,9 +291,10 @@ class _LockScreenState extends State<LockScreen> {
 
 /// The lock's own settings: set or change the PIN, the timeout, and the device check.
 class AppLockScreen extends StatefulWidget {
-  const AppLockScreen({super.key, required this.db, this.lock});
+  const AppLockScreen({super.key, required this.db, this.lock, this.auth});
   final AppDatabase db;
   final AppLock? lock;
+  final LocalAuthentication? auth;
 
   @override
   State<AppLockScreen> createState() => _AppLockScreenState();
@@ -285,10 +307,14 @@ class _AppLockScreenState extends State<AppLockScreen> {
   bool _hasPin = false;
   String? _error;
 
+  /// Null until the store answered; then whether the PIN must be entered first. Whoever
+  /// holds the unlocked phone must not be able to change or remove the lock.
+  bool? _needsPin;
+
   @override
   void initState() {
     super.initState();
-    unawaited(_read());
+    unawaited(_read(first: true));
   }
 
   @override
@@ -298,9 +324,38 @@ class _AppLockScreenState extends State<AppLockScreen> {
     super.dispose();
   }
 
-  Future<void> _read() async {
+  Future<void> _read({bool first = false}) async {
     final has = await _lock.hasPin();
-    if (mounted) setState(() => _hasPin = has);
+    if (!mounted) return;
+    setState(() {
+      _hasPin = has;
+      if (first) _needsPin = has;
+    });
+  }
+
+  Future<void> _remove() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove the lock?'),
+        content: const Text(
+          'Anyone holding the unlocked phone can then read your channels.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          DestructiveButton(
+            onPressed: () => Navigator.pop(context, true),
+            label: 'Remove',
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _lock.remove();
+    await _read();
   }
 
   Future<void> _save() async {
@@ -312,10 +367,17 @@ class _AppLockScreenState extends State<AppLockScreen> {
       setState(() => _error = 'The two do not match');
       return;
     }
+    final replaced = _hasPin;
     await _lock.setPin(_pin.text);
     _pin.clear();
     _again.clear();
-    if (mounted) setState(() => _error = null);
+    if (!mounted) return;
+    setState(() => _error = null);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(replaced ? 'PIN replaced' : 'PIN set, the lock is on'),
+      ),
+    );
     await _read();
   }
 
@@ -327,7 +389,26 @@ class _AppLockScreenState extends State<AppLockScreen> {
   };
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final needsPin = _needsPin;
+    if (needsPin == null) {
+      return Scaffold(appBar: AppBar(title: const Text('App lock')));
+    }
+    if (needsPin) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('App lock')),
+        body: LockScreen(
+          lock: _lock,
+          auth: widget.auth,
+          title: 'Enter your PIN to change the lock',
+          onUnlocked: () => setState(() => _needsPin = false),
+        ),
+      );
+    }
+    return _settings(context);
+  }
+
+  Widget _settings(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('App lock')),
     body: ListView(
       children: [
@@ -373,10 +454,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
               const SizedBox(width: 12),
               if (_hasPin)
                 TextButton(
-                  onPressed: () async {
-                    await _lock.remove();
-                    await _read();
-                  },
+                  onPressed: () => unawaited(_remove()),
                   child: const Text('Remove the lock'),
                 ),
             ],
@@ -386,7 +464,8 @@ class _AppLockScreenState extends State<AppLockScreen> {
         StreamBuilder<String?>(
           stream: widget.db.watchSetting(SettingKeys.lockTimeout),
           builder: (context, snap) {
-            final seconds = int.tryParse(snap.data ?? '') ?? 0;
+            final seconds =
+                int.tryParse(snap.data ?? '') ?? AppLock.defaultTimeout;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -396,16 +475,23 @@ class _AppLockScreenState extends State<AppLockScreen> {
                 ),
                 RadioGroup<int>(
                   groupValue: seconds,
-                  onChanged: (v) => widget.db.setSetting(
-                    SettingKeys.lockTimeout,
-                    '${v ?? 0}',
-                  ),
+                  // Nothing to time out before there is a PIN.
+                  onChanged: (v) {
+                    if (!_hasPin) return;
+                    unawaited(
+                      widget.db.setSetting(
+                        SettingKeys.lockTimeout,
+                        '${v ?? AppLock.defaultTimeout}',
+                      ),
+                    );
+                  },
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       for (final t in AppLock.timeouts)
                         RadioListTile<int>(
                           value: t,
+                          enabled: _hasPin,
                           title: Text(_timeoutLabel(t)),
                         ),
                     ],
@@ -424,8 +510,9 @@ class _AppLockScreenState extends State<AppLockScreen> {
             subtitle: const Text(
               'Offered first when the app is locked; the PIN always works too',
             ),
-            onChanged: (v) =>
-                widget.db.setSetting(SettingKeys.lockBiometrics, '$v'),
+            onChanged: _hasPin
+                ? (v) => widget.db.setSetting(SettingKeys.lockBiometrics, '$v')
+                : null,
           ),
         ),
       ],

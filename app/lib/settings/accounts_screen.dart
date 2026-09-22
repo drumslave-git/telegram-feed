@@ -41,6 +41,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
     }
   }
 
+  /// The profile the account was last seen with, or its number on this device.
+  static String _name(AccountInfo a) =>
+      a.label.isEmpty ? 'Account ${a.id}' : a.label;
+
   Future<void> Function()? get _switched =>
       widget.onSwitched ?? AccountSwitch.of(context)?.onSwitched;
 
@@ -80,7 +84,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Remove account ${account.id}?'),
+        title: Text('Remove ${_name(account)}?'),
         content: const Text(
           'Its session, feeds, rules and cached posts are deleted from this device. '
           'The Telegram account itself stays as it is.',
@@ -142,9 +146,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   ? Theme.of(context).colorScheme.primary
                   : null,
             ),
-            title: Text(
-              account.label.isEmpty ? 'Account ${account.id}' : account.label,
-            ),
+            title: Text(_name(account)),
             subtitle: Text(
               account.id == _active ? 'In use' : 'Tap to switch to it',
             ),

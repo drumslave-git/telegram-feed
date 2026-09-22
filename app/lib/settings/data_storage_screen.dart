@@ -7,6 +7,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import '../media/auto_download.dart';
 import 'settings_screen.dart' show formatBytes;
 import 'settings_tiles.dart';
+import '../widgets/destructive_button.dart';
 
 /// What the app keeps on the phone and what it loads by itself: the official app's Data
 /// and Storage, with the automatic downloads per connection and the Autoplay switches
@@ -576,7 +577,27 @@ class _StorageUsageScreenState extends State<StorageUsageScreen> {
   late Future<StorageStats> _storage = widget.gateway.storageStats();
   bool _clearing = false;
 
-  Future<void> _clearCache() async {
+  Future<void> _clearCache(int bytes) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Clear ${formatBytes(bytes)} of cache?'),
+        content: const Text(
+          'Pictures, videos and files load again from Telegram when you open them.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          DestructiveButton(
+            onPressed: () => Navigator.pop(context, true),
+            label: 'Clear',
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
     setState(() => _clearing = true);
     try {
       final stats = await widget.gateway.clearCache();
@@ -603,7 +624,19 @@ class _StorageUsageScreenState extends State<StorageUsageScreen> {
         if (s == null) {
           return Center(
             child: snap.hasError
-                ? const Text('Storage unavailable')
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Telegram did not say how much it stores.'),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => setState(
+                          () => _storage = widget.gateway.storageStats(),
+                        ),
+                        child: const Text('Try again'),
+                      ),
+                    ],
+                  )
                 : const CircularProgressIndicator(),
           );
         }
@@ -632,7 +665,9 @@ class _StorageUsageScreenState extends State<StorageUsageScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: FilledButton.tonal(
-                onPressed: _clearing ? null : _clearCache,
+                onPressed: _clearing
+                    ? null
+                    : () => unawaited(_clearCache(s.filesBytes)),
                 child: Text(
                   _clearing
                       ? 'Clearing…'

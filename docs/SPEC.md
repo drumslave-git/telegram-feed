@@ -132,8 +132,8 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 
 ### Accounts and security
 
-- I use up to four Telegram accounts and switch between them in Settings.
-- I lock the app with a PIN, and with my fingerprint or face where I allow it, with a timeout.
+- I use up to four Telegram accounts and switch between them in Settings. Each is listed by the name and phone of its profile.
+- I lock the app with a PIN, and with my fingerprint or face where I allow it, with a timeout of one hour until I pick another. The lock's own settings ask for the PIN first, and removing the lock asks again.
 - My settings, feeds and rules sync between my devices through my own Google Drive when I turn it on.
 
 ## 4. Screens
@@ -147,7 +147,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 7. **Comments** of a post: the post on top, comments as bubbles, a reply field and a search.
 8. **Media viewer**: photos and videos full screen, with the mini player and picture-in-picture.
 9. **Rules list**, every rule under the name of its feed, and **rule editor** (feed and channels; the condition as a visual builder, where each term has labelled options, or as text; the dry run; priority, read-aloud and schedule; an AI description behind an "Also ask the AI" switch). Leaving it with unsaved changes asks first.
-10. **Settings**, laid out like the official app's: the account profile (photo, name, username, phone, bio, Telegram ID), Accounts, Saved Messages; Chat settings (post text size, theme); Privacy and security (app lock); Notifications and sounds (rule sounds and vibration, badge counting, background watching, a row that opens Android's notification settings); Data and storage (storage usage and cache clearing, automatic downloads per connection, autoplay); Read aloud; AI rules; Google Drive sync; About and licenses, with the version at the bottom. Log out is in the menu.
+10. **Settings**, laid out like the official app's: the account profile (photo, name, username, phone, bio, Telegram ID), Accounts, Saved Messages; Chat settings (post text size, theme); Privacy and security (app lock); Notifications and sounds (rule sounds and vibration, badge counting, background watching, a row that opens Android's notification settings); Data and storage (storage usage and cache clearing, which asks first, automatic downloads per connection, autoplay); Read aloud; AI rules; Google Drive sync; About and licenses, with the version at the bottom. Log out is in the menu.
 
 ## 5. Out of scope
 
