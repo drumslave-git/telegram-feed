@@ -291,7 +291,7 @@ void main() {
     );
   });
 
-  testWidgets('a channel with no photo says so instead', (tester) async {
+  testWidgets('a channel with no photo opens nothing', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: ChannelInfoScreen(gateway: gw, channel: channel),
@@ -301,7 +301,9 @@ void main() {
     await tester.tap(find.byType(ChannelAvatar).first);
     await tester.pump();
     await tester.pump();
-    expect(find.text('This channel has no photo.'), findsOneWidget);
+    // No viewer and no apology: the initials are simply not a button.
+    expect(find.byType(MediaViewerScreen), findsNothing);
+    expect(find.byType(SnackBar), findsNothing);
   });
 
   testWidgets('similar channels and the QR code are in the info screen', (

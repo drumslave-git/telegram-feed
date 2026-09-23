@@ -20,6 +20,7 @@ class SharedMediaTabs extends StatelessWidget {
     required this.gateway,
     required this.chatIds,
     this.filter = FeedFilter.none,
+    this.header,
   });
 
   final TelegramGateway gateway;
@@ -27,6 +28,10 @@ class SharedMediaTabs extends StatelessWidget {
 
   /// The feed's content filter; a channel of its own has none.
   final FeedFilter filter;
+
+  /// Shown above the tabs and scrolled away with them, as the official app's channel
+  /// header is. Without one the tabs fill the whole box.
+  final Widget? header;
 
   /// The tabs, in the order of the official app. The feed editor puts its own "Channels"
   /// tab in front of them and builds the pages itself.
@@ -41,40 +46,77 @@ class SharedMediaTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (chatIds.isEmpty) {
-      return const Center(
+      final empty = Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text('No channels yet.', textAlign: TextAlign.center),
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: const [Text('No channels yet.')],
+          ),
         ),
       );
+      return header == null
+          ? empty
+          : ListView(children: [header!, const SizedBox(height: 48), empty]);
     }
+    final bar = TabBar(
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
+      tabs: [for (final (label, _) in kinds) Tab(text: label)],
+    );
+    final views = TabBarView(
+      children: [
+        for (final (label, kind) in kinds)
+          SharedMediaTab(
+            key: ValueKey('$label:${chatIds.join(",")}'),
+            gateway: gateway,
+            chatIds: chatIds,
+            kind: kind,
+            filter: filter,
+          ),
+      ],
+    );
     return DefaultTabController(
       length: kinds.length,
-      child: Column(
-        children: [
-          TabBar(
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            tabs: [for (final (label, _) in kinds) Tab(text: label)],
-          ),
-          Expanded(
-            child: TabBarView(
+      child: header == null
+          ? Column(
               children: [
-                for (final (label, kind) in kinds)
-                  SharedMediaTab(
-                    key: ValueKey('$label:${chatIds.join(",")}'),
-                    gateway: gateway,
-                    chatIds: chatIds,
-                    kind: kind,
-                    filter: filter,
-                  ),
+                bar,
+                Expanded(child: views),
               ],
+            )
+          // The header scrolls away with the media and the tabs stay under the app bar,
+          // so a long description cannot squeeze the tabs off the screen.
+          : NestedScrollView(
+              headerSliverBuilder: (context, _) => [
+                SliverToBoxAdapter(child: header),
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _PinnedTabBar(bar),
+                ),
+              ],
+              body: views,
             ),
-          ),
-        ],
-      ),
     );
   }
+}
+
+/// Keeps the media tabs under the app bar while the header above them scrolls away.
+class _PinnedTabBar extends SliverPersistentHeaderDelegate {
+  _PinnedTabBar(this.bar);
+  final TabBar bar;
+
+  @override
+  double get minExtent => bar.preferredSize.height;
+  @override
+  double get maxExtent => bar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlaps) =>
+      Material(color: Theme.of(context).colorScheme.surface, child: bar);
+
+  @override
+  bool shouldRebuild(_PinnedTabBar old) => old.bar != bar;
 }
 
 /// One tab: a search with no query and one media filter, paged as it is scrolled.
