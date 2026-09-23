@@ -15,6 +15,7 @@ import 'connection_title.dart';
 import 'channel_list.dart';
 import 'unread_badge.dart';
 import '../widgets/destructive_button.dart';
+import '../widgets/error_state.dart';
 import '../app_name.dart';
 
 /// The main screen: `+`, the "Feeds" tab (list of feeds), one tab per Telegram folder (its
@@ -657,7 +658,12 @@ class _HomeScreenState extends State<HomeScreen>
         children: [
           if (_feeds.error != null)
             MaterialBanner(
-              content: Text('Telegram: ${_feeds.error}'),
+              content: Text(
+                telegramErrorLine(
+                  _feeds.error!,
+                  what: 'Could not refresh the counters.',
+                ),
+              ),
               actions: [
                 TextButton(
                   onPressed: _feeds.refreshChannels,
@@ -817,7 +823,12 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       archived = await widget.gateway.archivedChannels();
     } on TelegramException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
+      showTelegramError(
+        messenger,
+        e,
+        what: 'Could not open the archive.',
+        onRetry: () => unawaited(_openArchive()),
+      );
       return;
     }
     await navigator.push(
@@ -851,11 +862,9 @@ class _HomeScreenState extends State<HomeScreen>
       searchable: folder == null,
       onRefresh: _loadChannels,
       loading: !_channelsLoaded,
-      error: _channels.isEmpty ? null : _error,
+      error: _error,
       emptyText: folder == null
-          ? (_error == null
-                ? 'No channels yet. Join channels in Telegram and they show up here.'
-                : 'Telegram: $_error')
+          ? 'No channels yet. Join channels in Telegram and they show up here.'
           : 'No channels in this folder.',
       // Only All channels carries it, as the official app carries its Archive.
       header: folder != null

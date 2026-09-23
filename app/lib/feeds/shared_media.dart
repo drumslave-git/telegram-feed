@@ -6,6 +6,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../media/media_viewer.dart';
 import '../settings/settings_screen.dart' show formatBytes;
+import '../widgets/error_state.dart';
 import 'media_view.dart';
 import 'open_links.dart';
 import 'post_card.dart' show formatDay;
@@ -157,15 +158,31 @@ class _SharedMediaTabState extends State<SharedMediaTab>
     super.build(context);
     final results = _search.results;
     if (results.isEmpty) {
-      return Center(
+      if (_loading || !_started) {
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+      if (_error != null) {
+        return ErrorState(
+          what: 'Could not load this media.',
+          message: _error,
+          onRetry: () {
+            setState(() {
+              _error = null;
+              _started = false;
+            });
+            unawaited(_more());
+          },
+        );
+      }
+      return const Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: _loading || !_started
-              ? const CircularProgressIndicator()
-              : Text(
-                  _error != null ? 'Telegram: $_error' : 'Nothing here yet.',
-                  textAlign: TextAlign.center,
-                ),
+          padding: EdgeInsets.all(32),
+          child: Text('Nothing here yet.', textAlign: TextAlign.center),
         ),
       );
     }

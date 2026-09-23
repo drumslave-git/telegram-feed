@@ -17,6 +17,7 @@ import '../home/connection_title.dart';
 import '../media/media_viewer.dart';
 import '../settings/data_storage_screen.dart' show DataStorageScreen;
 import '../settings/settings_tiles.dart' show openSettingsScreen;
+import '../widgets/error_state.dart';
 import 'feed_editor_screen.dart';
 import 'open_links.dart';
 import 'post_card.dart';
@@ -308,7 +309,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
         ),
       );
     } on TelegramException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
+      showTelegramError(messenger, e, what: 'Could not save the posts.');
     }
   }
 
@@ -894,7 +895,7 @@ class TimelineViewState extends State<TimelineView>
         for (final s in _sourceRows) s.chatId,
       ], end.millisecondsSinceEpoch ~/ 1000);
     } on TelegramException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
+      showTelegramError(messenger, e, what: 'Could not jump to that day.');
       return;
     }
     if (!mounted) return;
@@ -960,6 +961,14 @@ class TimelineViewState extends State<TimelineView>
     } else {
       _release(toEnd: true);
     }
+  }
+
+  /// After a failed load: the timeline is built again from the same place, so a reader who
+  /// hit a bad connection is not left with a dead screen.
+  void _retryLoad() {
+    setState(() => _error = null);
+    _timeline = null;
+    _setSources(_sourceRows);
   }
 
   /// Back to the live timeline, rebuilt without anchors: at its first unread post, or at
@@ -1557,7 +1566,7 @@ class TimelineViewState extends State<TimelineView>
         const SnackBar(content: Text('Saved to Saved Messages')),
       );
     } on TelegramException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
+      showTelegramError(messenger, e, what: 'Could not save the post.');
     }
   }
 
@@ -1628,7 +1637,7 @@ class TimelineViewState extends State<TimelineView>
       }
     } on TelegramException catch (e) {
       if (mounted) setState(() => _optimistic.remove(key));
-      messenger.showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
+      showTelegramError(messenger, e, what: 'Could not send the reaction.');
     } finally {
       _reacting.remove(key);
     }
@@ -1865,12 +1874,16 @@ class TimelineViewState extends State<TimelineView>
               ),
             ),
           )
+        : items.isEmpty && _error != null
+        ? ErrorState(
+            what: 'Could not load the posts.',
+            message: _error,
+            onRetry: _retryLoad,
+          )
         : items.isEmpty
         ? Center(
             child: Text(
-              _error != null
-                  ? 'Telegram: $_error'
-                  : _filter.isEmpty
+              _filter.isEmpty
                   ? 'No posts.'
                   : 'No posts pass this feed\'s filter (${_filter.describe()}).',
               textAlign: TextAlign.center,
@@ -1893,7 +1906,8 @@ class TimelineViewState extends State<TimelineView>
               if (i == items.length) {
                 // The list builds this row a little before it scrolls into view: time to
                 // fetch older posts. Without it the spinner would turn for ever off screen
-                // when the rows end just short of it. After an error only scrolling retries.
+                // when the rows end just short of it. After an error the Retry button
+                // asks again, so a failure is not the end of the list.
                 if (!t.exhausted && _error == null) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted) unawaited(_loadMore());
@@ -1905,7 +1919,15 @@ class TimelineViewState extends State<TimelineView>
                     child: t.exhausted
                         ? const ChatPill('Beginning of the feed')
                         : _error != null
-                        ? ChatPill('Telegram: $_error')
+                        ? ErrorState(
+                            what: 'Could not load older posts.',
+                            message: _error,
+                            compact: true,
+                            onRetry: () {
+                              setState(() => _error = null);
+                              unawaited(_loadMore());
+                            },
+                          )
                         : const SizedBox(
                             height: 24,
                             width: 24,

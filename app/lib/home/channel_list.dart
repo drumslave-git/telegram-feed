@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../feeds/media_view.dart' show Downloaded;
+import '../widgets/error_state.dart';
 import 'unread_badge.dart';
 
 /// Channels as the official app lists chats: photo, title, newest post, time, unread count.
@@ -71,6 +72,17 @@ class _ChannelListState extends State<ChannelList>
     if (widget.loading && widget.channels.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
+    // Nothing to show and a failed load: the whole tab says so and offers the retry,
+    // instead of hiding the code in the "no channels" line.
+    if (widget.channels.isEmpty && widget.error != null) {
+      return ErrorState(
+        what: 'Could not load the channels.',
+        message: widget.error,
+        onRetry: widget.onRefresh == null
+            ? null
+            : () => unawaited(widget.onRefresh!()),
+      );
+    }
     Widget list = shown.isEmpty
         ? ListView(
             children: [
@@ -110,7 +122,9 @@ class _ChannelListState extends State<ChannelList>
     final banner = error == null
         ? null
         : MaterialBanner(
-            content: Text('Telegram: $error'),
+            content: Text(
+              telegramErrorLine(error, what: 'Could not refresh the channels.'),
+            ),
             actions: [
               TextButton(
                 onPressed: widget.onRefresh == null

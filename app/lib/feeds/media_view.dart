@@ -192,7 +192,13 @@ class _DownloadedState extends State<Downloaded> {
       }
     } on TelegramException catch (e) {
       if (mounted && widget.file.id == file.id) {
-        setState(() => _error = e.message);
+        // [_started] goes back to false so a tap can ask again: a download that failed
+        // once (a dropped connection) is not a dead end.
+        setState(() {
+          _error = e.message;
+          _started = false;
+          _progress = null;
+        });
       }
     } finally {
       await sub.cancel();
@@ -209,10 +215,30 @@ class _DownloadedState extends State<Downloaded> {
   Widget build(BuildContext context) {
     final path = _path;
     if (path != null) return widget.builder(context, path);
-    if (_error != null) {
-      return Text(
-        'Download failed: $_error',
-        style: Theme.of(context).textTheme.bodySmall,
+    final failed = _error;
+    if (failed != null) {
+      // A picture keeps its stand-in and retries on a tap; a row without one says so.
+      final again = InkWell(onTap: start, child: widget.placeholder);
+      return Tooltip(
+        message: failed,
+        child: widget.placeholder != null
+            ? again
+            : InkWell(
+                onTap: start,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.refresh, size: 20),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Download failed. Tap to retry.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
       );
     }
     return widget.placeholder ??

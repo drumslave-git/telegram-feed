@@ -4,6 +4,7 @@ import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../widgets/error_state.dart';
 import 'bubble_text.dart';
 import 'formatted_text.dart';
 import 'open_links.dart';
@@ -86,12 +87,22 @@ class _ThreadScreenState extends State<ThreadScreen> {
       setState(() => _found = null);
       return;
     }
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _searching = true);
     try {
       final found = await widget.gateway.searchThread(thread, query: query);
       if (mounted) setState(() => _found = found);
     } on TelegramException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      // A snackbar, not [_error]: the comments stay on screen, so a message hidden
+      // behind them would never be read.
+      if (mounted) {
+        showTelegramError(
+          messenger,
+          e,
+          what: 'Could not search the comments.',
+          onRetry: () => unawaited(_search(value)),
+        );
+      }
     } finally {
       if (mounted) setState(() => _searching = false);
     }
@@ -172,8 +183,11 @@ class _ThreadScreenState extends State<ThreadScreen> {
       _composer.clear();
     } on TelegramException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
+        showTelegramError(
+          ScaffoldMessenger.of(context),
+          e,
+          what: 'Could not post the comment.',
+        );
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -280,7 +294,17 @@ class _ThreadScreenState extends State<ThreadScreen> {
                           ),
                         )
                       : _error != null && _comments.isEmpty
-                      ? Center(child: Text('Telegram: $_error'))
+                      ? ErrorState(
+                          what: 'Could not load the comments.',
+                          message: _error,
+                          onRetry: () {
+                            setState(() {
+                              _error = null;
+                              _loading = true;
+                            });
+                            unawaited(_open());
+                          },
+                        )
                       // While searching, what was found takes the place of the thread.
                       : found != null
                       ? (found.isEmpty

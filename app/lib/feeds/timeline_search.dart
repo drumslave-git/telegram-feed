@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../home/channel_list.dart' show ChannelAvatar, formatListDate;
+import '../widgets/error_state.dart';
 import 'post_card.dart' show peerColor;
 
 /// The chips under a search bar: what kind of post to look for, as the official app offers
@@ -124,15 +125,26 @@ class SearchResults extends StatelessWidget {
       );
     }
     if (results.isEmpty) {
+      if (error != null) {
+        return ErrorState(
+          what: 'Could not search.',
+          message: error,
+          onRetry: onLoadMore,
+        );
+      }
+      if (loading) {
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Text(
-            error != null
-                ? 'Telegram: $error'
-                : loading
-                ? 'Searching…'
-                : query.trim().isEmpty
+            query.trim().isEmpty
                 ? 'Type to search the posts.'
                 : 'Nothing found for "$query".',
             textAlign: TextAlign.center,
@@ -158,7 +170,12 @@ class SearchResults extends StatelessWidget {
                       style: Theme.of(context).textTheme.labelMedium,
                     )
                   : error != null
-                  ? Text('Telegram: $error')
+                  ? ErrorState(
+                      what: 'Could not load more results.',
+                      message: error,
+                      compact: true,
+                      onRetry: onLoadMore,
+                    )
                   : const SizedBox(
                       height: 20,
                       width: 20,

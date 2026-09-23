@@ -9,6 +9,7 @@ import '../feeds/open_links.dart';
 import '../feeds/post_card.dart' show formatCount;
 import '../feeds/shared_media.dart';
 import '../media/media_viewer.dart';
+import '../widgets/error_state.dart';
 import 'channel_list.dart' show ChannelAvatar;
 
 /// What the official app shows behind a channel's title: the photo, the name, how many
@@ -190,8 +191,16 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
           ),
           if (_error != null)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text('Telegram: $_error'),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: ErrorState(
+                what: 'Could not load the channel details.',
+                message: _error,
+                compact: true,
+                onRetry: () {
+                  setState(() => _error = null);
+                  unawaited(_load());
+                },
+              ),
             ),
           if ((info?.description ?? '').isNotEmpty)
             Padding(

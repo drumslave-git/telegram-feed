@@ -3,6 +3,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../app_name.dart';
+import '../widgets/error_state.dart';
 
 /// Shows the screen for the current [AuthState] and [child] once logged in.
 class AuthGate extends StatelessWidget {
@@ -101,7 +102,9 @@ class _StepFormState extends State<_StepForm> {
     try {
       await action();
     } on TelegramException catch (e) {
-      setState(() => _error = _describe(e));
+      setState(
+        () => _error = telegramErrorLine(e, what: 'Telegram refused that.'),
+      );
     } catch (e) {
       debugPrint('login: $e');
       setState(() => _error = 'Something went wrong. Try again.');
@@ -157,19 +160,6 @@ class _StepFormState extends State<_StepForm> {
     );
   }
 }
-
-String _describe(TelegramException e) => switch (e.message) {
-  'PHONE_NUMBER_INVALID' => 'That phone number is not valid.',
-  'PHONE_CODE_INVALID' => 'Wrong code.',
-  'PHONE_CODE_EXPIRED' =>
-    'The code expired. Change the number to get a new one.',
-  'PASSWORD_HASH_INVALID' => 'Wrong password.',
-  'API_ID_INVALID' =>
-    'This build has no valid Telegram api_id/api_hash (see README).',
-  final m when m.startsWith('Too Many Requests') =>
-    'Too many attempts. Wait and retry.',
-  final m => m,
-};
 
 class PhoneScreen extends StatelessWidget {
   const PhoneScreen({super.key, required this.gateway});
@@ -290,7 +280,11 @@ class QrScreen extends StatelessWidget {
               onPressed: () {
                 final messenger = ScaffoldMessenger.of(context);
                 gateway.logOut().catchError((Object e) {
-                  messenger.showSnackBar(SnackBar(content: Text('$e')));
+                  showTelegramError(
+                    messenger,
+                    e,
+                    what: 'Could not go back to the phone number.',
+                  );
                 });
               },
               child: const Text('Use a phone number instead'),
