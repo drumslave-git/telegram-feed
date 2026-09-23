@@ -570,7 +570,12 @@ void main() {
     });
     await tester.pumpWidget(
       MaterialApp(
-        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+        home: MediaQuery(
+          data: const MediaQueryData(
+            padding: EdgeInsets.only(top: 36, bottom: 24),
+          ),
+          child: TimelineScreen(db: db, gateway: gw, feed: feed),
+        ),
       ),
     );
     await settle(tester);
@@ -596,6 +601,13 @@ void main() {
     );
     // The count stands above the results now, not at their end.
     expect(find.text('2 posts found'), findsOneWidget);
+    // And right under the chips: the screen used to copy the status-bar inset of the
+    // context above the Scaffold over the body, which left a gap at the top of the list.
+    expect(
+      tester.getTopLeft(find.text('2 posts found')).dy -
+          tester.getRect(find.byType(SearchResults)).top,
+      lessThan(16),
+    );
 
     // The older match: the timeline is rebuilt around it and the stepper appears.
     await tester.tap(find.byType(SearchResultTile).last);

@@ -437,57 +437,65 @@ class _TimelineScreenState extends State<TimelineScreen> {
           children: [
             Expanded(
               // The stepper below takes the gesture inset for itself, so the timeline
-              // must not keep room for it too while the stepper stands there.
-              child: MediaQuery.removePadding(
-                context: context,
-                removeBottom: _searchOpen && !_listOpen && session != null,
-                child: Stack(
-                  children: [
-                    TimelineView(
-                      key: _view,
-                      db: widget.db,
-                      gateway: widget.gateway,
-                      onSelectionChanged: (n) => setState(() => _selected = n),
-                      feed: widget.feed,
-                      channel: widget.channel,
-                      focusChatId: widget.focusChatId,
-                      focusMessageId: widget.focusMessageId,
-                      share: widget.share,
-                      onSources: _onSources,
-                      onEditFeed: widget.feed == null ? null : _openFeedEditor,
-                    ),
-                    if (_searchOpen && _listOpen)
-                      Positioned.fill(
-                        child: Material(
-                          color: Theme.of(context).colorScheme.surface,
-                          child: SearchResults(
-                            results: session?.results ?? const [],
-                            gateway: widget.gateway,
-                            look: (chatId) => (
-                              title: _sources.titles[chatId] ?? '',
-                              photo: _sources.photos[chatId],
+              // must not keep room for it too while the stepper stands there. Through a
+              // Builder: this screen's own context sits above the Scaffold, whose body
+              // already has the status-bar inset removed, and copying the outer data
+              // over it would put that inset back at the top of the list.
+              child: Builder(
+                builder: (context) => MediaQuery.removePadding(
+                  context: context,
+                  removeBottom: _searchOpen && !_listOpen && session != null,
+                  child: Stack(
+                    children: [
+                      TimelineView(
+                        key: _view,
+                        db: widget.db,
+                        gateway: widget.gateway,
+                        onSelectionChanged: (n) =>
+                            setState(() => _selected = n),
+                        feed: widget.feed,
+                        channel: widget.channel,
+                        focusChatId: widget.focusChatId,
+                        focusMessageId: widget.focusMessageId,
+                        share: widget.share,
+                        onSources: _onSources,
+                        onEditFeed: widget.feed == null
+                            ? null
+                            : _openFeedEditor,
+                      ),
+                      if (_searchOpen && _listOpen)
+                        Positioned.fill(
+                          child: Material(
+                            color: Theme.of(context).colorScheme.surface,
+                            child: SearchResults(
+                              results: session?.results ?? const [],
+                              gateway: widget.gateway,
+                              look: (chatId) => (
+                                title: _sources.titles[chatId] ?? '',
+                                photo: _sources.photos[chatId],
+                              ),
+                              onOpen: (i) => unawaited(_openResult(i)),
+                              onLoadMore: () => unawaited(_loadMoreResults()),
+                              query: _queryCtl.text,
+                              loading: session?.loading ?? false,
+                              exhausted: session?.exhausted ?? false,
+                              total: session?.total ?? -1,
+                              error: session?.error,
+                              current: _current,
+                              recent: _recent,
+                              onRecent: (words) {
+                                _queryCtl.text = words;
+                                unawaited(_startSearch(words));
+                              },
+                              onClearRecent: () async {
+                                await RecentSearches(widget.db).clear();
+                                if (mounted) setState(() => _recent = const []);
+                              },
                             ),
-                            onOpen: (i) => unawaited(_openResult(i)),
-                            onLoadMore: () => unawaited(_loadMoreResults()),
-                            query: _queryCtl.text,
-                            loading: session?.loading ?? false,
-                            exhausted: session?.exhausted ?? false,
-                            total: session?.total ?? -1,
-                            error: session?.error,
-                            current: _current,
-                            recent: _recent,
-                            onRecent: (words) {
-                              _queryCtl.text = words;
-                              unawaited(_startSearch(words));
-                            },
-                            onClearRecent: () async {
-                              await RecentSearches(widget.db).clear();
-                              if (mounted) setState(() => _recent = const []);
-                            },
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
