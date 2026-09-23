@@ -282,7 +282,9 @@ void main() {
     await open(tester, app(feed));
     // A few screens of reading, from the divider towards the newest posts.
     for (var i = 0; i < 3; i++) {
-      await tester.dragFrom(_middle, const Offset(0, -400));
+      // The drag starts on a bubble, whose taps hold the touch for the slop (20 px)
+      // before the list takes it: each drag moves the list 400 px.
+      await tester.dragFrom(_middle, const Offset(0, -420));
       await tester.pumpAndSettle();
     }
     await settleFixtures(tester);

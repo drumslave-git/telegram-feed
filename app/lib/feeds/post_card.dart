@@ -121,28 +121,6 @@ class ChatPill extends StatelessWidget {
   }
 }
 
-/// Whether [text] is certainly wider than the row it is drawn in, whatever it says.
-///
-/// A bubble of words alone is as wide as its longest line, which `IntrinsicWidth` works
-/// out by laying the text out a second time, unwrapped. That second layout costs as much
-/// as the real one, and for a long post it is spent to learn what is already certain: the
-/// text does not fit, so the bubble takes the whole row. The estimate counts characters
-/// against the narrowest a character of this font can be, so it says "certainly" only
-/// when no string of that length could fit.
-bool certainlyWraps(BuildContext context, String text) {
-  if (text.isEmpty) return false;
-  // 16 is the size the bubble draws its words at; the reader's factor and the phone's
-  // own text size both reach it through the scaler.
-  final fontSize =
-      MediaQuery.textScalerOf(context).scale(16) * PostTextScale.of(context);
-  // Even 'i', 'l' and a space are wider than this fraction of the size, in every font
-  // the app can be drawn with; a CJK glyph or an emoji is far wider.
-  const narrowestCharacter = 0.19;
-  // The whole row, which is more than the bubble gets: erring wide keeps the answer safe.
-  final row = MediaQuery.sizeOf(context).width;
-  return text.characters.length * narrowestCharacter * fontSize > row;
-}
-
 /// What a double tap sends until the reader has reacted with something else.
 const defaultQuickReaction = '\u{1F44D}';
 
@@ -380,16 +358,8 @@ class PostCard extends StatelessWidget {
             // that and leave room for the double tap that sends the quick reaction,
             // because the menu would swallow the second tap.
             onLongPress: _hasMenu ? () => _menu(context) : null,
-            // Text alone makes a bubble as wide as it needs; media fills the row, and so
-            // does a link preview, whose card and picture would otherwise be squeezed into
-            // the width of the words above it. Words that cannot fit on one line take the
-            // whole row anyway, so they skip the measuring pass ([certainlyWraps]).
-            child:
-                media.isEmpty &&
-                    item.textPost.linkPreview == null &&
-                    !certainlyWraps(context, item.text)
-                ? IntrinsicWidth(child: bubble)
-                : SizedBox(width: double.infinity, child: bubble),
+            // Every bubble takes the whole row, whatever it holds, so the posts line up.
+            child: SizedBox(width: double.infinity, child: bubble),
           ),
         ),
       ),
