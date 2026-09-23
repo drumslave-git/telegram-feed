@@ -43,6 +43,12 @@ class ViewerDetail {
   final String postKey;
 }
 
+/// The name a picture flies under from the timeline into the viewer and back. It is the
+/// post it belongs to and its place in that post, which both sides can work out on their
+/// own; null where the caller knows neither, as for a channel's own photo.
+String? mediaHeroTag(String postKey, int indexInPost) =>
+    postKey.isEmpty ? null : 'media:$postKey:$indexInPost';
+
 class MediaViewerScreen extends StatefulWidget {
   const MediaViewerScreen({
     super.key,
@@ -300,6 +306,19 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     }
   }
 
+  /// Where the picture at [index] stands inside its own post, for the hero tag it shares
+  /// with the timeline. Null when the caller said nothing about the post.
+  String? _heroTag(int index) {
+    if (index >= _details.length) return null;
+    final key = _details[index].postKey;
+    if (key.isEmpty) return null;
+    var first = index;
+    while (first > 0 && _details[first - 1].postKey == key) {
+      first--;
+    }
+    return mediaHeroTag(key, index - first);
+  }
+
   /// "N of M" for the album the picture in front belongs to, or for the whole list when
   /// it is one post's album on its own. Null when there is nothing to count.
   String? _counter() {
@@ -432,17 +451,33 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
               caption: i < _details.length ? _details[i].caption : '',
               onZoomChanged: _onZoom,
               onPip: _toMiniPlayer,
+              heroTag: i == _index ? _heroTag(i) : null,
             ),
             final PhotoMedia photo => Stack(
               fit: StackFit.expand,
               children: [
-                ZoomablePhoto(
-                  photo: photo,
-                  gateway: widget.gateway,
-                  onZoomChanged: _onZoom,
-                  // A tap takes the bar and the words off the picture, as on a video.
-                  onTap: () => setState(() => _chrome = !_chrome),
-                ),
+                // The picture flies out of the row it was tapped in, and back into it.
+                // Only the page in front carries the tag: two heroes of one name on a
+                // route are not allowed, and the neighbours are only there to be swiped
+                // to.
+                if (i == _index ? _heroTag(i) : null case final tag?)
+                  Hero(
+                    tag: tag,
+                    child: ZoomablePhoto(
+                      photo: photo,
+                      gateway: widget.gateway,
+                      onZoomChanged: _onZoom,
+                      onTap: () => setState(() => _chrome = !_chrome),
+                    ),
+                  )
+                else
+                  ZoomablePhoto(
+                    photo: photo,
+                    gateway: widget.gateway,
+                    onZoomChanged: _onZoom,
+                    // A tap takes the bar and the words off the picture, as on a video.
+                    onTap: () => setState(() => _chrome = !_chrome),
+                  ),
                 // A gradient under the bar: white letters on a white sky are unreadable.
                 if (_chrome) const _TopScrim(),
                 if (_chrome) ViewerTopBar(title: title, actions: actions),
@@ -507,8 +542,12 @@ class _VideoPage extends StatefulWidget {
     required this.caption,
     required this.onZoomChanged,
     required this.onPip,
+    this.heroTag,
   });
   final VideoMedia video;
+
+  /// The name the poster flies under out of the row it was tapped in.
+  final String? heroTag;
   final TelegramGateway gateway;
   final bool active;
   final Widget? title;
@@ -571,7 +610,11 @@ class _VideoPageState extends State<_VideoPage> {
   @override
   Widget build(BuildContext context) {
     final session = _session;
-    if (session == null) return _poster();
+    final tag = widget.heroTag;
+    if (session == null) {
+      final poster = _poster();
+      return tag == null ? poster : Hero(tag: tag, child: poster);
+    }
     final file = widget.video.file;
     return VideoStage(
       session: session,

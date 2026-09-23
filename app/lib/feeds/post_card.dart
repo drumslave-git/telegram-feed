@@ -712,6 +712,9 @@ class _Bubble extends StatelessWidget {
       );
     }
 
+    // The post this picture belongs to and its place in it: the viewer works the same
+    // name out from the details it is handed, so the picture flies between them.
+    final postKey = '${item.chatId}:${item.head.messageId}';
     Widget? pictures;
     if (visual.length == 1) {
       pictures = MediaView(
@@ -719,9 +722,15 @@ class _Bubble extends StatelessWidget {
         gateway: gateway,
         radius: 0,
         onOpen: () => open(visual.single),
+        heroTag: mediaHeroTag(postKey, 0),
       );
     } else if (visual.length > 1) {
-      pictures = AlbumMosaic(media: visual, gateway: gateway, onOpen: open);
+      pictures = AlbumMosaic(
+        media: visual,
+        gateway: gateway,
+        onOpen: open,
+        heroTagOf: (i) => mediaHeroTag(postKey, i),
+      );
     }
 
     final card = preview == null
@@ -1078,10 +1087,14 @@ class AlbumMosaic extends StatelessWidget {
     required this.media,
     required this.gateway,
     required this.onOpen,
+    this.heroTagOf,
   });
   final List<Media> media;
   final TelegramGateway gateway;
   final void Function(Media media) onOpen;
+
+  /// The name the cell at that place flies under into the viewer ([mediaHeroTag]).
+  final String? Function(int index)? heroTagOf;
 
   static Size _sizeOf(Media m) => switch (m) {
     PhotoMedia(:final largest) => Size(
@@ -1112,6 +1125,7 @@ class AlbumMosaic extends StatelessWidget {
                 child: MediaView(
                   media: m,
                   gateway: gateway,
+                  heroTag: heroTagOf?.call(i),
                   fill: true,
                   radius: 0,
                   onOpen: () => onOpen(m),

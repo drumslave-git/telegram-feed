@@ -350,6 +350,7 @@ class MediaTile extends StatelessWidget {
         picture = PhotoView(
           file: sizes.first, // the grid is small: the thumbnail is enough
           gateway: gateway,
+          heroTag: mediaHeroTag('${post.chatId}:${post.messageId}', 0),
           fill: true,
           radius: 0,
           onTap: onTap,
@@ -360,6 +361,7 @@ class MediaTile extends StatelessWidget {
             : PhotoView(
                 file: thumbnail,
                 gateway: gateway,
+                heroTag: mediaHeroTag('${post.chatId}:${post.messageId}', 0),
                 fill: true,
                 radius: 0,
                 onTap: onTap,

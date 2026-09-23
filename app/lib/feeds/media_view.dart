@@ -24,6 +24,7 @@ class MediaView extends StatelessWidget {
     this.onOpen,
     this.fill = false,
     this.radius = 8,
+    this.heroTag,
   });
   final Media media;
   final TelegramGateway gateway;
@@ -37,6 +38,10 @@ class MediaView extends StatelessWidget {
 
   /// Corner radius of photos and videos; 0 inside a bubble, which clips them itself.
   final double radius;
+
+  /// The name this picture flies under into the media viewer ([mediaHeroTag]); null where
+  /// nothing opens it.
+  final String? heroTag;
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +57,7 @@ class MediaView extends StatelessWidget {
         onTap: onOpen,
         fill: fill,
         radius: radius,
+        heroTag: heroTag,
       ),
       // A sticker keeps its own size, so it must not be stretched by the bubble.
       final StickerMedia sticker => Align(
@@ -87,6 +93,7 @@ class MediaView extends StatelessWidget {
         onOpen: onOpen,
         fill: fill,
         radius: radius,
+        heroTag: heroTag,
       ),
       AudioMedia(
         :final file,
@@ -297,12 +304,16 @@ class PhotoView extends StatelessWidget {
     this.onTap,
     this.fill = false,
     this.radius = 8,
+    this.heroTag,
   });
   final FileRef file;
   final TelegramGateway gateway;
   final VoidCallback? onTap;
   final bool fill;
   final double radius;
+
+  /// The name this picture flies under into the media viewer ([mediaHeroTag]).
+  final String? heroTag;
 
   @override
   Widget build(BuildContext context) {
@@ -342,21 +353,23 @@ class PhotoView extends StatelessWidget {
         gaplessPlayback: true,
       ),
     );
+    final shown = ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: fill
+          ? SizedBox.expand(child: picture)
+          : AspectRatio(
+              aspectRatio: aspect.clamp(mediaMinAspect, mediaMaxAspect),
+              child: picture,
+            ),
+    );
     return Semantics(
       image: true,
       button: onTap != null,
       label: onTap == null ? 'Photo' : 'Photo, opens full screen',
       child: GestureDetector(
         onTap: onTap,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(radius),
-          child: fill
-              ? SizedBox.expand(child: picture)
-              : AspectRatio(
-                  aspectRatio: aspect.clamp(mediaMinAspect, mediaMaxAspect),
-                  child: picture,
-                ),
-        ),
+        // The picture flies from here into the viewer and back to here.
+        child: heroTag == null ? shown : Hero(tag: heroTag!, child: shown),
       ),
     );
   }
@@ -440,9 +453,13 @@ class VideoView extends StatefulWidget {
     this.onOpen,
     this.fill = false,
     this.radius = 8,
+    this.heroTag,
   });
   final VideoMedia video;
   final TelegramGateway gateway;
+
+  /// The name this video flies under into the media viewer ([mediaHeroTag]).
+  final String? heroTag;
 
   /// See [MediaView.fill] and [MediaView.radius].
   final bool fill;
@@ -666,7 +683,7 @@ class _VideoViewState extends State<VideoView> {
         ],
       ),
     );
-    return ClipRRect(
+    final shown = ClipRRect(
       borderRadius: BorderRadius.circular(widget.radius),
       child: fill
           ? SizedBox.expand(child: content)
@@ -675,6 +692,12 @@ class _VideoViewState extends State<VideoView> {
               child: content,
             ),
     );
+    final tag = widget.heroTag;
+    // Only while it is a poster: a player that is already running would be handed to the
+    // flight and flicker; once the viewer takes over, the page it flies to has one too.
+    return tag == null || session != null
+        ? shown
+        : Hero(tag: tag, child: shown);
   }
 }
 
