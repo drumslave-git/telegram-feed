@@ -38,12 +38,13 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 ### Feeds and channels
 
 - I log in with my Telegram account so the app sees the channels I already follow.
-- I create, rename, reorder and delete feeds on the "Feeds" tab. Its floating button creates one, empty or with the channels of a Telegram folder, dragging reorders, and a row's menu edits its channels, renames, marks it read or deletes it.
+- I create, rename, reorder and delete feeds on the "Feeds" tab. Its "New feed" button creates one, empty or with the channels of a Telegram folder, a drag handle reorders, and a row's menu edits its channels, renames, marks it read or deletes it. A feed is also renamed from its own screen.
+- With no feeds yet, the tab says what a feed is and offers to create one. Until I have a rule it also says once that nothing notifies me without rules, and leads to them.
 - My Telegram chat folders appear as tabs, each listing the folder's channels the way Telegram lists chats (photo, newest post, time, unread count), including channels I joined through a folder invite link.
 - "All channels" lists every joined channel with a search box. Channels I archived in Telegram are left out of it and appear behind an "Archive" row at its top.
 - A long press on a folder tab creates a feed from the folder's channels (a one-time copy) or marks the folder read.
 - Every list of channels tags each channel with the feeds it belongs to.
-- A long press on a channel row offers to mark it read, open its info, or add it to one of my feeds.
+- A long press on a channel row, at the point I touched, offers to mark it read, open its info, or add it to one of my feeds; with no feeds yet that makes the first one.
 - I add channels to a feed from the channels I have joined, with a search box; I tick as many as I want and add them with one press. A checkbox hides the channels that are already in a feed, and the picker remembers it. Joining happens in the official app.
 - A channel can be in several feeds. Removing it from a feed does not leave the channel in Telegram. When rules of the feed watch only that channel, I am asked first, because they go with it; otherwise Undo puts the channel back in its place. Deleting a feed says how many rules go with it.
 - I set what a feed shows: all posts, only posts with media or only text; which media types; videos from a minimum length; text posts from a minimum length. A post is shown whole: one picture or video that passes brings the rest of the album and its caption, unless the feed's "Show the whole post" box is off. Hidden posts are read along with the posts around them, and the feed's rules stay quiet about them.
@@ -53,7 +54,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - A feed shows the posts of all its channels in one chronological list, oldest on top and newest at the bottom, with the channel name on every post. A tap on that name or the channel's photo opens the channel's info. A channel opens the same way, with its pinned post in a bar on top and Telegram's own read position.
 - A feed or a channel opens where I left it scrolled up, also after the app was closed; otherwise at the first unread post under an "Unread posts" divider, or at the newest post when everything is read. Nothing is kept when I left at the newest post, or on a post still unread.
 - I scroll up without end; older posts load as I go. Posts that arrive while I read older ones wait behind a button with their count.
-- Each feed shows an unread count as Telegram counts it (every part of an album is a post): posts, or channels with unread posts, as the "Count unread posts" switch says. A feed counts only the posts it shows. Folder tabs count the same way. Under its name a feed says how many channels it has and how many of them have new posts. Counters are drawn in the accent colour, as in the official app.
+- Each feed shows an unread count as Telegram counts it (every part of an album is a post): posts, or channels with unread posts, as the "Count unread posts" switch says. A feed counts only the posts it shows. Folder tabs count the same way, and the "Feeds" tab counts every channel once, however many feeds hold it. Under its name a feed says how many channels it has and how many of them have new posts. Counters are drawn in the accent colour, as in the official app.
 - A post is read once 80 % of it has been on the screen, an album once all of it has. A feed reads like one chat: everything older than the newest post read is read too, in every channel of the feed, so at the last post the whole feed is read. Reading here moves Telegram's read position, so the channel is read in every feed, in its own timeline and in the official app.
 - The button to the newest posts counts the unread posts. A tap goes to the "Unread posts" divider while I have not seen it in this visit, then back to the post whose reply quote I tapped, then to the very end.
 - I mark a feed, a folder or a channel read in one action.
@@ -66,9 +67,9 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - I select several posts and copy, share or save them together.
 - I open the original post in the official Telegram app.
 - The day of the topmost post floats over the list while I scroll.
-- I set the text size of posts, on top of the phone's own text size.
+- I set the text size of posts, on top of the phone's own text size; it changes the words of a post, not its counters and buttons. Times and dates follow the phone's own clock and locale.
 - I close any screen with a swipe from the left edge. Back closes an open search or selection first, then the screen.
-- When the app cannot reach Telegram, the title says so.
+- When the app cannot reach Telegram, the title says so. A screen that could not load says so in its own words, keeps Telegram's code underneath, and offers to try again.
 
 ### Media
 
@@ -84,7 +85,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 ### Search
 
 - The magnifier on the home screen searches the posts of every channel I follow.
-- The magnifier in a feed or a channel searches all of its channels at once; what the feed hides is not found. Results name the channel, show the text and the date; a tap opens the timeline at that post, with arrows and a counter to step through the matches.
+- The magnifier in a feed or a channel searches all of its channels at once; what the feed hides is not found. Results say how many there are and name the channel, the text and the day; a tap opens the timeline at that post, with arrows and a counter to step through the matches.
 - Chips pick the kind of post: media, links, files, music, voice. A chip works without words.
 - A calendar, and a tap on any day label, jumps to a date. Cancelling the calendar leaves the search open.
 - An open search bar offers the words I looked for last.
@@ -96,12 +97,13 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - I manage a feed's rules on the Rules tab of its info screen, which the feed's menu also opens. The Rules button of the home screen lists every rule under the name of its feed.
 - A rule's condition is built from terms combined with AND / OR / NOT. A term is a word or phrase with options: whole word, case sensitive.
 - A rule with an empty condition notifies about every post of its channels, including posts without text; the notification then says what the post is (a photo, a video, a file). It still takes a priority, a schedule and read-aloud.
-- A rule has a priority: silent (tray only), normal, urgent (breaks through Do Not Disturb where Android permits).
+- A rule has a priority: silent (tray only), normal, urgent (breaks through Do Not Disturb where Android permits). The editor says what each one does, and picking "urgent" offers to open Android's setting for it.
 - I choose the sound and the vibration of normal and urgent notifications; silent ones stay silent. A change applies at once, and the row names the sound as Android's picker does.
 - A rule can request read-aloud.
 - A rule can have a schedule: active on selected weekdays between two times.
 - A rule can be switched off without deleting it.
-- A matching new post raises a notification that opens the post in the feed of the rule. When several rules match, the highest priority wins, and read-aloud happens if any matching rule asks for it.
+- A matching new post raises a notification that opens the post in the feed of the rule and names the rule that fired. When several rules match, the highest priority wins, and read-aloud happens if any matching rule asks for it.
+- Android has to allow notifications at all; the app asks for that when I save my first rule, not before I have logged in.
 - Posts that match no rule raise no notification. The app does not replicate Telegram's own per-chat notifications.
 - Rules match post text and media captions. Edited posts are not matched again.
 - I test a rule against the recent posts of its channels to see what it would have matched. The result says how many posts and channels it checked.
@@ -138,15 +140,15 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 
 ## 4. Screens
 
-1. **Login**: phone number, code (with "Change number" to go back), two-step password, new-account name, or QR-code login. States that the app reads the channels the account has joined.
+1. **Login**: phone number, code (with "Resend code" and "Change number"), two-step password, new-account name, or QR-code login. States that the app reads the channels the account has joined, and offers to go back to another account that is already logged in.
 2. **Home**: search over all channels, Rules and Settings in the app bar; tabs Feeds (list of feeds with counts, and a button that creates one), one per folder, All channels.
-3. **Feed editor**, the feed's info screen: the ordered channels with the add-channel sheet and the filter row, the feed's rules, and tabs with the shared media of all the feed's channels: Media, Files, Links, Music, Voice.
+3. **Feed editor**, the feed's info screen: its name with a pencil, and three tabs — the ordered channels with the add-channel sheet and the filter row, the feed's rules, and the shared media of all its channels (Media, Files, Links, Music, Voice inside that tab).
 4. **Timeline** of a feed or a channel: posts drawn like the official app, with full-width bubbles (coloured channel name and the channel's photo at the right end of that line, albums as a mosaic, formatted text, views and time in the corner, reactions, comments bar, link cards, day labels, the floating day), the "Unread posts" divider, and the button to the newest posts with the number of unread posts. A long press opens the post menu: reactions, Open in Telegram, Comments, Share, Copy text, Copy link, Save to Saved Messages, Select, and on video posts the autoplay and download settings.
 5. **Search** in a feed, a channel or all channels: results with channel, text and date, filter chips, recent queries, a calendar.
 6. **Channel info**, opened from the channel's title: photo (a tap opens it full screen), name, subscribers, description, link, QR code, similar channels (a tap opens one in the official app), and the shared media tabs. No mute and no leave.
 7. **Comments** of a post: the post on top, comments as bubbles, a reply field and a search.
 8. **Media viewer**: photos and videos full screen, with the mini player and picture-in-picture.
-9. **Rules list**, every rule under the name of its feed, and **rule editor** (feed and channels; the condition as a visual builder, where each term has labelled options, or as text; the dry run; priority, read-aloud and schedule; an AI description behind an "Also ask the AI" switch). Leaving it with unsaved changes asks first.
+9. **Rules list**, every rule under the name of its feed, and **rule editor** (name and an on/off switch; feed and channels; the condition as a visual builder that starts with an "Add a term" button, or as text with its own syntax sheet; the dry run; priority, read-aloud and schedule; an AI description behind an "Also ask the AI" switch). What is missing is marked on the field it belongs to, and leaving with unsaved changes asks first.
 10. **Settings**, laid out like the official app's: the account profile (photo, name, username, phone, bio, Telegram ID), Accounts, Saved Messages; Chat settings (post text size, theme); Privacy and security (app lock); Notifications and sounds (rule sounds and vibration, badge counting, background watching, a row that opens Android's notification settings); Data and storage (storage usage and cache clearing, which asks first, automatic downloads per connection, autoplay); Read aloud; AI rules; Google Drive sync; About and licenses, with the version at the bottom. Log out is in the menu.
 
 ## 5. Out of scope

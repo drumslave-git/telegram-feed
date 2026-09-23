@@ -91,7 +91,6 @@ class ChatPill extends StatelessWidget {
     final pill = Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       constraints: const BoxConstraints(minHeight: 32),
-      alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: colors.pill,
@@ -905,7 +904,6 @@ class ReactionPill extends StatelessWidget {
         onTap: onTap,
         child: Container(
           constraints: const BoxConstraints(minHeight: 32),
-          alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Text(
             '${reaction.emoji} ${formatCount(reaction.count)}',

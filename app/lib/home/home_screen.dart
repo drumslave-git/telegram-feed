@@ -614,9 +614,10 @@ class _HomeScreenState extends State<HomeScreen>
   );
 
   /// The line under a feed's name: how many channels it has, and how many have news.
+  /// Short enough to stand beside the counter, the menu and the drag handle on one line.
   static String _feedLine(int fresh, int channels) {
     final all = '$channels channel${channels == 1 ? '' : 's'}';
-    return fresh > 0 ? '$fresh of $all with new posts' : all;
+    return fresh > 0 ? '$fresh of $all with news' : all;
   }
 
   /// The list of feeds: tap opens, drag reorders, the menu edits.
@@ -685,7 +686,11 @@ class _HomeScreenState extends State<HomeScreen>
                     title: Text(f.name),
                     leading: const Icon(Icons.rss_feed),
                     // Always one line, so a row keeps its height as the feed is read.
-                    subtitle: Text(_feedLine(fresh, _feeds.channelsIn(f.id))),
+                    subtitle: Text(
+                      _feedLine(fresh, _feeds.channelsIn(f.id)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     onTap: () => _openFeed(f),
                     // The counter on the right of the row, as the official app has it in
                     // its chat list: a long number never runs into the name.
