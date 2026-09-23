@@ -25,10 +25,20 @@ class AudioBarHost extends StatelessWidget {
         final track = s.track.value;
         // The full-screen viewer has the whole screen; the bar waits under it.
         final shown = track != null && MediaViewerScreen.showing.value == 0;
+        if (!shown) return child;
+        // The bar takes the gesture inset for itself (its own SafeArea), so the screen
+        // above it must not keep room for that inset as well: otherwise a blank strip
+        // stands between the newest post and the bar.
         return Column(
           children: [
-            Expanded(child: child),
-            if (shown) AudioBar(track: track, sessions: s),
+            Expanded(
+              child: MediaQuery.removePadding(
+                context: context,
+                removeBottom: true,
+                child: child,
+              ),
+            ),
+            AudioBar(track: track, sessions: s),
           ],
         );
       },

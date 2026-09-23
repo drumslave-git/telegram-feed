@@ -436,52 +436,58 @@ class _TimelineScreenState extends State<TimelineScreen> {
         body: Column(
           children: [
             Expanded(
-              child: Stack(
-                children: [
-                  TimelineView(
-                    key: _view,
-                    db: widget.db,
-                    gateway: widget.gateway,
-                    onSelectionChanged: (n) => setState(() => _selected = n),
-                    feed: widget.feed,
-                    channel: widget.channel,
-                    focusChatId: widget.focusChatId,
-                    focusMessageId: widget.focusMessageId,
-                    share: widget.share,
-                    onSources: _onSources,
-                    onEditFeed: widget.feed == null ? null : _openFeedEditor,
-                  ),
-                  if (_searchOpen && _listOpen)
-                    Positioned.fill(
-                      child: Material(
-                        color: Theme.of(context).colorScheme.surface,
-                        child: SearchResults(
-                          results: session?.results ?? const [],
-                          gateway: widget.gateway,
-                          look: (chatId) => (
-                            title: _sources.titles[chatId] ?? '',
-                            photo: _sources.photos[chatId],
+              // The stepper below takes the gesture inset for itself, so the timeline
+              // must not keep room for it too while the stepper stands there.
+              child: MediaQuery.removePadding(
+                context: context,
+                removeBottom: _searchOpen && !_listOpen && session != null,
+                child: Stack(
+                  children: [
+                    TimelineView(
+                      key: _view,
+                      db: widget.db,
+                      gateway: widget.gateway,
+                      onSelectionChanged: (n) => setState(() => _selected = n),
+                      feed: widget.feed,
+                      channel: widget.channel,
+                      focusChatId: widget.focusChatId,
+                      focusMessageId: widget.focusMessageId,
+                      share: widget.share,
+                      onSources: _onSources,
+                      onEditFeed: widget.feed == null ? null : _openFeedEditor,
+                    ),
+                    if (_searchOpen && _listOpen)
+                      Positioned.fill(
+                        child: Material(
+                          color: Theme.of(context).colorScheme.surface,
+                          child: SearchResults(
+                            results: session?.results ?? const [],
+                            gateway: widget.gateway,
+                            look: (chatId) => (
+                              title: _sources.titles[chatId] ?? '',
+                              photo: _sources.photos[chatId],
+                            ),
+                            onOpen: (i) => unawaited(_openResult(i)),
+                            onLoadMore: () => unawaited(_loadMoreResults()),
+                            query: _queryCtl.text,
+                            loading: session?.loading ?? false,
+                            exhausted: session?.exhausted ?? false,
+                            error: session?.error,
+                            current: _current,
+                            recent: _recent,
+                            onRecent: (words) {
+                              _queryCtl.text = words;
+                              unawaited(_startSearch(words));
+                            },
+                            onClearRecent: () async {
+                              await RecentSearches(widget.db).clear();
+                              if (mounted) setState(() => _recent = const []);
+                            },
                           ),
-                          onOpen: (i) => unawaited(_openResult(i)),
-                          onLoadMore: () => unawaited(_loadMoreResults()),
-                          query: _queryCtl.text,
-                          loading: session?.loading ?? false,
-                          exhausted: session?.exhausted ?? false,
-                          error: session?.error,
-                          current: _current,
-                          recent: _recent,
-                          onRecent: (words) {
-                            _queryCtl.text = words;
-                            unawaited(_startSearch(words));
-                          },
-                          onClearRecent: () async {
-                            await RecentSearches(widget.db).clear();
-                            if (mounted) setState(() => _recent = const []);
-                          },
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
             if (_searchOpen && !_listOpen && session != null)
@@ -1838,7 +1844,9 @@ class TimelineViewState extends State<TimelineView>
               onTap: (day) => unawaited(pickDate(around: day)),
             ),
           ),
-        if (t != null && !_opening && (!t.atTop || t.anchored))
+        // No `_opening` here: the button would blink away and back every time the feed
+        // is rebuilt (a changed filter, another channel).
+        if (t != null && (!t.atTop || t.anchored))
           Positioned(
             right: 16,
             // Above the gesture bar: the app draws edge to edge.
@@ -2005,14 +2013,16 @@ class TimelineViewState extends State<TimelineView>
                   i == items.length - 1 || _dayOf(items[i + 1]) != day;
               // The tint fades in and out instead of appearing and vanishing, so the
               // eye follows the post the jump landed on.
-              final row = AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOut,
-                color: id == _highlight
-                    ? Theme.of(context).colorScheme.primary
-                          .withValues(alpha: 0.12)
-                    : Colors.transparent,
-                child: card,
+              final row = RepaintBoundary(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                  color: id == _highlight
+                      ? Theme.of(context).colorScheme.primary
+                            .withValues(alpha: 0.12)
+                      : Colors.transparent,
+                  child: card,
+                ),
               );
               return KeyedSubtree(
                 key: ValueKey(id),
