@@ -147,6 +147,7 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
       body: SharedMediaTabs(
         gateway: widget.gateway,
         chatIds: [channel.chatId],
+        titles: {channel.chatId: channel.title},
         header: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

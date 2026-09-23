@@ -20,6 +20,7 @@ class SharedMediaTabs extends StatelessWidget {
     required this.gateway,
     required this.chatIds,
     this.filter = FeedFilter.none,
+    this.titles = const {},
     this.header,
   });
 
@@ -28,6 +29,9 @@ class SharedMediaTabs extends StatelessWidget {
 
   /// The feed's content filter; a channel of its own has none.
   final FeedFilter filter;
+
+  /// Channel titles by chat id, for what the viewer says about a picture.
+  final Map<int, String> titles;
 
   /// Shown above the tabs and scrolled away with them, as the official app's channel
   /// header is. Without one the tabs fill the whole box.
@@ -73,6 +77,7 @@ class SharedMediaTabs extends StatelessWidget {
             chatIds: chatIds,
             kind: kind,
             filter: filter,
+            titles: titles,
           ),
       ],
     );
@@ -127,12 +132,16 @@ class SharedMediaTab extends StatefulWidget {
     required this.chatIds,
     required this.kind,
     this.filter = FeedFilter.none,
+    this.titles = const {},
   });
 
   final TelegramGateway gateway;
   final List<int> chatIds;
   final HistoryFilter kind;
   final FeedFilter filter;
+
+  /// Channel titles by chat id, for what the viewer says about a picture.
+  final Map<int, String> titles;
 
   @override
   State<SharedMediaTab> createState() => _SharedMediaTabState();
@@ -176,6 +185,7 @@ class _SharedMediaTabState extends State<SharedMediaTab>
   /// Everything the viewer can show in this tab, so it pages through the whole grid.
   void _openViewer(Post post) {
     final items = <Media>[];
+    final details = <ViewerDetail>[];
     var initial = 0;
     for (final p in _search.results) {
       final media = p.media;
@@ -183,6 +193,19 @@ class _SharedMediaTabState extends State<SharedMediaTab>
       final shown = MediaViewerScreen.viewable([media]);
       if (identical(p, post)) initial = items.length;
       items.addAll(shown);
+      // The channel, the day and the caption, as the timeline hands them over: a
+      // picture opened from the grid used to arrive with no word about where it is from.
+      details.addAll(
+        List.filled(
+          shown.length,
+          ViewerDetail(
+            channel: widget.titles[p.chatId] ?? '',
+            date: p.date,
+            caption: p.text,
+            postKey: '${p.chatId}:${p.messageId}',
+          ),
+        ),
+      );
     }
     if (items.isEmpty) return;
     unawaited(
@@ -191,6 +214,7 @@ class _SharedMediaTabState extends State<SharedMediaTab>
         items: items,
         gateway: widget.gateway,
         initialIndex: initial,
+        details: details,
       ),
     );
   }

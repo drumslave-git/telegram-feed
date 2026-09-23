@@ -199,6 +199,7 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
                     gateway: widget.gateway,
                     chatIds: chatIds,
                     filter: filter,
+                    titles: {for (final s in sources) s.chatId: s.title},
                   );
                 },
               ),
