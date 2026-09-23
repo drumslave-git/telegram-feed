@@ -8,7 +8,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import '../ai/semantic_gate.dart';
 import '../feeds/timeline_screen.dart';
 import '../home/channel_list.dart' show ChannelAvatar;
-import '../home/home_placeholder.dart';
+import '../home/log_out.dart';
 import '../host/accounts.dart';
 import '../service/core_service.dart' show appPaths;
 import '../sync/sync_controller.dart';

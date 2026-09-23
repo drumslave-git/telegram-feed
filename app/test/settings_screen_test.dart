@@ -11,6 +11,7 @@ import 'package:telegram_feed/settings/notifications_screen.dart';
 import 'package:telegram_feed/settings/privacy_screen.dart';
 import 'package:telegram_feed/settings/read_aloud_screen.dart';
 import 'package:telegram_feed/settings/settings_screen.dart';
+import 'package:telegram_feed/widgets/destructive_button.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'fixtures.dart';
@@ -106,7 +107,8 @@ void main() {
     expect(find.text('+1555'), findsOneWidget);
     expect(find.text('Reads a lot'), findsOneWidget);
     expect(find.text('Telegram ID 9'), findsOneWidget);
-    expect(find.text('A'), findsOneWidget); // initial while there is no photo
+    // Two initials while there is no photo, as the official app draws them.
+    expect(find.text('AL'), findsOneWidget);
     // Screens, not settings: no switch lives on the first screen any more.
     for (final row in const [
       'Accounts',
@@ -163,7 +165,7 @@ void main() {
     await tester.tap(find.text('Log out'));
     await tester.pumpAndSettle();
     expect(find.text('Log out?'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Log out'));
+    await tester.tap(find.widgetWithText(DestructiveButton, 'Log out'));
     await tester.pumpAndSettle();
     expect(loggedOut, 1);
     await unmount(tester);

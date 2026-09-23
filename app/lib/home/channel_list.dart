@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../feeds/media_view.dart' show Downloaded;
+import '../feeds/post_card.dart' show peerColor;
 import '../widgets/error_state.dart';
+import '../widgets/skeleton_list.dart';
 import 'unread_badge.dart';
 
 /// Channels as the official app lists chats: photo, title, newest post, time, unread count.
@@ -70,7 +72,7 @@ class _ChannelListState extends State<ChannelList>
           c,
     ];
     if (widget.loading && widget.channels.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const SkeletonList();
     }
     // Nothing to show and a failed load: the whole tab says so and offers the retry,
     // instead of hiding the code in the "no channels" line.
@@ -187,35 +189,33 @@ class ChannelTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final c = channel;
-    final preview = c.lastMessageText.isEmpty
-        ? null
-        : Text(c.lastMessageText, maxLines: 1, overflow: TextOverflow.ellipsis);
-    return ListTile(
+    final tile = ListTile(
       onTap: onTap,
-      onLongPress: onMenu == null
-          ? null
-          : () {
-              // The menu opens where the row is, since a ListTile reports no position.
-              final box = context.findRenderObject()! as RenderBox;
-              onMenu!(box.localToGlobal(box.size.center(Offset.zero)));
-            },
-      isThreeLine: preview != null && feeds.isNotEmpty,
-      leading: ChannelAvatar(photo: c.photo, title: c.title, gateway: gateway),
+      // Always two lines: the preview line stays even when there is nothing to preview,
+      // and the feed tags share it, so rows keep one height as channels join feeds.
+      leading: ChannelAvatar(
+        photo: c.photo,
+        title: c.title,
+        colorId: c.chatId,
+        gateway: gateway,
+      ),
       title: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: preview == null && feeds.isEmpty
-          ? null
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ?preview,
-                if (feeds.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: FeedTags(names: feeds),
-                  ),
-              ],
+      subtitle: Row(
+        children: [
+          Expanded(
+            child: Text(
+              c.lastMessageText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
+          ),
+          if (feeds.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: FeedTags(names: feeds),
+            ),
+        ],
+      ),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -235,23 +235,34 @@ class ChannelTile extends StatelessWidget {
         ],
       ),
     );
+    if (onMenu == null) return tile;
+    // The menu opens under the finger, which a ListTile's own long press cannot report.
+    return GestureDetector(
+      onLongPressStart: (d) => onMenu!(d.globalPosition),
+      child: tile,
+    );
   }
 }
 
 /// The feeds a channel belongs to, as small chips. Channel lists carry them so that it is
 /// visible at a glance what a channel is already read in.
 class FeedTags extends StatelessWidget {
-  const FeedTags({super.key, required this.names});
+  const FeedTags({super.key, required this.names, this.max = 2});
   final List<String> names;
+
+  /// Tags drawn before the rest becomes "+N".
+  final int max;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final shown = names.length > max ? names.take(max - 1).toList() : names;
+    final rest = names.length - shown.length;
     return Wrap(
       spacing: 4,
       runSpacing: 4,
       children: [
-        for (final n in names)
+        for (final n in [...shown, if (rest > 0) '+$rest'])
           DecoratedBox(
             decoration: BoxDecoration(
               color: theme.colorScheme.secondaryContainer,
@@ -279,24 +290,41 @@ class ChannelAvatar extends StatelessWidget {
     required this.photo,
     required this.title,
     required this.gateway,
+    this.colorId,
     this.radius = 22,
   });
   final FileRef? photo;
   final String title;
   final TelegramGateway gateway;
+
+  /// Chat id the disc takes its colour from, as the official app colours its avatars.
+  /// Without one every disc is the theme's own tint.
+  final int? colorId;
   final double radius;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final letters = title.trim().isEmpty
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    // Up to two initials, as the official app draws them.
+    final words = title.trim().split(RegExp(r'\s+'))
+      ..removeWhere((w) => w.isEmpty);
+    final letters = words.isEmpty
         ? '?'
-        : title.trim().characters.first.toUpperCase();
+        : words.length == 1
+        ? words.first.characters.first.toUpperCase()
+        : (words.first.characters.first + words[1].characters.first)
+              .toUpperCase();
+    final tint = colorId == null
+        ? scheme.secondaryContainer
+        : peerColor(colorId!, theme.brightness).withValues(alpha: 0.25);
     final fallback = CircleAvatar(
       radius: radius,
-      backgroundColor: scheme.secondaryContainer,
-      foregroundColor: scheme.onSecondaryContainer,
-      child: Text(letters, style: TextStyle(fontSize: radius * 0.8)),
+      backgroundColor: tint,
+      foregroundColor: colorId == null
+          ? scheme.onSecondaryContainer
+          : peerColor(colorId!, theme.brightness),
+      child: Text(letters, style: TextStyle(fontSize: radius * 0.7)),
     );
     final file = photo;
     if (file == null) return fallback;

@@ -80,10 +80,11 @@ final class FeedsController extends ChangeNotifier {
   /// Channels of the feed with unread posts, whichever the badge counts.
   int unreadChannelsOf(int feedId) => _channels[feedId] ?? 0;
 
-  /// What the Feeds tab shows: every feed's unread posts together, or the feeds with any.
-  int get unreadOnTab => _countPosts
-      ? _feeds.fold(0, (n, f) => n + unreadOf(f.id))
-      : _feeds.where((f) => unreadChannelsOf(f.id) > 0).length;
+  /// What the Feeds tab shows, counted per channel and not per feed: a channel that is in
+  /// several feeds would otherwise be counted once for each of them.
+  int get unreadOnTab => _countPosts ? _tabPosts : _tabChannels;
+  int _tabPosts = 0;
+  int _tabChannels = 0;
 
   Future<void> refreshChannels() async {
     try {
@@ -237,6 +238,11 @@ final class FeedsController extends ChangeNotifier {
   void _publish(List<_Pair> pairs) {
     final posts = {for (final f in _feeds) f.id: 0};
     final channels = {for (final f in _feeds) f.id: 0};
+    // The tab counts every channel once. Two feeds may show different posts of the same
+    // channel; the larger count is the closest number to the posts their union shows, and
+    // it never counts one twice.
+    final perChat = <int, int>{};
+    final freshChats = <int>{};
     for (final p in pairs) {
       final u = p.unread;
       final int count;
@@ -255,9 +261,14 @@ final class FeedsController extends ChangeNotifier {
       }
       if (news) channels[p.feed] = (channels[p.feed] ?? 0) + 1;
       posts[p.feed] = (posts[p.feed] ?? 0) + count;
+      final chat = p.state.chatId;
+      perChat[chat] = math.max(perChat[chat] ?? 0, count);
+      if (news) freshChats.add(chat);
     }
     _posts = posts;
     _channels = channels;
+    _tabPosts = perChat.values.fold(0, (a, b) => a + b);
+    _tabChannels = freshChats.length;
     notifyListeners();
   }
 

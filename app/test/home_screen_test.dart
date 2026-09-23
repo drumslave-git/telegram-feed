@@ -6,6 +6,7 @@ import 'package:telegram_feed/feeds/feed_editor_screen.dart';
 import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_feed/home/channel_list.dart';
 import 'package:telegram_feed/home/home_screen.dart';
+import 'package:telegram_feed/widgets/skeleton_list.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'fixtures.dart';
@@ -239,16 +240,17 @@ void main() {
     },
   );
 
-  testWidgets('lists show a spinner, not their empty text, until they load', (
-    tester,
-  ) async {
-    await tester.pumpWidget(app());
-    expect(find.byType(CircularProgressIndicator), findsWidgets);
-    expect(find.textContaining('No feeds yet'), findsNothing);
-    await settle(tester);
-    expect(find.textContaining('No feeds yet'), findsOneWidget);
-    await unmount(tester);
-  });
+  testWidgets(
+    'lists show skeleton rows, not their empty text, until they load',
+    (tester) async {
+      await tester.pumpWidget(app());
+      expect(find.byType(SkeletonList), findsWidgets);
+      expect(find.textContaining('No feeds yet'), findsNothing);
+      await settle(tester);
+      expect(find.textContaining('No feeds yet'), findsOneWidget);
+      await unmount(tester);
+    },
+  );
 
   testWidgets('reordering feeds persists', (tester) async {
     late int a, b;
@@ -505,7 +507,7 @@ void main() {
 
     await tester.longPress(find.text('Two'));
     await tester.pumpAndSettle();
-    expect(find.text('Mark all read'), findsOneWidget);
+    expect(find.text('Mark as read'), findsOneWidget);
     expect(find.text('Channel info'), findsOneWidget);
     expect(find.text('Add to a feed'), findsOneWidget);
 
@@ -524,7 +526,7 @@ void main() {
     // post.
     await tester.longPress(find.text('Two'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Mark all read'));
+    await tester.tap(find.text('Mark as read'));
     await settle(tester);
     await tester.pumpAndSettle();
     expect(gw.readPositions[-2], 200);

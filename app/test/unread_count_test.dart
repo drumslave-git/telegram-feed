@@ -198,6 +198,24 @@ void main() {
     },
   );
 
+  test('a channel in two feeds counts once on the tab', () async {
+    final gw = twoChannels();
+    final a = await fixtureFeed(
+      db,
+      'A',
+      {-1: 'One'},
+      marks: {-1: 6},
+      gateway: gw,
+    );
+    // The read position lives in the gateway, so both feeds share it.
+    final b = await fixtureFeed(db, 'B', {-1: 'One'});
+    final c = await start(gw);
+    // Posts 7 to 10, in both feeds; the tab counts the channel, not the rows.
+    expect(c.unreadOf(a.id), 4);
+    expect(c.unreadOf(b.id), 4);
+    expect(c.unreadOnTab, 4);
+  });
+
   test('the switch off counts channels', () async {
     await db.setSetting(SettingKeys.countUnreadPosts, 'false');
     final gw = twoChannels();

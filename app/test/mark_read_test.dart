@@ -80,8 +80,8 @@ void main() {
 
     await tester.tap(find.byType(PopupMenuButton<String>));
     await tester.pumpAndSettle();
-    expect(find.text('Mark all read'), findsOneWidget);
-    await tester.tap(find.text('Mark all read'));
+    expect(find.text('Mark all as read'), findsOneWidget);
+    await tester.tap(find.text('Mark all as read'));
     await tester.runAsync(() async {
       for (var i = 0; i < 4; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 40));
@@ -94,7 +94,7 @@ void main() {
     // The folder tab offers it too.
     await tester.longPress(find.text('Work'));
     await tester.pumpAndSettle();
-    expect(find.text('Mark all read'), findsOneWidget);
+    expect(find.text('Mark all as read'), findsOneWidget);
     await tester.tapAt(const Offset(10, 700));
     await tester.pumpAndSettle();
 

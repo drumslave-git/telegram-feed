@@ -16,6 +16,8 @@ import 'channel_list.dart';
 import 'unread_badge.dart';
 import '../widgets/destructive_button.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/menu_item.dart';
+import '../widgets/skeleton_list.dart';
 import '../widgets/error_state.dart';
 import '../app_name.dart';
 
@@ -380,25 +382,9 @@ class _HomeScreenState extends State<HomeScreen>
         at & Size.zero,
         Offset.zero & overlay.size,
       ),
-      items: const [
-        PopupMenuItem(
-          value: 'feed',
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.rss_feed),
-            title: Text('Create feed from folder'),
-          ),
-        ),
-        PopupMenuItem(
-          value: 'read',
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.done_all),
-            title: Text('Mark all read'),
-          ),
-        ),
+      items: [
+        menuItem('feed', Icons.rss_feed, 'Create feed from folder'),
+        menuItem('read', Icons.done_all, 'Mark all as read'),
       ],
     );
     if (choice == 'feed') await _createFeedFromFolder(folder);
@@ -543,35 +529,11 @@ class _HomeScreenState extends State<HomeScreen>
         Offset.zero & overlay.size,
       ),
       items: [
-        const PopupMenuItem(
-          value: 'read',
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.done_all),
-            title: Text('Mark all read'),
-          ),
-        ),
-        const PopupMenuItem(
-          value: 'info',
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.info_outline),
-            title: Text('Channel info'),
-          ),
-        ),
+        menuItem('read', Icons.done_all, 'Mark as read'),
+        menuItem('info', Icons.info_outline, 'Channel info'),
         // Offered with no feeds too: it then makes the first one, which is exactly what
         // a reader who wants this channel in a feed needs.
-        const PopupMenuItem(
-          value: 'add',
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.playlist_add),
-            title: Text('Add to a feed'),
-          ),
-        ),
+        menuItem('add', Icons.playlist_add, 'Add to a feed'),
       ],
     );
     if (!mounted) return;
@@ -599,7 +561,11 @@ class _HomeScreenState extends State<HomeScreen>
       await _createFeed();
       return;
     }
-    final inFeeds = (_feedTags[channel.chatId] ?? const []).toSet();
+    // By id, not by name: two feeds may carry the same name.
+    final inFeeds = {
+      for (final f in await widget.db.feedsContaining(channel.chatId)) f.id,
+    };
+    if (!mounted) return;
     final feed = await showModalBottomSheet<Feed>(
       context: context,
       showDragHandle: true,
@@ -611,10 +577,10 @@ class _HomeScreenState extends State<HomeScreen>
               ListTile(
                 leading: const Icon(Icons.rss_feed),
                 title: Text(f.name),
-                subtitle: inFeeds.contains(f.name)
+                subtitle: inFeeds.contains(f.id)
                     ? const Text('Already in this feed')
                     : null,
-                enabled: !inFeeds.contains(f.name),
+                enabled: !inFeeds.contains(f.id),
                 onTap: () => Navigator.pop(context, f),
               ),
           ],
@@ -629,7 +595,14 @@ class _HomeScreenState extends State<HomeScreen>
       username: channel.username,
     );
     messenger.showSnackBar(
-      SnackBar(content: Text('${channel.title} added to "${feed.name}".')),
+      SnackBar(
+        content: Text('${channel.title} added to "${feed.name}".'),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () =>
+              unawaited(widget.db.removeSource(feed.id, channel.chatId)),
+        ),
+      ),
     );
   }
 
@@ -652,7 +625,7 @@ class _HomeScreenState extends State<HomeScreen>
     builder: (context, _) {
       final feeds = _feeds.feeds;
       if (!_feeds.loaded) {
-        return const Center(child: CircularProgressIndicator());
+        return const SkeletonList(leadingCircle: false);
       }
       return Column(
         children: [
@@ -732,25 +705,40 @@ class _HomeScreenState extends State<HomeScreen>
                             'delete' => _deleteFeed(f),
                             _ => null,
                           },
-                          itemBuilder: (context) => const [
-                            PopupMenuItem(
-                              value: 'channels',
-                              child: Text('Channels'),
+                          itemBuilder: (context) => [
+                            menuItem(
+                              'channels',
+                              Icons.playlist_add,
+                              'Edit channels',
                             ),
-                            PopupMenuItem(value: 'rules', child: Text('Rules')),
-                            PopupMenuItem(
-                              value: 'rename',
-                              child: Text('Rename'),
+                            menuItem(
+                              'rules',
+                              Icons.notifications_active_outlined,
+                              'Rules',
                             ),
-                            PopupMenuItem(
-                              value: 'read',
-                              child: Text('Mark all read'),
+                            menuItem('rename', Icons.edit_outlined, 'Rename'),
+                            menuItem(
+                              'read',
+                              Icons.done_all,
+                              'Mark all as read',
                             ),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Text('Delete'),
+                            menuItem(
+                              'delete',
+                              Icons.delete_outline,
+                              'Delete',
+                              danger: true,
                             ),
                           ],
+                        ),
+                        // Dragging a row by the list itself fights with its tap; the
+                        // handle says where to take hold, as the official folder editor
+                        // does.
+                        ReorderableDragStartListener(
+                          index: i,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Icon(Icons.drag_handle),
+                          ),
                         ),
                       ],
                     ),
@@ -1006,10 +994,11 @@ class _HomeScreenState extends State<HomeScreen>
       ),
       // Only the Feeds tab makes feeds, so the button belongs to it and to no other.
       floatingActionButton: _tabCtl.index == 0
-          ? FloatingActionButton(
+          ? FloatingActionButton.extended(
+              label: const Text('New feed'),
+              icon: const Icon(Icons.add),
               tooltip: 'New feed',
               onPressed: () => unawaited(_newFeed()),
-              child: const Icon(Icons.add),
             )
           : null,
       body: TabBarView(

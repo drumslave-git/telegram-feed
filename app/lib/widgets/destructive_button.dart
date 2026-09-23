@@ -14,11 +14,10 @@ class DestructiveButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return FilledButton(
-      style: FilledButton.styleFrom(
-        backgroundColor: scheme.error,
-        foregroundColor: scheme.onError,
-      ),
+    // A text button in the error colour: what Material dialogs and the official app use
+    // for Delete and Remove, next to a plain Cancel.
+    return TextButton(
+      style: TextButton.styleFrom(foregroundColor: scheme.error),
       onPressed: onPressed,
       child: Text(label),
     );
