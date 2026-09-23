@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_feed/media/media_viewer.dart';
+import 'package:telegram_feed/media/video_stage.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'fake_video_platform.dart';
@@ -199,11 +200,29 @@ void main() {
     // One picture: no counter, but the day of the post.
     expect(find.textContaining('of 1'), findsNothing);
 
+    // The channel and the day keep to one line each, whatever room the buttons leave
+    // them: in landscape the bar used to break them into a letter per line.
+    final lines = tester.widgetList<Text>(
+      find.descendant(
+        of: find.byType(ViewerTopBar),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(lines, hasLength(2));
+    expect(lines.every((t) => t.maxLines == 1), isTrue);
+
     await tester.tap(find.byTooltip('Share'));
     await tester.pump();
     expect(shared, 0);
-    await tester.tap(find.byTooltip('Save to Saved Messages'));
+
+    // Saving is behind the three dots, so that the bar fits a phone.
+    expect(find.text('Save to Saved Messages'), findsNothing);
+    await tester.tap(find.byTooltip('More'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Save to Saved Messages'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     expect(saved, 0);
     await unmount(tester);
   });

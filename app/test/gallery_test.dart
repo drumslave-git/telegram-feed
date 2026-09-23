@@ -67,9 +67,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    await tester.tap(find.byTooltip('Save to gallery'));
+    await tester.tap(find.byTooltip('More'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Save to gallery'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     expect(calls.single['method'], 'save');
     expect(calls.single['path'], '/tmp/ready.jpg');
     expect(calls.single['mimeType'], 'image/jpeg');

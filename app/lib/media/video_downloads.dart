@@ -5,6 +5,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../settings/settings_screen.dart' show formatBytes;
 import 'video_sessions.dart';
+import 'video_stage.dart';
 
 enum DownloadPhase { idle, downloading, done }
 
@@ -151,9 +152,35 @@ class VideoDownloadButton extends StatefulWidget {
     super.key,
     required this.file,
     required this.gateway,
+    this.compact = false,
   });
   final FileRef file;
   final TelegramGateway gateway;
+
+  /// In the viewer's top bar, where the size has no room: the ring alone while the file
+  /// downloads and nothing otherwise, because [menuActions] is where a download is asked
+  /// for.
+  final bool compact;
+
+  /// The same download as lines of the viewer's menu.
+  static List<ViewerAction> menuActions(FileRef file, TelegramGateway gateway) {
+    final downloads = VideoDownloads.of(gateway);
+    return switch (downloads.phase(file)) {
+      DownloadPhase.done => const [],
+      DownloadPhase.downloading => [
+        ViewerAction(
+          'Cancel download',
+          () => unawaited(downloads.cancel(file.id)),
+        ),
+      ],
+      DownloadPhase.idle => [
+        ViewerAction(
+          file.size > 0 ? 'Download (${formatBytes(file.size)})' : 'Download',
+          () => unawaited(downloads.start(file)),
+        ),
+      ],
+    };
+  }
 
   @override
   State<VideoDownloadButton> createState() => _VideoDownloadButtonState();
@@ -203,6 +230,29 @@ class _VideoDownloadButtonState extends State<VideoDownloadButton> {
       final phase = _downloads.phase(file);
       if (phase == DownloadPhase.done) return const SizedBox.shrink();
       final downloading = phase == DownloadPhase.downloading;
+      if (widget.compact) {
+        if (!downloading) return const SizedBox.shrink();
+        final got = _downloads.downloaded(file.id);
+        return IconButton(
+          tooltip: 'Cancel download',
+          color: Colors.white,
+          onPressed: () => unawaited(_downloads.cancel(file.id)),
+          icon: SizedBox.square(
+            dimension: 22,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                  value: file.size > 0 && got > 0 ? got / file.size : null,
+                ),
+                const Icon(Icons.close, color: Colors.white, size: 14),
+              ],
+            ),
+          ),
+        );
+      }
       final got = _downloads.downloaded(file.id);
       final label = _downloads.error(file.id) != null
           ? 'Failed, try again'

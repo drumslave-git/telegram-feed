@@ -278,11 +278,20 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                 DateTime.fromMillisecondsSinceEpoch(detail.date * 1000),
               ),
           ].join(' · '),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
           style: const TextStyle(color: Colors.white70, fontSize: 13),
         ),
       ],
     );
-    final counter = Flexible(child: title);
+    // Only sharing stands in the bar beside the video's own buttons; the rest is behind
+    // the three dots, so that the channel and the day keep their room on a phone.
+    List<ViewerAction> menu() => [
+      if (widget.onSave != null)
+        ViewerAction('Save to Saved Messages', () => widget.onSave!(_index)),
+      ViewerAction('Save to gallery', () => unawaited(_saveToGallery())),
+    ];
     final actions = [
       if (widget.onShare != null)
         IconButton(
@@ -291,19 +300,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
           icon: const Icon(Icons.share),
           onPressed: () => widget.onShare!(_index),
         ),
-      if (widget.onSave != null)
-        IconButton(
-          tooltip: 'Save to Saved Messages',
-          color: Colors.white,
-          icon: const Icon(Icons.bookmark_add_outlined),
-          onPressed: () => widget.onSave!(_index),
-        ),
-      IconButton(
-        tooltip: 'Save to gallery',
-        color: Colors.white,
-        icon: const Icon(Icons.save_alt),
-        onPressed: () => unawaited(_saveToGallery()),
-      ),
+      ViewerMenu(actions: menu),
     ];
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -329,8 +326,9 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
               video: video,
               gateway: widget.gateway,
               active: i == _index,
-              title: counter,
+              title: title,
               actions: actions,
+              menu: menu,
               caption: i < _details.length ? _details[i].caption : '',
               onZoomChanged: _onZoom,
               onPip: _toMiniPlayer,
@@ -343,7 +341,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                   gateway: widget.gateway,
                   onZoomChanged: _onZoom,
                 ),
-                ViewerTopBar(title: counter, actions: actions),
+                ViewerTopBar(title: title, actions: actions),
                 if (i < _details.length && _details[i].caption.isNotEmpty)
                   ViewerCaption(text: _details[i].caption),
               ],
@@ -366,6 +364,7 @@ class _VideoPage extends StatefulWidget {
     required this.active,
     required this.title,
     required this.actions,
+    required this.menu,
     required this.caption,
     required this.onZoomChanged,
     required this.onPip,
@@ -374,7 +373,11 @@ class _VideoPage extends StatefulWidget {
   final TelegramGateway gateway;
   final bool active;
   final Widget? title;
+
+  /// The viewer's own buttons, of which the last is its menu: the video puts its buttons
+  /// before them and its own lines into the menu.
   final List<Widget> actions;
+  final List<ViewerAction> Function() menu;
   final String caption;
   final ValueChanged<bool> onZoomChanged;
   final ValueChanged<VideoSession> onPip;
@@ -430,20 +433,30 @@ class _VideoPageState extends State<_VideoPage> {
   Widget build(BuildContext context) {
     final session = _session;
     if (session == null) return _poster();
+    final file = widget.video.file;
     return VideoStage(
       session: session,
       poster: _poster(),
       title: widget.title,
       onZoomChanged: widget.onZoomChanged,
       actions: [
-        VideoDownloadButton(file: widget.video.file, gateway: widget.gateway),
+        // A ring while the file downloads, nothing otherwise: the menu is where a download
+        // is asked for.
+        VideoDownloadButton(file: file, gateway: widget.gateway, compact: true),
         IconButton(
           tooltip: 'Picture-in-picture',
           color: Colors.white,
           icon: const Icon(Icons.picture_in_picture_alt),
           onPressed: () => widget.onPip(session),
         ),
-        ...widget.actions,
+        // Everything but the viewer's menu, which comes last and takes the video's lines.
+        ...widget.actions.take(widget.actions.length - 1),
+        ViewerMenu(
+          actions: () => [
+            ...VideoDownloadButton.menuActions(file, widget.gateway),
+            ...widget.menu(),
+          ],
+        ),
       ],
       caption: widget.caption,
     );

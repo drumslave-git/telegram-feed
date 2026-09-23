@@ -439,6 +439,8 @@ class ViewerCaption extends StatelessWidget {
 
 class ViewerTopBar extends StatelessWidget {
   const ViewerTopBar({super.key, this.title, this.actions = const []});
+
+  /// The channel and the day, which take whatever width the buttons leave.
   final Widget? title;
   final List<Widget> actions;
 
@@ -447,16 +449,49 @@ class ViewerTopBar extends StatelessWidget {
     child: Align(
       alignment: Alignment.topCenter,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
         child: Row(
           children: [
             const BackButton(color: Colors.white),
-            ?title,
-            const Spacer(),
+            if (title case final title?)
+              Expanded(child: title)
+            else
+              const Spacer(),
             ...actions,
           ],
         ),
       ),
+    ),
+  );
+}
+
+/// One line of the viewer's overflow menu.
+class ViewerAction {
+  const ViewerAction(this.label, this.onSelected);
+  final String label;
+  final VoidCallback onSelected;
+}
+
+/// What the top bar has no room for, behind the three dots the official viewer has there.
+/// Dark like the rest of the viewer's chrome, whatever theme the app is in.
+class ViewerMenu extends StatelessWidget {
+  const ViewerMenu({super.key, required this.actions});
+
+  /// Asked when the menu opens, so that a line says what it does at that moment (a
+  /// download that is running offers to stop).
+  final List<ViewerAction> Function() actions;
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: ThemeData.dark(),
+    child: PopupMenuButton<VoidCallback>(
+      tooltip: 'More',
+      icon: const Icon(Icons.more_vert, color: Colors.white),
+      onSelected: (selected) => selected(),
+      itemBuilder: (context) => [
+        for (final a in actions())
+          PopupMenuItem(value: a.onSelected, child: Text(a.label)),
+      ],
     ),
   );
 }
