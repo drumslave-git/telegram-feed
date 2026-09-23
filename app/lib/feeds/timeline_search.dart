@@ -2,9 +2,9 @@ import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import '../home/channel_list.dart' show ChannelAvatar, formatListDate;
+import '../home/channel_list.dart' show ChannelAvatar;
 import '../widgets/error_state.dart';
-import 'post_card.dart' show peerColor;
+import 'post_card.dart' show formatDay, peerColor;
 
 /// The chips under a search bar: what kind of post to look for, as the official app offers
 /// inside its search. "Everything" is the plain text search.
@@ -65,6 +65,7 @@ class SearchResults extends StatelessWidget {
     this.query = '',
     this.loading = false,
     this.exhausted = false,
+    this.total = -1,
     this.error,
     this.current = -1,
     this.recent = const [],
@@ -82,6 +83,9 @@ class SearchResults extends StatelessWidget {
   final String query;
   final bool loading;
   final bool exhausted;
+
+  /// Telegram's count of the matches, -1 while it is unknown.
+  final int total;
   final String? error;
 
   /// Result the timeline is showing, if any; it is marked in the list.
@@ -152,23 +156,33 @@ class SearchResults extends StatelessWidget {
         ),
       );
     }
+    final found = exhausted || total < 0 ? results.length : total;
     return ListView.builder(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      itemCount: results.length + 1,
-      itemBuilder: (context, i) {
+      // A head row that says how many there are, as the official app does.
+      itemCount: results.length + 2,
+      itemBuilder: (context, row) {
+        if (row == 0) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text(
+              '$found post${found == 1 ? '' : 's'} found',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          );
+        }
+        final i = row - 1;
         if (i == results.length) {
           if (!exhausted && error == null) {
             WidgetsBinding.instance.addPostFrameCallback((_) => onLoadMore());
           }
-          final found = results.length;
           return Padding(
             padding: const EdgeInsets.all(16),
             child: Center(
               child: exhausted
-                  ? Text(
-                      '$found result${found == 1 ? '' : 's'}',
-                      style: Theme.of(context).textTheme.labelMedium,
-                    )
+                  ? const SizedBox.shrink()
                   : error != null
                   ? ErrorState(
                       what: 'Could not load more results.',
@@ -251,7 +265,9 @@ class SearchResultTile extends StatelessWidget {
             ),
           ),
           Text(
-            formatListDate(date),
+            // The day, as the results of the official app name it: "Today" and
+            // "September 12" instead of a mix of clock times, weekdays and 2026-09-04.
+            formatDay(date),
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

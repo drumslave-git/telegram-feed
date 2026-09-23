@@ -594,7 +594,8 @@ void main() {
       tester.getTopLeft(inResults('in Prague')).dy,
       lessThan(tester.getTopLeft(inResults('in Berlin')).dy),
     );
-    expect(find.text('2 results'), findsOneWidget);
+    // The count stands above the results now, not at their end.
+    expect(find.text('2 posts found'), findsOneWidget);
 
     // The older match: the timeline is rebuilt around it and the stepper appears.
     await tester.tap(find.byType(SearchResultTile).last);

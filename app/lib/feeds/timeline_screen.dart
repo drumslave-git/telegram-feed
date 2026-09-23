@@ -472,6 +472,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                             query: _queryCtl.text,
                             loading: session?.loading ?? false,
                             exhausted: session?.exhausted ?? false,
+                            total: session?.total ?? -1,
                             error: session?.error,
                             current: _current,
                             recent: _recent,

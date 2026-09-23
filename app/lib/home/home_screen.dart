@@ -798,6 +798,7 @@ class _HomeScreenState extends State<HomeScreen>
         query: _queryCtl.text,
         loading: session?.loading ?? false,
         exhausted: session?.exhausted ?? false,
+        total: session?.total ?? -1,
         error: session?.error,
         recent: _recent,
         onRecent: (words) {

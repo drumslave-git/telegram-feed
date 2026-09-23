@@ -127,9 +127,13 @@ class _ThreadScreenState extends State<ThreadScreen> {
         if (c.chatId != t.chatId || c.threadId != t.threadId) return;
         if (_comments.any((x) => x.messageId == c.messageId)) return;
         setState(() => _comments.add(c));
-        _scrollToEnd();
+        // Only when the reader is already at the newest one: otherwise a comment
+        // arriving would yank them out of what they are reading.
+        _scrollToEnd(onlyNearEnd: true);
       });
       await _loadOlder();
+      // At the newest comment, as the official app opens a discussion.
+      _scrollToEnd(animate: false);
     } on TelegramException catch (e) {
       if (mounted) {
         setState(() {
@@ -173,6 +177,37 @@ class _ThreadScreenState extends State<ThreadScreen> {
     }
   }
 
+  /// Leaves the search and shows that comment among the others, loading older ones
+  /// until it is there.
+  Future<void> _openFound(Comment target) async {
+    setState(() {
+      _found = null;
+      _queryCtl.clear();
+      _searchOpen = false;
+    });
+    var guard = 0;
+    while (!_comments.any((c) => c.messageId == target.messageId) &&
+        !_exhausted &&
+        guard++ < 20) {
+      await _loadOlder();
+    }
+    if (!mounted) return;
+    final index = _comments.indexWhere((c) => c.messageId == target.messageId);
+    if (index < 0) return;
+    setState(() => _highlight = target.messageId);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      // The rows are of different heights, so the position is an estimate; the tint
+      // says which one it is.
+      final extent = _scroll.position.maxScrollExtent;
+      final at = _comments.isEmpty ? 0.0 : extent * (index / _comments.length);
+      _scroll.jumpTo(at.clamp(0, extent));
+    });
+  }
+
+  /// The comment a search result led to, tinted for a moment.
+  int? _highlight;
+
   Future<void> _send() async {
     final t = _thread;
     final text = _composer.text.trim();
@@ -200,14 +235,26 @@ class _ThreadScreenState extends State<ThreadScreen> {
     messenger.showSnackBar(SnackBar(content: Text('No app can open $url')));
   }
 
-  void _scrollToEnd() {
+  /// True while the newest comment is (nearly) on screen.
+  bool get _nearEnd =>
+      !_scroll.hasClients ||
+      _scroll.position.maxScrollExtent - _scroll.position.pixels < 240;
+
+  void _scrollToEnd({bool onlyNearEnd = false, bool animate = true}) {
+    if (onlyNearEnd && !_nearEnd) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) {
-        _scroll.animateTo(
-          _scroll.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
+      if (!_scroll.hasClients) return;
+      final end = _scroll.position.maxScrollExtent;
+      if (animate) {
+        unawaited(
+          _scroll.animateTo(
+            end,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          ),
         );
+      } else {
+        _scroll.jumpTo(end);
       }
     });
   }
@@ -324,12 +371,17 @@ class _ThreadScreenState extends State<ThreadScreen> {
                                   vertical: 8,
                                 ),
                                 itemCount: found.length,
-                                itemBuilder: (context, i) => CommentBubble(
-                                  comment: found[i],
-                                  gateway: widget.gateway,
-                                  onOpenLink: _openLink,
+                                itemBuilder: (context, i) => InkWell(
+                                  onTap: () => _openFound(found[i]),
+                                  child: CommentBubble(
+                                    comment: found[i],
+                                    gateway: widget.gateway,
+                                    onOpenLink: _openLink,
+                                  ),
                                 ),
                               ))
+                      : _loading && _comments.isEmpty
+                      ? const Center(child: CircularProgressIndicator())
                       : ListView.builder(
                           controller: _scroll,
                           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -341,10 +393,18 @@ class _ThreadScreenState extends State<ThreadScreen> {
                                   ? const ChatPill('No comments yet.')
                                   : const SizedBox(height: 8);
                             }
-                            return CommentBubble(
-                              comment: _comments[i - 1],
-                              gateway: widget.gateway,
-                              onOpenLink: _openLink,
+                            final comment = _comments[i - 1];
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              color: comment.messageId == _highlight
+                                  ? Theme.of(context).colorScheme.primary
+                                        .withValues(alpha: 0.12)
+                                  : Colors.transparent,
+                              child: CommentBubble(
+                                comment: comment,
+                                gateway: widget.gateway,
+                                onOpenLink: _openLink,
+                              ),
                             );
                           },
                         ),
