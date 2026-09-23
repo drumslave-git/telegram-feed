@@ -59,9 +59,10 @@ final class BuilderModel {
   /// OR of groups; each group is an AND of terms.
   final List<List<BuilderTerm>> groups;
 
-  static const empty = BuilderModel([
-    [BuilderTerm(text: '')],
-  ]);
+  /// No terms at all: the rule notifies about every post of its channels. The editor
+  /// draws it as a single "Add a term" button, not as a blank row that contradicts the
+  /// line above it.
+  static const empty = BuilderModel([]);
 
   bool get isValid =>
       groups.isNotEmpty &&

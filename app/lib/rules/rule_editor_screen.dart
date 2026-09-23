@@ -9,6 +9,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../notifications/notification_policy.dart';
 import '../ai/semantic_gate.dart';
+import '../feeds/post_card.dart' show formatDay;
 import '../home/channel_list.dart' show ChannelAvatar;
 import 'rule_builder_model.dart';
 import '../widgets/destructive_button.dart';
@@ -72,6 +73,9 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   bool _enabled = true;
   bool _textMode = false;
   BuilderModel _model = BuilderModel.empty;
+  String? _nameError;
+  String? _feedError;
+  String? _scheduleError;
   String? _textError;
   bool _scheduled = false;
   Set<int> _weekdays = {...Schedule.allWeek};
@@ -267,13 +271,10 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
         return null;
       }
     }
-    if (!_model.isValid) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Every term needs a word or phrase.')),
-      );
-      return null;
-    }
-    return _model.toExpr();
+    // Rows without a word are dropped, exactly as the switch to the text form drops
+    // them: the editor used to refuse to save instead.
+    final filled = _model.withoutBlankTerms();
+    return filled == null ? const And([]) : filled.toExpr();
   }
 
   void _switchMode(bool toText) {
@@ -318,45 +319,26 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
 
   Future<void> _save() async {
     final name = _name.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Give the rule a name.')));
-      return;
-    }
     final feedId = _feedId;
-    if (feedId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('A rule belongs to a feed: create one first.'),
-        ),
-      );
+    // On the fields themselves: a snackbar can stand behind the keyboard, and the field
+    // it is about is at the top of a scrolled form.
+    setState(() {
+      _nameError = name.isEmpty ? 'Give the rule a name.' : null;
+      _feedError = feedId == null
+          ? 'A rule belongs to a feed: create one first.'
+          : null;
+      _scheduleError = _scheduled && _weekdays.isEmpty
+          ? 'Pick at least one day, or the rule never notifies.'
+          : null;
+    });
+    if (_nameError != null ||
+        _feedError != null ||
+        _scheduleError != null ||
+        feedId == null) {
       return;
     }
     final cond = _condition();
     if (cond == null) return;
-    if (_priority == 'urgent' && !await widget.policyGranted()) {
-      if (!mounted) return;
-      final open = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Show urgent posts in Do Not Disturb?'),
-          content: const Text(
-            'Urgent rules can break through Do Not Disturb, but Android must allow this app to do so. Open the setting now? The rule is saved either way.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Later'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Open settings'),
-            ),
-          ],
-        ),
-      );
-      if (open ?? false) await widget.openPolicySettings();
-    }
     setState(() => _saving = true);
     final schedule = _scheduled
         ? jsonEncode(
@@ -394,6 +376,33 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
       await widget.db.updateRule(r.copyWithCompanion(companion));
     }
     if (mounted) Navigator.of(context).pop();
+  }
+
+  /// Urgent rules may break through Do Not Disturb only where Android allows it; asked
+  /// the moment "Urgent" is picked, so the answer is about the choice just made.
+  Future<void> _askForDoNotDisturb() async {
+    if (await widget.policyGranted() || !mounted) return;
+    final open = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Show urgent posts in Do Not Disturb?'),
+        content: const Text(
+          'Urgent rules can break through Do Not Disturb, but Android must allow this '
+          'app to do so. Open the setting now? The rule works either way.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Later'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Open settings'),
+          ),
+        ],
+      ),
+    );
+    if (open ?? false) await widget.openPolicySettings();
   }
 
   Future<void> _delete() async {
@@ -472,7 +481,8 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     final read = chats.length - failed;
     final scope = [
       'from $read channel${read == 1 ? '' : 's'}',
-      if (all.length > chats.length) 'of ${all.length}',
+      if (all.length > chats.length)
+        'of ${all.length} (the first $_dryRunChannels are checked)',
       if (failed > 0) '($failed could not be read)',
     ].join(' ');
     // AI rule: the newest few posts that pass the keywords go to the model, like live.
@@ -524,7 +534,23 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
           ),
           for (final p in hits.take(30))
             ListTile(
-              title: Text(titles[p.chatId] ?? '${p.chatId}'),
+              title: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      titles[p.chatId] ?? '${p.chatId}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    formatDay(
+                      DateTime.fromMillisecondsSinceEpoch(p.date * 1000),
+                    ),
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ],
+              ),
               subtitle: Text(
                 // A post without text is one a rule with no condition matches too.
                 postLabel(p),
@@ -536,6 +562,43 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
       ),
     );
   }
+
+  /// The whole syntax of the text form, which does not fit under the field.
+  void _showSyntaxHelp() => unawaited(
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          children: [
+            Text(
+              'Writing a condition',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            for (final (example, meaning) in const [
+              ('bitcoin', 'the word, wherever it stands'),
+              ('"interest rate"', 'those words next to each other'),
+              ('bitcoin AND etf', 'both have to be there'),
+              ('bitcoin OR btc', 'either one is enough'),
+              ('NOT airdrop', 'the post must not have it'),
+              ('(a OR b) AND c', 'brackets group the parts'),
+              ('~rate', 'also inside longer words, like "rates"'),
+              ('=Fed', 'exactly that spelling, capitals included'),
+            ])
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text(example),
+                subtitle: Text(meaning),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
 
   Future<void> _pickTime(bool from) async {
     final initial = from ? _from : _to;
@@ -582,18 +645,30 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
           children: [
             TextField(
               controller: _name,
-              decoration: const InputDecoration(labelText: 'Name'),
+              decoration: InputDecoration(
+                labelText: 'Name',
+                errorText: _nameError,
+              ),
               textInputAction: TextInputAction.next,
               // The back guard compares the form with how it opened.
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) => setState(() => _nameError = null),
             ),
-            const SizedBox(height: 12),
+            // At the top, where the state of the rule belongs, not under everything.
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Enabled'),
+              subtitle: const Text('Off keeps the rule but stops it notifying'),
+              value: _enabled,
+              onChanged: (v) => setState(() => _enabled = v),
+            ),
+            const SizedBox(height: 4),
             DropdownButtonFormField<int>(
               key: ValueKey('feed-${_feeds.length}-$_feedId'),
               initialValue: _feedId,
               isExpanded: true,
               decoration: InputDecoration(
                 labelText: 'Feed',
+                errorText: _feedError,
                 helperText: _feeds.isEmpty
                     ? 'A rule belongs to a feed: create one first.'
                     : null,
@@ -602,7 +677,10 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                 for (final f in _feeds)
                   DropdownMenuItem<int>(value: f.id, child: Text(f.name)),
               ],
-              onChanged: _setFeed,
+              onChanged: (v) {
+                setState(() => _feedError = null);
+                _setFeed(v);
+              },
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<int?>(
@@ -674,10 +752,15 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                 maxLines: 5,
                 decoration: InputDecoration(
                   hintText: '("bitcoin" OR btc) AND NOT airdrop',
-                  helperText: 'Words or "phrases" joined by AND, OR, NOT, with brackets. ~word also finds it inside longer words; =Word matches the exact case.',
-                  helperMaxLines: 3,
+                  helperText: 'Words or "phrases" joined by AND, OR, NOT, with brackets.',
+                  helperMaxLines: 2,
                   errorText: _textError,
                   errorMaxLines: 3,
+                  suffixIcon: IconButton(
+                    tooltip: 'Syntax',
+                    icon: const Icon(Icons.help_outline),
+                    onPressed: _showSyntaxHelp,
+                  ),
                 ),
                 onChanged: (_) => setState(() => _textError = null),
               )
@@ -724,7 +807,20 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                 ),
               ],
               selected: {_priority},
-              onSelectionChanged: (s) => setState(() => _priority = s.first),
+              onSelectionChanged: (s) {
+                setState(() => _priority = s.first);
+                // Asked here, where the choice is made, instead of at save time.
+                if (s.first == 'urgent') unawaited(_askForDoNotDisturb());
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 6, bottom: 4),
+              child: Text(switch (_priority) {
+                'silent' => 'In the tray only, with no sound and no vibration.',
+                'urgent' =>
+                  'Breaks through Do Not Disturb where Android allows it.',
+                _ => 'The sound and vibration set in Notifications and sounds.',
+              }, style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -756,12 +852,21 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                         ][d - 1],
                       ),
                       selected: _weekdays.contains(d),
-                      onSelected: (on) => setState(
-                        () => on ? _weekdays.add(d) : _weekdays.remove(d),
-                      ),
+                      onSelected: (on) => setState(() {
+                        on ? _weekdays.add(d) : _weekdays.remove(d);
+                        _scheduleError = null;
+                      }),
                     ),
                 ],
               ),
+              if (_scheduleError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    _scheduleError!,
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                ),
               Row(
                 children: [
                   TextButton(
@@ -807,12 +912,6 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                   ),
                 ),
             ],
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Enabled'),
-              value: _enabled,
-              onChanged: (v) => setState(() => _enabled = v),
-            ),
           ],
         ),
       ),
@@ -840,7 +939,7 @@ class _Builder extends StatelessWidget {
     ];
     groups[g].removeAt(t);
     if (groups[g].isEmpty) groups.removeAt(g);
-    if (groups.isEmpty) groups.add([const BuilderTerm(text: '')]);
+    // Nothing left is a rule without a condition, which is a state of its own.
     onChanged(BuilderModel(groups));
   }
 
@@ -861,6 +960,17 @@ class _Builder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (model.groups.isEmpty) {
+      // No blank row with a delete button under a line that says there is no condition.
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          onPressed: _addGroup,
+          icon: const Icon(Icons.add),
+          label: const Text('Add a term'),
+        ),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -944,7 +1054,6 @@ class _TermRowState extends State<_TermRow> {
       FilterChip(
         label: Text(label),
         selected: on,
-        visualDensity: VisualDensity.compact,
         onSelected: (_) => widget.onChanged(toggled()),
       );
 

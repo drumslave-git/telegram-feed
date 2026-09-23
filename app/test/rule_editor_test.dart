@@ -89,6 +89,9 @@ void main() {
         'Crypto alerts',
       );
       await tester.pump();
+      // A new rule has no condition; the first term is added by hand.
+      await tester.tap(find.text('Add a term'));
+      await tester.pump();
       // TextFields in tree order: 0 = name, then one per term; the AI description
       // is there only while "Also ask the AI" is on.
       await tester.enterText(find.byType(TextField).at(1), 'btc');
@@ -248,6 +251,8 @@ void main() {
       await settle(tester);
       await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Hacks');
       await tester.pump();
+      await tester.tap(find.text('Add a term'));
+      await tester.pump();
       await tester.enterText(
         find.widgetWithText(TextField, 'word or phrase'),
         'hack',
@@ -261,12 +266,13 @@ void main() {
       await tester.ensureVisible(find.text('Urgent'));
       await tester.pumpAndSettle();
       await tester.pumpAndSettle();
+      // The question comes with the choice, not at save time.
       await tester.tap(find.text('Urgent').last);
-      await tester.pump();
-      await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
       expect(find.text('Show urgent posts in Do Not Disturb?'), findsOneWidget);
       await tester.tap(find.text('Later'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save'));
       await settle(tester);
       final rule = (await db.allRules()).single;
       expect(rule.priority, 'urgent');
@@ -289,6 +295,8 @@ void main() {
     tall(tester);
     await tester.pumpWidget(editor());
     await settle(tester);
+    await tester.tap(find.text('Add a term'));
+    await tester.pump();
     await tester.enterText(
       find.widgetWithText(TextField, 'word or phrase'),
       'btc',
@@ -394,6 +402,8 @@ void main() {
     tall(tester);
     await tester.pumpWidget(editor());
     await settle(tester);
+    await tester.tap(find.text('Add a term'));
+    await tester.pump();
     await tester.enterText(find.byType(TextField).at(1), 'first');
     await tester.pump();
     await tester.tap(find.text('AND another word'));
@@ -422,10 +432,12 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Builder'));
     await tester.pump();
-    expect(find.widgetWithText(TextField, 'word or phrase'), findsOneWidget);
+    expect(find.text('Add a term'), findsOneWidget);
     expect(find.textContaining('where the cursor is'), findsNothing);
 
     // Terms typed so far go to the text form, rows without words stay behind.
+    await tester.tap(find.text('Add a term'));
+    await tester.pump();
     await tester.enterText(find.byType(TextField).at(1), 'btc');
     await tester.pump();
     await tester.tap(find.text('AND another word'));
