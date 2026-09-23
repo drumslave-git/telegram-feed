@@ -323,12 +323,26 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
               subtitle: hasLeft
                   ? const Text('Left in Telegram; history stays readable')
                   : (s.username == null ? null : Text('@${s.username}')),
-              trailing: IconButton(
-                tooltip: 'Remove',
-                icon: const Icon(Icons.remove_circle_outline),
-                onPressed: () => unawaited(
-                  _removeSource(s, [for (final x in sources) x.chatId]),
-                ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Remove',
+                    icon: const Icon(Icons.remove_circle_outline),
+                    onPressed: () => unawaited(
+                      _removeSource(s, [for (final x in sources) x.chatId]),
+                    ),
+                  ),
+                  // Where to take hold, as on the feeds list: dragging a row by itself
+                  // fights with the tap that opens it.
+                  ReorderableDragStartListener(
+                    index: i,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(Icons.drag_handle),
+                    ),
+                  ),
+                ],
               ),
             );
           },

@@ -82,6 +82,12 @@ void main() {
   Future<void> select(WidgetTester tester, String post) async {
     await tester.longPress(find.text(post));
     await tester.pumpAndSettle();
+    // The sheet scrolls on a short screen, and Select sits under the copy actions.
+    await tester.scrollUntilVisible(
+      find.text('Select'),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.tap(find.text('Select'));
     await tester.pumpAndSettle();
   }

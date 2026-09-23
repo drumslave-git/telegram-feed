@@ -253,29 +253,11 @@ class PostCard extends StatelessWidget {
                   onPick: (emoji, remove) =>
                       Navigator.pop(context, () => onReact!(emoji, remove)),
                 ),
-              if (onOpenInTelegram != null)
-                ListTile(
-                  leading: const Icon(Icons.open_in_new),
-                  title: const Text('Open in Telegram'),
-                  onTap: () => Navigator.pop(context, onOpenInTelegram),
-                ),
               if (onOpenThread != null)
                 ListTile(
                   leading: const Icon(Icons.forum_outlined),
                   title: const Text('Comments'),
                   onTap: () => Navigator.pop(context, onOpenThread),
-                ),
-              if (onShare != null)
-                ListTile(
-                  leading: const Icon(Icons.share_outlined),
-                  title: const Text('Share'),
-                  onTap: () => Navigator.pop(context, onShare),
-                ),
-              if (onSelect != null)
-                ListTile(
-                  leading: const Icon(Icons.checklist),
-                  title: const Text('Select'),
-                  onTap: () => Navigator.pop(context, onSelect),
                 ),
               if (onCopyText != null && item.text.isNotEmpty)
                 ListTile(
@@ -289,11 +271,23 @@ class PostCard extends StatelessWidget {
                   title: const Text('Copy link'),
                   onTap: () => Navigator.pop(context, onCopyLink),
                 ),
+              if (onShare != null)
+                ListTile(
+                  leading: const Icon(Icons.share_outlined),
+                  title: const Text('Share'),
+                  onTap: () => Navigator.pop(context, onShare),
+                ),
               if (onSave != null)
                 ListTile(
                   leading: const Icon(Icons.bookmark_add_outlined),
                   title: const Text('Save to Saved Messages'),
                   onTap: () => Navigator.pop(context, onSave),
+                ),
+              if (onSelect != null)
+                ListTile(
+                  leading: const Icon(Icons.checklist),
+                  title: const Text('Select'),
+                  onTap: () => Navigator.pop(context, onSelect),
                 ),
               if (onAutoplaySettings != null &&
                   item.allPosts.any((p) => p.media is VideoMedia))
@@ -302,6 +296,15 @@ class PostCard extends StatelessWidget {
                   title: const Text('Autoplay and download settings'),
                   onTap: () => Navigator.pop(context, onAutoplaySettings),
                 ),
+              // Last, behind a line: it leaves the app, and it is the rarest of them.
+              if (onOpenInTelegram != null) ...[
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.open_in_new),
+                  title: const Text('Open in Telegram'),
+                  onTap: () => Navigator.pop(context, onOpenInTelegram),
+                ),
+              ],
             ],
           ),
         ),
