@@ -486,6 +486,7 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
             ],
           ),
         ),
+        const SizedBox(height: 8),
         ListTile(
           enabled: textPossible,
           title: const Text('Text posts'),
