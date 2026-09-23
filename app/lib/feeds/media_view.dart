@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -42,7 +43,11 @@ class MediaView extends StatelessWidget {
     final policy = AutoDownloadScope.of(context);
     return switch (media) {
       PhotoMedia(:final sizes) => PhotoView(
-        file: pickPhotoSize(sizes, MediaQuery.sizeOf(context).width),
+        file: pickPhotoSize(
+          sizes,
+          MediaQuery.sizeOf(context).width,
+          pixelRatio: MediaQuery.devicePixelRatioOf(context),
+        ),
         gateway: gateway,
         onTap: onOpen,
         fill: fill,
@@ -116,10 +121,15 @@ class MediaView extends StatelessWidget {
 }
 
 /// Smallest size that is at least as wide as the viewport (or the largest available).
-FileRef pickPhotoSize(List<FileRef> sizes, double viewportWidth) {
-  const dpr = 2.0;
+/// [pixelRatio] is the screen's own, so a dense phone does not get a blurred picture and
+/// a plain one does not download twice what it can show.
+FileRef pickPhotoSize(
+  List<FileRef> sizes,
+  double viewportWidth, {
+  double pixelRatio = 2.0,
+}) {
   for (final s in sizes) {
-    if (s.width >= viewportWidth * dpr) return s;
+    if (s.width >= viewportWidth * pixelRatio) return s;
   }
   return sizes.last;
 }
@@ -133,12 +143,24 @@ class Downloaded extends StatefulWidget {
     required this.builder,
     this.autoStart = true,
     this.placeholder,
+    this.pending,
   });
   final FileRef file;
   final TelegramGateway gateway;
   final Widget Function(BuildContext context, String path) builder;
   final bool autoStart;
   final Widget? placeholder;
+
+  /// Draws the waiting state itself, with the way to start the download, how far it has
+  /// come (null before it starts) and whether it is running. Takes precedence over
+  /// [placeholder]; a picture uses it to offer a proper download badge.
+  final Widget Function(
+    BuildContext context,
+    VoidCallback start,
+    double? progress,
+    bool started,
+  )?
+  pending;
 
   @override
   State<Downloaded> createState() => _DownloadedState();
@@ -241,6 +263,10 @@ class _DownloadedState extends State<Downloaded> {
               ),
       );
     }
+    final pending = widget.pending;
+    if (pending != null) {
+      return pending(context, () => unawaited(start()), _progress, _started);
+    }
     return widget.placeholder ??
         InkWell(
           onTap: _started ? null : start,
@@ -298,6 +324,16 @@ class PhotoView extends StatelessWidget {
               child: Center(child: CircularProgressIndicator()),
             )
           : null,
+      // Photos do not load by themselves on this connection: the whole picture area is
+      // the button, with the size on it, as the official app draws it.
+      pending: auto || !policy.ready
+          ? null
+          : (context, start, progress, started) => _PhotoPending(
+              size: file.size,
+              progress: progress,
+              started: started,
+              onStart: start,
+            ),
       builder: (context, path) => Image.file(
         File(path),
         fit: BoxFit.cover,
@@ -319,6 +355,63 @@ class PhotoView extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The stand-in for a picture that does not load by itself: a tinted box with a round
+/// download badge and the size of the file, which starts the download on a tap.
+class _PhotoPending extends StatelessWidget {
+  const _PhotoPending({
+    required this.size,
+    required this.progress,
+    required this.started,
+    required this.onStart,
+  });
+  final int size;
+  final double? progress;
+  final bool started;
+  final VoidCallback onStart;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: started ? null : onStart,
+    child: ColoredBox(
+      color: Colors.black12,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DecoratedBox(
+              decoration: const BoxDecoration(
+                color: Colors.black45,
+                shape: BoxShape.circle,
+              ),
+              child: SizedBox.square(
+                dimension: 48,
+                child: started
+                    ? Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: CircularProgressIndicator(
+                          value: progress,
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.arrow_downward,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+              ),
+            ),
+            if (size > 0) ...[
+              const SizedBox(height: 6),
+              MediaBadge(formatBytes(size)),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 /// Side of a round video message, as the official app draws one.
@@ -696,12 +789,27 @@ class _AudioViewState extends State<AudioView> {
         subtitle: Text(formatDuration(widget.durationSeconds)),
       );
     }
+    final label = widget.label.isEmpty ? 'Audio' : widget.label;
     return Downloaded(
       file: widget.file,
       gateway: widget.gateway,
+      // The same row while it loads, with the ring where the play button was: the
+      // bubble kept changing shape three times on the way to playing.
+      pending: (context, start, progress, started) => ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: SizedBox.square(
+          dimension: 40,
+          child: Padding(
+            padding: const EdgeInsets.all(6),
+            child: CircularProgressIndicator(value: progress, strokeWidth: 2),
+          ),
+        ),
+        title: Text(label),
+        subtitle: Text(formatDuration(widget.durationSeconds)),
+      ),
       builder: (context, path) => AudioPlayerWidget(
         path: path,
-        label: widget.label.isEmpty ? 'Audio' : widget.label,
+        label: label,
         durationSeconds: widget.durationSeconds,
       ),
     );
@@ -731,14 +839,46 @@ class DocumentView extends StatelessWidget {
       file: file,
       gateway: gateway,
       autoStart: autoStart,
+      pending: (context, start, progress, started) => ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: SizedBox.square(
+          dimension: 40,
+          child: started
+              ? Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 2,
+                  ),
+                )
+              : const Icon(Icons.insert_drive_file_outlined),
+        ),
+        title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text(
+          started
+              ? 'Downloading…'
+              : file.size > 0
+              ? '${formatBytes(file.size)} · tap to download'
+              : 'Tap to download',
+        ),
+        onTap: started ? null : start,
+      ),
       builder: (context, path) => ListTile(
         contentPadding: EdgeInsets.zero,
         leading: const Icon(Icons.insert_drive_file_outlined),
-        title: Text(fileName),
+        title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(
-          'Saved: $path',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          file.size > 0 ? formatBytes(file.size) : 'On this device',
+        ),
+        // The app has no viewer of its own for documents; another app opens it.
+        trailing: IconButton(
+          tooltip: 'Open with…',
+          icon: const Icon(Icons.open_in_new),
+          onPressed: () => unawaited(
+            SharePlus.instance.share(
+              ShareParams(files: [XFile(path, name: fileName)]),
+            ),
+          ),
         ),
       ),
     );
@@ -753,4 +893,18 @@ String formatDuration(int seconds) {
     return '$h:${(m % 60).toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
   return '$m:${s.toString().padLeft(2, '0')}';
+}
+
+/// Bytes as the official app writes them: 12 KB, 3.4 MB.
+String formatBytes(int bytes) {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  var v = bytes.toDouble();
+  var i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return i == 0
+      ? '$bytes B'
+      : '${v.toStringAsFixed(v >= 10 ? 0 : 1)} ${units[i]}';
 }

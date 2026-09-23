@@ -1685,6 +1685,9 @@ class TimelineViewState extends State<TimelineView>
         channel: _titles[item.chatId] ?? '',
         date: item.head.date,
         caption: item.text,
+        // The pictures of one post count among themselves ("2 of 3"), not among the
+        // hundreds the feed holds.
+        postKey: '${item.chatId}:${item.head.messageId}',
       ),
   ];
 

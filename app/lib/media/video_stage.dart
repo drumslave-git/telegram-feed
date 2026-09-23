@@ -1,6 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+
+import '../feeds/open_links.dart';
+
 import 'package:video_player/video_player.dart';
 
 import '../feeds/media_view.dart' show formatDuration;
@@ -386,17 +390,21 @@ class _VideoStageState extends State<VideoStage> {
                     ),
                   ),
                 ),
-                PopupMenuButton<double>(
-                  tooltip: 'Speed',
-                  icon: const Icon(Icons.speed, color: Colors.white),
-                  initialValue: v.playbackSpeed,
-                  onSelected: c.setPlaybackSpeed,
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: 0.5, child: Text('0.5×')),
-                    PopupMenuItem(value: 1.0, child: Text('1×')),
-                    PopupMenuItem(value: 1.5, child: Text('1.5×')),
-                    PopupMenuItem(value: 2.0, child: Text('2×')),
-                  ],
+                // Dark, like the menu beside it: a white card over the black stage.
+                Theme(
+                  data: ThemeData.dark(),
+                  child: PopupMenuButton<double>(
+                    tooltip: 'Speed',
+                    icon: const Icon(Icons.speed, color: Colors.white),
+                    initialValue: v.playbackSpeed,
+                    onSelected: c.setPlaybackSpeed,
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 0.5, child: Text('0.5×')),
+                      PopupMenuItem(value: 1.0, child: Text('1×')),
+                      PopupMenuItem(value: 1.5, child: Text('1.5×')),
+                      PopupMenuItem(value: 2.0, child: Text('2×')),
+                    ],
+                  ),
                 ),
                 IconButton(
                   tooltip: _s.muted ? 'Sound on' : 'Sound off',
@@ -446,12 +454,7 @@ class ViewerCaption extends StatelessWidget {
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.sizeOf(context).height * 0.3,
               ),
-              child: SingleChildScrollView(
-                child: Text(
-                  text,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                ),
-              ),
+              child: SingleChildScrollView(child: _CaptionText(text: text)),
             ),
           ),
         ),
@@ -595,4 +598,69 @@ class _SeekHint extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// The words under a picture, with their links tappable: a caption is the text of a post
+/// and its links lead somewhere, as they do in the timeline.
+class _CaptionText extends StatefulWidget {
+  const _CaptionText({required this.text});
+  final String text;
+
+  @override
+  State<_CaptionText> createState() => _CaptionTextState();
+}
+
+class _CaptionTextState extends State<_CaptionText> {
+  final _recognizers = <TapGestureRecognizer>[];
+
+  static final _url = RegExp(
+    r'(https?://[^\s]+)|(?:^|\s)(t\.me/[^\s]+)',
+    caseSensitive: false,
+  );
+
+  @override
+  void dispose() {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    _recognizers.clear();
+    const style = TextStyle(color: Colors.white, fontSize: 14);
+    final spans = <InlineSpan>[];
+    var at = 0;
+    for (final m in _url.allMatches(widget.text)) {
+      final url = m.group(1) ?? m.group(2)!;
+      final start = widget.text.indexOf(url, m.start);
+      if (start > at) {
+        spans.add(TextSpan(text: widget.text.substring(at, start)));
+      }
+      final target = url.startsWith('http') ? url : 'https://$url';
+      final recognizer = TapGestureRecognizer()
+        ..onTap = () => unawaited(launchFirst([Uri.tryParse(target)]));
+      _recognizers.add(recognizer);
+      spans.add(
+        TextSpan(
+          text: url,
+          style: const TextStyle(
+            color: Color(0xFF8FC7FF),
+            decoration: TextDecoration.underline,
+            decorationColor: Color(0xFF8FC7FF),
+          ),
+          recognizer: recognizer,
+        ),
+      );
+      at = start + url.length;
+    }
+    if (at < widget.text.length) {
+      spans.add(TextSpan(text: widget.text.substring(at)));
+    }
+    return Text.rich(TextSpan(style: style, children: spans));
+  }
 }

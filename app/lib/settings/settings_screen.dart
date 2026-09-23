@@ -368,16 +368,3 @@ class AccountHeader extends StatelessWidget {
     );
   }
 }
-
-String formatBytes(int bytes) {
-  const units = ['B', 'KB', 'MB', 'GB'];
-  var v = bytes.toDouble();
-  var i = 0;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i++;
-  }
-  return i == 0
-      ? '$bytes B'
-      : '${v.toStringAsFixed(v >= 10 ? 0 : 1)} ${units[i]}';
-}

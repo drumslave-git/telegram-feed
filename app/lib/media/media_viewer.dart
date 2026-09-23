@@ -30,12 +30,17 @@ class ViewerDetail {
     required this.channel,
     required this.date,
     this.caption = '',
+    this.postKey = '',
   });
   final String channel;
 
   /// Unix seconds of the post.
   final int date;
   final String caption;
+
+  /// Which post this picture belongs to, so "N of M" counts that post's album and not
+  /// the whole feed. Empty where the caller does not say.
+  final String postKey;
 }
 
 class MediaViewerScreen extends StatefulWidget {
@@ -295,11 +300,32 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     }
   }
 
+  /// "N of M" for the album the picture in front belongs to, or for the whole list when
+  /// it is one post's album on its own. Null when there is nothing to count.
+  String? _counter() {
+    final key = _index < _details.length ? _details[_index].postKey : '';
+    if (key.isEmpty) {
+      return _items.length > 1 && widget.onNeedOlder == null
+          ? '${_index + 1} of ${_items.length}'
+          : null;
+    }
+    var first = _index;
+    var last = _index;
+    while (first > 0 && _details[first - 1].postKey == key) {
+      first--;
+    }
+    while (last + 1 < _details.length && _details[last + 1].postKey == key) {
+      last++;
+    }
+    final total = last - first + 1;
+    return total > 1 ? '${_index - first + 1} of $total' : null;
+  }
+
   /// Near the older end (the last page): ask the timeline for its next page of posts.
   Future<void> _loadOlder() async {
     final ask = widget.onNeedOlder;
     if (ask == null || _loadingOlder || _noMoreOlder) return;
-    _loadingOlder = true;
+    if (mounted) setState(() => _loadingOlder = true);
     try {
       final more = await ask();
       if (!mounted) return;
@@ -313,7 +339,11 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
         _details = widget.onDetails?.call() ?? _details;
       });
     } finally {
-      _loadingOlder = false;
+      if (mounted) {
+        setState(() => _loadingOlder = false);
+      } else {
+        _loadingOlder = false;
+      }
     }
   }
 
@@ -341,10 +371,9 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
           ),
         Text(
           [
-            // One post's album is counted; a feed's pictures, which grow as older ones
-            // load, are not.
-            if (items.length > 1 && widget.onNeedOlder == null)
-              '${_index + 1} of ${items.length}',
+            // Within the post the picture came from: a feed's pictures grow as older
+            // ones load, so counting them all would say "3 of 60".
+            ?_counter(),
             if (detail != null && detail.date > 0)
               formatDay(
                 DateTime.fromMillisecondsSinceEpoch(detail.date * 1000),
@@ -414,6 +443,8 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                   // A tap takes the bar and the words off the picture, as on a video.
                   onTap: () => setState(() => _chrome = !_chrome),
                 ),
+                // A gradient under the bar: white letters on a white sky are unreadable.
+                if (_chrome) const _TopScrim(),
                 if (_chrome) ViewerTopBar(title: title, actions: actions),
                 if (_chrome &&
                     i < _details.length &&
@@ -425,8 +456,41 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
           },
         ),
       ),
+      // The older pages are being fetched: a quiet line at the bottom, so the end of the
+      // feed and a slow connection do not look the same.
+      bottomNavigationBar: _loadingOlder && _index >= items.length - 2
+          ? const SizedBox(
+              height: 3,
+              child: LinearProgressIndicator(minHeight: 3),
+            )
+          : null,
     );
   }
+}
+
+/// The dark fade behind the viewer's top bar, so its white letters hold on any picture.
+class _TopScrim extends StatelessWidget {
+  const _TopScrim();
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: Align(
+      alignment: Alignment.topCenter,
+      child: SizedBox(
+        height: 140 + MediaQuery.paddingOf(context).top,
+        child: const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.black54, Colors.transparent],
+            ),
+          ),
+          child: SizedBox(width: double.infinity),
+        ),
+      ),
+    ),
+  );
 }
 
 /// A video page plays only while it is the one in front; its neighbours, which show while
@@ -577,7 +641,11 @@ class _ZoomablePhotoState extends State<ZoomablePhoto> {
     for (final f in sizes.reversed.skip(1)) {
       if (f.isDownloaded) return f;
     }
-    final picked = pickPhotoSize(sizes, MediaQuery.sizeOf(context).width);
+    final picked = pickPhotoSize(
+      sizes,
+      MediaQuery.sizeOf(context).width,
+      pixelRatio: MediaQuery.devicePixelRatioOf(context),
+    );
     return picked.id == widget.photo.largest.id ? null : picked;
   }
 

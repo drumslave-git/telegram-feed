@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../media/media_viewer.dart';
-import '../settings/settings_screen.dart' show formatBytes;
 import '../widgets/error_state.dart';
 import 'media_view.dart';
 import 'open_links.dart';
@@ -308,9 +308,17 @@ class MediaTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final media = post.media;
     final scheme = Theme.of(context).colorScheme;
+    // A play arrow here used to promise a video even for a poll or a sticker.
     final empty = ColoredBox(
       color: scheme.surfaceContainerHighest,
-      child: const Center(child: Icon(Icons.play_arrow)),
+      child: Center(
+        child: Icon(
+          media is VideoMedia
+              ? Icons.play_arrow
+              : Icons.image_not_supported_outlined,
+          color: scheme.onSurfaceVariant,
+        ),
+      ),
     );
     Widget picture;
     switch (media) {
@@ -335,23 +343,37 @@ class MediaTile extends StatelessWidget {
       default:
         picture = empty;
     }
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          picture,
-          if (media is VideoMedia)
-            Positioned(
-              left: 4,
-              bottom: 4,
-              child: MediaBadge(
-                media.isAnimation
-                    ? 'GIF'
-                    : formatDuration(media.durationSeconds),
+    return Semantics(
+      label: switch (media) {
+        VideoMedia(:final isAnimation, :final durationSeconds) =>
+          isAnimation
+              ? 'GIF, ${formatDay(DateTime.fromMillisecondsSinceEpoch(post.date * 1000))}'
+              : 'Video ${formatDuration(durationSeconds)}, '
+                    '${formatDay(DateTime.fromMillisecondsSinceEpoch(post.date * 1000))}',
+        PhotoMedia() =>
+          'Photo, ${formatDay(DateTime.fromMillisecondsSinceEpoch(post.date * 1000))}',
+        _ =>
+          'Post of ${formatDay(DateTime.fromMillisecondsSinceEpoch(post.date * 1000))}',
+      },
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            picture,
+            if (media is VideoMedia)
+              Positioned(
+                left: 4,
+                bottom: 4,
+                child: MediaBadge(
+                  media.isAnimation
+                      ? 'GIF'
+                      : formatDuration(media.durationSeconds),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -374,24 +396,53 @@ class FileRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final day = DateTime.fromMillisecondsSinceEpoch(post.date * 1000);
+    return Downloaded(
+      file: media.file,
+      gateway: gateway,
+      autoStart: false,
+      // The row itself is the button, and it keeps its shape while the file comes.
+      pending: (context, start, progress, started) => _fileTile(
+        context,
+        day: day,
+        trailing: started
+            ? SizedBox.square(
+                dimension: 24,
+                child: CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Icon(Icons.download_outlined),
+        onTap: started ? null : start,
+      ),
+      builder: (context, path) => _fileTile(
+        context,
+        day: day,
+        trailing: IconButton(
+          tooltip: 'Open with…',
+          icon: const Icon(Icons.open_in_new),
+          onPressed: () => unawaited(
+            SharePlus.instance.share(
+              ShareParams(files: [XFile(path, name: media.fileName)]),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _fileTile(
+    BuildContext context, {
+    required DateTime day,
+    required Widget trailing,
+    VoidCallback? onTap,
+  }) {
     return ListTile(
+      onTap: onTap,
       leading: const Icon(Icons.insert_drive_file_outlined, size: 32),
       title: Text(media.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
-      isThreeLine: true,
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('${formatBytes(media.file.size)} · ${formatDay(day)}'),
-          // The download control of the timeline; it has the row's width here.
-          Downloaded(
-            file: media.file,
-            gateway: gateway,
-            autoStart: false,
-            builder: (context, path) =>
-                Text('Saved', style: Theme.of(context).textTheme.labelMedium),
-          ),
-        ],
-      ),
+      subtitle: Text('${formatBytes(media.file.size)} · ${formatDay(day)}'),
+      trailing: trailing,
     );
   }
 }

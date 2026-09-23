@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../media/auto_download.dart';
-import 'settings_screen.dart' show formatBytes;
+import '../feeds/media_view.dart' show formatBytes;
 import 'settings_tiles.dart';
 import '../widgets/destructive_button.dart';
 

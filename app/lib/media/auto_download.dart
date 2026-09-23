@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import '../settings/settings_screen.dart' show formatBytes;
+import '../feeds/media_view.dart' show formatBytes;
 
 /// What the phone is connected to. Metered Wi-Fi counts as [mobile]: the reader who limits
 /// mobile data means the bill, not the radio. [roaming] is mobile data on a network abroad.

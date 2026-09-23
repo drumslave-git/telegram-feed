@@ -10,6 +10,7 @@ import 'package:telegram_feed/settings/data_storage_screen.dart';
 import 'package:telegram_feed/settings/notifications_screen.dart';
 import 'package:telegram_feed/settings/privacy_screen.dart';
 import 'package:telegram_feed/settings/read_aloud_screen.dart';
+import 'package:telegram_feed/feeds/media_view.dart' show formatBytes;
 import 'package:telegram_feed/settings/settings_screen.dart';
 import 'package:telegram_feed/widgets/destructive_button.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';

@@ -520,8 +520,8 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('Tap to download'), findsOneWidget);
-    await tester.tap(find.text('Tap to download'));
+    expect(find.textContaining('tap to download'), findsOneWidget);
+    await tester.tap(find.textContaining('tap to download'));
     await tester.pump();
     expect(gw.completers.keys, [6]);
     expect(find.text('Downloading…'), findsOneWidget);

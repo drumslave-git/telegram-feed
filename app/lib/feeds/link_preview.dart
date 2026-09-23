@@ -139,7 +139,11 @@ class LinkPreviewCard extends StatelessWidget {
     required bool wide,
   }) {
     final file = wide
-        ? pickPhotoSize(photo.sizes, MediaQuery.sizeOf(context).width)
+        ? pickPhotoSize(
+            photo.sizes,
+            MediaQuery.sizeOf(context).width,
+            pixelRatio: MediaQuery.devicePixelRatioOf(context),
+          )
         : photo.sizes.first;
     final picture = PhotoView(
       file: file,

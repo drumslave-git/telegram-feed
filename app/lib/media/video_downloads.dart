@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import '../settings/settings_screen.dart' show formatBytes;
+import '../feeds/media_view.dart' show formatBytes;
 import 'video_sessions.dart';
 import 'video_stage.dart';
 

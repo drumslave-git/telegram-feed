@@ -207,7 +207,7 @@ void main() {
       );
       await tester.pumpWidget(app(gw, picture));
       await settle(tester);
-      expect(find.text('Tap to download'), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_downward), findsOneWidget);
       await unmount(tester);
 
       // Photos have no size limit: a big one loads by itself.
@@ -218,7 +218,7 @@ void main() {
       );
       await tester.pumpWidget(app(gw, picture));
       await settle(tester);
-      expect(find.text('Tap to download'), findsNothing);
+      expect(find.byIcon(Icons.arrow_downward), findsNothing);
       await unmount(tester);
 
       // The whole connection off.
@@ -229,7 +229,7 @@ void main() {
       );
       await tester.pumpWidget(app(gw, picture));
       await settle(tester);
-      expect(find.text('Tap to download'), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_downward), findsOneWidget);
       await unmount(tester);
     });
 
@@ -305,7 +305,7 @@ void main() {
         app(gw, MediaView(media: doc(4, 2 * _mb), gateway: gw)),
       );
       await settle(tester);
-      expect(find.text('Tap to download'), findsOneWidget);
+      expect(find.textContaining('tap to download'), findsOneWidget);
       await unmount(tester);
     });
   });
