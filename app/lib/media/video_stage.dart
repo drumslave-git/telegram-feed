@@ -424,27 +424,32 @@ class ViewerCaption extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Align(
     alignment: Alignment.bottomCenter,
-    child: DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.bottomCenter,
-          end: Alignment.topCenter,
-          colors: [Colors.black87, Colors.transparent],
+    // The band lies across the picture: one line of words would otherwise sit in the
+    // middle of the screen on a dark patch of its own.
+    child: SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [Colors.black87, Colors.transparent],
+          ),
         ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(16, 24, 16, 12 + bottomInset),
-          child: ConstrainedBox(
-            // A long post scrolls inside the band instead of covering the picture.
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(context).height * 0.3,
-            ),
-            child: SingleChildScrollView(
-              child: Text(
-                text,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 24, 16, 12 + bottomInset),
+            child: ConstrainedBox(
+              // A long post scrolls inside the band instead of covering the picture.
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.3,
+              ),
+              child: SingleChildScrollView(
+                child: Text(
+                  text,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                ),
               ),
             ),
           ),
