@@ -48,7 +48,13 @@ void main() {
     );
   });
 
-  tearDown(() => dir.deleteSync(recursive: true));
+  tearDown(() {
+    try {
+      dir.deleteSync(recursive: true);
+    } on FileSystemException {
+      // Windows holds on to a picture the viewer showed until the run ends.
+    }
+  });
 
   Future<void> settle(WidgetTester tester) => tester.runAsync(() async {
     for (var i = 0; i < 3; i++) {
@@ -154,7 +160,7 @@ void main() {
   testWidgets('the viewer names the channel, the day, and can share and save', (
     tester,
   ) async {
-    var shared = -1;
+    final shared = <String>[];
     var saved = -1;
     await tester.pumpWidget(
       MaterialApp(
@@ -162,7 +168,7 @@ void main() {
           builder: (context) => TextButton(
             onPressed: () => MediaViewerScreen.open(
               context,
-              items: const [
+              items: [
                 PhotoMedia(
                   sizes: [
                     FileRef(
@@ -171,6 +177,7 @@ void main() {
                       size: 10,
                       width: 90,
                       height: 90,
+                      localPath: '${dir.path}/p.png',
                     ),
                   ],
                 ),
@@ -183,8 +190,9 @@ void main() {
                   caption: 'what the post said',
                 ),
               ],
-              onShare: (i) => shared = i,
               onSave: (i) => saved = i,
+              share: (path, {required mimeType}) async =>
+                  shared.add('$path $mimeType'),
             ),
             child: const Text('open'),
           ),
@@ -196,6 +204,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('Alpha News'), findsOneWidget);
+    expect(find.text('what the post said'), findsOneWidget);
+
+    // A tap takes the bar and the words off the picture, and another brings them back.
+    await tester.tap(find.byType(ZoomablePhoto));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Alpha News'), findsNothing);
+    expect(find.text('what the post said'), findsNothing);
+    await tester.tap(find.byType(ZoomablePhoto));
+    await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('what the post said'), findsOneWidget);
     // One picture: no counter, but the day of the post.
     expect(find.textContaining('of 1'), findsNothing);
@@ -211,9 +228,11 @@ void main() {
     expect(lines, hasLength(2));
     expect(lines.every((t) => t.maxLines == 1), isTrue);
 
+    // Share hands the picture itself to the system sheet, not the post's words.
     await tester.tap(find.byTooltip('Share'));
     await tester.pump();
-    expect(shared, 0);
+    await tester.pump();
+    expect(shared, ['${dir.path}/p.png image/jpeg']);
 
     // Saving is behind the three dots, so that the bar fits a phone.
     expect(find.text('Save to Saved Messages'), findsNothing);
@@ -224,6 +243,99 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(saved, 0);
+    await unmount(tester);
+  });
+
+  testWidgets('sharing a video that is not on the device says so', (
+    tester,
+  ) async {
+    final shared = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => MediaViewerScreen.open(
+              context,
+              items: const [
+                VideoMedia(
+                  file: FileRef(
+                    id: 5,
+                    remoteId: 'r5',
+                    size: 100,
+                    width: 640,
+                    height: 360,
+                  ),
+                  durationSeconds: 30,
+                ),
+              ],
+              gateway: gw,
+              share: (path, {required mimeType}) async =>
+                  shared.add('$path $mimeType'),
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await settle(tester);
+
+    await tester.tap(find.byTooltip('Share'));
+    await tester.pump();
+    await tester.pump();
+    expect(shared, isEmpty);
+    expect(find.text('Download the video first to share it.'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets("a video's words go off the picture with its controls", (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => MediaViewerScreen.open(
+              context,
+              items: const [
+                VideoMedia(
+                  file: FileRef(
+                    id: 6,
+                    remoteId: 'r6',
+                    size: 100,
+                    width: 640,
+                    height: 360,
+                  ),
+                  durationSeconds: 30,
+                ),
+              ],
+              gateway: gw,
+              details: const [
+                ViewerDetail(
+                  channel: 'Alpha News',
+                  date: 1700000000,
+                  caption: 'what the post said',
+                ),
+              ],
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await settle(tester);
+    expect(find.text('what the post said'), findsOneWidget);
+
+    // Beside the play button, on the picture itself.
+    await tester.tapAt(const Offset(150, 200));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('what the post said'), findsNothing);
+    expect(find.text('Alpha News'), findsNothing);
     await unmount(tester);
   });
 }

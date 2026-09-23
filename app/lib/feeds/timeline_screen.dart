@@ -1667,12 +1667,6 @@ class TimelineViewState extends State<TimelineView>
       ),
   ];
 
-  void _viewerShare(int index) {
-    if (index < _viewerOwners.length) {
-      unawaited(_share(_viewerOwners[index]));
-    }
-  }
-
   void _viewerSave(int index) {
     if (index < _viewerOwners.length) {
       unawaited(_save(_viewerOwners[index]));
@@ -1951,7 +1945,6 @@ class TimelineViewState extends State<TimelineView>
                 onViewerMedia: _viewerMedia,
                 onMoreViewerMedia: _moreViewerMedia,
                 onViewerDetails: _viewerDetails,
-                onViewerShare: _viewerShare,
                 onViewerSave: _viewerSave,
                 onSelect: () => toggleSelected(item),
                 selecting: _selected.isNotEmpty,

@@ -151,7 +151,6 @@ class PostCard extends StatelessWidget {
     this.onViewerMedia,
     this.onMoreViewerMedia,
     this.onViewerDetails,
-    this.onViewerShare,
     this.onViewerSave,
   });
   final TimelineItem item;
@@ -216,8 +215,7 @@ class PostCard extends StatelessWidget {
   /// The channel, the day and the caption of each item in the viewer.
   final List<ViewerDetail> Function()? onViewerDetails;
 
-  /// Share and save from inside the viewer, by the index of the picture.
-  final void Function(int index)? onViewerShare;
+  /// Saving from inside the viewer, by the index of the picture.
   final void Function(int index)? onViewerSave;
 
   bool get _hasMenu =>
@@ -331,7 +329,6 @@ class PostCard extends StatelessWidget {
       onViewerMedia: onViewerMedia,
       onMoreViewerMedia: onMoreViewerMedia,
       onViewerDetails: onViewerDetails,
-      onViewerShare: onViewerShare,
       onViewerSave: onViewerSave,
     );
     // The bubble has the row to itself: the channel's photo sits in its title line and
@@ -609,7 +606,6 @@ class _Bubble extends StatelessWidget {
     required this.onViewerMedia,
     required this.onMoreViewerMedia,
     required this.onViewerDetails,
-    required this.onViewerShare,
     required this.onViewerSave,
   });
   final TimelineItem item;
@@ -628,7 +624,6 @@ class _Bubble extends StatelessWidget {
   final List<Media> Function()? onViewerMedia;
   final Future<List<Media>> Function()? onMoreViewerMedia;
   final List<ViewerDetail> Function()? onViewerDetails;
-  final void Function(int index)? onViewerShare;
   final void Function(int index)? onViewerSave;
 
   static const _side = 10.0;
@@ -669,7 +664,6 @@ class _Bubble extends StatelessWidget {
         onNeedOlder: whole ? onMoreViewerMedia : null,
         details: whole ? onViewerDetails?.call() ?? const [] : const [],
         onDetails: whole ? onViewerDetails : null,
-        onShare: whole ? onViewerShare : null,
         onSave: whole ? onViewerSave : null,
       );
     }

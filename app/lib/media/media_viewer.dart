@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../feeds/media_view.dart' show Downloaded, pickPhotoSize;
@@ -45,10 +46,10 @@ class MediaViewerScreen extends StatefulWidget {
     this.initialIndex = 0,
     this.onNeedOlder,
     this.details = const [],
-    this.onShare,
     this.onSave,
     this.onDetails,
     this.gallery = const Gallery(),
+    this.share = shareFileWithSystemSheet,
   });
 
   /// [PhotoMedia] and [VideoMedia] only, see [viewable].
@@ -63,9 +64,20 @@ class MediaViewerScreen extends StatefulWidget {
   /// The channel, the time and the caption of each item; empty where the caller has none.
   final List<ViewerDetail> details;
 
-  /// Share and save the post the item at that index belongs to.
-  final void Function(int index)? onShare;
+  /// Forwards the post the item at that index belongs to into Saved Messages.
   final void Function(int index)? onSave;
+
+  /// Opens the system share sheet with the file itself (tests inject a recorder).
+  final Future<void> Function(String path, {required String mimeType}) share;
+
+  static Future<void> shareFileWithSystemSheet(
+    String path, {
+    required String mimeType,
+  }) async {
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(path, mimeType: mimeType)]),
+    );
+  }
 
   /// The details again, after more items were loaded.
   final List<ViewerDetail> Function()? onDetails;
@@ -87,10 +99,11 @@ class MediaViewerScreen extends StatefulWidget {
     int initialIndex = 0,
     Future<List<Media>> Function()? onNeedOlder,
     List<ViewerDetail> details = const [],
-    void Function(int index)? onShare,
     void Function(int index)? onSave,
     List<ViewerDetail> Function()? onDetails,
     Gallery gallery = const Gallery(),
+    Future<void> Function(String path, {required String mimeType}) share =
+        shareFileWithSystemSheet,
   }) => Navigator.of(context, rootNavigator: true).push(
     PageRouteBuilder<void>(
       // The timeline shows through while the page is dragged away.
@@ -101,10 +114,10 @@ class MediaViewerScreen extends StatefulWidget {
         initialIndex: initialIndex,
         onNeedOlder: onNeedOlder,
         details: details,
-        onShare: onShare,
         onSave: onSave,
         onDetails: onDetails,
         gallery: gallery,
+        share: share,
       ),
       transitionsBuilder: (_, animation, _, child) =>
           FadeTransition(opacity: animation, child: child),
@@ -131,6 +144,10 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
 
   /// Paging and swipe-to-close are off while a page is zoomed in, so a drag pans it instead.
   bool _zoomed = false;
+
+  /// Whether the top bar and the caption are over a picture; a video's own controls carry
+  /// them there.
+  bool _chrome = true;
 
   @override
   void initState() {
@@ -167,10 +184,10 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
         initialIndex: index,
         onNeedOlder: w.onNeedOlder,
         details: _details,
-        onShare: w.onShare,
         onSave: w.onSave,
         onDetails: w.onDetails,
         gallery: w.gallery,
+        share: w.share,
       ),
     );
     Navigator.of(context).maybePop();
@@ -188,18 +205,73 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     if (zoomed != _zoomed) setState(() => _zoomed = zoomed);
   }
 
-  /// Puts the picture or the video of the page in front into the phone's gallery. The file
-  /// is downloaded first if it is not there yet, as the download button would.
-  Future<void> _saveToGallery() async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
+  /// The file of the page in front, and whether it is a video.
+  ({FileRef file, bool video})? _current() {
     final item = _index < _items.length ? _items[_index] : null;
     final file = switch (item) {
       PhotoMedia(:final sizes) => sizes.isEmpty ? null : sizes.last,
       VideoMedia(:final file) => file,
       _ => null,
     };
-    if (file == null) return;
-    final video = item is VideoMedia;
+    return file == null ? null : (file: file, video: item is VideoMedia);
+  }
+
+  /// The whole file in Telegram's cache, or null when it is not there. A post carries the
+  /// [FileRef] of the time it was loaded, so TDLib is asked how much of the file it has by
+  /// now; a complete file answers with its path at once.
+  Future<String?> _fileOnDisk(FileRef file) async {
+    if (file.isDownloaded) return file.localPath;
+    if (file.size <= 0) return null;
+    if (await widget.gateway.downloadedPrefix(file.id, 0) < file.size) {
+      return null;
+    }
+    return (await widget.gateway.download(file)).localPath;
+  }
+
+  /// Shares the picture or the video itself, not the post's words. A video is only shared
+  /// once it is on the device: sharing does not start an 800 MB download behind the
+  /// reader's back, it says what is missing and offers to fetch it.
+  Future<void> _share() async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final current = _current();
+    if (current == null) return;
+    final (:file, :video) = current;
+    try {
+      final path = video
+          ? await _fileOnDisk(file)
+          : (await widget.gateway.download(file)).localPath;
+      if (!mounted) return;
+      if (path == null) {
+        messenger?.showSnackBar(
+          video
+              ? SnackBar(
+                  content: const Text('Download the video first to share it.'),
+                  action: SnackBarAction(
+                    label: 'Download',
+                    onPressed: () => unawaited(
+                      VideoDownloads.of(widget.gateway).start(file),
+                    ),
+                  ),
+                )
+              : const SnackBar(
+                  content: Text('Cannot share: the file did not arrive'),
+                ),
+        );
+        return;
+      }
+      await widget.share(path, mimeType: video ? 'video/mp4' : 'image/jpeg');
+    } on Object catch (e) {
+      messenger?.showSnackBar(SnackBar(content: Text('Cannot share: $e')));
+    }
+  }
+
+  /// Puts the picture or the video of the page in front into the phone's gallery. The file
+  /// is downloaded first if it is not there yet, as the download button would.
+  Future<void> _saveToGallery() async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final current = _current();
+    if (current == null) return;
+    final (:file, :video) = current;
     try {
       final ready = file.localPath != null
           ? file
@@ -293,13 +365,12 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
       ViewerAction('Save to gallery', () => unawaited(_saveToGallery())),
     ];
     final actions = [
-      if (widget.onShare != null)
-        IconButton(
-          tooltip: 'Share',
-          color: Colors.white,
-          icon: const Icon(Icons.share),
-          onPressed: () => widget.onShare!(_index),
-        ),
+      IconButton(
+        tooltip: 'Share',
+        color: Colors.white,
+        icon: const Icon(Icons.share),
+        onPressed: () => unawaited(_share()),
+      ),
       ViewerMenu(actions: menu),
     ];
     return Scaffold(
@@ -340,9 +411,13 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                   photo: photo,
                   gateway: widget.gateway,
                   onZoomChanged: _onZoom,
+                  // A tap takes the bar and the words off the picture, as on a video.
+                  onTap: () => setState(() => _chrome = !_chrome),
                 ),
-                ViewerTopBar(title: title, actions: actions),
-                if (i < _details.length && _details[i].caption.isNotEmpty)
+                if (_chrome) ViewerTopBar(title: title, actions: actions),
+                if (_chrome &&
+                    i < _details.length &&
+                    _details[i].caption.isNotEmpty)
                   ViewerCaption(text: _details[i].caption),
               ],
             ),
@@ -470,10 +545,14 @@ class ZoomablePhoto extends StatefulWidget {
     required this.photo,
     required this.gateway,
     required this.onZoomChanged,
+    this.onTap,
   });
   final PhotoMedia photo;
   final TelegramGateway gateway;
   final ValueChanged<bool> onZoomChanged;
+
+  /// A single tap on the picture, which shows or hides the viewer's chrome.
+  final VoidCallback? onTap;
 
   @override
   State<ZoomablePhoto> createState() => _ZoomablePhotoState();
@@ -511,6 +590,7 @@ class _ZoomablePhotoState extends State<ZoomablePhoto> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onTap: widget.onTap,
       onDoubleTapDown: (d) => _doubleTapAt = d.localPosition,
       onDoubleTap: () => _transform.toggleZoom(_doubleTapAt),
       child: InteractiveViewer(

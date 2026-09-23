@@ -10,6 +10,9 @@ import 'zoom.dart';
 const _seekStep = Duration(seconds: 10);
 const _holdSpeed = 2.0;
 
+/// The height of the row with the scrubber, which the caption stays above.
+const _barHeight = 48.0;
+
 /// The session's frames at the video's own aspect ratio.
 class VideoPicture extends StatelessWidget {
   const VideoPicture(this.controller, {super.key});
@@ -272,7 +275,12 @@ class _VideoStageState extends State<VideoStage> {
           // Leaving must work while the video still loads, too.
           if (!ready || _controls)
             ViewerTopBar(title: widget.title, actions: widget.actions),
-          if (widget.caption.isNotEmpty) ViewerCaption(text: widget.caption),
+          // The words of the post go with the controls: a tap takes both off the picture.
+          if (widget.caption.isNotEmpty && (!ready || _controls))
+            ViewerCaption(
+              text: widget.caption,
+              bottomInset: ready ? _barHeight : 0,
+            ),
         ],
       ),
     );
@@ -407,8 +415,11 @@ class _VideoStageState extends State<VideoStage> {
 /// The words of the post under the picture, over a dark band so they stay readable, as the
 /// official app shows a caption in its viewer.
 class ViewerCaption extends StatelessWidget {
-  const ViewerCaption({super.key, required this.text});
+  const ViewerCaption({super.key, required this.text, this.bottomInset = 0});
   final String text;
+
+  /// Room under the words for the player's bar, so the two never lie on each other.
+  final double bottomInset;
 
   @override
   Widget build(BuildContext context) => Align(
@@ -424,11 +435,17 @@ class ViewerCaption extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-          child: SingleChildScrollView(
-            child: Text(
-              text,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+          padding: EdgeInsets.fromLTRB(16, 24, 16, 12 + bottomInset),
+          child: ConstrainedBox(
+            // A long post scrolls inside the band instead of covering the picture.
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.3,
+            ),
+            child: SingleChildScrollView(
+              child: Text(
+                text,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+              ),
             ),
           ),
         ),

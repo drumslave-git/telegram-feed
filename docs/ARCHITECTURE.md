@@ -252,6 +252,10 @@ The viewer (`MediaViewerScreen`) pages through every picture and video the timel
 
 The top bar (`ViewerTopBar`) holds the back arrow, the channel and the day on one line each, and then the buttons: on a video the download ring while a download runs and the picture-in-picture button, then Share and the three dots. Everything else is behind the dots (`ViewerMenu`, dark whatever theme the app is in): Download or Cancel download with the file's size, Save to Saved Messages, Save to gallery. The lines are built when the menu opens, so each says what it does at that moment.
 
+Share hands the picture or the video itself to the system sheet (`share`, `share_plus` with the file), not the post's words. A video is shared only once the whole file is in Telegram's cache — the viewer asks TDLib for the file's downloaded prefix, because the post's `FileRef` is as old as the post — and otherwise says "Download the video first to share it." with a Download button on the snackbar. A picture is downloaded first, as Save to gallery does. Sharing a post's words and its link is the timeline's Share, in the row's menu and in the selection bar.
+
+The top bar and the caption go together: a tap on a picture puts both away and brings them back, and on a video they follow the player's controls, which also hide by themselves while it plays. The caption (`ViewerCaption`) stands above the player's bar and scrolls inside at most a third of the screen.
+
 "Save to gallery" goes through the `tf/gallery` method channel: the Kotlin side inserts the file into `MediaStore` under `Pictures/TG Feed` or `Movies/TG Feed` (no permission needed for the app's own file on Android 10 and later) and answers with its uri. The file is downloaded first when the cache does not have it.
 
 ### 5.14 Automatic downloads and autoplay
