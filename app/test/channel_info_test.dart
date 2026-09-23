@@ -226,7 +226,7 @@ void main() {
     await settle(tester);
     expect(find.text('Alpha News'), findsOneWidget); // the Channels tab
 
-    await tester.tap(find.text('Media'));
+    await tester.tap(find.text('Shared media'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     await tester.runAsync(
@@ -248,7 +248,7 @@ void main() {
       ),
     );
     await settle(tester);
-    await tester.tap(find.text('Media'));
+    await tester.tap(find.text('Media')); // back to the first inner tab
     await settle(tester);
     expect(find.byType(MediaTile), findsOneWidget);
 

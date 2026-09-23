@@ -84,29 +84,32 @@ void main() {
     // On by default, including for a filter written before the option existed.
     expect(FeedFilter.decode('{"kinds":["video"]}'), videos);
     expect(FeedFilter.decode(parts.encode()), parts);
-    expect(parts.describe(), 'video · matching parts only');
+    expect(parts.describe(), 'videos · matching parts only');
     // Unchecked with nothing else set hides nothing, but the box stays unchecked.
     final bare = FeedFilter.none.copyWith(wholePost: false);
     expect(bare.describe(), 'Everything');
     expect(FeedFilter.decode(bare.encode()), bare);
   });
 
-  test('JSON round trip, unknown values ignored, broken JSON shows everything', () {
-    const f = FeedFilter(
-      media: MediaPresence.withMedia,
-      kinds: {MediaKind.video, MediaKind.photo},
-      minVideoSeconds: 120,
-      minTextLength: 10,
-    );
-    expect(FeedFilter.decode(f.encode()), f);
-    expect(
-      FeedFilter.decode('{"media":"holograms","kinds":["video","smell"]}'),
-      const FeedFilter(kinds: {MediaKind.video}),
-    );
-    expect(FeedFilter.decode('not json'), FeedFilter.none);
-    expect(
-      f.describe(),
-      'with media · photo, video · videos from 2 min · text from 10 characters',
-    );
-  });
+  test(
+    'JSON round trip, unknown values ignored, broken JSON shows everything',
+    () {
+      const f = FeedFilter(
+        media: MediaPresence.withMedia,
+        kinds: {MediaKind.video, MediaKind.photo},
+        minVideoSeconds: 120,
+        minTextLength: 10,
+      );
+      expect(FeedFilter.decode(f.encode()), f);
+      expect(
+        FeedFilter.decode('{"media":"holograms","kinds":["video","smell"]}'),
+        const FeedFilter(kinds: {MediaKind.video}),
+      );
+      expect(FeedFilter.decode('not json'), FeedFilter.none);
+      expect(
+        f.describe(),
+        'with media · photos, videos · videos from 2 min · text from 10 characters',
+      );
+    },
+  );
 }

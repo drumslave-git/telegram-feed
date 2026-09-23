@@ -6,8 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../home/channel_list.dart' show ChannelAvatar, FeedTags;
+import 'post_card.dart' show formatCount;
 import '../rules/rules_screen.dart' show RuleList, openRuleEditor;
 import '../widgets/destructive_button.dart';
+import '../widgets/empty_state.dart';
 import 'shared_media.dart';
 
 /// The feed's own info screen: its channels (add from a searchable picker, remove,
@@ -46,12 +48,44 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
       .watchSourceChannels(widget.feedId);
   late final Stream<Feed?> _feedStream = widget.db.watchFeed(widget.feedId);
 
-  /// Channels, rules, then the media tabs.
+  /// Channels, rules, and the media of every channel of the feed.
   late final TabController _tab = TabController(
-    length: SharedMediaTabs.kinds.length + 2,
+    length: 3,
     initialIndex: widget.initialTab,
     vsync: this,
   )..addListener(() => setState(() {}));
+
+  /// Renames the feed from the screen that carries its name in the title.
+  Future<void> _rename() async {
+    final feed = await widget.db.feedById(widget.feedId);
+    if (!mounted || feed == null) return;
+    final ctl = TextEditingController(text: feed.name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename feed'),
+        content: TextField(
+          controller: ctl,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Name'),
+          onSubmitted: (v) => Navigator.pop(context, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, ctl.text.trim()),
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+    if (name != null && name.isNotEmpty) {
+      await widget.db.renameFeed(widget.feedId, name);
+    }
+  }
 
   @override
   void dispose() {
@@ -99,30 +133,40 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
         final chatIds = [for (final s in sources) s.chatId];
         return Scaffold(
           appBar: AppBar(
-            title: FutureBuilder<FeedWithSources?>(
-              future: widget.db.feedWithSources(widget.feedId),
-              builder: (context, s) =>
-                  Text(s.data == null ? 'Feed' : 'Edit ${s.data!.feed.name}'),
+            // The feed's own stream, not a future built here: the title neither flashes
+            // "Feed" on every rebuild nor keeps the old name after a rename.
+            title: StreamBuilder<Feed?>(
+              stream: _feedStream,
+              builder: (context, s) => Text(s.data?.name ?? 'Feed'),
             ),
+            actions: [
+              IconButton(
+                tooltip: 'Rename',
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: () => unawaited(_rename()),
+              ),
+            ],
             bottom: TabBar(
               controller: _tab,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              tabs: [
-                const Tab(text: 'Channels'),
-                const Tab(text: 'Rules'),
-                for (final (label, _) in SharedMediaTabs.kinds)
-                  Tab(text: label),
+              // Three tabs fit a phone; the five kinds of media live inside the last one,
+              // where the official app keeps them too.
+              tabs: const [
+                Tab(text: 'Channels'),
+                Tab(text: 'Rules'),
+                Tab(text: 'Shared media'),
               ],
             ),
           ),
           // Adding a channel belongs to the list of channels, a new rule to the rules.
           floatingActionButton: switch (_tab.index) {
-            FeedEditorScreen.channelsTab => FloatingActionButton.extended(
-              onPressed: () => _pick(sources),
-              icon: const Icon(Icons.add),
-              label: const Text('Add channel'),
-            ),
+            // While the feed is empty its own empty state carries the button, so the
+            // same words do not appear twice on one screen.
+            FeedEditorScreen.channelsTab when sources.isNotEmpty =>
+              FloatingActionButton.extended(
+                onPressed: () => _pick(sources),
+                icon: const Icon(Icons.add),
+                label: const Text('Add channel'),
+              ),
             FeedEditorScreen.rulesTab => FloatingActionButton.extended(
               onPressed: () => openRuleEditor(
                 context,
@@ -144,37 +188,20 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
                 gateway: widget.gateway,
                 feedId: widget.feedId,
               ),
-              for (final (label, kind) in SharedMediaTabs.kinds)
-                if (chatIds.isEmpty)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Text(
-                        'No channels yet.',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  )
-                else
-                  StreamBuilder<Feed?>(
-                    stream: _feedStream,
-                    builder: (context, feedSnap) {
-                      // The feed shows the same here as in its timeline; an edited filter
-                      // (or another channel) starts the tab's search over.
-                      final filter = FeedFilter.decode(
-                        feedSnap.data?.filterJson,
-                      );
-                      return SharedMediaTab(
-                        key: ValueKey(
-                          '$label:${chatIds.join(",")}:${filter.encode()}',
-                        ),
-                        gateway: widget.gateway,
-                        chatIds: chatIds,
-                        kind: kind,
-                        filter: filter,
-                      );
-                    },
-                  ),
+              StreamBuilder<Feed?>(
+                stream: _feedStream,
+                builder: (context, feedSnap) {
+                  // The feed shows the same here as in its timeline; an edited filter
+                  // (or another channel) starts the tabs over.
+                  final filter = FeedFilter.decode(feedSnap.data?.filterJson);
+                  return SharedMediaTabs(
+                    key: ValueKey('${chatIds.join(",")}:${filter.encode()}'),
+                    gateway: widget.gateway,
+                    chatIds: chatIds,
+                    filter: filter,
+                  );
+                },
+              ),
             ],
           ),
         );
@@ -256,15 +283,15 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
           return Column(
             children: [
               FeedFilterTile(db: widget.db, feedId: widget.feedId),
-              const Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Text(
-                      'No channels yet. Add channels your Telegram account has joined.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
+              Expanded(
+                child: EmptyState(
+                  icon: Icons.playlist_add,
+                  title: 'No channels yet',
+                  message:
+                      'Add channels your Telegram account has joined; this app never '
+                      'joins one for you.',
+                  actionLabel: 'Add channel',
+                  onAction: () => unawaited(_pick(sources)),
                 ),
               ),
             ],
@@ -361,15 +388,6 @@ class FeedFilterSheet extends StatefulWidget {
 class _FeedFilterSheetState extends State<FeedFilterSheet> {
   late FeedFilter _f = widget.initial;
 
-  static const _kindLabels = {
-    MediaKind.photo: 'Photos',
-    MediaKind.video: 'Videos',
-    MediaKind.gif: 'GIFs',
-    MediaKind.audio: 'Audio',
-    MediaKind.voice: 'Voice messages',
-    MediaKind.document: 'Files',
-    MediaKind.other: 'Other (polls, stickers, ...)',
-  };
   static const _videoLengths = [0, 30, 60, 120, 300, 600, 1800];
   static const _textLengths = [0, 50, 100, 280, 500, 1000];
 
@@ -394,6 +412,10 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
     return ListView(
       shrinkWrap: true,
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+          child: Text('Show in this feed', style: theme.textTheme.titleMedium),
+        ),
         label('Posts'),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -414,7 +436,16 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
                 setState(() => _f = _f.copyWith(media: s.first)),
           ),
         ),
-        label('Media types (none selected = all)'),
+        label('Media types'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Text(
+            'Leave all of them off to allow every type.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Wrap(
@@ -422,7 +453,7 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
             children: [
               for (final kind in MediaKind.values)
                 FilterChip(
-                  label: Text(_kindLabels[kind]!),
+                  label: Text(kind.chipLabel),
                   selected: _f.kinds.contains(kind),
                   onSelected: !mediaPossible
                       ? null
@@ -440,36 +471,36 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
         ListTile(
           enabled: videoPossible,
           title: const Text('Video length'),
-          trailing: DropdownButton<int>(
-            value: _videoLengths.contains(_f.minVideoSeconds)
+          trailing: DropdownMenu<int>(
+            enabled: videoPossible,
+            initialSelection: _videoLengths.contains(_f.minVideoSeconds)
                 ? _f.minVideoSeconds
                 : 0,
-            onChanged: !videoPossible
-                ? null
-                : (v) =>
-                      setState(() => _f = _f.copyWith(minVideoSeconds: v ?? 0)),
-            items: [
+            width: 180,
+            onSelected: (v) =>
+                setState(() => _f = _f.copyWith(minVideoSeconds: v ?? 0)),
+            dropdownMenuEntries: [
               for (final s in _videoLengths)
-                DropdownMenuItem(value: s, child: Text(_duration(s))),
+                DropdownMenuEntry(value: s, label: _duration(s)),
             ],
           ),
         ),
         ListTile(
           enabled: textPossible,
           title: const Text('Text posts'),
-          trailing: DropdownButton<int>(
-            value: _textLengths.contains(_f.minTextLength)
+          trailing: DropdownMenu<int>(
+            enabled: textPossible,
+            initialSelection: _textLengths.contains(_f.minTextLength)
                 ? _f.minTextLength
                 : 0,
-            onChanged: !textPossible
-                ? null
-                : (v) =>
-                      setState(() => _f = _f.copyWith(minTextLength: v ?? 0)),
-            items: [
+            width: 180,
+            onSelected: (v) =>
+                setState(() => _f = _f.copyWith(minTextLength: v ?? 0)),
+            dropdownMenuEntries: [
               for (final n in _textLengths)
-                DropdownMenuItem(
+                DropdownMenuEntry(
                   value: n,
-                  child: Text(n == 0 ? 'Any length' : 'From $n characters'),
+                  label: n == 0 ? 'Any length' : 'From $n characters',
                 ),
             ],
           ),
@@ -503,6 +534,11 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
                 child: const Text('Show everything'),
               ),
               const Spacer(),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 8),
               FilledButton(
                 onPressed: () => Navigator.pop(context, _f),
                 child: const Text('Apply'),
@@ -618,10 +654,12 @@ class _ChannelPickerState extends State<ChannelPicker> {
                 ? Center(
                     child: Text(
                       widget.channels.isEmpty
-                          ? 'All joined channels are already in this feed.'
+                          ? 'Every channel you have joined is already in this feed.'
                           : _query.trim().isEmpty
-                          ? 'Every joined channel is already in a feed.'
+                          ? 'The rest are in other feeds. Untick "Hide channels '
+                                'already in a feed" to see them.'
                           : 'No channel matches "$_query".',
+                      textAlign: TextAlign.center,
                     ),
                   )
                 : ListView.builder(
@@ -660,7 +698,8 @@ class _ChannelPickerState extends State<ChannelPicker> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (c.memberCount > 0) Text('${c.memberCount}'),
+                            if (c.memberCount > 0)
+                              Text(formatCount(c.memberCount)),
                             Checkbox(
                               value: _picked.contains(c.chatId),
                               onChanged: (_) => _toggle(c),

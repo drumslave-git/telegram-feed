@@ -463,6 +463,10 @@ class AppDatabase extends _$AppDatabase {
     return (await q.get()).map((r) => r.readTable(feeds)).toList();
   }
 
+  /// One feed by id, or null when it is gone.
+  Future<Feed?> feedById(int feedId) =>
+      (select(feeds)..where((f) => f.id.equals(feedId))).getSingleOrNull();
+
   Future<FeedWithSources?> feedWithSources(int feedId) async {
     final feed = await (select(
       feeds,

@@ -138,7 +138,7 @@ final class FeedFilter {
     }
   }
 
-  /// Short description for lists, e.g. "with media · photo, video · videos from 1 min".
+  /// Short description for lists, e.g. "with media · photos, videos · videos from 1 min".
   String describe() {
     if (isEmpty) return 'Everything';
     String duration(int s) => s % 60 == 0 ? '${s ~/ 60} min' : '$s s';
@@ -148,7 +148,7 @@ final class FeedFilter {
       if (kinds.isNotEmpty)
         [
           for (final k in MediaKind.values)
-            if (kinds.contains(k)) k.name,
+            if (kinds.contains(k)) k.label,
         ].join(', '),
       if (minVideoSeconds > 0) 'videos from ${duration(minVideoSeconds)}',
       if (minTextLength > 0) 'text from $minTextLength characters',
@@ -174,4 +174,23 @@ final class FeedFilter {
     wholePost,
     Object.hashAllUnordered(kinds),
   );
+}
+
+/// What each kind of media is called. The feed's filter sheet and [FeedFilter.describe]
+/// take their words from here, so a filter reads the same wherever it is shown.
+extension MediaKindLabel on MediaKind {
+  String get label => switch (this) {
+    MediaKind.photo => 'photos',
+    MediaKind.video => 'videos',
+    MediaKind.gif => 'GIFs',
+    MediaKind.audio => 'audio',
+    MediaKind.voice => 'voice messages',
+    MediaKind.document => 'files',
+    MediaKind.other => 'other (polls, stickers, …)',
+  };
+
+  /// The same word to start a line with, as the filter's chips show it.
+  String get chipLabel => label.startsWith('GIF')
+      ? label
+      : label[0].toUpperCase() + label.substring(1);
 }

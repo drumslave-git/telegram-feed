@@ -152,7 +152,10 @@ void main() {
         minVideoSeconds: 120,
       ),
     );
-    expect(find.text('with media · video · videos from 2 min'), findsOneWidget);
+    expect(
+      find.text('with media · videos · videos from 2 min'),
+      findsOneWidget,
+    );
 
     // Whole posts are on by default; unchecking travels into the feed as well.
     await tester.tap(find.text('Show'));
