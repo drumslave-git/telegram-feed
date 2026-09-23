@@ -650,4 +650,28 @@ void main() {
     expect(find.textContaining('every new post'), findsNothing);
     await unmount(tester);
   });
+
+  testWidgets('the first word typed in a term keeps the cursor in that term', (
+    tester,
+  ) async {
+    tall(tester);
+    await tester.pumpWidget(editor());
+    await settle(tester);
+    await tester.tap(find.text('Add a term'));
+    await tester.pump();
+    final term = find.byType(EditableText).at(1);
+    await tester.tap(term);
+    await tester.pump();
+    final before = tester.state<EditableTextState>(term);
+    await tester.enterText(term, 'b');
+    await tester.pump();
+    // The every-post note above went away; the field is still the one typed into.
+    expect(find.textContaining('every new post'), findsNothing);
+    final after = tester.state<EditableTextState>(
+      find.byType(EditableText).at(1),
+    );
+    expect(after, same(before));
+    expect(after.widget.focusNode.hasFocus, isTrue);
+    await unmount(tester);
+  });
 }

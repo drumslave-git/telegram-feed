@@ -770,7 +770,12 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            if (_keywordsBlank || _isSemantic)
+            // Always in the list, empty when there is nothing to say: the note comes
+            // and goes as the first word is typed, and a child that vanished would move
+            // the builder below it to another slot and rebuild the field being typed in.
+            if (!_keywordsBlank && !_isSemantic)
+              const SizedBox.shrink()
+            else
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
