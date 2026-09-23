@@ -25,6 +25,8 @@ class RuleEditorScreen extends StatefulWidget {
     this.feedId,
     this.policyGranted = NotificationPolicy.isGrantedFn,
     this.openPolicySettings = NotificationPolicy.openSettings,
+    this.notificationsGranted = NotificationPermissionAsk.grantedFn,
+    this.requestNotifications = NotificationPermissionAsk.request,
     this.semanticCheck,
   });
   final AppDatabase db;
@@ -37,6 +39,11 @@ class RuleEditorScreen extends StatefulWidget {
   /// Injectable for tests: whether DND bypass is allowed (urgent rules).
   final Future<bool> Function() policyGranted;
   final Future<void> Function() openPolicySettings;
+
+  /// Whether Android lets the app notify at all, and the ask for it. A rule that cannot
+  /// notify does nothing, so the ask happens once a rule is saved.
+  final Future<bool> Function() notificationsGranted;
+  final Future<bool> Function() requestNotifications;
 
   /// Asks the AI endpoint which descriptions a post matches (dry run of AI rules).
   final SemanticCheck? semanticCheck;
@@ -375,7 +382,37 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     } else {
       await widget.db.updateRule(r.copyWithCompanion(companion));
     }
+    if (!mounted) return;
+    await _askToNotify();
     if (mounted) Navigator.of(context).pop();
+  }
+
+  /// A rule that cannot notify is a rule that does nothing. Android grants the ask once,
+  /// so it happens here, where the reader has just said what they want to hear about,
+  /// and not on the blank screen the app starts with.
+  Future<void> _askToNotify() async {
+    if (await widget.notificationsGranted() || !mounted) return;
+    final ask = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Let the app notify you?'),
+        content: const Text(
+          'This rule notifies you about the posts it matches, which Android has to '
+          'allow. Without it the rule still runs, but stays silent.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Allow'),
+          ),
+        ],
+      ),
+    );
+    if (ask ?? false) await widget.requestNotifications();
   }
 
   /// Urgent rules may break through Do Not Disturb only where Android allows it; asked

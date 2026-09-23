@@ -120,7 +120,7 @@ void main() {
     expect(calls, ['openAppSettings']);
   });
 
-  testWidgets('a warning row when Android blocks the notifications', (
+  testWidgets('a warning banner when Android blocks the notifications', (
     tester,
   ) async {
     const channel = MethodChannel('tf/notifications-off');
@@ -140,7 +140,8 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
-    expect(find.text('Notifications are off for this app'), findsOneWidget);
+    expect(find.textContaining('Android blocks'), findsOneWidget);
+    expect(find.text('Turn them on'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 30)),

@@ -34,6 +34,9 @@ class SettingsScreen extends StatefulWidget {
     this.secrets = const SecureSecretStore(),
     this.sync,
     this.onRestart,
+    this.batteryExempt,
+    this.onRequestBatteryExemption,
+    this.runningInService,
   });
   final AppDatabase db;
   final TelegramGateway gateway;
@@ -47,6 +50,12 @@ class SettingsScreen extends StatefulWidget {
 
   /// Starts the app afresh, which a change of background watching needs.
   final Future<void> Function()? onRestart;
+
+  /// Handed on to Notifications and sounds: whether Android lets the app keep watching
+  /// in the background, and where the core runs right now.
+  final Future<bool> Function()? batteryExempt;
+  final Future<void> Function()? onRequestBatteryExemption;
+  final bool Function()? runningInService;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -174,8 +183,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SettingsLink(
             icon: Icons.notifications_none,
             title: 'Notifications and sounds',
-            onTap: () =>
-                _open(NotificationsScreen(db: db, onRestart: widget.onRestart)),
+            onTap: () => _open(
+              NotificationsScreen(
+                db: db,
+                onRestart: widget.onRestart,
+                batteryExempt: widget.batteryExempt,
+                onRequestBatteryExemption: widget.onRequestBatteryExemption,
+                runningInService: widget.runningInService,
+              ),
+            ),
           ),
           SettingsLink(
             icon: Icons.data_usage,

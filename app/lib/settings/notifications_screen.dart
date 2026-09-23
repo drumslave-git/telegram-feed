@@ -4,6 +4,7 @@ import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../rules/rules_screen.dart' show BatteryBanner;
 import 'settings_tiles.dart';
 
 /// How rules notify and whether they run with the app closed: the official app's
@@ -13,6 +14,9 @@ class NotificationsScreen extends StatefulWidget {
     super.key,
     required this.db,
     this.onRestart,
+    this.batteryExempt,
+    this.onRequestBatteryExemption,
+    this.runningInService,
     this.channel = const MethodChannel('tf/notifications'),
   });
   final AppDatabase db;
@@ -20,6 +24,16 @@ class NotificationsScreen extends StatefulWidget {
   /// Starts the app afresh; background watching changes where the core runs, which only
   /// a new start can do. Null where the host cannot (tests).
   final Future<void> Function()? onRestart;
+
+  /// Whether Android lets the app ignore battery optimisation, and the ask for it; the
+  /// banner about it belongs here as well as on the rules screens. Null where the
+  /// platform has none (tests, desktop).
+  final Future<bool> Function()? batteryExempt;
+  final Future<void> Function()? onRequestBatteryExemption;
+
+  /// True while the core still runs in the mode the setting had before it was changed:
+  /// the switch shows the new value, so the screen says a restart is due.
+  final bool Function()? runningInService;
 
   /// Asks Android whether the app may notify at all; tests hand in their own.
   final MethodChannel channel;
@@ -90,8 +104,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ],
       ),
     );
-    if (now ?? false) await restart();
+    if (now ?? false) {
+      await restart();
+    } else if (mounted) {
+      // "Later": the setting is saved but the core still runs where it did, and the
+      // screen says so instead of leaving the switch to lie about it.
+      setState(() => _restartDue = true);
+    }
   }
+
+  /// Whether the running mode and the saved setting have drifted apart.
+  bool _restartDue = false;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -99,18 +122,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     body: ListView(
       children: [
         if (!_enabled)
-          ListTile(
+          MaterialBanner(
             leading: Icon(
               Icons.notifications_off_outlined,
               color: Theme.of(context).colorScheme.error,
             ),
-            title: const Text('Notifications are off for this app'),
-            subtitle: const Text(
-              'Android blocks them, so no rule can notify. Tap to turn them on.',
+            content: const Text(
+              'Android blocks this app\'s notifications, so no rule can notify you.',
             ),
-            onTap: () => unawaited(
-              SystemNotificationSettingsRow.openSettings(widget.channel),
-            ),
+            actions: [
+              TextButton(
+                onPressed: () => unawaited(
+                  SystemNotificationSettingsRow.openSettings(widget.channel),
+                ),
+                child: const Text('Turn them on'),
+              ),
+            ],
+          ),
+        // The same warning the rules screens carry: battery optimisation stops the
+        // watching this screen turns on.
+        if (widget.batteryExempt != null)
+          BatteryBanner(
+            exempt: widget.batteryExempt!,
+            onRequest: widget.onRequestBatteryExemption,
           ),
         const SettingsHeader('Rule notifications'),
         NotificationSoundSettings(db: db, channel: widget.channel),
@@ -132,16 +166,49 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         const SettingsHeader('Background'),
         StreamBuilder<String?>(
           stream: db.watchSetting(SettingKeys.backgroundWatching),
-          builder: (context, snap) => SwitchListTile(
-            title: const Text('Watch channels in the background'),
-            subtitle: const Text(
-              'Rules keep running while the app is closed. Off removes the '
-              'permanent notification, and rules then only notify while the app is '
-              'open. The app restarts to apply it.',
-            ),
-            value: snap.data != 'false',
-            onChanged: (v) => unawaited(_setBackground(v)),
-          ),
+          builder: (context, snap) {
+            final on = snap.data != 'false';
+            // Either the reader answered "Later", or the core simply runs in the
+            // other mode: the switch would otherwise say one thing while the app
+            // does another.
+            final due =
+                _restartDue ||
+                (widget.runningInService != null &&
+                    widget.runningInService!() != on);
+            return Column(
+              children: [
+                SwitchListTile(
+                  title: const Text('Watch channels in the background'),
+                  subtitle: const Text(
+                    'Rules keep running while the app is closed. Off removes the '
+                    'permanent notification, and rules then only notify while the '
+                    'app is open. The app restarts to apply it.',
+                  ),
+                  value: on,
+                  onChanged: (v) => unawaited(_setBackground(v)),
+                ),
+                if (due)
+                  MaterialBanner(
+                    leading: const Icon(Icons.restart_alt),
+                    content: Text(
+                      on
+                          ? 'Watching in the background starts when the app starts '
+                                'again.'
+                          : 'The permanent notification goes when the app starts '
+                                'again.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: widget.onRestart == null
+                            ? null
+                            : () => unawaited(widget.onRestart!()),
+                        child: const Text('Restart now'),
+                      ),
+                    ],
+                  ),
+              ],
+            );
+          },
         ),
         const Divider(),
         SystemNotificationSettingsRow(channel: widget.channel),

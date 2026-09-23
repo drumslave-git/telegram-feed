@@ -389,8 +389,10 @@ class _BatteryBannerState extends State<BatteryBanner>
   Widget build(BuildContext context) {
     if (_exempt) return const SizedBox.shrink();
     return MaterialBanner(
+      // "Watcher" is a word from inside the app; this says what the reader loses.
       content: const Text(
-        'Android may stop the watcher in the background. Allow the app to ignore battery optimisation so rules keep working.',
+        'Android may stop background watching, and rules would then go quiet. Allow '
+        'the app to ignore battery optimisation so they keep working.',
       ),
       actions: [TextButton(onPressed: _request, child: const Text('Allow'))],
     );

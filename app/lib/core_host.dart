@@ -67,10 +67,11 @@ final class CoreHost implements AppHost {
     if (!background && Platform.isAndroid) await _stopService();
     var port = IsolateNameServer.lookupPortByName(corePortName);
     if (port == null && Platform.isAndroid && background) {
-      if (await FlutterForegroundTask.checkNotificationPermission() !=
-          NotificationPermission.granted) {
-        await FlutterForegroundTask.requestNotificationPermission();
-      }
+      // The notification permission is NOT asked here. This runs before the login
+      // screen, on a blank spinner, and Android lets an app ask only once: a reflexive
+      // "Don't allow" would silence every rule for good. The service runs without it
+      // (its own notification is simply not shown), and the app asks for it where it
+      // can say what it is for: when a rule is saved, and on Notifications and sounds.
       if (await startCoreService()) {
         port = await _waitForPort(const Duration(seconds: 15));
         _inService = port != null;
