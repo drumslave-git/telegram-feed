@@ -543,23 +543,28 @@ class _VideoViewState extends State<VideoView> {
             Center(
               child: _PlayBadge(size: fill ? 40 : 56, onPressed: _open),
             ),
-            Positioned(
-              right: 6,
-              bottom: 6,
-              child: MediaBadge(
-                widget.video.isAnimation
-                    ? 'GIF'
-                    : formatDuration(widget.video.durationSeconds),
-              ),
-            ),
           ],
-          // Too much for a small cell of an album; the viewer has the button as well.
-          if (!fill)
-            Positioned(
-              left: 8,
-              top: 8,
-              child: VideoDownloadButton(file: _file, gateway: widget.gateway),
+          // Top left, next to the download button: the bottom right corner belongs to the
+          // views and the time, which the post draws over the picture.
+          Positioned(
+            left: 8,
+            top: 8,
+            child: Row(
+              children: [
+                // Too much for a small cell of an album; the viewer has it as well.
+                if (!fill) ...[
+                  VideoDownloadButton(file: _file, gateway: widget.gateway),
+                  const SizedBox(width: 6),
+                ],
+                if (session == null)
+                  MediaBadge(
+                    widget.video.isAnimation
+                        ? 'GIF'
+                        : formatDuration(widget.video.durationSeconds),
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );

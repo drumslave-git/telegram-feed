@@ -70,8 +70,9 @@ class InlineVideo extends StatelessWidget {
               child: CircularProgressIndicator(color: Colors.white70),
             ),
           if (ready && session.muted)
+            // Bottom left: the views and the time sit in the other corner.
             const Align(
-              alignment: Alignment.bottomRight,
+              alignment: Alignment.bottomLeft,
               child: Padding(
                 padding: EdgeInsets.all(8),
                 child: Icon(Icons.volume_off, color: Colors.white70, size: 20),

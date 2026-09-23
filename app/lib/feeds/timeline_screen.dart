@@ -1766,8 +1766,15 @@ class TimelineViewState extends State<TimelineView>
   }
 
   /// Emoji for the post menu; a failure is reported by the menu itself.
+  /// The reactions a channel allows, asked once per channel: the menu opened a spinner
+  /// on every long press while it asked again for a list that does not change.
+  final _reactionsOfChat = <int, Future<List<String>>>{};
+
   Future<List<String>> _availableReactions(TimelineItem item) =>
-      widget.gateway.availableReactions(item.chatId, item.head.messageId);
+      _reactionsOfChat[item.chatId] ??= widget.gateway.availableReactions(
+        item.chatId,
+        item.head.messageId,
+      );
 
   @override
   void dispose() {
@@ -1996,13 +2003,17 @@ class TimelineViewState extends State<TimelineView>
               final day = _dayOf(item);
               final newDay =
                   i == items.length - 1 || _dayOf(items[i + 1]) != day;
-              final row = id != _highlight
-                  ? card
-                  : ColoredBox(
-                      color: Theme.of(context).colorScheme.primary
-                          .withValues(alpha: 0.12),
-                      child: card,
-                    );
+              // The tint fades in and out instead of appearing and vanishing, so the
+              // eye follows the post the jump landed on.
+              final row = AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+                color: id == _highlight
+                    ? Theme.of(context).colorScheme.primary
+                          .withValues(alpha: 0.12)
+                    : Colors.transparent,
+                child: card,
+              );
               return KeyedSubtree(
                 key: ValueKey(id),
                 child: !newDay && id != _firstUnread
@@ -2112,7 +2123,8 @@ class PinnedBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: scheme.surfaceContainerHighest.withValues(alpha: 0.96),
+      // Opaque: posts used to shine through the bar and through its words.
+      color: scheme.surfaceContainerHighest,
       child: SizedBox(
         height: pinnedBarHeight,
         child: Row(

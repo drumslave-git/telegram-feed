@@ -35,7 +35,8 @@ final class ChatColors {
           ? scheme.surfaceContainerHigh
           : scheme.surfaceContainerLowest,
       ownBubble: dark ? scheme.primaryContainer : const Color(0xFFEFFDDE),
-      pill: Colors.black.withValues(alpha: dark ? 0.45 : 0.28),
+      // Dark enough for white letters on the light backdrop as well.
+      pill: Colors.black.withValues(alpha: dark ? 0.45 : 0.45),
       onPill: Colors.white,
     );
   }
@@ -89,7 +90,9 @@ class ChatPill extends StatelessWidget {
     final colors = ChatColors.of(context);
     final pill = Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      constraints: const BoxConstraints(minHeight: 32),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: colors.pill,
         borderRadius: BorderRadius.circular(12),
@@ -333,66 +336,60 @@ class PostCard extends StatelessWidget {
     );
     // The bubble has the row to itself: the channel's photo sits in its title line and
     // sharing is in the menu, so nothing beside it takes width from text and pictures.
-    // Everything in it follows the reader's text size.
-    final card = PostTextScale.wrap(
-      context,
-      Padding(
-        padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Material(
-            color: colors.bubble,
-            elevation: 0.5,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(14)),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              // A long press opens the menu, as in the official app: a plain tap cannot do
-              // that and leave room for the double tap that sends the quick reaction,
-              // because the menu would swallow the second tap.
-              onLongPress: _hasMenu ? () => _menu(context) : null,
-              // Text alone makes a bubble as wide as it needs; media fills the row, and so
-              // does a link preview, whose card and picture would otherwise be squeezed into
-              // the width of the words above it.
-              child: media.isEmpty && item.textPost.linkPreview == null
-                  ? IntrinsicWidth(child: bubble)
-                  : SizedBox(width: double.infinity, child: bubble),
-            ),
+    final card = Padding(
+      padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Material(
+          color: colors.bubble,
+          elevation: 0.5,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(14)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            // A long press opens the menu, as in the official app: a plain tap cannot do
+            // that and leave room for the double tap that sends the quick reaction,
+            // because the menu would swallow the second tap.
+            onLongPress: _hasMenu ? () => _menu(context) : null,
+            // Text alone makes a bubble as wide as it needs; media fills the row, and so
+            // does a link preview, whose card and picture would otherwise be squeezed into
+            // the width of the words above it.
+            child: media.isEmpty && item.textPost.linkPreview == null
+                ? IntrinsicWidth(child: bubble)
+                : SizedBox(width: double.infinity, child: bubble),
           ),
         ),
       ),
     );
     if (!selecting) return card;
-    // While the timeline selects, the row answers nothing but the tap that picks it.
-    return Stack(
-      children: [
-        card,
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onSelect,
-            child: ColoredBox(
-              color: selected
-                  ? Theme.of(context).colorScheme.primary
-                        .withValues(alpha: 0.18)
-                  : Colors.transparent,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: Icon(
-                    selected
-                        ? Icons.check_circle
-                        : Icons.radio_button_unchecked,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+    // While the timeline selects, the row answers nothing but the tap that picks it. The
+    // check sits in a gutter on the left, as the official app does, so it never lies on
+    // the words or the picture it belongs to.
+    return Semantics(
+      selected: selected,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onSelect,
+        child: ColoredBox(
+          color: selected
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
+              : Colors.transparent,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Icon(
+                  selected ? Icons.check_circle : Icons.radio_button_unchecked,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
-            ),
+              Expanded(child: IgnorePointer(child: card)),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -481,7 +478,12 @@ class ForwardedFrom extends StatelessWidget {
       ),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
-      style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+      style: TextStyle(
+        fontSize: 13,
+        // The accent colour where the original can be opened, as in the official app:
+        // a grey line looks like a label and hides that it leads somewhere.
+        color: onTap == null ? scheme.onSurfaceVariant : scheme.primary,
+      ),
     );
     return onTap == null
         ? row
@@ -702,9 +704,17 @@ class _Bubble extends StatelessWidget {
     /// post that has none. A recognizer over the whole bubble would hold the gesture arena
     /// for 300 ms and make every tap inside it — a reaction pill, the comments bar, a
     /// picture — answer late.
+    ///
+    /// Over words the second tap is counted by hand ([QuickReactionArea]), because a
+    /// recognizer there would hold every link tap for the same 300 ms. Over pictures the
+    /// recognizer stays: a picture has no links, and without it the first tap would open
+    /// the viewer before the second one could arrive.
     Widget quickReactable(Widget child) => onQuickReact == null
         ? child
         : GestureDetector(onDoubleTap: onQuickReact, child: child);
+    Widget quickReactableText(Widget child) => onQuickReact == null
+        ? child
+        : QuickReactionArea(onDoubleTap: onQuickReact!, child: child);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -765,7 +775,7 @@ class _Bubble extends StatelessWidget {
         if (text.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(_side, 6, _side, 6),
-            child: quickReactable(
+            child: quickReactableText(
               reactions.isEmpty && !footerUnderCard
                   ? BubbleText(text: _text(context, text), footer: footer)
                   : _text(context, text),
@@ -815,15 +825,20 @@ class _Bubble extends StatelessWidget {
     );
   }
 
-  Widget _text(BuildContext context, String text) => FormattedText(
-    text: text,
-    entities: item.textPost.entities,
-    onOpenLink: onOpenLink,
-    gateway: gateway,
-    style: TextStyle(
-      fontSize: 16,
-      height: 1.3,
-      color: Theme.of(context).colorScheme.onSurface,
+  /// The post's own words, at the reader's text size. The footer, the reaction pills and
+  /// the comments bar keep the size of the rest of the app, as in the official one.
+  Widget _text(BuildContext context, String text) => PostTextScale.wrap(
+    context,
+    FormattedText(
+      text: text,
+      entities: item.textPost.entities,
+      onOpenLink: onOpenLink,
+      gateway: gateway,
+      style: TextStyle(
+        fontSize: 16,
+        height: 1.3,
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
     ),
   );
 }
@@ -874,8 +889,10 @@ class ReactionPill extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 32),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Text(
             '${reaction.emoji} ${formatCount(reaction.count)}',
             softWrap: false,
@@ -1106,4 +1123,45 @@ String formatDay(DateTime d, {DateTime? now}) {
   ];
   final label = '${months[d.month - 1]} ${d.day}';
   return d.year == n.year ? label : '$label, ${d.year}';
+}
+
+/// Counts a double tap without taking the gesture arena, so the links and mentions under
+/// it answer the first tap at once instead of waiting out the double-tap window.
+class QuickReactionArea extends StatefulWidget {
+  const QuickReactionArea({
+    super.key,
+    required this.onDoubleTap,
+    required this.child,
+  });
+  final VoidCallback onDoubleTap;
+  final Widget child;
+
+  @override
+  State<QuickReactionArea> createState() => _QuickReactionAreaState();
+}
+
+class _QuickReactionAreaState extends State<QuickReactionArea> {
+  static const _window = Duration(milliseconds: 320);
+  static const _slop = 40.0;
+  Offset? _lastDown;
+  DateTime? _lastAt;
+
+  void _onDown(PointerDownEvent e) {
+    final now = DateTime.now();
+    final at = _lastAt;
+    if (at != null &&
+        now.difference(at) < _window &&
+        (e.position - _lastDown!).distance < _slop) {
+      _lastAt = null;
+      _lastDown = null;
+      widget.onDoubleTap();
+      return;
+    }
+    _lastAt = now;
+    _lastDown = e.position;
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      Listener(onPointerDown: _onDown, child: widget.child);
 }
