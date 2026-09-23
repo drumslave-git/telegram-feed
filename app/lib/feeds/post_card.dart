@@ -667,15 +667,16 @@ class _Bubble extends StatelessWidget {
     void open(Media m) {
       // The viewer pages through the media of the whole timeline when it can (H-21), so
       // this post's album is only where it starts.
-      final around = onViewerMedia?.call() ?? visual;
-      final items = around.contains(m) ? around : visual;
-      final whole = identical(items, around);
+      final around = onViewerMedia?.call();
+      final whole = around != null && around.contains(m);
+      final items = whole ? around : visual;
       MediaViewerScreen.open(
         context,
         items: items,
         gateway: gateway,
         initialIndex: items.indexOf(m),
         onNeedOlder: whole ? onMoreViewerMedia : null,
+        newestFirst: whole,
         details: whole ? onViewerDetails?.call() ?? const [] : const [],
         onDetails: whole ? onViewerDetails : null,
         onSave: whole ? onViewerSave : null,

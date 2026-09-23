@@ -1669,7 +1669,8 @@ class TimelineViewState extends State<TimelineView>
   /// The post each picture in the viewer came from, in the same order as the media.
   List<TimelineItem> _viewerOwners = const [];
 
-  /// Every picture and video the timeline holds, newest first: what the viewer pages
+  /// Every picture and video the timeline holds, newest first down to each album's last
+  /// picture before its first (an album's head is its newest post): what the viewer pages
   /// through, so a tap on one picture walks the whole feed and not only its post. The post
   /// behind each one is kept, for the channel, the day, the caption and the actions.
   List<Media> _viewerMedia() {
@@ -1677,7 +1678,7 @@ class TimelineViewState extends State<TimelineView>
     final owners = <TimelineItem>[];
     for (final item in _timeline?.items ?? const <TimelineItem>[]) {
       final shown = MediaViewerScreen.viewable([
-        for (final p in item.allPosts.reversed)
+        for (final p in item.allPosts)
           if (p.media != null) p.media!,
       ]);
       media.addAll(shown);

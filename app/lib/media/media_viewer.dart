@@ -56,6 +56,7 @@ class MediaViewerScreen extends StatefulWidget {
     required this.gateway,
     this.initialIndex = 0,
     this.onNeedOlder,
+    this.newestFirst = false,
     this.details = const [],
     this.onSave,
     this.onDetails,
@@ -71,6 +72,11 @@ class MediaViewerScreen extends StatefulWidget {
   /// Asked for more media when the reader reaches the older end: the timeline loads its
   /// next page and answers with everything it has, this list included.
   final Future<List<Media>> Function()? onNeedOlder;
+
+  /// The items run from the newest to the oldest, each album from its last picture to its
+  /// first, as a feed's pictures do. The pages are laid out the other way round, older on
+  /// the left as in the official app, so a swipe to the left goes forward in time.
+  final bool newestFirst;
 
   /// The channel, the time and the caption of each item; empty where the caller has none.
   final List<ViewerDetail> details;
@@ -109,6 +115,7 @@ class MediaViewerScreen extends StatefulWidget {
     required TelegramGateway gateway,
     int initialIndex = 0,
     Future<List<Media>> Function()? onNeedOlder,
+    bool newestFirst = false,
     List<ViewerDetail> details = const [],
     void Function(int index)? onSave,
     List<ViewerDetail> Function()? onDetails,
@@ -124,6 +131,7 @@ class MediaViewerScreen extends StatefulWidget {
         gateway: gateway,
         initialIndex: initialIndex,
         onNeedOlder: onNeedOlder,
+        newestFirst: newestFirst,
         details: details,
         onSave: onSave,
         onDetails: onDetails,
@@ -194,6 +202,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
         gateway: w.gateway,
         initialIndex: index,
         onNeedOlder: w.onNeedOlder,
+        newestFirst: w.newestFirst,
         details: _details,
         onSave: w.onSave,
         onDetails: w.onDetails,
@@ -312,11 +321,24 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     if (index >= _details.length) return null;
     final key = _details[index].postKey;
     if (key.isEmpty) return null;
+    return mediaHeroTag(key, _albumPlace(index, key).$1);
+  }
+
+  /// Where the picture at [index] stands in its post's album, counted from the album's
+  /// first picture, and how many the album has.
+  (int, int) _albumPlace(int index, String key) {
     var first = index;
+    var last = index;
     while (first > 0 && _details[first - 1].postKey == key) {
       first--;
     }
-    return mediaHeroTag(key, index - first);
+    while (last + 1 < _details.length && _details[last + 1].postKey == key) {
+      last++;
+    }
+    return (
+      widget.newestFirst ? last - index : index - first,
+      last - first + 1,
+    );
   }
 
   /// "N of M" for the album the picture in front belongs to, or for the whole list when
@@ -328,16 +350,8 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
           ? '${_index + 1} of ${_items.length}'
           : null;
     }
-    var first = _index;
-    var last = _index;
-    while (first > 0 && _details[first - 1].postKey == key) {
-      first--;
-    }
-    while (last + 1 < _details.length && _details[last + 1].postKey == key) {
-      last++;
-    }
-    final total = last - first + 1;
-    return total > 1 ? '${_index - first + 1} of $total' : null;
+    final (place, total) = _albumPlace(_index, key);
+    return total > 1 ? '${place + 1} of $total' : null;
   }
 
   /// Near the older end (the last page): ask the timeline for its next page of posts.
@@ -428,6 +442,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
         onClose: () => Navigator.of(context).maybePop(),
         child: PageView.builder(
           controller: _pages,
+          reverse: widget.newestFirst,
           physics: _zoomed ? const NeverScrollableScrollPhysics() : null,
           itemCount: items.length,
           onPageChanged: (i) {

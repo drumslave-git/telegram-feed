@@ -157,6 +157,58 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('in a feed, a swipe to the left goes to the newer picture', (
+    tester,
+  ) async {
+    PhotoMedia photo(int id) => PhotoMedia(
+      sizes: [
+        FileRef(id: id, remoteId: 'r$id', size: 10, width: 90, height: 90),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => MediaViewerScreen.open(
+              context,
+              // Newest first: a post of its own, then an album of two, last picture
+              // before first.
+              items: [photo(3), photo(2), photo(1)],
+              gateway: gw,
+              initialIndex: 1,
+              newestFirst: true,
+              details: const [
+                ViewerDetail(channel: 'Newest', date: 300, postKey: 'n'),
+                ViewerDetail(channel: 'Album', date: 200, postKey: 'a'),
+                ViewerDetail(channel: 'Album', date: 200, postKey: 'a'),
+              ],
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    // The album's last picture is the second of two.
+    expect(find.textContaining('2 of 2'), findsWidgets);
+
+    await tester.drag(find.byType(PageView), const Offset(500, 0));
+    await tester.pump(const Duration(milliseconds: 600));
+    // The pages beside the one in front share its title.
+    expect(find.textContaining('1 of 2'), findsWidgets);
+    expect(find.textContaining('2 of 2'), findsNothing);
+
+    await tester.drag(find.byType(PageView), const Offset(-500, 0));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.drag(find.byType(PageView), const Offset(-500, 0));
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('Newest'), findsWidgets);
+    expect(find.text('Album'), findsNothing);
+    await unmount(tester);
+  });
+
   testWidgets('the viewer names the channel, the day, and can share and save', (
     tester,
   ) async {
