@@ -195,8 +195,10 @@ class RuleList extends StatelessWidget {
                                   rule: r,
                                   channelTitle: r.scopeChatId == null
                                       ? null
+                                      // A chat id would say nothing; this says what
+                                      // happened to the channel.
                                       : titles[r.scopeChatId] ??
-                                            'Channel ${r.scopeChatId}',
+                                            'A channel that left the feed',
                                   onChanged: (v) => db.setRuleEnabled(r.id, v),
                                   onTap: () => openRuleEditor(
                                     context,
@@ -286,15 +288,34 @@ class _RuleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = rule;
     final scope = channelTitle ?? 'Every channel';
+    // In words as well as in the glyph: the icon alone says nothing to a screen reader
+    // and little to a reader who has not learned it.
+    final priority = switch (r.priority) {
+      'urgent' => 'urgent',
+      'silent' => 'silent',
+      _ => null,
+    };
     return ListTile(
-      leading: Icon(switch (r.priority) {
-        'urgent' => Icons.priority_high,
-        'silent' => Icons.notifications_off_outlined,
-        _ => Icons.notifications_outlined,
-      }),
+      leading: Semantics(
+        label: switch (r.priority) {
+          'urgent' => 'Urgent rule',
+          'silent' => 'Silent rule',
+          _ => 'Normal rule',
+        },
+        child: Icon(switch (r.priority) {
+          'urgent' => Icons.priority_high,
+          'silent' => Icons.notifications_off_outlined,
+          _ => Icons.notifications_outlined,
+        }),
+      ),
       title: Text(r.name),
       subtitle: Text(
-        '$scope · ${_preview(r)}${r.readAloud ? ' · read aloud' : ''}',
+        [
+          scope,
+          _preview(r),
+          ?priority,
+          if (r.readAloud) 'read aloud',
+        ].join(' · '),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ),

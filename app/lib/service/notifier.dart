@@ -182,6 +182,13 @@ final class Notifier {
     _ => Priority.defaultPriority,
   };
 
+  /// The name Android's own settings list a kind of rule notification under.
+  static String channelNameOf(String planChannelId) => switch (planChannelId) {
+    channelSilent => 'Silent posts',
+    channelUrgent => 'Urgent posts',
+    _ => 'Posts',
+  };
+
   Future<void> show(NotificationPlan plan) async {
     final channelId = plan.channelId == channelUrgent
         ? await _ensureUrgentChannel()
@@ -195,8 +202,11 @@ final class Notifier {
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           channelId,
-          channelId,
+          // A readable name: were the channel ever created from here, Android's own
+          // settings would otherwise list "posts_normal_k3f9".
+          channelNameOf(plan.channelId),
           icon: notificationIcon,
+          subText: plan.rule.isEmpty ? null : plan.rule,
           importance: _importanceOf(plan.channelId),
           priority: _priorityOf(plan.channelId),
           groupKey: plan.groupKey,

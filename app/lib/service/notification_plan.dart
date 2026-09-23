@@ -57,6 +57,7 @@ final class NotificationPlan {
     required this.channelId,
     required this.title,
     required this.body,
+    this.rule = '',
     required this.groupKey,
     required this.summaryId,
     required this.payload,
@@ -65,6 +66,10 @@ final class NotificationPlan {
   final String channelId;
   final String title;
   final String body;
+
+  /// The rule that matched, shown as Android's sub-text beside the app's name: with
+  /// several rules on one feed the shade would otherwise not say which one fired.
+  final String rule;
   final String groupKey;
   final int summaryId;
   final String payload;
@@ -96,6 +101,8 @@ final class NotificationPlan {
       channelId: channelFor(m.priority),
       title: channelTitle.isEmpty ? 'New post' : channelTitle,
       body: body,
+      // The rules that matched, so the shade says why this post is here.
+      rule: m.ruleNames.join(', '),
       groupKey: 'chat-${m.post.chatId}',
       summaryId: summaryIdFor(m.post.chatId),
       payload: PostRef(
