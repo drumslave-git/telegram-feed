@@ -2,6 +2,8 @@ import 'dart:math';
 
 import 'package:drift/drift.dart';
 
+import 'connection.dart';
+
 part 'database.g.dart';
 
 // Schema per ARCHITECTURE.md section 5.1. TDLib owns messages, files and read state; this
@@ -204,56 +206,99 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) => m.createAll(),
-    onUpgrade: (m, from, to) async {
-      if (from < 2) {
-        await m.createTable(rules); // already has every later column
-      } else {
-        if (from < 3) await m.addColumn(rules, rules.semanticPrompt);
-        if (from < 4) {
-          await m.addColumn(rules, rules.syncId);
-          await m.addColumn(rules, rules.updatedAt);
-        }
-      }
-      if (from < 4) {
-        await m.addColumn(feeds, feeds.syncId);
-        await m.addColumn(feeds, feeds.updatedAt);
-        await m.addColumn(settings, settings.updatedAt);
-        await m.createTable(syncTombstones);
-        // Existing rows get an id now; their edit time is their creation time.
-        await customStatement(
-          'UPDATE feeds SET sync_id = lower(hex(randomblob(16))), updated_at = created_at '
-          'WHERE sync_id IS NULL',
-        );
-        await customStatement(
-          'UPDATE rules SET sync_id = lower(hex(randomblob(16))), updated_at = created_at '
-          'WHERE sync_id IS NULL',
-        );
-      }
-      if (from < 5) await m.addColumn(feeds, feeds.filterJson);
-      if (from < 6) {
-        // Read state is Telegram's own, one per channel, and reading always reaches it.
-        await m.deleteTable('feed_read_marks');
-        await customStatement(
-          "DELETE FROM settings WHERE key = 'syncReadToTelegram'",
-        );
-      }
-      if (from < 7) {
-        // Rules belong to feeds now. The rules of before (global or per channel) are
-        // deleted, and their tombstones delete them on every synced device too.
-        await customStatement(
-          "INSERT OR REPLACE INTO sync_tombstones (kind, sync_id, deleted_at) "
-          "SELECT 'rule', sync_id, CAST(strftime('%s', 'now') AS INTEGER) "
-          'FROM rules WHERE sync_id IS NOT NULL',
-        );
-        await m.deleteTable('rules');
-        await m.createTable(rules);
-      }
-    },
+    onCreate: (m) => _migrate(m),
+    onUpgrade: (m, from, to) => _migrate(m),
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
+      await customStatement(
+        'PRAGMA busy_timeout = ${dbBusyTimeout.inMilliseconds}',
+      );
     },
   );
+
+  /// The app, the foreground service and the core each hold a connection to the file, so
+  /// after an update all three find the old schema at once. The work happens in an
+  /// exclusive transaction and reads the version again inside it: whoever gets there second
+  /// waits, then finds nothing left to do instead of migrating a schema that is already
+  /// being replaced.
+  Future<void> _migrate(Migrator m) async {
+    // Waiting out another connection's migration is not "database is locked".
+    await customStatement(
+      'PRAGMA busy_timeout = ${dbMigrationTimeout.inMilliseconds}',
+    );
+    await customStatement('BEGIN EXCLUSIVE');
+    try {
+      final from = await _versionOnDisk();
+      if (from != schemaVersion) {
+        await _upgrade(m, from);
+        // Drift stamps the version after this returns; stamping it here as well puts it in
+        // the same transaction, so the schema and its version always match.
+        await customStatement('PRAGMA user_version = $schemaVersion');
+      }
+      await customStatement('COMMIT');
+    } on Object {
+      await customStatement('ROLLBACK');
+      rethrow;
+    }
+  }
+
+  /// The schema version in the file itself, which is what another connection's migration
+  /// changes; the one drift hands to [MigrationStrategy] was read before the lock.
+  Future<int> _versionOnDisk() async {
+    final row = await customSelect('PRAGMA user_version').getSingle();
+    return row.read<int>('user_version');
+  }
+
+  /// [from] is 0 for a file that has no schema yet.
+  Future<void> _upgrade(Migrator m, int from) async {
+    if (from == 0) {
+      await m.createAll();
+      return;
+    }
+    if (from < 2) {
+      await m.createTable(rules); // already has every later column
+    } else {
+      if (from < 3) await m.addColumn(rules, rules.semanticPrompt);
+      if (from < 4) {
+        await m.addColumn(rules, rules.syncId);
+        await m.addColumn(rules, rules.updatedAt);
+      }
+    }
+    if (from < 4) {
+      await m.addColumn(feeds, feeds.syncId);
+      await m.addColumn(feeds, feeds.updatedAt);
+      await m.addColumn(settings, settings.updatedAt);
+      await m.createTable(syncTombstones);
+      // Existing rows get an id now; their edit time is their creation time.
+      await customStatement(
+        'UPDATE feeds SET sync_id = lower(hex(randomblob(16))), updated_at = created_at '
+        'WHERE sync_id IS NULL',
+      );
+      await customStatement(
+        'UPDATE rules SET sync_id = lower(hex(randomblob(16))), updated_at = created_at '
+        'WHERE sync_id IS NULL',
+      );
+    }
+    if (from < 5) await m.addColumn(feeds, feeds.filterJson);
+    if (from < 6) {
+      // Read state is Telegram's own, one per channel, and reading always reaches it.
+      await m.deleteTable('feed_read_marks');
+      await customStatement(
+        "DELETE FROM settings WHERE key = 'syncReadToTelegram'",
+      );
+    }
+    if (from < 7) {
+      // Rules belong to feeds now. The rules of before (global or per channel) are
+      // deleted, and their tombstones delete them on every synced device too.
+      await customStatement(
+        "INSERT OR REPLACE INTO sync_tombstones (kind, sync_id, deleted_at) "
+        "SELECT 'rule', sync_id, CAST(strftime('%s', 'now') AS INTEGER) "
+        'FROM rules WHERE sync_id IS NOT NULL',
+      );
+      await m.deleteTable('rules');
+      await m.createTable(rules);
+    }
+  }
 
   // ---- rules ----
 

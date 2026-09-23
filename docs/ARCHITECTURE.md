@@ -99,6 +99,8 @@ sync_tombstones  (kind, sync_id, deleted_at)                            -- PK (k
 
 The UI, the background service and the core each open their own connection to the file (`appDatabaseFile`). Every connection sets `busy_timeout` to five seconds, so a write waits for another connection's write instead of failing with "database is locked".
 
+After an update all three connections find the old schema at once, and drift runs a migration outside any transaction. `AppDatabase._migrate` therefore takes the whole migration into one `BEGIN EXCLUSIVE` transaction, reads `user_version` again inside it and stamps the new one there: the connection that arrives second waits (`busy_timeout` is a minute while migrating) and then finds nothing left to do, instead of working on a schema another connection is replacing.
+
 ### 5.2 Sources
 
 Only channels the account has joined can be added. The picker lists `myChannels()` with a search box; several channels are ticked and added with one press. A checkbox under the search, shown when some channel is in a feed already, leaves those channels out (`picker.hideInFeeds`, kept on the device) and unticks the ones it hides. The app never calls `joinChat`, `leaveChat` or `searchPublicChat`, and never changes Telegram-side mute or folder settings. Every source is a joined chat, so TDLib delivers `updateNewMessage` for all of them and nothing is polled.
