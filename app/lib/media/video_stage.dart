@@ -276,16 +276,17 @@ class _VideoStageState extends State<VideoStage> {
           if (_seekHint != 0)
             IgnorePointer(child: _SeekHint(direction: _seekHint)),
           if (_speedBeforeHold != null) const IgnorePointer(child: _HoldHint()),
-          if (ready && _controls) SafeArea(child: _overlay(c)),
-          // Leaving must work while the video still loads, too.
-          if (!ready || _controls)
-            ViewerTopBar(title: widget.title, actions: widget.actions),
           // The words of the post go with the controls: a tap takes both off the picture.
+          // They lie under the bar, so that the band behind them never covers its slider.
           if (widget.caption.isNotEmpty && (!ready || _controls))
             ViewerCaption(
               text: widget.caption,
               bottomInset: ready ? _barHeight : 0,
             ),
+          if (ready && _controls) SafeArea(child: _overlay(c)),
+          // Leaving must work while the video still loads, too.
+          if (!ready || _controls)
+            ViewerTopBar(title: widget.title, actions: widget.actions),
         ],
       ),
     );
@@ -437,27 +438,37 @@ class ViewerCaption extends StatelessWidget {
     // middle of the screen on a dark patch of its own.
     child: SizedBox(
       width: double.infinity,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [Colors.black87, Colors.transparent],
-          ),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 24, 16, 12 + bottomInset),
-            child: ConstrainedBox(
-              // A long post scrolls inside the band instead of covering the picture.
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.sizeOf(context).height * 0.3,
+      child: Stack(
+        children: [
+          // Only the words take touches: the band lets a tap through to the picture
+          // and a drag through to the player's slider.
+          const Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [Colors.black87, Colors.transparent],
+                  ),
+                ),
               ),
-              child: SingleChildScrollView(child: _CaptionText(text: text)),
             ),
           ),
-        ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 24, 16, 12 + bottomInset),
+              child: ConstrainedBox(
+                // A long post scrolls inside the band instead of covering the picture.
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.3,
+                ),
+                child: SingleChildScrollView(child: _CaptionText(text: text)),
+              ),
+            ),
+          ),
+        ],
       ),
     ),
   );

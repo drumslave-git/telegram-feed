@@ -304,6 +304,43 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a tap on the bar seeks while the post has a caption', (
+    tester,
+  ) async {
+    final platform = FakeVideoPlatform.install();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => MediaViewerScreen.open(
+              context,
+              items: const [video],
+              gateway: gw,
+              details: const [
+                ViewerDetail(channel: 'A', date: 1, caption: 'what it said'),
+              ],
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await startUp(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('what it said'), findsOneWidget);
+
+    final bar = tester.getRect(find.byType(Slider));
+    await tester.tapAt(Offset(bar.left + bar.width * 0.75, bar.center.dy));
+    await tester.pump();
+    expect(platform.log.where((l) => l.startsWith('seek 1 ')), isNotEmpty);
+    expect(
+      platform.log.lastWhere((l) => l.startsWith('seek 1 ')),
+      isNot('seek 1 0'),
+    );
+    await unmount(tester);
+  });
+
   testWidgets('double tap in the middle zooms, a drag moves the picture', (
     tester,
   ) async {
