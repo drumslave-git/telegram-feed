@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:app_db/app_db.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 
@@ -163,7 +164,12 @@ class _LockGateState extends State<LockGate> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) => Stack(
     children: [
-      widget.child,
+      // Hidden from a screen reader and from the keyboard while the lock is up: a
+      // painted-over list is still a readable list to TalkBack.
+      ExcludeSemantics(
+        excluding: _locked,
+        child: ExcludeFocus(excluding: _locked, child: widget.child),
+      ),
       if (_locked)
         LockScreen(
           lock: _lock,
@@ -173,6 +179,11 @@ class _LockGateState extends State<LockGate> with WidgetsBindingObserver {
     ],
   );
 }
+
+/// A PIN is digits only: a field that merely asks for the number keyboard still takes a
+/// pasted word, and the stored hash would then be of something no keypad can retype.
+final _pinDigits = [FilteringTextInputFormatter.digitsOnly];
+const _pinMaxLength = 16;
 
 /// Asks for the PIN, and offers the device's own check where the reader allowed it.
 class LockScreen extends StatefulWidget {
@@ -264,6 +275,8 @@ class _LockScreenState extends State<LockScreen> {
               autofocus: true,
               obscureText: true,
               keyboardType: TextInputType.number,
+              inputFormatters: _pinDigits,
+              maxLength: _pinMaxLength,
               textAlign: TextAlign.center,
               decoration: InputDecoration(
                 labelText: 'PIN',
@@ -427,6 +440,8 @@ class _AppLockScreenState extends State<AppLockScreen> {
             controller: _pin,
             obscureText: true,
             keyboardType: TextInputType.number,
+            inputFormatters: _pinDigits,
+            maxLength: _pinMaxLength,
             decoration: InputDecoration(
               labelText: _hasPin ? 'New PIN' : 'PIN',
               errorText: _error,
@@ -439,6 +454,8 @@ class _AppLockScreenState extends State<AppLockScreen> {
             controller: _again,
             obscureText: true,
             keyboardType: TextInputType.number,
+            inputFormatters: _pinDigits,
+            maxLength: _pinMaxLength,
             decoration: const InputDecoration(labelText: 'PIN again'),
             onSubmitted: (_) => unawaited(_save()),
           ),

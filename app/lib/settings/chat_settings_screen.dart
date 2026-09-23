@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
 
@@ -27,20 +29,7 @@ class ChatSettingsScreen extends StatelessWidget {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Slider(
-                          value: factor,
-                          min: PostTextScale.min,
-                          max: PostTextScale.max,
-                          // 5 % steps: the slider lands on round numbers.
-                          divisions:
-                              ((PostTextScale.max - PostTextScale.min) / 0.05)
-                                  .round(),
-                          label: '${(factor * 100).round()} %',
-                          onChanged: (v) => db.setSetting(
-                            SettingKeys.postTextScale,
-                            v.toStringAsFixed(2),
-                          ),
-                        ),
+                        child: _TextSizeSlider(db: db, factor: factor),
                       ),
                       SizedBox(
                         width: 56,
@@ -104,4 +93,42 @@ class ChatSettingsScreen extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// The text-size slider. It keeps the value it is being dragged to and writes it once the
+/// finger lifts: a write on every tick sent the whole app through the database and back
+/// twenty times a drag.
+class _TextSizeSlider extends StatefulWidget {
+  const _TextSizeSlider({required this.db, required this.factor});
+  final AppDatabase db;
+
+  /// The saved value, which the slider follows while it is not being dragged.
+  final double factor;
+
+  @override
+  State<_TextSizeSlider> createState() => _TextSizeSliderState();
+}
+
+class _TextSizeSliderState extends State<_TextSizeSlider> {
+  double? _dragging;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = _dragging ?? widget.factor;
+    return Slider(
+      value: value.clamp(PostTextScale.min, PostTextScale.max),
+      min: PostTextScale.min,
+      max: PostTextScale.max,
+      // 5 % steps: the slider lands on round numbers.
+      divisions: ((PostTextScale.max - PostTextScale.min) / 0.05).round(),
+      label: '${(value * 100).round()} %',
+      onChanged: (v) => setState(() => _dragging = v),
+      onChangeEnd: (v) {
+        unawaited(
+          widget.db.setSetting(SettingKeys.postTextScale, v.toStringAsFixed(2)),
+        );
+        setState(() => _dragging = null);
+      },
+    );
+  }
 }

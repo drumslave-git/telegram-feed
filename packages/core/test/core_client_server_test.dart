@@ -39,6 +39,9 @@ final class FakeGateway implements TelegramGateway {
   }
 
   @override
+  Future<void> resendCode() async => calls.add('resend');
+
+  @override
   Future<void> checkPassword(String password) async => calls.add('pw');
   @override
   Future<void> registerUser({

@@ -144,6 +144,8 @@ final class CoreClient implements TelegramGateway {
   @override
   Future<void> checkCode(String code) => _call('checkCode', {'code': code});
   @override
+  Future<void> resendCode() => _call('resendCode', const {});
+  @override
   Future<void> checkPassword(String password) =>
       _call('checkPassword', {'password': password});
   @override

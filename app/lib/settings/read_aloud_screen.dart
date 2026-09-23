@@ -372,7 +372,9 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
           ListTile(
-            title: const Text('Speed'),
+            // The value beside the name: a slider with no number says nothing until it
+            // is dragged, and the bubble is gone the moment the finger lifts.
+            title: Text('Speed  ·  ${(_rate * 2).toStringAsFixed(1)}×'),
             subtitle: Slider(
               value: _rate,
               min: 0.2,
@@ -386,7 +388,7 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
             ),
           ),
           ListTile(
-            title: const Text('Pitch'),
+            title: Text('Pitch  ·  ${_pitch.toStringAsFixed(2)}'),
             subtitle: Slider(
               value: _pitch,
               min: 0.5,

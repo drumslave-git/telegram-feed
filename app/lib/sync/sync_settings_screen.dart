@@ -33,7 +33,7 @@ class SyncSettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Sync')),
+      appBar: AppBar(title: const Text('Google Drive sync')),
       body: ValueListenableBuilder<SyncStatus>(
         valueListenable: controller.status,
         builder: (context, s, _) => ListView(

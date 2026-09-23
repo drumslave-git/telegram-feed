@@ -37,6 +37,8 @@ final class ScriptedGateway implements TelegramGateway {
   @override
   Future<void> checkCode(String code) => _record('code:$code');
   @override
+  Future<void> resendCode() => _record('resend');
+  @override
   Future<void> checkPassword(String password) => _record('password:$password');
   @override
   Future<void> registerUser({

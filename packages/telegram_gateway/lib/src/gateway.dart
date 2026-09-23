@@ -6,6 +6,9 @@ abstract interface class TelegramGateway {
   Stream<AuthState> get authState;
   Future<void> setPhoneNumber(String phone);
   Future<void> checkCode(String code);
+
+  /// Asks Telegram for the login code again, as the official app's "Resend code" does.
+  Future<void> resendCode();
   Future<void> checkPassword(String password);
   Future<void> registerUser({required String firstName, String lastName = ''});
   Future<void> requestQrCode();

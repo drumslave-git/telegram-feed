@@ -295,7 +295,7 @@ class AccountHeader extends StatelessWidget {
         title: Text(failed ? 'Account unavailable' : 'Loading…'),
         trailing: failed
             ? IconButton(
-                tooltip: 'Refresh',
+                tooltip: 'Reload the profile',
                 icon: const Icon(Icons.refresh),
                 onPressed: onRefresh,
               )
@@ -359,7 +359,8 @@ class AccountHeader extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Refresh',
+            // What it refreshes: the bare arrow beside a profile could be anything.
+            tooltip: 'Reload the profile',
             icon: const Icon(Icons.refresh),
             onPressed: onRefresh,
           ),

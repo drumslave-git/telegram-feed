@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import 'dart:async';
+
 import '../app_name.dart';
+import '../host/accounts.dart';
+import '../service/core_service.dart' show appPaths;
 import '../widgets/error_state.dart';
 
 /// Shows the screen for the current [AuthState] and [child] once logged in.
@@ -61,9 +65,15 @@ class _StepForm extends StatefulWidget {
     this.keyboardType = TextInputType.text,
     this.obscure = false,
     this.maxLength,
+    this.hint,
+    this.initialValue,
+    this.footnote,
     this.secondaryLabel,
     this.secondaryIcon,
     this.onSecondary,
+    this.tertiaryLabel,
+    this.tertiaryIcon,
+    this.onTertiary,
   });
   final String title;
   final String explanation;
@@ -74,19 +84,35 @@ class _StepForm extends StatefulWidget {
   final bool obscure;
   final int? maxLength;
 
+  /// An example of what to type, e.g. a phone number in international format.
+  final String? hint;
+
+  /// What the field starts with, e.g. the "+" every phone number begins with.
+  final String? initialValue;
+
+  /// A quiet line under the buttons, e.g. where something else has to be done.
+  final String? footnote;
+
   /// Optional second action (e.g. "log in with QR"), run with the same error handling.
   final String? secondaryLabel;
   final IconData? secondaryIcon;
   final Future<void> Function()? onSecondary;
+
+  /// A third action beside the second one (e.g. "Resend code").
+  final String? tertiaryLabel;
+  final IconData? tertiaryIcon;
+  final Future<void> Function()? onTertiary;
 
   @override
   State<_StepForm> createState() => _StepFormState();
 }
 
 class _StepFormState extends State<_StepForm> {
-  final _ctl = TextEditingController();
+  late final _ctl = TextEditingController(text: widget.initialValue ?? '');
   String? _error;
   bool _busy = false;
+  late bool _hidden = widget.obscure;
+  String? _note;
 
   Future<void> _submit() async {
     final value = _ctl.text.trim();
@@ -128,11 +154,24 @@ class _StepFormState extends State<_StepForm> {
             autofocus: true,
             enabled: !_busy,
             keyboardType: widget.keyboardType,
-            obscureText: widget.obscure,
+            obscureText: _hidden,
             maxLength: widget.maxLength,
             decoration: InputDecoration(
               labelText: widget.label,
+              hintText: widget.hint,
               errorText: _error,
+              // A password typed on a phone is worth being able to look at.
+              suffixIcon: !widget.obscure
+                  ? null
+                  : IconButton(
+                      tooltip: _hidden ? 'Show' : 'Hide',
+                      icon: Icon(
+                        _hidden
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                      onPressed: () => setState(() => _hidden = !_hidden),
+                    ),
             ),
             onSubmitted: (_) => _submit(),
           ),
@@ -147,14 +186,48 @@ class _StepFormState extends State<_StepForm> {
                   )
                 : Text(widget.action),
           ),
+          if (widget.onTertiary != null) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _busy
+                  ? null
+                  : () async {
+                      await _guard(widget.onTertiary!);
+                      if (mounted && _error == null) {
+                        setState(() => _note = 'A new code is on its way.');
+                      }
+                    },
+              icon: Icon(widget.tertiaryIcon),
+              label: Text(widget.tertiaryLabel ?? ''),
+            ),
+          ],
           if (widget.onSecondary != null) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: _busy ? null : () => _guard(widget.onSecondary!),
               icon: Icon(widget.secondaryIcon),
               label: Text(widget.secondaryLabel ?? ''),
             ),
           ],
+          if (_note != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                _note!,
+                style: TextStyle(color: Theme.of(context).colorScheme.primary),
+              ),
+            ),
+          const OtherAccountButton(),
+          if (widget.footnote != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 24),
+              child: Text(
+                widget.footnote!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -175,6 +248,8 @@ class PhoneScreen extends StatelessWidget {
       label: 'Phone number',
       action: 'Send code',
       keyboardType: TextInputType.phone,
+      hint: '+44 7700 900123',
+      initialValue: '+',
       onSubmit: gateway.setPhoneNumber,
       secondaryLabel: 'Log in with QR code instead',
       secondaryIcon: Icons.qr_code,
@@ -205,6 +280,10 @@ class CodeScreen extends StatelessWidget {
       keyboardType: TextInputType.number,
       maxLength: codeLength > 0 ? codeLength : null,
       onSubmit: gateway.checkCode,
+      // A code that never arrived: ask for it again without starting over.
+      tertiaryLabel: 'Resend code',
+      tertiaryIcon: Icons.refresh,
+      onTertiary: gateway.resendCode,
       // A mistyped number, or a code that never came: back to the number, as the
       // official app's "Wrong number?".
       secondaryLabel: 'Change number',
@@ -229,6 +308,10 @@ class PasswordScreen extends StatelessWidget {
       label: 'Password',
       action: 'Continue',
       obscure: true,
+      // Resetting it is part of two-step verification, which stays in the official app.
+      footnote:
+          'Forgotten it? A cloud password can only be reset in the official Telegram '
+          'app, under Settings, Privacy and Security.',
       onSubmit: gateway.checkPassword,
     );
   }
@@ -276,6 +359,7 @@ class QrScreen extends StatelessWidget {
               ),
             ),
             const Spacer(),
+            const OtherAccountButton(),
             TextButton(
               onPressed: () {
                 final messenger = ScaffoldMessenger.of(context);
@@ -291,6 +375,68 @@ class QrScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A way back to an account that is already logged in. Adding an account switches the
+/// app to a fresh one at once, and without this the login screen would be a room with no
+/// door: Settings is unreachable from here.
+class OtherAccountButton extends StatefulWidget {
+  const OtherAccountButton({super.key});
+
+  @override
+  State<OtherAccountButton> createState() => _OtherAccountButtonState();
+}
+
+class _OtherAccountButtonState extends State<OtherAccountButton> {
+  AccountInfo? _other;
+  AccountStore? _store;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final store = AccountStore((await appPaths()).support);
+      final now = await store.load();
+      final other = now.accounts
+          .where((a) => a.id != now.active && a.label.isNotEmpty)
+          .firstOrNull;
+      if (mounted) {
+        setState(() {
+          _store = store;
+          _other = other;
+        });
+      }
+    } on Object {
+      // No paths (tests, desktop): no other account to offer.
+    }
+  }
+
+  Future<void> _use(AccountInfo other) async {
+    final switched = AccountSwitch.of(context)?.onSwitched;
+    if (switched == null) return;
+    setState(() => _busy = true);
+    await _store!.setActive(other.id);
+    await switched();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final other = _other;
+    if (other == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: TextButton.icon(
+        onPressed: _busy ? null : () => unawaited(_use(other)),
+        icon: const Icon(Icons.switch_account_outlined),
+        label: Text('Use ${other.label} instead'),
       ),
     );
   }
