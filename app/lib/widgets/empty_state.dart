@@ -10,6 +10,7 @@ class EmptyState extends StatelessWidget {
     this.message,
     this.actionLabel,
     this.onAction,
+    this.actionIcon = Icons.add,
     this.secondary,
   });
 
@@ -18,6 +19,7 @@ class EmptyState extends StatelessWidget {
   final String? message;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final IconData actionIcon;
 
   /// A quieter line under the button, e.g. the other way to do the same thing.
   final String? secondary;
@@ -52,7 +54,7 @@ class EmptyState extends StatelessWidget {
               const SizedBox(height: 20),
               FilledButton.icon(
                 onPressed: onAction,
-                icon: const Icon(Icons.add),
+                icon: Icon(actionIcon),
                 label: Text(actionLabel!),
               ),
             ],

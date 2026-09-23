@@ -149,20 +149,13 @@ class _Root extends StatelessWidget {
           child: HomeScreen(
             db: h.db,
             gateway: h.gateway,
+            onOpenRules: () => _openRules(context, h),
             actions: [
               IconButton(
                 tooltip: 'Rules',
-                icon: const Icon(Icons.rule),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => RulesScreen(
-                      db: h.db,
-                      gateway: h.gateway,
-                      batteryExempt: () => h.isBatteryExempt,
-                      onRequestBatteryExemption: h.requestBatteryExemption,
-                    ),
-                  ),
-                ),
+                // A bell, not a list: these rules exist to notify.
+                icon: const Icon(Icons.notifications_active_outlined),
+                onPressed: () => _openRules(context, h),
               ),
               IconButton(
                 tooltip: 'Settings',
@@ -185,4 +178,17 @@ class _Root extends StatelessWidget {
       },
     );
   }
+
+  /// The rules overview, from the app bar and from the first-run card on the Feeds tab.
+  void _openRules(BuildContext context, AppHost h) =>
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => RulesScreen(
+            db: h.db,
+            gateway: h.gateway,
+            batteryExempt: () => h.isBatteryExempt,
+            onRequestBatteryExemption: h.requestBatteryExemption,
+          ),
+        ),
+      );
 }

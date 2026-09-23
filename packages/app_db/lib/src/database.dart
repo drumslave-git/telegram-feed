@@ -150,6 +150,10 @@ abstract final class SettingKeys {
   /// does. Default true.
   static const countUnreadPosts = 'badge.countPosts';
 
+  /// The card on the Feeds tab that says notifications come from rules is gone for good;
+  /// 'true' once the reader dismissed it. Default false.
+  static const rulesHintDismissed = 'onboarding.rulesHintDismissed';
+
   /// The last words searched for, newest first, as a JSON list of strings.
   static const recentSearches = 'search.recent';
 

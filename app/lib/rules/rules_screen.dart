@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +7,7 @@ import 'package:rules/rules.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../ai/semantic_gate.dart';
+import '../widgets/empty_state.dart';
 import 'rule_editor_screen.dart';
 
 /// Opens the rule editor: for [rule], or for a new rule in [feedId] (the first feed when
@@ -55,15 +58,25 @@ class RulesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Rules')),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => openRuleEditor(
-          context,
-          db: db,
-          gateway: gateway,
-          semanticCheck: semanticCheck,
-        ),
-        tooltip: 'New rule',
-        child: const Icon(Icons.add),
+      // With no feeds the editor would open on an empty feed dropdown and refuse to
+      // save, so the button says what is missing instead.
+      floatingActionButton: StreamBuilder<List<Feed>>(
+        stream: db.watchFeeds(),
+        builder: (context, snap) {
+          final feeds = snap.data ?? const <Feed>[];
+          return FloatingActionButton(
+            onPressed: () => feeds.isEmpty
+                ? _needsFeed(context)
+                : openRuleEditor(
+                    context,
+                    db: db,
+                    gateway: gateway,
+                    semanticCheck: semanticCheck,
+                  ),
+            tooltip: 'New rule',
+            child: const Icon(Icons.add),
+          );
+        },
       ),
       body: RuleList(
         db: db,
@@ -74,6 +87,32 @@ class RulesScreen extends StatelessWidget {
       ),
     );
   }
+
+  void _needsFeed(BuildContext context) => unawaited(
+    showDialog<void>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('No feeds yet'),
+        content: const Text(
+          'Every rule belongs to a feed and watches its channels. Make a feed first, '
+          'then give it rules.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(dialog);
+              Navigator.of(context).maybePop();
+            },
+            child: const Text('Go to feeds'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Rules with their switches: those of one feed ([feedId]), or of all feeds under a
@@ -136,7 +175,7 @@ class RuleList extends StatelessWidget {
                   for (final r in snap.data ?? const <Rule>[])
                     if (feedId == null || r.feedId == feedId) r,
                 ];
-                if (rules.isEmpty) return Center(child: _empty(feeds));
+                if (rules.isEmpty) return _empty(context, feeds);
                 return FutureBuilder<List<WatchedChannel>>(
                   future: db.allWatched(),
                   builder: (context, w) {
@@ -180,21 +219,37 @@ class RuleList extends StatelessWidget {
     );
   }
 
-  Widget _empty(List<Feed> feeds) => Padding(
-    padding: const EdgeInsets.all(32),
-    child: Text(
-      feeds.isEmpty
-          ? 'Rules belong to feeds. Create a feed first, then give it rules.'
-          : feedId != null
-          ? 'No rules in this feed yet. A rule watches the feed\'s channels, or one of '
-                'them, and notifies you, optionally reading the post aloud: give it words '
-                'to look for, or leave the condition empty to be notified about every '
-                'post the feed shows.'
-          : 'No rules yet. Every feed has its own: a rule watches the feed\'s channels, '
-                'or one of them, and notifies you, optionally reading the post aloud.',
-      textAlign: TextAlign.center,
-    ),
-  );
+  Widget _empty(BuildContext context, List<Feed> feeds) {
+    if (feeds.isEmpty) {
+      return EmptyState(
+        icon: Icons.notifications_none,
+        title: 'No rules yet',
+        message:
+            'Rules belong to feeds. Make a feed first, then give it rules.',
+        actionLabel: 'Go to feeds',
+        actionIcon: Icons.arrow_back,
+        onAction: () => Navigator.of(context).maybePop(),
+      );
+    }
+    return EmptyState(
+      icon: Icons.notifications_none,
+      title: 'No rules yet',
+      message: feedId != null
+          ? 'A rule watches this feed\'s channels, or one of them, and notifies you, '
+                'optionally reading the post aloud: give it words to look for, or leave '
+                'the condition empty to be notified about every post the feed shows.'
+          : 'Every feed has its own rules: a rule watches the feed\'s channels, or one '
+                'of them, and notifies you, optionally reading the post aloud.',
+      actionLabel: 'New rule',
+      onAction: () => openRuleEditor(
+        context,
+        db: db,
+        gateway: gateway,
+        feedId: feedId ?? feeds.first.id,
+        semanticCheck: semanticCheck,
+      ),
+    );
+  }
 }
 
 /// The name of a feed above its rules in the overview.

@@ -15,6 +15,7 @@ import 'connection_title.dart';
 import 'channel_list.dart';
 import 'unread_badge.dart';
 import '../widgets/destructive_button.dart';
+import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
 import '../app_name.dart';
 
@@ -26,12 +27,16 @@ class HomeScreen extends StatefulWidget {
     required this.db,
     required this.gateway,
     this.actions = const [],
+    this.onOpenRules,
   });
   final AppDatabase db;
   final TelegramGateway gateway;
 
   /// App-bar actions (Rules, Settings).
   final List<Widget> actions;
+
+  /// Opens the rules overview; the first-run card on the Feeds tab points there.
+  final VoidCallback? onOpenRules;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -556,16 +561,17 @@ class _HomeScreenState extends State<HomeScreen>
             title: Text('Channel info'),
           ),
         ),
-        if (feeds.isNotEmpty)
-          const PopupMenuItem(
-            value: 'add',
-            child: ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.playlist_add),
-              title: Text('Add to a feed'),
-            ),
+        // Offered with no feeds too: it then makes the first one, which is exactly what
+        // a reader who wants this channel in a feed needs.
+        const PopupMenuItem(
+          value: 'add',
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.playlist_add),
+            title: Text('Add to a feed'),
           ),
+        ),
       ],
     );
     if (!mounted) return;
@@ -588,6 +594,11 @@ class _HomeScreenState extends State<HomeScreen>
   /// read position as the feed editor does.
   Future<void> _addToFeed(Channel channel, List<Feed> feeds) async {
     final messenger = ScaffoldMessenger.of(context);
+    if (feeds.isEmpty) {
+      // No feed to add it to: make one, which lands in its channel picker.
+      await _createFeed();
+      return;
+    }
     final inFeeds = (_feedTags[channel.chatId] ?? const []).toSet();
     final feed = await showModalBottomSheet<Feed>(
       context: context,
@@ -643,17 +654,6 @@ class _HomeScreenState extends State<HomeScreen>
       if (!_feeds.loaded) {
         return const Center(child: CircularProgressIndicator());
       }
-      if (feeds.isEmpty) {
-        return const Center(
-          child: Padding(
-            padding: EdgeInsets.all(32),
-            child: Text(
-              'No feeds yet. Tap + to create one: empty, or with the channels of one of your Telegram folders.',
-              textAlign: TextAlign.center,
-            ),
-          ),
-        );
-      }
       return Column(
         children: [
           if (_feeds.error != null)
@@ -671,68 +671,93 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ],
             ),
-          Expanded(
-            child: ReorderableListView.builder(
-              // The + button floats over the end of the list; the last row stays reachable.
-              padding: const EdgeInsets.only(bottom: 88),
-              itemCount: feeds.length,
-              onReorderItem: (from, to) {
-                final ids = feeds.map((f) => f.id).toList();
-                final id = ids.removeAt(from);
-                ids.insert(to, id);
-                widget.db.reorderFeeds(ids);
-              },
-              itemBuilder: (context, i) {
-                final f = feeds[i];
-                // Posts or channels, as the Badge counter switch says (J-1); the line
-                // under the name always names the channels.
-                final unread = _feeds.unreadOf(f.id);
-                final fresh = _feeds.unreadChannelsOf(f.id);
-                return ListTile(
-                  key: ValueKey(f.id),
-                  title: Text(f.name),
-                  leading: const Icon(Icons.rss_feed),
-                  // Always one line, so a row keeps its height as the feed is read.
-                  subtitle: Text(_feedLine(fresh, _feeds.channelsIn(f.id))),
-                  onTap: () => _openFeed(f),
-                  // The counter on the right of the row, as the official app has it in
-                  // its chat list: a long number never runs into the name.
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (unread > 0) UnreadBadge(unread),
-                      PopupMenuButton<String>(
-                        onSelected: (v) => switch (v) {
-                          'channels' => _editFeed(f.id),
-                          'rules' => _editFeed(
-                            f.id,
-                            tab: FeedEditorScreen.rulesTab,
-                          ),
-                          'rename' => _renameFeed(f),
-                          'read' => _markFeedRead(f),
-                          'delete' => _deleteFeed(f),
-                          _ => null,
-                        },
-                        itemBuilder: (context) => const [
-                          PopupMenuItem(
-                            value: 'channels',
-                            child: Text('Channels'),
-                          ),
-                          PopupMenuItem(value: 'rules', child: Text('Rules')),
-                          PopupMenuItem(value: 'rename', child: Text('Rename')),
-                          PopupMenuItem(
-                            value: 'read',
-                            child: Text('Mark all read'),
-                          ),
-                          PopupMenuItem(value: 'delete', child: Text('Delete')),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
+          if (feeds.isNotEmpty && widget.onOpenRules != null)
+            RulesHint(db: widget.db, onOpenRules: widget.onOpenRules!),
+          if (feeds.isEmpty)
+            Expanded(
+              child: EmptyState(
+                icon: Icons.rss_feed,
+                title: 'No feeds yet',
+                message:
+                    'A feed is a set of channels read as one timeline. Rules of the feed '
+                    'then notify you about the posts you care about; without them this app '
+                    'stays quiet.',
+                actionLabel: 'Create a feed',
+                onAction: () => unawaited(_newFeed()),
+                secondary:
+                    'A feed can also start from one of your Telegram folders, or from the '
+                    '"Add to a feed" menu of any channel.',
+              ),
+            )
+          else
+            Expanded(
+              child: ReorderableListView.builder(
+                // The + button floats over the end of the list; the last row stays reachable.
+                padding: const EdgeInsets.only(bottom: 88),
+                itemCount: feeds.length,
+                onReorderItem: (from, to) {
+                  final ids = feeds.map((f) => f.id).toList();
+                  final id = ids.removeAt(from);
+                  ids.insert(to, id);
+                  widget.db.reorderFeeds(ids);
+                },
+                itemBuilder: (context, i) {
+                  final f = feeds[i];
+                  // Posts or channels, as the Badge counter switch says (J-1); the line
+                  // under the name always names the channels.
+                  final unread = _feeds.unreadOf(f.id);
+                  final fresh = _feeds.unreadChannelsOf(f.id);
+                  return ListTile(
+                    key: ValueKey(f.id),
+                    title: Text(f.name),
+                    leading: const Icon(Icons.rss_feed),
+                    // Always one line, so a row keeps its height as the feed is read.
+                    subtitle: Text(_feedLine(fresh, _feeds.channelsIn(f.id))),
+                    onTap: () => _openFeed(f),
+                    // The counter on the right of the row, as the official app has it in
+                    // its chat list: a long number never runs into the name.
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (unread > 0) UnreadBadge(unread),
+                        PopupMenuButton<String>(
+                          onSelected: (v) => switch (v) {
+                            'channels' => _editFeed(f.id),
+                            'rules' => _editFeed(
+                              f.id,
+                              tab: FeedEditorScreen.rulesTab,
+                            ),
+                            'rename' => _renameFeed(f),
+                            'read' => _markFeedRead(f),
+                            'delete' => _deleteFeed(f),
+                            _ => null,
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: 'channels',
+                              child: Text('Channels'),
+                            ),
+                            PopupMenuItem(value: 'rules', child: Text('Rules')),
+                            PopupMenuItem(
+                              value: 'rename',
+                              child: Text('Rename'),
+                            ),
+                            PopupMenuItem(
+                              value: 'read',
+                              child: Text('Mark all read'),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
         ],
       );
     },
@@ -995,6 +1020,80 @@ class _HomeScreenState extends State<HomeScreen>
           _channelsTab(null),
         ],
       ),
+    );
+  }
+}
+
+/// Until the reader has rules, the Feeds tab says once where notifications come from:
+/// this app repeats none of Telegram's own, so a feed without rules stays quiet.
+class RulesHint extends StatelessWidget {
+  const RulesHint({super.key, required this.db, required this.onOpenRules});
+  final AppDatabase db;
+  final VoidCallback onOpenRules;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return StreamBuilder<String?>(
+      stream: db.watchSetting(SettingKeys.rulesHintDismissed),
+      builder: (context, dismissed) {
+        if (dismissed.data == 'true') return const SizedBox.shrink();
+        return StreamBuilder<List<Rule>>(
+          stream: db.watchRules(),
+          builder: (context, rules) {
+            if ((rules.data ?? const <Rule>[]).isNotEmpty) {
+              return const SizedBox.shrink();
+            }
+            return Card(
+              margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              color: theme.colorScheme.secondaryContainer,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Nothing notifies you yet',
+                            style: theme.textTheme.titleSmall,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Dismiss',
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () => unawaited(
+                            db.setSetting(
+                              SettingKeys.rulesHintDismissed,
+                              'true',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      'This app never repeats Telegram\'s own notifications. A rule of a '
+                      'feed watches its channels for the words you pick and notifies you, '
+                      'and can read the post aloud.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: onOpenRules,
+                        child: const Text('Set up rules'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

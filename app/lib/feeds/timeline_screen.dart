@@ -17,6 +17,7 @@ import '../home/connection_title.dart';
 import '../media/media_viewer.dart';
 import '../settings/data_storage_screen.dart' show DataStorageScreen;
 import '../settings/settings_tiles.dart' show openSettingsScreen;
+import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
 import 'feed_editor_screen.dart';
 import 'open_links.dart';
@@ -448,6 +449,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                     focusMessageId: widget.focusMessageId,
                     share: widget.share,
                     onSources: _onSources,
+                    onEditFeed: widget.feed == null ? null : _openFeedEditor,
                   ),
                   if (_searchOpen && _listOpen)
                     Positioned.fill(
@@ -526,6 +528,7 @@ class TimelineView extends StatefulWidget {
     this.share = shareWithSystemSheet,
     this.onSources,
     this.onSelectionChanged,
+    this.onEditFeed,
   }) : assert((feed == null) != (channel == null));
   final AppDatabase db;
   final TelegramGateway gateway;
@@ -535,6 +538,9 @@ class TimelineView extends StatefulWidget {
 
   /// How many rows are picked, so the screen can put up the selection bar.
   final ValueChanged<int>? onSelectionChanged;
+
+  /// Opens the feed's channels; the button an empty feed offers. Null for a channel.
+  final VoidCallback? onEditFeed;
 
   /// A feed of ours: sources and read marks come from the database.
   final Feed? feed;
@@ -1865,14 +1871,14 @@ class TimelineViewState extends State<TimelineView>
     return t == null || _opening
         ? const Center(child: CircularProgressIndicator())
         : items.isEmpty && t.chatIds.isEmpty
-        ? const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: Text(
-                'This feed has no channels yet. Tap the tune icon to add some.',
-                textAlign: TextAlign.center,
-              ),
-            ),
+        ? EmptyState(
+            icon: Icons.rss_feed,
+            title: 'This feed has no channels yet',
+            message:
+                'Add the channels it should collect; their posts then read as one '
+                'timeline, oldest first.',
+            actionLabel: 'Add channels',
+            onAction: widget.onEditFeed,
           )
         : items.isEmpty && _error != null
         ? ErrorState(
