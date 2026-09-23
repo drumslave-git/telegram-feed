@@ -493,7 +493,7 @@ class CommentBubble extends StatelessWidget {
     final c = comment;
     final own = c.isOutgoing;
     final time = Text(
-      formatTime(DateTime.fromMillisecondsSinceEpoch(c.date * 1000)),
+      formatTime(DateTime.fromMillisecondsSinceEpoch(c.date * 1000), context),
       style: TextStyle(
         fontSize: 12,
         height: 1.2,

@@ -142,79 +142,83 @@ class _MiniPlayerViewState extends State<_MiniPlayerView> {
       top: position.dy,
       width: size.width,
       height: size.height,
-      child: GestureDetector(
-        onTap: _s.togglePlay,
-        onPanUpdate: (d) => setState(() => _at = position + d.delta),
-        // Rests at the nearer side, as the system's window does.
-        onPanEnd: (_) => setState(
-          () => _at = Offset(
-            position.dx + size.width / 2 < screen.width / 2
-                ? bounds.left
-                : bounds.right,
-            position.dy,
+      child: Semantics(
+        label: 'Floating video player',
+        button: true,
+        child: GestureDetector(
+          onTap: _s.togglePlay,
+          onPanUpdate: (d) => setState(() => _at = position + d.delta),
+          // Rests at the nearer side, as the system's window does.
+          onPanEnd: (_) => setState(
+            () => _at = Offset(
+              position.dx + size.width / 2 < screen.width / 2
+                  ? bounds.left
+                  : bounds.right,
+              position.dy,
+            ),
           ),
-        ),
-        child: Material(
-          color: Colors.black,
-          elevation: 8,
-          borderRadius: BorderRadius.circular(12),
-          clipBehavior: Clip.antiAlias,
-          child: IconTheme(
-            data: const IconThemeData(color: Colors.white, size: 20),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (ready)
-                  VideoPicture(c)
-                else
-                  const Center(
-                    child: CircularProgressIndicator(color: Colors.white70),
-                  ),
-                if (ready && !playing)
-                  const Center(child: Icon(Icons.play_arrow, size: 40)),
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: DecoratedBox(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.black54, Colors.transparent],
-                      ),
+          child: Material(
+            color: Colors.black,
+            elevation: 8,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
+            child: IconTheme(
+              data: const IconThemeData(color: Colors.white, size: 20),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (ready)
+                    VideoPicture(c)
+                  else
+                    const Center(
+                      child: CircularProgressIndicator(color: Colors.white70),
                     ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          tooltip: 'Back to full screen',
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.open_in_full),
-                          onPressed: widget.onExpand,
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          tooltip: 'Close',
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.close),
-                          onPressed: widget.onClose,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (ready && total > 0)
+                  if (ready && !playing)
+                    const Center(child: Icon(Icons.play_arrow, size: 40)),
                   Align(
-                    alignment: Alignment.bottomCenter,
-                    child: LinearProgressIndicator(
-                      minHeight: 2,
-                      value: (c.value.position.inMilliseconds / total).clamp(
-                        0.0,
-                        1.0,
+                    alignment: Alignment.topCenter,
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.black54, Colors.transparent],
+                        ),
                       ),
-                      color: Colors.white,
-                      backgroundColor: Colors.white24,
+                      child: Row(
+                        children: [
+                          IconButton(
+                            tooltip: 'Back to full screen',
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(Icons.open_in_full),
+                            onPressed: widget.onExpand,
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            tooltip: 'Close',
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(Icons.close),
+                            onPressed: widget.onClose,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-              ],
+                  if (ready && total > 0)
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: LinearProgressIndicator(
+                        minHeight: 2,
+                        value: (c.value.position.inMilliseconds / total).clamp(
+                          0.0,
+                          1.0,
+                        ),
+                        color: Colors.white,
+                        backgroundColor: Colors.white24,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

@@ -342,16 +342,21 @@ class PhotoView extends StatelessWidget {
         gaplessPlayback: true,
       ),
     );
-    return GestureDetector(
-      onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: fill
-            ? SizedBox.expand(child: picture)
-            : AspectRatio(
-                aspectRatio: aspect.clamp(mediaMinAspect, mediaMaxAspect),
-                child: picture,
-              ),
+    return Semantics(
+      image: true,
+      button: onTap != null,
+      label: onTap == null ? 'Photo' : 'Photo, opens full screen',
+      child: GestureDetector(
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: fill
+              ? SizedBox.expand(child: picture)
+              : AspectRatio(
+                  aspectRatio: aspect.clamp(mediaMinAspect, mediaMaxAspect),
+                  child: picture,
+                ),
+        ),
       ),
     );
   }

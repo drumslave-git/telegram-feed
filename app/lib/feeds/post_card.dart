@@ -108,11 +108,15 @@ class ChatPill extends StatelessWidget {
     );
     return Center(
       child: onTap == null
-          ? pill
-          : GestureDetector(
-              onTap: onTap,
-              behavior: HitTestBehavior.opaque,
-              child: pill,
+          ? Semantics(header: true, child: pill)
+          : Semantics(
+              button: true,
+              label: '$label. Jump to a date',
+              child: GestureDetector(
+                onTap: onTap,
+                behavior: HitTestBehavior.opaque,
+                child: pill,
+              ),
             ),
     );
   }
@@ -487,10 +491,14 @@ class ForwardedFrom extends StatelessWidget {
     );
     return onTap == null
         ? row
-        : GestureDetector(
-            onTap: onTap,
-            behavior: HitTestBehavior.opaque,
-            child: row,
+        : Semantics(
+            button: true,
+            label: 'Forwarded from $name. Open the original',
+            child: GestureDetector(
+              onTap: onTap,
+              behavior: HitTestBehavior.opaque,
+              child: row,
+            ),
           );
   }
 }
@@ -526,62 +534,68 @@ class RepliedPost extends StatelessWidget {
       color: accent.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(6),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border(left: BorderSide(color: accent, width: 3)),
-          ),
-          padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (photo != null) ...[
-                SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: PhotoView(
-                    file: photo.sizes.first,
-                    gateway: gateway,
-                    onTap: onTap,
-                    fill: true,
-                    radius: 4,
+      child: Semantics(
+        button: onTap != null,
+        label: onTap == null
+            ? 'In reply to $name'
+            : 'In reply to $name. Go to that post',
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border(left: BorderSide(color: accent, width: 3)),
+            ),
+            padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (photo != null) ...[
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: PhotoView(
+                      file: photo.sizes.first,
+                      gateway: gateway,
+                      onTap: onTap,
+                      fill: true,
+                      radius: 4,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: accent,
+                        ),
+                      ),
+                      Text(
+                        reply.text.isEmpty ? 'Post' : reply.text,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: scheme.onSurfaceVariant,
+                          // A quote the author picked out of the post is set apart.
+                          fontStyle: reply.manualQuote
+                              ? FontStyle.italic
+                              : FontStyle.normal,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 6),
               ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: accent,
-                      ),
-                    ),
-                    Text(
-                      reply.text.isEmpty ? 'Post' : reply.text,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: scheme.onSurfaceVariant,
-                        // A quote the author picked out of the post is set apart.
-                        fontStyle: reply.manualQuote
-                            ? FontStyle.italic
-                            : FontStyle.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -867,7 +881,7 @@ class PostFooter extends StatelessWidget {
           Text('edited', style: style),
           const SizedBox(width: 4),
         ],
-        Text(formatTime(date), style: style),
+        Text(formatTime(date, context), style: style),
       ],
     );
   }
@@ -1095,8 +1109,21 @@ String formatCount(int n) {
   return '$n';
 }
 
-String formatTime(DateTime d) =>
-    '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+/// The phone's own clock: a reader who set 12 hours sees "7:09 PM", one who set 24
+/// sees "19:09". Without a context (a pure unit test) it is the 24-hour form.
+String formatTime(DateTime d, [BuildContext? context]) {
+  final l10n = context == null
+      ? null
+      : Localizations.of<MaterialLocalizations>(context, MaterialLocalizations);
+  if (l10n != null) {
+    return l10n.formatTimeOfDay(
+      TimeOfDay.fromDateTime(d),
+      alwaysUse24HourFormat:
+          MediaQuery.maybeOf(context!)?.alwaysUse24HourFormat ?? true,
+    );
+  }
+  return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+}
 
 /// The label between two days of a chat: Today, Yesterday, September 17, March 3, 2025.
 String formatDay(DateTime d, {DateTime? now}) {

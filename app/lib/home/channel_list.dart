@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../feeds/media_view.dart' show Downloaded;
-import '../feeds/post_card.dart' show peerColor;
+import '../feeds/post_card.dart' show formatTime, peerColor;
 import '../widgets/error_state.dart';
 import '../widgets/skeleton_list.dart';
 import 'unread_badge.dart';
@@ -224,6 +224,7 @@ class ChannelTile extends StatelessWidget {
             Text(
               formatListDate(
                 DateTime.fromMillisecondsSinceEpoch(c.lastMessageDate * 1000),
+                context: context,
               ),
               style: theme.textTheme.labelSmall,
             ),
@@ -344,16 +345,20 @@ class ChannelAvatar extends StatelessWidget {
   }
 }
 
-/// Time today, weekday within a week, else the date.
-String formatListDate(DateTime d, {DateTime? now}) {
+/// Time today, weekday within a week, else the date, as the official app's chat list
+/// writes them. With a [context] the clock and the date follow the phone's own settings.
+String formatListDate(DateTime d, {DateTime? now, BuildContext? context}) {
   final n = now ?? DateTime.now();
   String two(int x) => x.toString().padLeft(2, '0');
   if (d.year == n.year && d.month == n.month && d.day == n.day) {
-    return '${two(d.hour)}:${two(d.minute)}';
+    return formatTime(d, context);
   }
   if (n.difference(d).inDays < 6 && !d.isAfter(n)) {
     return const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d.weekday -
         1];
   }
-  return '${d.year}-${two(d.month)}-${two(d.day)}';
+  final l10n = context == null
+      ? null
+      : Localizations.of<MaterialLocalizations>(context, MaterialLocalizations);
+  return l10n?.formatShortDate(d) ?? '${d.year}-${two(d.month)}-${two(d.day)}';
 }
