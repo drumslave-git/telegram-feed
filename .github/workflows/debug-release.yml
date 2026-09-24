@@ -1,10 +1,11 @@
 name: debug-release
-# Versioned debug APKs, fully automatic. After `ci` passes on main (or after `tdlib` has
-# published new binaries) this computes the next semantic version from the conventional
-# commits since the last `vX.Y.Z` tag (packages/versioning): feat raises the minor, fix and
-# perf the patch, a breaking change the major (the minor while 0.x). Commits of other types
-# alone release nothing. It then tags the commit, builds debug APKs signed with the fixed
-# debug key and publishes them as a prerelease with a changelog.
+# Versioned APKs signed with the debug key, fully automatic. After `ci` passes on main (or
+# after `tdlib` has published new binaries) this computes the next semantic version from the
+# conventional commits since the last `vX.Y.Z` tag (packages/versioning): feat raises the
+# minor, fix and perf the patch, a breaking change the major (the minor while 0.x). Commits
+# of other types alone release nothing. It then tags the commit, builds APKs in release mode
+# signed with the fixed debug key and publishes them as a prerelease with a changelog. Not
+# debug mode: a debug build runs Dart unoptimised and scrolls several times slower.
 #
 # Secrets: TG_API_ID, TG_API_HASH, DEBUG_KEYSTORE_BASE64 (a debug.keystore with the usual
 # `android` passwords; a fixed key lets each APK install over the previous one and keeps the
@@ -92,11 +93,11 @@ jobs:
           echo "fixed key SHA-1: $sha1"
           echo "DEBUG_KEY_SHA1=$sha1" >> "$GITHUB_ENV"
 
-      - name: Build debug APKs (arm64-v8a, x86_64)
+      - name: Build APKs (arm64-v8a, x86_64)
         if: steps.v.outputs.release == 'true'
         working-directory: app
         run: |
-          flutter build apk --debug --split-per-abi \
+          flutter build apk --release --split-per-abi \
             --target-platform android-arm64,android-x64 \
             --build-name=${{ steps.v.outputs.version }} \
             --build-number=${{ github.run_number }} \
@@ -105,7 +106,7 @@ jobs:
             --dart-define=GOOGLE_SERVER_CLIENT_ID=${{ secrets.GOOGLE_SERVER_CLIENT_ID }}
           cd build/app/outputs/flutter-apk
           for abi in arm64-v8a x86_64; do
-            mv "app-$abi-debug.apk" "telegram-feed-${{ steps.v.outputs.version }}-$abi-debug.apk"
+            mv "app-$abi-release.apk" "telegram-feed-${{ steps.v.outputs.version }}-$abi.apk"
           done
           ls -la
 
@@ -113,7 +114,7 @@ jobs:
         if: steps.v.outputs.release == 'true'
         run: |
           apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
-          for apk in app/build/app/outputs/flutter-apk/telegram-feed-*-debug.apk; do
+          for apk in app/build/app/outputs/flutter-apk/telegram-feed-*.apk; do
             got=$("$apksigner" verify --print-certs "$apk" | grep -m1 'SHA-1' | sed 's/.*: //')
             echo "$apk: $got"
             if [ "$got" != "$DEBUG_KEY_SHA1" ]; then
@@ -130,7 +131,7 @@ jobs:
         if: steps.v.outputs.release == 'true'
         run: |
           {
-            echo "Debug build ${{ steps.v.outputs.version }} (build ${{ github.run_number }}) of $(git rev-parse --short HEAD)."
+            echo "Build ${{ steps.v.outputs.version }} (build ${{ github.run_number }}) of $(git rev-parse --short HEAD), signed with the debug key."
             echo "Install \`arm64-v8a\` on phones, \`x86_64\` on emulators. Each build installs over the previous one."
             echo
             cat notes.md
@@ -141,7 +142,7 @@ jobs:
         with:
           tag_name: ${{ steps.v.outputs.tag }}
           target_commitish: ${{ github.event.workflow_run.head_sha || github.sha }}
-          name: ${{ steps.v.outputs.tag }} (debug)
+          name: ${{ steps.v.outputs.tag }} (debug key)
           prerelease: true
           body_path: body.md
-          files: app/build/app/outputs/flutter-apk/telegram-feed-*-debug.apk
+          files: app/build/app/outputs/flutter-apk/telegram-feed-*.apk
