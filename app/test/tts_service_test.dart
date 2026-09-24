@@ -154,6 +154,63 @@ void main() {
     },
   );
 
+  test(
+    'Stop on the post being read silences it; the next one follows',
+    () async {
+      final changes = <Set<Object>>[];
+      tts.readingChanges.listen(changes.add);
+      tts.enqueue(const TtsItem(text: 'one', key: 1));
+      tts.enqueue(const TtsItem(text: 'two', key: 2));
+      expect(tts.reading, {1, 2});
+      await tick();
+      expect(sp.spoken, ['one']);
+      await tts.stop(1);
+      await tick();
+      expect(sp.spoken, ['one', 'two']);
+      expect(tts.reading, {2});
+      sp.finish();
+      await tick();
+      expect(tts.reading, isEmpty);
+      expect(changes, [
+        {1},
+        {1, 2},
+        {2},
+        <Object>{},
+      ]);
+    },
+  );
+
+  test('Stop on a waiting post takes it out of the queue', () async {
+    tts.enqueue(const TtsItem(text: 'one', key: 1));
+    tts.enqueue(const TtsItem(text: 'two', key: 2));
+    tts.enqueue(const TtsItem(text: 'three', key: 3));
+    await tick();
+    await tts.stop(2);
+    expect(tts.reading, {1, 3});
+    sp.finish();
+    await tick();
+    sp.finish();
+    await tick();
+    expect(sp.spoken, ['one', 'three']);
+    // Stop on a post that is not read changes nothing.
+    await tts.stop(9);
+    expect(tts.isSpeaking, isFalse);
+  });
+
+  test('an interrupted post is still waiting to be read', () async {
+    tts.enqueue(const TtsItem(text: 'one', key: 1));
+    await tick();
+    sp.interrupt(true);
+    await tick();
+    expect(tts.reading, {1});
+    sp.interrupt(false);
+    await tick();
+    sp.finish();
+    await tick();
+    expect(sp.spoken, ['one', 'one']);
+    expect(tts.reading, isEmpty);
+  });
+
   test('stopAll clears everything; empty text is skipped', () async {
     tts.enqueue(const TtsItem(text: 'one', key: 1));
     tts.enqueue(const TtsItem(text: 'two', key: 2));

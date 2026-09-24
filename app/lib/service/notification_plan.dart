@@ -12,8 +12,10 @@ const channelUrgent = 'posts_urgent';
 /// access, so this second channel is created once access is granted ([Notifier]).
 const channelUrgentDnd = 'posts_urgent_dnd';
 
-/// Action ids on post notifications.
+/// Action ids on post notifications. A post being read, or waiting to be, offers Stop
+/// where the others offer Listen.
 const actionListen = 'listen';
+const actionStop = 'stop';
 const actionOpenTelegram = 'open_tg';
 
 /// Port name under which the service host receives notification actions
@@ -30,8 +32,13 @@ final class PostRef {
   /// known.
   final int feedId;
 
-  String encode() =>
-      jsonEncode({'chatId': chatId, 'messageId': messageId, 'feedId': feedId});
+  Map<String, Object> toJson() => {
+    'chatId': chatId,
+    'messageId': messageId,
+    'feedId': feedId,
+  };
+
+  String encode() => jsonEncode(toJson());
 
   static PostRef? decode(String? payload) {
     if (payload == null || payload.isEmpty) return null;
@@ -58,6 +65,7 @@ final class NotificationPlan {
     required this.title,
     required this.body,
     this.rule = '',
+    this.when,
     required this.groupKey,
     required this.summaryId,
     required this.payload,
@@ -70,8 +78,14 @@ final class NotificationPlan {
   /// The rule that matched, shown as Android's sub-text beside the app's name: with
   /// several rules on one feed the shade would otherwise not say which one fired.
   final String rule;
+
+  /// The time the notification shows, in milliseconds: the post's own, so posting it
+  /// again with another button keeps its time and its place in the shade.
+  final int? when;
   final String groupKey;
   final int summaryId;
+
+  /// A [PostRef], with the rule and the time beside it for [restore].
   final String payload;
 
   static String channelFor(RulePriority p) => switch (p) {
@@ -96,20 +110,55 @@ final class NotificationPlan {
     // they carry ("Photo", "Video", the file's name).
     final text = postLabel(m.post).replaceAll(RegExp(r'\s+'), ' ').trim();
     final body = text.length > 240 ? '${text.substring(0, 240)}…' : text;
+    // The rules that matched, so the shade says why this post is here.
+    final rule = m.ruleNames.join(', ');
+    final when = m.post.date * 1000;
     return NotificationPlan(
       id: idFor(m.post.chatId, m.post.messageId),
       channelId: channelFor(m.priority),
       title: channelTitle.isEmpty ? 'New post' : channelTitle,
       body: body,
-      // The rules that matched, so the shade says why this post is here.
-      rule: m.ruleNames.join(', '),
+      rule: rule,
+      when: when,
       groupKey: 'chat-${m.post.chatId}',
       summaryId: summaryIdFor(m.post.chatId),
-      payload: PostRef(
-        m.post.chatId,
-        m.post.messageId,
-        feedId: m.feedId,
-      ).encode(),
+      payload: jsonEncode({
+        ...PostRef(m.post.chatId, m.post.messageId, feedId: m.feedId).toJson(),
+        'rule': rule,
+        'when': when,
+      }),
+    );
+  }
+
+  /// The plan of a notification Android still shows, from what Android reports of it: for
+  /// one posted before the service last started, so its button can change like any other
+  /// one's. [androidChannelId] is the channel it was posted on. Null when the payload is
+  /// not a post's.
+  static NotificationPlan? restore({
+    required int id,
+    required String androidChannelId,
+    required String title,
+    required String body,
+    required String groupKey,
+    required String payload,
+  }) {
+    final ref = PostRef.decode(payload);
+    if (ref == null) return null;
+    final extra = jsonDecode(payload) as Map<String, Object?>;
+    return NotificationPlan(
+      id: id,
+      channelId: androidChannelId.startsWith(channelUrgent)
+          ? channelUrgent
+          : androidChannelId.startsWith(channelSilent)
+          ? channelSilent
+          : channelNormal,
+      title: title,
+      body: body,
+      rule: extra['rule'] as String? ?? '',
+      when: extra['when'] as int?,
+      groupKey: groupKey,
+      summaryId: summaryIdFor(ref.chatId),
+      payload: payload,
     );
   }
 }

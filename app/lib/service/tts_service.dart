@@ -73,6 +73,8 @@ final class TtsService {
   final void Function(String) _log;
   final _queue = Queue<TtsItem>();
   final _keys = <Object>{};
+  // Synchronous, so a notification shown right after [enqueue] already knows.
+  final _readingChanges = StreamController<Set<Object>>.broadcast(sync: true);
   StreamSubscription<bool>? _interruptSub;
   bool _speaking = false;
   bool _interrupted = false;
@@ -81,6 +83,15 @@ final class TtsService {
 
   int get queueLength => _queue.length + (_speaking ? 1 : 0);
   bool get isSpeaking => _speaking;
+
+  /// Keys of the posts being read or waiting to be read.
+  Set<Object> get reading => Set.unmodifiable(_keys);
+
+  /// [reading] after each change: a post's notification offers Stop while its key is in
+  /// it and Listen otherwise.
+  Stream<Set<Object>> get readingChanges => _readingChanges.stream;
+
+  void _readingChanged() => _readingChanges.add(reading);
 
   Future<void> init() async {
     await speaker.init();
@@ -115,15 +126,27 @@ final class TtsService {
     } else {
       _queue.add(item);
     }
+    if (isNew && key != null) _readingChanged();
     _stopped = false;
     unawaited(_drain());
   }
 
-  /// Stops the current utterance and clears the queue (user pressed stop).
+  /// Stops one post (its notification's Stop): the one being read goes quiet and the next
+  /// one follows; one still waiting leaves the queue.
+  Future<void> stop(Object key) async {
+    if (!_keys.remove(key)) return;
+    _queue.removeWhere((q) => q.key == key);
+    _readingChanged();
+    if (_current?.key == key) await speaker.stop();
+  }
+
+  /// Stops the current utterance and clears the queue.
   Future<void> stopAll() async {
     _stopped = true;
     _queue.clear();
+    final had = _keys.isNotEmpty;
     _keys.clear();
+    if (had) _readingChanged();
     await speaker.stop();
   }
 
@@ -137,8 +160,10 @@ final class TtsService {
         await _speakOne(item);
         _current = null;
         // An item put back by an interruption is still waiting.
-        if (item.key != null && !_queue.any((q) => q.key == item.key)) {
-          _keys.remove(item.key);
+        if (item.key != null &&
+            !_queue.any((q) => q.key == item.key) &&
+            _keys.remove(item.key)) {
+          _readingChanged();
         }
       }
     } finally {
@@ -148,6 +173,10 @@ final class TtsService {
       if (!_interrupted) unawaited(speaker.release());
     }
   }
+
+  /// False once [stop] or [stopAll] took the item back.
+  bool _wanted(TtsItem item) =>
+      !_stopped && (item.key == null || _keys.contains(item.key));
 
   Future<void> _speakOne(TtsItem item) async {
     final maxChars =
@@ -172,6 +201,8 @@ final class TtsService {
     }
     final rate = double.tryParse(await db.setting(TtsKeys.rate) ?? '');
     final pitch = double.tryParse(await db.setting(TtsKeys.pitch) ?? '');
+    // A Stop pressed while the settings and the language were looked up.
+    if (!_wanted(item)) return;
     _log(
       'speak [$language${voice == null ? '' : ', ${voice['name']}'}] ${text.length} chars',
     );
@@ -182,12 +213,13 @@ final class TtsService {
       rate: rate,
       pitch: pitch,
     );
-    if (!ok && !_stopped && !_interrupted) _log('speech not heard');
+    if (!ok && _wanted(item) && !_interrupted) _log('speech not heard');
   }
 
   Future<void> dispose() async {
     await _interruptSub?.cancel();
     await stopAll();
+    await _readingChanges.close();
   }
 }
 

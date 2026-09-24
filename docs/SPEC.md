@@ -121,7 +121,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 ### Read aloud
 
 - When a rule with read-aloud fires, the app speaks "New post in <channel>" followed by the post text, also with the screen off.
-- Every rule notification carries a "Listen" action that speaks the post on demand.
+- Every rule notification carries a "Listen" action that speaks the post on demand. While its post is being read or waits to be read, the action is "Stop" instead, which silences that post only; the next waiting post is read. Neither action takes the notification away.
 - The app detects the post's language and picks a matching voice.
 - Posts are queued, never spoken over each other and never dropped. Other audio is ducked, and a phone call pauses speech.
 - Settings: speed, pitch, maximum length, language when detection fails, and a preview. Voices are listed by language name for the languages I gave one; "Add language" picks another from a searchable list, and every other language uses the phone's default voice.
@@ -165,7 +165,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - Swiping a channel row to mark it read (the row's menu does it).
 - An in-app browser and Instant View. Registering the app as a handler for t.me links from other apps.
 - Chat wallpapers and bubble colours. Night mode on a schedule. Interface languages other than English.
-- Notification actions other than Listen and Open in Telegram. An in-app banner for new posts.
+- Notification actions other than Listen, Stop and Open in Telegram. An in-app banner for new posts.
 - Sharing into the app from other apps. A home-screen widget.
 - Active sessions and two-step verification management (they stay in the official app).
 - Per-channel cache size. Channel statistics.

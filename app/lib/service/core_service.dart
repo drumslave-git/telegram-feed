@@ -187,6 +187,7 @@ class CoreServiceHandler extends TaskHandler {
     try {
       await tts.init();
       _tts = tts;
+      tts.readingChanges.listen(_onReadingChanged);
     } catch (e) {
       _log('tts unavailable: $e');
     }
@@ -223,9 +224,10 @@ class CoreServiceHandler extends TaskHandler {
       m,
       channelTitle: _titles[m.post.chatId] ?? '',
     );
-    await _notifier.show(plan);
     _remember(m.post.chatId, m.post.messageId, m.post.text);
-    if (m.readAloud) _speakPost(m.post.chatId, m.post.messageId);
+    // Queued first, so the notification offers Stop from the start.
+    if (m.readAloud) unawaited(_speakPost(m.post.chatId, m.post.messageId));
+    await _notifier.show(plan);
   }
 
   void _remember(int chatId, int messageId, String text) {
@@ -233,14 +235,26 @@ class CoreServiceHandler extends TaskHandler {
     if (_recentTexts.length > 200) _recentTexts.remove(_recentTexts.keys.first);
   }
 
-  /// The "Listen" action and auto-read share this path (ARCHITECTURE 7).
-  void _speakPost(int chatId, int messageId, {bool next = false}) {
-    final text = _recentTexts[(chatId, messageId)];
+  /// The "Listen" action and auto-read share this path (ARCHITECTURE 7). A post shown
+  /// before the service last started is asked of the core; a remembered one is queued at
+  /// once.
+  Future<void> _speakPost(
+    int chatId,
+    int messageId, {
+    bool next = false,
+  }) async {
+    final tts = _tts;
+    if (tts == null) return;
+    var text = _recentTexts[(chatId, messageId)];
     if (text == null) {
-      _log('no text remembered for $chatId/$messageId');
-      return;
+      text = await _fetchText(chatId, messageId);
+      if (text == null) {
+        _log('no text for $chatId/$messageId');
+        return;
+      }
+      _remember(chatId, messageId, text);
     }
-    _tts?.enqueue(
+    tts.enqueue(
       TtsItem(
         text: text,
         channelTitle: _titles[chatId],
@@ -249,6 +263,31 @@ class CoreServiceHandler extends TaskHandler {
       next: next,
     );
   }
+
+  Future<String?> _fetchText(int chatId, int messageId) async {
+    try {
+      final posts = await _client!.history(
+        chatId,
+        fromMessageId: messageId + 1,
+        limit: 1,
+      );
+      return posts.firstOrNull?.messageId == messageId
+          ? posts.first.text
+          : null;
+    } on Object catch (e) {
+      _log('post $chatId/$messageId unavailable: $e');
+      return null;
+    }
+  }
+
+  /// A post's notification offers Stop while the post is read or waits to be.
+  void _onReadingChanged(Set<Object> keys) => unawaited(
+    _notifier.setReading({
+      for (final k in keys)
+        if (k case (final int chatId, final int messageId))
+          NotificationPlan.idFor(chatId, messageId),
+    }),
+  );
 
   Future<void> _reloadTitles() async {
     final watched = await _db?.allWatched() ?? const <WatchedChannel>[];
@@ -267,7 +306,10 @@ class CoreServiceHandler extends TaskHandler {
     // reboot or an update then may take the audio focus, and read aloud, from now on.
     await _updateNotification();
     if (m['actionId'] == actionListen) {
-      _speakPost(ref.chatId, ref.messageId, next: true);
+      unawaited(_speakPost(ref.chatId, ref.messageId, next: true));
+    }
+    if (m['actionId'] == actionStop) {
+      unawaited(_tts?.stop((ref.chatId, ref.messageId)));
     }
     // Taps and \"Open in Telegram\" are handled by the app (notification_launch.dart).
   }

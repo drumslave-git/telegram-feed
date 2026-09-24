@@ -40,7 +40,8 @@ final class NotificationLaunch {
       await openInTelegram(host.db, ref);
       return;
     }
-    if (r.actionId == actionListen) return; // handled by the service host
+    // Handled by the service host.
+    if (r.actionId == actionListen || r.actionId == actionStop) return;
     await openPost(host, ref);
   }
 }
