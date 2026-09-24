@@ -48,6 +48,11 @@ final class FakeSpeaker implements Speaker {
     _current?.complete();
     _current = null;
   }
+
+  int releases = 0;
+
+  @override
+  Future<void> release() async => releases++;
 }
 
 void main() {
@@ -135,6 +140,8 @@ void main() {
       await tick();
       expect(tts.isSpeaking, isFalse);
       expect(tts.queueLength, 2); // "one" is back at the head
+      // The focus is kept, or the end of the interruption would never arrive.
+      expect(sp.releases, 0);
       sp.interrupt(false);
       await tick();
       expect(sp.spoken, ['one', 'one']);
@@ -142,6 +149,8 @@ void main() {
       await tick();
       expect(sp.spoken.last, 'two');
       sp.finish();
+      await tick();
+      expect(sp.releases, 1); // the queue has drained
     },
   );
 

@@ -255,13 +255,18 @@ class CoreServiceHandler extends TaskHandler {
     _titles = {for (final w in watched) w.chatId: w.title};
   }
 
-  void _onNotificationAction(Object? msg) {
+  Future<void> _onNotificationAction(Object? msg) async {
     final m = msg as Map<Object?, Object?>;
     final ref = PostRef.decode(m['payload'] as String?);
     _log(
       'notification action ${m['actionId']} on ${ref?.chatId}/${ref?.messageId}',
     );
-    if (m['actionId'] == actionListen && ref != null) {
+    if (ref == null) return;
+    // Android counts a tap on a notification as the app being used, so the service's
+    // notification is posted again within it: a service that Android started after a
+    // reboot or an update then may take the audio focus, and read aloud, from now on.
+    await _updateNotification();
+    if (m['actionId'] == actionListen) {
       _speakPost(ref.chatId, ref.messageId, next: true);
     }
     // Taps and \"Open in Telegram\" are handled by the app (notification_launch.dart).
