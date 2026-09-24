@@ -338,7 +338,11 @@ class ChannelAvatar extends StatelessWidget {
         placeholder: fallback,
         builder: (context, path) => CircleAvatar(
           radius: radius,
-          backgroundImage: FileImage(File(path)),
+          backgroundImage: ResizeImage(
+            FileImage(File(path)),
+            width: (radius * 2 * MediaQuery.devicePixelRatioOf(context)).ceil(),
+            policy: ResizeImagePolicy.fit,
+          ),
         ),
       ),
     );

@@ -629,6 +629,18 @@ class TimelineViewState extends State<TimelineView>
   /// is read. It moves as the reader reads here, and when the official app or another device
   /// reads.
   Map<int, int> _marks = const {};
+
+  /// Ticks when the button at the corner has to be drawn again while the rows stay as they
+  /// are: reading moves [_marks] and reaching the newest post hides the button, both many
+  /// times in one scroll, and a rebuild of the whole screen would build every row anew.
+  final _corner = ValueNotifier<int>(0);
+
+  /// The row widgets built last, by (chat id, row id), with what they were built from; a
+  /// row whose inputs stay the same is handed back as it is and not built again.
+  final _rows = <(int, int), ({_RowInputs inputs, Widget row})>{};
+
+  /// The timeline [_rows] belong to.
+  FeedTimeline? _rowsOf;
   bool _loading = false;
   String? _error;
 
@@ -825,7 +837,11 @@ class TimelineViewState extends State<TimelineView>
     _events = widget.gateway.postEvents.listen((e) {
       final before = t.items.length;
       final changed = t.apply(e);
-      if (changed || e is PostAdded) setState(() {});
+      if (changed) {
+        setState(() {});
+      } else if (e is PostAdded) {
+        _corner.value++; // held back while the reader is further up: the button counts it
+      }
       // A row added at the newest end shifts every index; stay glued to the newest post.
       if (t.atTop && t.items.length > before) _jumpToNewest();
     });
@@ -1239,7 +1255,10 @@ class TimelineViewState extends State<TimelineView>
       passed.forEach((chat, id) {
         if (id > (_marks[chat] ?? 0)) (moved ??= {..._marks})[chat] = id;
       });
-      if (moved != null) setState(() => _marks = moved!);
+      if (moved != null) {
+        _marks = moved!;
+        _corner.value++; // the unread count on the button
+      }
     }
     // The list is reversed, so the row on top of the screen is the one with the highest
     // index: its day is what the floating pill names.
@@ -1268,7 +1287,7 @@ class TimelineViewState extends State<TimelineView>
       if (atNewest && t.pendingNew > 0) {
         _release();
       } else {
-        setState(() {}); // the button at the corner comes and goes
+        _corner.value++; // the button at the corner comes and goes
       }
     }
     if (oldestIndex >= items.length - 5) unawaited(_loadMore());
@@ -1351,7 +1370,8 @@ class TimelineViewState extends State<TimelineView>
   Future<void> _loadMore() async {
     final t = _timeline;
     if (t == null || _loading || t.exhausted) return;
-    setState(() => _loading = true);
+    // Nothing on the screen shows it: no rebuild until the new rows are there.
+    _loading = true;
     try {
       await t.loadMore();
       _error = null;
@@ -1803,6 +1823,7 @@ class TimelineViewState extends State<TimelineView>
     _stickyHide?.cancel();
     _stickyDay.dispose();
     _stickyShown.dispose();
+    _corner.dispose();
     _highlightTimer?.cancel();
     _events?.cancel();
     _sources?.cancel();
@@ -1816,8 +1837,6 @@ class TimelineViewState extends State<TimelineView>
   Widget build(BuildContext context) {
     final t = _timeline;
     final items = t?.items ?? const <TimelineItem>[];
-    // Unread posts as Telegram counts them, and the ones that arrived meanwhile.
-    final unread = t == null ? 0 : t.unreadPosts(_marks) + t.pendingNew;
     return Stack(
       children: [
         Positioned.fill(
@@ -1857,32 +1876,46 @@ class TimelineViewState extends State<TimelineView>
               onTap: (day) => unawaited(pickDate(around: day)),
             ),
           ),
-        // No `_opening` here: the button would blink away and back every time the feed
-        // is rebuilt (a changed filter, another channel).
-        if (t != null && (!t.atTop || t.anchored))
-          Positioned(
-            right: 16,
-            // Above the gesture bar: the app draws edge to edge.
-            bottom: 16 + MediaQuery.paddingOf(context).bottom,
-            // The accent colour, as the official app counts on its page-down button.
-            child: Badge.count(
-              count: unread,
-              isLabelVisible: unread > 0,
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              textColor: Theme.of(context).colorScheme.onPrimary,
-              child: FloatingActionButton.small(
-                heroTag: null,
-                tooltip: t.pendingNew > 0
-                    ? '${t.pendingNew} new post${t.pendingNew == 1 ? '' : 's'}'
-                    : unread > 0
-                    ? '$unread unread post${unread == 1 ? '' : 's'}'
-                    : 'Newest posts',
-                onPressed: _onDownButton,
-                child: const Icon(Icons.keyboard_arrow_down),
-              ),
-            ),
-          ),
+        ValueListenableBuilder<int>(
+          valueListenable: _corner,
+          builder: (context, _, _) => _cornerButton(context),
+        ),
       ],
+    );
+  }
+
+  /// The button to the newest posts, with the unread count on it.
+  Widget _cornerButton(BuildContext context) {
+    final t = _timeline;
+    // No `_opening` here: the button would blink away and back every time the feed
+    // is rebuilt (a changed filter, another channel).
+    // Positioned even when away: a child of the stack without a position would size it.
+    if (t == null || (t.atTop && !t.anchored)) {
+      return const Positioned(right: 0, bottom: 0, child: SizedBox.shrink());
+    }
+    // Unread posts as Telegram counts them, and the ones that arrived meanwhile.
+    final unread = t.unreadPosts(_marks) + t.pendingNew;
+    return Positioned(
+      right: 16,
+      // Above the gesture bar: the app draws edge to edge.
+      bottom: 16 + MediaQuery.paddingOf(context).bottom,
+      // The accent colour, as the official app counts on its page-down button.
+      child: Badge.count(
+        count: unread,
+        isLabelVisible: unread > 0,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        textColor: Theme.of(context).colorScheme.onPrimary,
+        child: FloatingActionButton.small(
+          heroTag: null,
+          tooltip: t.pendingNew > 0
+              ? '${t.pendingNew} new post${t.pendingNew == 1 ? '' : 's'}'
+              : unread > 0
+              ? '$unread unread post${unread == 1 ? '' : 's'}'
+              : 'Newest posts',
+          onPressed: _onDownButton,
+          child: const Icon(Icons.keyboard_arrow_down),
+        ),
+      ),
     );
   }
 
@@ -1972,6 +2005,32 @@ class TimelineViewState extends State<TimelineView>
               }
               final item = items[i];
               final id = (item.chatId, item.rowId);
+              // The day goes above its first post: the row after this one is older.
+              final day = _dayOf(item);
+              final newDay =
+                  i == items.length - 1 || _dayOf(items[i + 1]) != day;
+              final tint = id == _highlight
+                  ? Theme.of(context).colorScheme.primary
+                        .withValues(alpha: 0.12)
+                  : Colors.transparent;
+              final inputs = _RowInputs(
+                item,
+                title: _titles[item.chatId] ?? '',
+                photo: _photos[item.chatId],
+                channel: _known[item.chatId],
+                reactions: _reactionsOf(item),
+                selecting: _selected.isNotEmpty,
+                selected: _selected.contains(id),
+                tint: tint,
+                newDay: newDay,
+                firstUnread: id == _firstUnread,
+              );
+              if (!identical(_rowsOf, t)) {
+                _rows.clear();
+                _rowsOf = t;
+              }
+              final kept = _rows[id];
+              if (kept != null && kept.inputs.same(inputs)) return kept.row;
               final card = PostCard(
                 item: item,
                 channelTitle: _titles[item.chatId] ?? '',
@@ -2020,24 +2079,17 @@ class TimelineViewState extends State<TimelineView>
                         ),
                       ),
               );
-              // The day goes above its first post: the row after this one is older.
-              final day = _dayOf(item);
-              final newDay =
-                  i == items.length - 1 || _dayOf(items[i + 1]) != day;
               // The tint fades in and out instead of appearing and vanishing, so the
               // eye follows the post the jump landed on.
               final row = RepaintBoundary(
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOut,
-                  color: id == _highlight
-                      ? Theme.of(context).colorScheme.primary
-                            .withValues(alpha: 0.12)
-                      : Colors.transparent,
+                  color: tint,
                   child: card,
                 ),
               );
-              return KeyedSubtree(
+              final built = KeyedSubtree(
                 key: ValueKey(id),
                 child: !newDay && id != _firstUnread
                     ? row
@@ -2054,8 +2106,62 @@ class TimelineViewState extends State<TimelineView>
                         ],
                       ),
               );
+              _rows[id] = (inputs: inputs, row: built);
+              return built;
             },
           );
+  }
+}
+
+/// What a timeline row is drawn from. With the same inputs the screen hands the row widget
+/// it built before back to the list, so a rebuild (a view count that changed, a page that
+/// arrived, a post read) builds only the rows that changed instead of every row on the
+/// screen. The item is mutable: its head and parts are compared one by one.
+final class _RowInputs {
+  _RowInputs(
+    this.item, {
+    required this.title,
+    required this.photo,
+    required this.channel,
+    required this.reactions,
+    required this.selecting,
+    required this.selected,
+    required this.tint,
+    required this.newDay,
+    required this.firstUnread,
+  }) : head = item.head,
+       parts = List.of(item.parts);
+  final TimelineItem item;
+  final Post head;
+  final List<Post> parts;
+  final String title;
+  final FileRef? photo;
+  final Channel? channel;
+  final List<Reaction>? reactions;
+  final bool selecting;
+  final bool selected;
+  final Color tint;
+  final bool newDay;
+  final bool firstUnread;
+
+  bool same(_RowInputs o) {
+    if (!identical(item, o.item) ||
+        !identical(head, o.head) ||
+        parts.length != o.parts.length) {
+      return false;
+    }
+    for (var i = 0; i < parts.length; i++) {
+      if (!identical(parts[i], o.parts[i])) return false;
+    }
+    return title == o.title &&
+        photo == o.photo &&
+        identical(channel, o.channel) &&
+        identical(reactions, o.reactions) &&
+        selecting == o.selecting &&
+        selected == o.selected &&
+        tint == o.tint &&
+        newDay == o.newDay &&
+        firstUnread == o.firstUnread;
   }
 }
 

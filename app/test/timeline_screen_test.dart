@@ -91,6 +91,38 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('an edit builds its own row again and leaves the others', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Mix');
+      await db.addSource(feed.id, -1, title: 'One');
+      await db.addSource(feed.id, -2, title: 'Two');
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+    PostCard card(String text) => tester.widget<PostCard>(
+      find.ancestor(of: find.text(text), matching: find.byType(PostCard)),
+    );
+    final untouched = card('one-old');
+
+    // A view count, as TDLib reports it for the posts on the screen.
+    gw.posts.add(
+      PostEdited(
+        Post(chatId: -2, messageId: 2, date: 200, text: 'two-mid', views: 42),
+      ),
+    );
+    await settle(tester);
+    expect(find.text('42'), findsOneWidget);
+    expect(card('two-mid').item.head.views, 42);
+    expect(identical(card('one-old'), untouched), isTrue);
+    await unmount(tester);
+  });
+
   testWidgets('in a feed, the channel name of a post opens its info', (
     tester,
   ) async {

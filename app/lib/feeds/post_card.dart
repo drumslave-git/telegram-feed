@@ -905,14 +905,17 @@ class ReactionPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final chosen = reaction.chosen;
-    return Material(
-      color: chosen ? scheme.primary : scheme.primary.withValues(alpha: 0.12),
-      borderRadius: BorderRadius.circular(14),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 32),
+    // A painted box and a tap, not a Material with an ink well: a post can carry a dozen
+    // pills and a screen several posts, and each Material brings focus, hover, ink and
+    // semantics layers that make a new row slow to build while the list scrolls.
+    final pill = DecoratedBox(
+      decoration: BoxDecoration(
+        color: chosen ? scheme.primary : scheme.primary.withValues(alpha: 0.12),
+        borderRadius: const BorderRadius.all(Radius.circular(14)),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 32),
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Text(
             '${reaction.emoji} ${formatCount(reaction.count)}',
@@ -924,6 +927,16 @@ class ReactionPill extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+    final tap = onTap;
+    if (tap == null) return pill;
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        onTap: tap,
+        behavior: HitTestBehavior.opaque,
+        child: pill,
       ),
     );
   }

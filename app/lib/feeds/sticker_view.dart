@@ -45,8 +45,16 @@ class StickerView extends StatelessWidget {
         gateway: gateway,
         placeholder: placeholder,
         builder: (context, path) => switch (sticker.format) {
-          StickerFormat.webp => Image.file(
-            File(path),
+          // A custom emoji is a 512 px sticker drawn a line high: decoded at that height.
+          StickerFormat.webp => Image(
+            image: fileImageFor(
+              path,
+              width: sticker.file.width,
+              height: sticker.file.height,
+              box: size,
+              pixelRatio: MediaQuery.devicePixelRatioOf(context),
+              cover: false,
+            ),
             width: size.width,
             height: size.height,
             fit: BoxFit.contain,

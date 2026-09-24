@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
@@ -13,6 +14,65 @@ import '../media/video_sessions.dart';
 import '../media/video_stage.dart';
 import 'players.dart';
 import 'sticker_view.dart';
+
+/// A picture file decoded at the size it is drawn in [box] instead of its own: a photo of
+/// 1280 px takes 6.5 MB decoded, the image cache would hold a few screens of them and
+/// scrolling back would decode them again. [width] and [height] are the file's own; when
+/// they are unknown, or the box needs every pixel, the file decodes whole. [cover] fills the
+/// box and crops, as `BoxFit.cover` draws; otherwise the picture fits inside it.
+ImageProvider fileImageFor(
+  String path, {
+  required int width,
+  required int height,
+  required Size box,
+  required double pixelRatio,
+  bool cover = true,
+}) {
+  final image = FileImage(File(path));
+  if (width <= 0 || height <= 0 || !box.isFinite || box.isEmpty) return image;
+  final scale =
+      (cover
+          ? math.max(box.width / width, box.height / height)
+          : math.min(box.width / width, box.height / height)) *
+      pixelRatio;
+  if (scale >= 1) return image;
+  return ResizeImage(image, width: math.max(1, (width * scale).ceil()));
+}
+
+/// [Image] of a picture file filling its place and cropped to it, decoded at that size
+/// ([fileImageFor]).
+class SizedFileImage extends StatelessWidget {
+  const SizedFileImage({
+    super.key,
+    required this.path,
+    required this.width,
+    required this.height,
+    this.gaplessPlayback = false,
+  });
+  final String path;
+
+  /// The file's own size in pixels; zero when unknown.
+  final int width;
+  final int height;
+  final bool gaplessPlayback;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => Image(
+      image: fileImageFor(
+        path,
+        width: width,
+        height: height,
+        box: constraints.biggest,
+        pixelRatio: MediaQuery.devicePixelRatioOf(context),
+      ),
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      gaplessPlayback: gaplessPlayback,
+    ),
+  );
+}
 
 /// Renders one post's media inline. Files are TDLib-managed: [gateway.download] returns the
 /// local path and [gateway.fileProgress] reports progress while it downloads.
@@ -345,11 +405,10 @@ class PhotoView extends StatelessWidget {
               started: started,
               onStart: start,
             ),
-      builder: (context, path) => Image.file(
-        File(path),
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
+      builder: (context, path) => SizedFileImage(
+        path: path,
+        width: file.width,
+        height: file.height,
         gaplessPlayback: true,
       ),
     );
@@ -624,11 +683,10 @@ class _VideoViewState extends State<VideoView> {
           file: widget.video.thumbnail!,
           gateway: widget.gateway,
           placeholder: const ColoredBox(color: Colors.black26),
-          builder: (context, path) => Image.file(
-            File(path),
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
+          builder: (context, path) => SizedFileImage(
+            path: path,
+            width: widget.video.thumbnail!.width,
+            height: widget.video.thumbnail!.height,
           ),
         );
 
