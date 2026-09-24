@@ -14,6 +14,7 @@ import 'notifications/open_post.dart';
 import 'rules/rules_screen.dart';
 import 'settings/app_lock.dart';
 import 'settings/settings_screen.dart';
+import 'widgets/status_banner.dart';
 import 'app_name.dart';
 
 void main() {
@@ -90,10 +91,17 @@ class _TelegramFeedAppState extends State<TelegramFeedApp> {
                       db: snap.data!.db,
                       child: PostTextScale(
                         db: snap.data!.db,
-                        // Under every screen while a voice message or a song plays.
-                        // The lock sits above every screen the navigator builds.
-                        child: AudioBarHost(
-                          child: LockGate(db: snap.data!.db, child: child!),
+                        // Under the header of every screen while a post is read
+                        // aloud.
+                        child: StatusBannerHost(
+                          reading: snap.data!.reading,
+                          onStop: ({required clear}) =>
+                              snap.data!.stopReading(clear: clear),
+                          // Under every screen while a voice message or a song plays.
+                          // The lock sits above every screen the navigator builds.
+                          child: AudioBarHost(
+                            child: LockGate(db: snap.data!.db, child: child!),
+                          ),
                         ),
                       ),
                     ),

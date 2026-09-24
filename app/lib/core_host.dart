@@ -14,6 +14,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import 'ai/semantic_gate.dart';
 import 'host/app_host.dart';
 import 'service/core_service.dart';
+import 'service/reading_now.dart';
 import 'sync/drive_auth.dart';
 import 'sync/sync_controller.dart';
 
@@ -32,6 +33,7 @@ final class CoreHost implements AppHost {
     final host = CoreHost._(db, paths);
     await host._connect();
     host._forwardChanges();
+    host._followReading();
     unawaited(host.sync.start());
     return host;
   }
@@ -141,6 +143,34 @@ final class CoreHost implements AppHost {
     return port;
   }
 
+  @override
+  ValueListenable<ReadingNow?> get reading => _reading;
+  final _reading = ValueNotifier<ReadingNow?>(null);
+
+  @override
+  void stopReading({bool clear = false}) {
+    final now = _reading.value;
+    if (!_inService) return;
+    if (clear) {
+      FlutterForegroundTask.sendDataToTask(clearReading);
+    } else if (now != null) {
+      FlutterForegroundTask.sendDataToTask(stopReadingOf(now));
+    }
+  }
+
+  /// Read-aloud lives in the service, which says what it reads after every change.
+  void _followReading() {
+    if (!_inService) return;
+    FlutterForegroundTask.addTaskDataCallback(_onTaskData);
+    FlutterForegroundTask.sendDataToTask(askReading);
+  }
+
+  void _onTaskData(Object data) {
+    if (data is Map && data.containsKey('reading')) {
+      _reading.value = ReadingNow.decode(data['reading']);
+    }
+  }
+
   /// Rules and watched channels are written by the UI; the core re-reads them on request.
   void _forwardChanges() {
     void refresh() {
@@ -198,6 +228,7 @@ final class CoreHost implements AppHost {
 
   @override
   Future<void> dispose() async {
+    FlutterForegroundTask.removeTaskDataCallback(_onTaskData);
     for (final s in _subs) {
       await s.cancel();
     }

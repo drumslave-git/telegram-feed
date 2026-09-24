@@ -1,9 +1,11 @@
 import 'package:app_db/app_db.dart';
+import 'package:flutter/foundation.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../core_host.dart';
 import '../notifications/notification_launch.dart';
 import '../service/core_service.dart';
+import '../service/reading_now.dart';
 import '../sync/sync_controller.dart';
 
 /// What the screens need from the platform: the app database, a gateway to Telegram and
@@ -18,6 +20,12 @@ abstract interface class AppHost {
 
   /// Google Drive sync of feeds, rules and settings (ARCHITECTURE.md section 5.5).
   SyncController get sync;
+
+  /// The post being read aloud; null while nothing is read (the banner under the header).
+  ValueListenable<ReadingNow?> get reading;
+
+  /// Stops the post being read; with [clear], every post waiting as well.
+  void stopReading({bool clear = false});
 
   Future<bool> get isBatteryExempt;
   Future<void> requestBatteryExemption();

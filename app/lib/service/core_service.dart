@@ -16,6 +16,7 @@ import '../ai/semantic_gate.dart';
 import '../credentials.dart';
 import '../host/accounts.dart';
 import 'notifier.dart';
+import 'reading_now.dart';
 import 'tts_service.dart';
 import '../app_name.dart';
 
@@ -280,14 +281,33 @@ class CoreServiceHandler extends TaskHandler {
     }
   }
 
-  /// A post's notification offers Stop while the post is read or waits to be.
-  void _onReadingChanged(Set<Object> keys) => unawaited(
-    _notifier.setReading({
-      for (final k in keys)
-        if (k case (final int chatId, final int messageId))
-          NotificationPlan.idFor(chatId, messageId),
-    }),
-  );
+  /// A post's notification offers Stop while the post is read or waits to be, and the
+  /// app's banner names the post being read.
+  void _onReadingChanged(Set<Object> keys) {
+    unawaited(
+      _notifier.setReading({
+        for (final k in keys)
+          if (k case (final int chatId, final int messageId))
+            NotificationPlan.idFor(chatId, messageId),
+      }),
+    );
+    _publishReading();
+  }
+
+  /// Tells the app what is being read; it may not be open, and then nobody listens.
+  void _publishReading() {
+    final tts = _tts;
+    final now = switch (tts?.current) {
+      (final int chatId, final int messageId) => ReadingNow(
+        chatId: chatId,
+        messageId: messageId,
+        channelTitle: _titles[chatId] ?? '',
+        waiting: tts!.reading.length - 1,
+      ),
+      _ => null,
+    };
+    FlutterForegroundTask.sendDataToMain({'reading': now?.encode()});
+  }
 
   Future<void> _reloadTitles() async {
     final watched = await _db?.allWatched() ?? const <WatchedChannel>[];
@@ -357,6 +377,19 @@ class CoreServiceHandler extends TaskHandler {
     }
     if (data == 'sounds' && _db != null) {
       unawaited(_sounds().then(_notifier.setSounds));
+    }
+    // The read-aloud banner asks what is read, and stops it (reading_now.dart).
+    if (data is Map) {
+      switch (data['tts']) {
+        case 'state':
+          _publishReading();
+        case 'stop':
+          unawaited(
+            _tts?.stop((data['chatId'] as int, data['messageId'] as int)),
+          );
+        case 'clear':
+          unawaited(_tts?.stopAll());
+      }
     }
   }
 

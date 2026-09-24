@@ -87,8 +87,17 @@ final class TtsService {
   /// Keys of the posts being read or waiting to be read.
   Set<Object> get reading => Set.unmodifiable(_keys);
 
-  /// [reading] after each change: a post's notification offers Stop while its key is in
-  /// it and Listen otherwise.
+  /// The key of the post being read, or of the next one while none is (between two posts,
+  /// through an interruption); null when nothing waits.
+  Object? get current {
+    final c = _current?.key;
+    if (c != null && _keys.contains(c)) return c;
+    return _queue.isEmpty ? null : _queue.first.key;
+  }
+
+  /// [reading] after each change, and when the next post starts: a post's notification
+  /// offers Stop while its key is in it and Listen otherwise, and the app's banner names
+  /// the [current] one.
   Stream<Set<Object>> get readingChanges => _readingChanges.stream;
 
   void _readingChanged() => _readingChanges.add(reading);
@@ -157,6 +166,7 @@ final class TtsService {
       while (_queue.isNotEmpty && !_interrupted && !_stopped) {
         final item = _queue.removeFirst();
         _current = item;
+        if (item.key != null) _readingChanged();
         await _speakOne(item);
         _current = null;
         // An item put back by an interruption is still waiting.

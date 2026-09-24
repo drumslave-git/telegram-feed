@@ -157,26 +157,38 @@ void main() {
   test(
     'Stop on the post being read silences it; the next one follows',
     () async {
+      // What the notifications and the app's banner are told: the posts being read or
+      // waiting, and which one is read.
       final changes = <Set<Object>>[];
-      tts.readingChanges.listen(changes.add);
+      final named = <Object?>[];
+      tts.readingChanges.listen((r) {
+        changes.add(r);
+        named.add(tts.current);
+      });
       tts.enqueue(const TtsItem(text: 'one', key: 1));
       tts.enqueue(const TtsItem(text: 'two', key: 2));
       expect(tts.reading, {1, 2});
+      expect(tts.current, 1);
       await tick();
       expect(sp.spoken, ['one']);
       await tts.stop(1);
+      expect(tts.current, 2); // named at once, before "two" starts
       await tick();
       expect(sp.spoken, ['one', 'two']);
       expect(tts.reading, {2});
       sp.finish();
       await tick();
       expect(tts.reading, isEmpty);
+      expect(tts.current, isNull);
       expect(changes, [
-        {1},
+        {1}, // queued
+        {1}, // started
         {1, 2},
-        {2},
+        {2}, // stopped
+        {2}, // started
         <Object>{},
       ]);
+      expect(named, [1, 1, 1, 2, 2, null]);
     },
   );
 
