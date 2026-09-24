@@ -27,6 +27,10 @@ abstract interface class AppHost {
   /// Stops the post being read; with [clear], every post waiting as well.
   void stopReading({bool clear = false});
 
+  /// The kill switch: while on, rules notify about nothing and read nothing aloud.
+  ValueListenable<bool> get paused;
+  Future<void> setPaused(bool paused);
+
   Future<bool> get isBatteryExempt;
   Future<void> requestBatteryExemption();
 

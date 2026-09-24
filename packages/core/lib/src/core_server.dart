@@ -19,6 +19,8 @@ final class CoreServer {
     this.engine,
     this.onRefresh,
     this.onShutdown,
+    this._paused = false,
+    this.onPaused,
   }) : _gateway = gateway {
     _port.listen(_onMessage);
     _subscribe();
@@ -44,11 +46,15 @@ final class CoreServer {
   final Future<void> Function()? onShutdown;
   bool _stopped = false;
 
+  /// Keeps [setPaused] for the next start: the pause is a kill switch, and a restart of
+  /// the service or the phone must not undo it.
+  final Future<void> Function(bool paused)? onPaused;
+
   /// True once the core has handed TDLib back and stopped serving.
   bool get stopped => _stopped;
   StreamSubscription<RuleMatch>? _matchSub;
   StreamSubscription<PostEvent>? _engineSub;
-  bool _paused = false;
+  bool _paused;
 
   bool get paused => _paused;
 
@@ -64,6 +70,7 @@ final class CoreServer {
     if (_paused == value) return;
     _paused = value;
     _attachEngine();
+    unawaited(onPaused?.call(value));
     _broadcast(CoreStream.paused, {'paused': value});
   }
 

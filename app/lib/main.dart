@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_db/app_db.dart';
 import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
@@ -92,11 +94,14 @@ class _TelegramFeedAppState extends State<TelegramFeedApp> {
                       child: PostTextScale(
                         db: snap.data!.db,
                         // Under the header of every screen while a post is read
-                        // aloud.
+                        // aloud or notifications are paused.
                         child: StatusBannerHost(
                           reading: snap.data!.reading,
+                          paused: snap.data!.paused,
                           onStop: ({required clear}) =>
                               snap.data!.stopReading(clear: clear),
+                          onResume: () =>
+                              unawaited(snap.data!.setPaused(false)),
                           // Under every screen while a voice message or a song plays.
                           // The lock sits above every screen the navigator builds.
                           child: AudioBarHost(
@@ -159,6 +164,7 @@ class _Root extends StatelessWidget {
             gateway: h.gateway,
             onOpenRules: () => _openRules(context, h),
             actions: [
+              PauseButton(paused: h.paused, onChanged: h.setPaused),
               IconButton(
                 tooltip: 'Rules',
                 // A bell, not a list: these rules exist to notify.

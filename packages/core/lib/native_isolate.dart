@@ -64,9 +64,10 @@ final class CoreBootstrap {
 Future<void> coreIsolateMain(CoreBootstrap b) async {
   RuleEngine? engine;
   Future<void> Function()? refresh;
+  AppDatabase? appDb;
   final dbPath = b.appDatabasePath;
   if (dbPath != null) {
-    final db = AppDatabase(appDatabaseFile(File(dbPath)));
+    final db = appDb = AppDatabase(appDatabaseFile(File(dbPath)));
     final e = engine = RuleEngine();
     refresh = () async {
       final rows = await db.allRules();
@@ -98,6 +99,10 @@ Future<void> coreIsolateMain(CoreBootstrap b) async {
     log: (s) => print(s), // ignore: avoid_print
     engine: engine,
     onRefresh: refresh,
+    paused: await appDb?.setting(SettingKeys.rulesPaused) == 'true',
+    onPaused: (p) async {
+      await appDb?.setSetting(SettingKeys.rulesPaused, p ? 'true' : 'false');
+    },
     onShutdown: () async {
       // Hand TDLib back: close the client so it drops the database lock, then stop the
       // receive pump, so the next core in this process can start one of its own.

@@ -4,14 +4,18 @@ import 'package:telegram_feed/media/media_viewer.dart' show MediaViewerScreen;
 import 'package:telegram_feed/service/reading_now.dart';
 import 'package:telegram_feed/widgets/status_banner.dart';
 
-/// The banner under the header while a post is read aloud.
+/// The banner under the header while a post is read aloud or notifications are paused.
 void main() {
   late ValueNotifier<ReadingNow?> reading;
+  late ValueNotifier<bool> paused;
   late List<bool> stops;
+  late int resumes;
 
   setUp(() {
     reading = ValueNotifier(null);
+    paused = ValueNotifier(false);
     stops = [];
+    resumes = 0;
   });
 
   Future<void> pumpApp(WidgetTester tester) async {
@@ -19,7 +23,9 @@ void main() {
       MaterialApp(
         builder: (context, child) => StatusBannerHost(
           reading: reading,
+          paused: paused,
           onStop: ({required clear}) => stops.add(clear),
+          onResume: () => resumes++,
           child: child!,
         ),
         home: Scaffold(
@@ -75,6 +81,26 @@ void main() {
     expect(find.byType(MaterialBanner), findsNothing);
   });
 
+  testWidgets('paused: the banner says so and resumes; reading wins', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    paused.value = true;
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Notifications are paused'), findsOneWidget);
+    await tester.tap(find.text('Resume'));
+    expect(resumes, 1);
+
+    // Listen still reads during a pause; the pause comes back afterwards.
+    reading.value = news;
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Notifications are paused'), findsNothing);
+    expect(find.text('Stop'), findsOneWidget);
+    reading.value = null;
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Notifications are paused'), findsOneWidget);
+  });
+
   testWidgets('the full-screen viewer has the whole screen', (tester) async {
     await pumpApp(tester);
     reading.value = news;
@@ -85,6 +111,39 @@ void main() {
     MediaViewerScreen.showing.value = 0;
     await tester.pumpAndSettle();
     expect(find.byType(MaterialBanner), findsOneWidget);
+  });
+
+  testWidgets('the pause button flips the kill switch and shows it', (
+    tester,
+  ) async {
+    final asked = <bool>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          appBar: AppBar(
+            actions: [
+              PauseButton(
+                paused: paused,
+                onChanged: (p) async {
+                  asked.add(p);
+                  paused.value = p;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect(find.byTooltip('Pause notifications'), findsOneWidget);
+    await tester.tap(find.byType(PauseButton));
+    await tester.pump();
+    expect(asked, [true]);
+    expect(find.byTooltip('Resume notifications'), findsOneWidget);
+    expect(find.byIcon(Icons.notifications_off), findsOneWidget);
+    await tester.tap(find.byType(PauseButton));
+    await tester.pump();
+    expect(asked, [true, false]);
+    expect(find.byIcon(Icons.notifications_off_outlined), findsOneWidget);
   });
 
   test('the words for the queue', () {

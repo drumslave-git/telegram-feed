@@ -179,8 +179,12 @@ class CoreServiceHandler extends TaskHandler {
     IsolateNameServer.removePortNameMapping(corePortName);
     IsolateNameServer.registerPortWithName(port, corePortName);
     _client = await CoreClient.connect(port);
+    // A pause kept from before the restart is the core's; the notification says so.
+    _paused = await _client!.isPaused();
     _pausedSub = _client!.pausedChanges.listen((p) {
       _paused = p;
+      // The pause is a kill switch: what is being read, and what waits, goes too.
+      if (p) unawaited(_tts?.stopAll());
       unawaited(_updateNotification());
     });
     await _notifier.init(sounds: await _sounds());

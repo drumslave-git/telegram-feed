@@ -27,6 +27,7 @@ It does not replace the official Telegram app. Chats, calls, stories and account
 | Rule text | Post text and media captions only. Forward origin, edits and link targets are not matched. |
 | Rule actions | Priority (silent, normal, urgent) and read-aloud |
 | Read aloud | Device text-to-speech with per-post language detection; while it speaks, a banner under the header stops it |
+| Pause | One switch, in the home screen's header and on the permanent notification, silences every rule until it is turned off |
 | Background | A persistent foreground service keeps TDLib connected. It can be turned off. |
 | Sync | Feeds, rules and some settings sync through the user's own Google Drive. No backend. |
 | API credentials | `api_id` and `api_hash` are never committed; every build supplies its own |
@@ -108,6 +109,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - Posts that match no rule raise no notification. The app does not replicate Telegram's own per-chat notifications.
 - Rules match post text and media captions. Edited posts are not matched again.
 - I test a rule against the recent posts of its channels to see what it would have matched. The result says how many posts and channels it checked.
+- A bell-with-slash button in the home screen's header pauses every rule: nothing notifies me and nothing is read aloud until I press it again, also after the app or the phone restarts. Pausing stops the post being read and clears the queue. While paused, the button is red and a banner under the header of every screen says so, with "Resume". The permanent notification's Pause and Resume are the same switch.
 - Posts from the same channel collapse into one group whose "N new posts" counts only the ones still in the shade. A post deleted in Telegram takes its notification with it.
 
 ### Background watching
@@ -143,7 +145,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 ## 4. Screens
 
 1. **Login**: phone number, code (with "Resend code" and "Change number"), two-step password, new-account name, or QR-code login. States that the app reads the channels the account has joined, and offers to go back to another account that is already logged in.
-2. **Home**: search over all channels, Rules and Settings in the app bar; tabs Feeds (list of feeds with counts, and a button that creates one), one per folder, All channels.
+2. **Home**: search over all channels, the pause, Rules and Settings in the app bar; tabs Feeds (list of feeds with counts, and a button that creates one), one per folder, All channels.
 3. **Feed editor**, the feed's info screen: its name with a pencil, and three tabs — the ordered channels with the add-channel sheet and the filter row, the feed's rules, and the shared media of all its channels (Media, Files, Links, Music, Voice inside that tab).
 4. **Timeline** of a feed or a channel: posts drawn like the official app, with full-width bubbles (coloured channel name and the channel's photo at the right end of that line, albums as a mosaic, formatted text, views and time in the corner, reactions, comments bar, link cards, day labels, the floating day), the "Unread posts" divider, and the button to the newest posts with the number of unread posts. A long press opens the post menu: reactions, Comments, Copy text, Copy link, Share, Save to Saved Messages, Select, on video posts the autoplay and download settings, and Open in Telegram at the end.
 5. **Search** in a feed, a channel or all channels: results with channel, text and date, filter chips, recent queries, a calendar.

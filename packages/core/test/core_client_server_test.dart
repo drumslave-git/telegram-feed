@@ -443,6 +443,45 @@ void main() {
     });
   });
 
+  test('a saved pause holds from the start and every change is kept', () async {
+    final gw = FakeGateway();
+    final engine = RuleEngine()
+      ..update(
+        rules: [
+          RuleSpec(
+            id: 1,
+            name: 'hi',
+            condition: RuleParser.parse('hello'),
+            feedId: 1,
+          ),
+        ],
+        feeds: const {
+          1: RuleFeed({-1}),
+        },
+      );
+    final kept = <bool>[];
+    final server = CoreServer(
+      gw,
+      engine: engine,
+      paused: true,
+      onPaused: (p) async => kept.add(p),
+    );
+    final client = await CoreClient.connect(server.sendPort);
+    final got = <MatchEvent>[];
+    final sub = client.matches.listen(got.add);
+    expect(await client.isPaused(), isTrue);
+    gw.postCtl.add(
+      PostAdded(Post(chatId: -1, messageId: 1, date: 1, text: 'hello')),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(got, isEmpty);
+    await client.setPaused(false);
+    await client.setPaused(true);
+    expect(kept, [false, true]);
+    await sub.cancel();
+    await client.close();
+  });
+
   test('rule matches are broadcast; pause detaches; refresh reloads', () async {
     final gw = FakeGateway();
     final engine = RuleEngine()

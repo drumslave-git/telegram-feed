@@ -33,7 +33,7 @@ final class CoreHost implements AppHost {
     final host = CoreHost._(db, paths);
     await host._connect();
     host._forwardChanges();
-    host._followReading();
+    await host._followReadingAndPause();
     unawaited(host.sync.start());
     return host;
   }
@@ -148,6 +148,13 @@ final class CoreHost implements AppHost {
   final _reading = ValueNotifier<ReadingNow?>(null);
 
   @override
+  ValueListenable<bool> get paused => _paused;
+  final _paused = ValueNotifier<bool>(false);
+
+  @override
+  Future<void> setPaused(bool paused) => _client.setPaused(paused);
+
+  @override
   void stopReading({bool clear = false}) {
     final now = _reading.value;
     if (!_inService) return;
@@ -158,8 +165,11 @@ final class CoreHost implements AppHost {
     }
   }
 
-  /// Read-aloud lives in the service, which says what it reads after every change.
-  void _followReading() {
+  /// Read-aloud lives in the service, which says what it reads after every change; the
+  /// pause is the core's.
+  Future<void> _followReadingAndPause() async {
+    _paused.value = await _client.isPaused();
+    _subs.add(_client.pausedChanges.listen((p) => _paused.value = p));
     if (!_inService) return;
     FlutterForegroundTask.addTaskDataCallback(_onTaskData);
     FlutterForegroundTask.sendDataToTask(askReading);

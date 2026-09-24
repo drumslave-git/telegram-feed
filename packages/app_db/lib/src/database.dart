@@ -186,6 +186,11 @@ abstract final class SettingKeys {
   /// 'true' | 'false', default true. Off means no permanent notification and no rule
   /// notifications unless the app is open.
   static const backgroundWatching = 'service.background';
+
+  /// Rules notify about nothing and read nothing aloud (the pause in the home screen's
+  /// header and on the permanent notification); 'true' | 'false', default false. Kept on
+  /// this device, through restarts.
+  static const rulesPaused = 'rules.paused';
 }
 
 @DriftDatabase(
