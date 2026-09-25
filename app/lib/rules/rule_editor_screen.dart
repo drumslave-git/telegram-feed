@@ -1073,6 +1073,19 @@ class _TermRow extends StatefulWidget {
 
 class _TermRowState extends State<_TermRow> {
   late final _ctl = TextEditingController(text: widget.term.text);
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    // A term that was just added takes the cursor, also away from the name field, so
+    // the word can be typed right after "Add a term".
+    if (widget.term.text.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focus.requestFocus();
+      });
+    }
+  }
 
   @override
   void didUpdateWidget(_TermRow old) {
@@ -1089,6 +1102,7 @@ class _TermRowState extends State<_TermRow> {
   @override
   void dispose() {
     _ctl.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -1110,6 +1124,7 @@ class _TermRowState extends State<_TermRow> {
             Expanded(
               child: TextField(
                 controller: _ctl,
+                focusNode: _focus,
                 decoration: InputDecoration(
                   hintText: t.negated
                       ? 'word it must not have'

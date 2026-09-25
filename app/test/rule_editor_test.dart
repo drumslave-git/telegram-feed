@@ -674,4 +674,21 @@ void main() {
     expect(after.widget.focusNode.hasFocus, isTrue);
     await unmount(tester);
   });
+
+  testWidgets('a term just added takes the cursor', (tester) async {
+    tall(tester);
+    await tester.pumpWidget(editor());
+    await settle(tester);
+    // The name is being typed, as it is when a rule is written top to bottom.
+    await tester.enterText(find.byType(EditableText).first, 'Breaking');
+    await tester.pump();
+    await tester.tap(find.text('Add a term'));
+    await tester.pump();
+    await tester.pump();
+    final term = tester.state<EditableTextState>(
+      find.byType(EditableText).at(1),
+    );
+    expect(term.widget.focusNode.hasFocus, isTrue);
+    await unmount(tester);
+  });
 }
