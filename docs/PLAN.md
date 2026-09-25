@@ -9,7 +9,6 @@ Legend: `[ ]` not started, `[~]` in progress (name the branch).
 ## Fake Telegram and UI tests
 
 - [ ] N-35 Maestro flows in `app/maestro/` against the fake build: login, home and folders, feed reading and post menu, channel info, search, media viewer and video, feed editor and filters, rules and the pause switch, a rule firing into a notification, every settings screen. `tool/maestro.sh` runs them locally; `ci.yml` runs them on an emulator.
-- [ ] N-36 Log out leaves the screens above the home screen, so the login screen shows.
 - [ ] N-37 A term just added in the rule builder takes the cursor, also away from the name field.
 
 ## Phase 4 — Extras

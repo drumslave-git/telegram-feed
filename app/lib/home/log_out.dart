@@ -28,5 +28,8 @@ Future<void> confirmLogOut(
       ],
     ),
   );
-  if (ok ?? false) await onLogOut();
+  if (!(ok ?? false)) return;
+  await onLogOut();
+  // Whatever was open over the home screen goes: the login screen is underneath it.
+  if (context.mounted) Navigator.of(context).popUntil((r) => r.isFirst);
 }
