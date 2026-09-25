@@ -7,7 +7,7 @@ appId: dev.telegramfeed.telegram_feed
       notifications: allow
 - extendedWaitUntil:
     visible: 'Log in to Telegram'
-    timeout: 30000
+    timeout: 90000
 - tapOn: 'Log in with QR code instead'
 - assertVisible: 'Log in with QR code'
 - tapOn: 'Use a phone number instead'

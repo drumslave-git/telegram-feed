@@ -63,12 +63,12 @@ jobs:
           disable-animations: true
           script: |
             adb install -r app/build/app/outputs/flutter-apk/app-debug.apk
-            maestro test --format junit --output build/maestro-report.xml --debug-output build/maestro-debug app/maestro
+            maestro test --format junit --output build/maestro-report.xml app/maestro
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: maestro
           path: |
             build/maestro-report.xml
-            build/maestro-debug
+            ~/.maestro/tests
           if-no-files-found: ignore

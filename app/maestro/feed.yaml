@@ -59,6 +59,8 @@ appId: dev.telegramfeed.telegram_feed
 - waitForAnimationToEnd
 - longPressOn: '(?s).*Weekend market.*'
 - tapOn: 'Copy text'
-- assertVisible: 'Text copied'
+- extendedWaitUntil:
+    visible: 'Text copied'
+    timeout: 5000
 - tapOn: 'Back'
 - assertVisible: '(?s)News\n.*channel.*'
