@@ -51,6 +51,7 @@ telegram-feed/
     rules/              Rule AST, parser, evaluator, schedules (pure Dart)
     tdlib_bindings/     Dart types generated from td_api.tl
     versioning/         Next version and changelog from conventional commits
+    fake_telegram/      A scripted TelegramGateway: the widget tests' fixtures and the fake account
   tool/                 CI script, TDLib build and download, golden update
   docs/
 ```
@@ -397,7 +398,8 @@ Switching restarts the host instead of running a second core: the root (`main.da
 - `core`: timeline merge, search, filters, rule engine and sync merge, tested against a fake `TelegramGateway` with scripted histories and update streams.
 - `telegram_gateway`: tested against a scripted fake transport.
 - `app_db`: a migration test for every schema version, against the dumps in `drift_schemas/`.
-- `app`: fixture data for every widget test is in `app/test/fixtures.dart`: the fake gateway (channels, histories that page, live post events, `arrive` for a post that comes in now and `arrivedUnseen` for one that came in while the app was down), fixture channels and posts, and the pump helpers. No test needs a real account, channel or post.
+- `fake_telegram`: the scripted gateway every widget test reads from (`ChannelsGateway`: channels and folders; `TimelineGateway`: histories that page, search, live post events, `arrive` for a post that comes in now and `arrivedUnseen` for one that came in while the app was down), the fixture channels and posts, and `FakeTelegram`, a whole account: a login that takes any number and the code `12345`, three news channels in the folder "News", the "Wire" channel in the folder "Alerts" with a post arriving every 30 seconds, an archived channel, Saved Messages, posts of every kind, a discussion thread, and media served from a directory. No test needs a real account, channel or post.
+- `app`: `app/test/fixtures.dart` re-exports `fake_telegram` and adds the pump helpers and the feed helper that needs the database.
 - `app`: where a feed opens is tested in `app/test/feed_positioning_test.dart`: every read state (nothing read, read to a point, read through, one channel of two unread, one read position shared by two feeds, a channel timeline), reading that moves Telegram's read positions, the last post reading every channel of the feed, the button going to the divider, back to a tapped reply and to the end, the position kept across a restart and forgotten at the newest post, the app resting in the background and coming back without moving the reader, posts arriving while it rested or while the reader reads, and posts that came in while the app was down. The database is a file there, so closing and reopening it is a restart of the app.
 - `app`: golden tests for the main screens (`tool/update_goldens.sh` regenerates them on Linux in Docker).
 - `app/integration_test`: runs the real app on an emulator. The feed flow runs only when the emulator's account is logged in.

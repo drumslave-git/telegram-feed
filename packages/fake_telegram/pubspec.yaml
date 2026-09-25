@@ -1,0 +1,16 @@
+name: fake_telegram
+description: "A scripted TelegramGateway for tests and the fake build: channels, histories, media, login."
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  telegram_gateway:
+    path: ../telegram_gateway
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6

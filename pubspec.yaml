@@ -11,3 +11,4 @@ workspace:
   - packages/rules
   - packages/tdlib_bindings
   - packages/versioning
+  - packages/fake_telegram
