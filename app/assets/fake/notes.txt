@@ -1,0 +1,13 @@
+Winter ferry timetable, Harbour Times
+
+Weekdays
+  07:10  Harbour - North Pier
+  08:40  North Pier - Harbour
+  12:00  Harbour - North Pier
+  17:30  North Pier - Harbour
+
+Weekends
+  09:00  Harbour - North Pier
+  16:00  North Pier - Harbour
+
+The last crossing waits for the 17:05 bus.

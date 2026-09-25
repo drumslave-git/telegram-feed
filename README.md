@@ -49,6 +49,7 @@ To build `libtdjson.so` locally instead, run the Docker build in `tool/tdlib` an
 |---|---|---|
 | `TG_API_ID`, `TG_API_HASH` | Every build. Telegram requires every client app to identify itself | https://my.telegram.org, "API development tools" |
 | `GOOGLE_SERVER_CLIENT_ID` | Google Drive sync only. Without it the app works and the Sync screen says the build cannot sync | Your Google Cloud project, see below |
+| `TG_FAKE=true` | The fake build: a scripted Telegram (`packages/fake_telegram`) instead of TDLib, for the UI tests and for trying the app without an account. Needs no other flag | — |
 
 None of them is committed, so a fork never ships under someone else's identity.
 
@@ -68,10 +69,10 @@ Sync keeps feeds, rules and settings equal across devices through a hidden app f
 ```bash
 tool/ci.sh                                                      # analyze, format check, unit and widget tests with goldens
 tool/update_goldens.sh                                          # regenerate goldens (Linux, in Docker) after intended UI changes
-cd app && flutter test integration_test -d emulator-5554 --dart-define=TG_API_ID=... --dart-define=TG_API_HASH=...
+cd app && flutter test integration_test -d emulator-5554 --dart-define=TG_FAKE=true
 ```
 
-The integration test drives the real app on the emulator. Its feed flow runs only when the emulator's account is logged in; otherwise it says so and passes.
+Every test runs against the fake Telegram: the widget tests read its fixtures, and the integration test drives the fake build of the real app on an emulator, logging in with any phone number and the code `12345`. Nothing needs a Telegram account.
 
 ## Releases
 

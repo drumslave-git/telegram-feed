@@ -14,6 +14,8 @@ dependencies:
     path: ../app_db
   rules:
     path: ../rules
+  fake_telegram:
+    path: ../fake_telegram
   drift: ^2.35.0
   http: ^1.6.0
 

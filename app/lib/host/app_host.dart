@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../core_host.dart';
+import '../credentials.dart';
+import 'fake_media.dart';
 import '../notifications/notification_launch.dart';
 import '../service/core_service.dart';
 import '../service/reading_now.dart';
@@ -45,8 +47,12 @@ abstract interface class AppHost {
 /// Platform setup before `runApp`: registers the foreground task callback.
 void platformInit() => initCoreService();
 
-/// Starts the host.
-Future<AppHost> startAppHost() => CoreHost.start();
+/// Starts the host. The fake build first puts its sample media where the core serves it
+/// from.
+Future<AppHost> startAppHost() async {
+  if (tgFake) await installFakeMedia();
+  return CoreHost.start();
+}
 
 /// Attaches launch-time handlers (notification taps) once the host is up.
 Future<void> attachLaunchHandlers(AppHost host) =>

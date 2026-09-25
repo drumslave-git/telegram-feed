@@ -1,11 +1,10 @@
-// Runs the real app on the emulator against the real TDLib build.
+// Runs the real app on the emulator against the fake Telegram (`package:fake_telegram`):
+// the core, the service, the database and every screen are real; only Telegram is scripted.
 //
-//   cd app && flutter test integration_test -d emulator-5554 \
-//     --dart-define=TG_API_ID=... --dart-define=TG_API_HASH=...
+//   cd app && flutter test integration_test -d emulator-5554 --dart-define=TG_FAKE=true
 //
-// The account must already be logged in on the emulator (the founder types phone and code
-// into the app once; the TDLib session persists). If it is not, the test reports that and
-// passes without exercising the feed flow.
+// The fake starts logged out; the test logs in with any number and the fixture code.
+import 'package:fake_telegram/fake_telegram.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -30,16 +29,16 @@ Future<bool> _waitFor(
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('core starts; logged-in account can build a feed and read it', (
+  testWidgets('core starts; the account logs in, builds a feed and reads it', (
     tester,
   ) async {
     app.main();
-    final feeds = find.byType(HomeScreen);
+    final home = find.byType(HomeScreen);
     final login = find.text('Log in to Telegram');
     final ok = await _waitFor(
       tester,
       find.byWidgetPredicate(
-        (w) => feeds.evaluate().isNotEmpty || login.evaluate().isNotEmpty,
+        (w) => home.evaluate().isNotEmpty || login.evaluate().isNotEmpty,
       ),
     );
     expect(
@@ -50,49 +49,51 @@ void main() {
     );
 
     if (login.evaluate().isNotEmpty) {
-      // ignore: avoid_print
-      print(
-        'INTEGRATION: not logged in on this emulator; login screen reached, feed flow skipped',
-      );
-      return;
+      await tester.enterText(find.byType(TextField), '+15550100');
+      await tester.tap(find.text('Send code'));
+      expect(await _waitFor(tester, find.text('Enter the code')), isTrue);
+      await tester.enterText(find.byType(TextField), fakeLoginCode);
+      await tester.tap(find.text('Continue'));
+      expect(await _waitFor(tester, home), isTrue, reason: 'login failed');
     }
 
-    // Create a feed named after the run, add the first joined channel, open the timeline.
+    // An empty feed named after the run, with Harbour Times added from the picker.
     final name = 'it-${DateTime.now().millisecondsSinceEpoch % 100000}';
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pumpAndSettle();
+    await tester.tap(find.text('New feed'));
+    expect(await _waitFor(tester, find.text('Empty feed')), isTrue);
+    await tester.tap(find.text('Empty feed'));
+    expect(await _waitFor(tester, find.byType(TextField)), isTrue);
     await tester.enterText(find.byType(TextField), name);
     await tester.tap(find.text('Create'));
     // A new feed opens its channel editor right away.
     expect(await _waitFor(tester, find.byType(FeedEditorScreen)), isTrue);
     await tester.tap(find.text('Add channel'));
     expect(
-      await _waitFor(tester, find.byType(ListTile)),
+      await _waitFor(tester, find.text('Harbour Times')),
       isTrue,
-      reason: 'no joined channels offered',
+      reason: 'the joined channels were not offered',
     );
-    await tester.tap(find.byType(ListTile).first);
+    await tester.tap(find.text('Harbour Times'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Add'));
     expect(
       await _waitFor(tester, find.byIcon(Icons.remove_circle_outline)),
       isTrue,
     );
 
-    // Back to the Feeds tab; open the feed: posts should arrive from TDLib.
+    // Back to the Feeds tab; open the feed: the fixture posts come through the core.
     await tester.pageBack();
     expect(await _waitFor(tester, find.text(name)), isTrue);
     await tester.tap(find.text(name));
     expect(await _waitFor(tester, find.byType(TimelineScreen)), isTrue);
     expect(
-      await _waitFor(
-        tester,
-        find.byType(PostCard),
-        timeout: const Duration(seconds: 60),
-      ),
+      await _waitFor(tester, find.byType(PostCard)),
       isTrue,
-      reason: 'no posts loaded for the first channel',
+      reason: 'no posts loaded for Harbour Times',
     );
-    // ignore: avoid_print
-    print('INTEGRATION: feed "$name" shows posts');
+    expect(
+      await _waitFor(tester, find.textContaining('Weekend market')),
+      isTrue,
+    );
   });
 }

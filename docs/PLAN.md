@@ -4,13 +4,13 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Phase 4, extras. **Next task:** N-33.
+**Current phase:** Phase 4, extras. **Next task:** N-35.
 
 ## Fake Telegram and UI tests
 
-- [~] N-33 (main) `packages/fake_telegram`: one scripted `TelegramGateway` for every test. The widget tests' `ChannelsGateway` / `TimelineGateway` and fixture helpers move there; `FakeTelegram` adds a scripted login, channels with photos and folders, histories with every kind of post, sample media served from a directory, a discussion thread, and a post that arrives every 30 s.
-- [ ] N-34 Fake build: `--dart-define=TG_FAKE=true` puts `FakeTelegram` into the core isolate (app and service alike); the sample media under `app/assets/fake/` is copied to the support directory at start. The integration test runs against it.
 - [ ] N-35 Maestro flows in `app/maestro/` against the fake build: login, home and folders, feed reading and post menu, channel info, search, media viewer and video, feed editor and filters, rules and the pause switch, a rule firing into a notification, every settings screen. `tool/maestro.sh` runs them locally; `ci.yml` runs them on an emulator.
+- [ ] N-36 Log out leaves the screens above the home screen, so the login screen shows.
+- [ ] N-37 A term just added in the rule builder takes the cursor, also away from the name field.
 
 ## Phase 4 — Extras
 

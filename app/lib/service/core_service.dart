@@ -15,6 +15,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import '../ai/semantic_gate.dart';
 import '../credentials.dart';
 import '../host/accounts.dart';
+import '../host/fake_media.dart';
 import 'notifier.dart';
 import 'reading_now.dart';
 import 'tts_service.dart';
@@ -38,17 +39,23 @@ Future<({String support, String tdlib, String db})> appPaths([
   );
 }
 
-CoreBootstrap coreBootstrap(({String support, String tdlib, String db}) p) =>
-    CoreBootstrap(
-      apiId: tgApiId,
-      apiHash: tgApiHash,
-      databaseDirectory: p.tdlib,
-      filesDirectory: '${p.tdlib}/files',
-      appDatabasePath: p.db,
-      useTestDc: tgTestDc,
-      deviceModel: Platform.isAndroid ? 'Android' : Platform.operatingSystem,
-      systemVersion: Platform.operatingSystemVersion,
-    );
+/// The core's bootstrap for the account at [p]; the fake build points it at the sample
+/// media that [installFakeMedia] copied there.
+CoreBootstrap coreBootstrap(
+  ({String support, String tdlib, String db}) p, {
+  SendPort? replyTo,
+}) => CoreBootstrap(
+  apiId: tgApiId,
+  apiHash: tgApiHash,
+  databaseDirectory: p.tdlib,
+  filesDirectory: '${p.tdlib}/files',
+  appDatabasePath: p.db,
+  useTestDc: tgTestDc,
+  deviceModel: Platform.isAndroid ? 'Android' : Platform.operatingSystem,
+  systemVersion: Platform.operatingSystemVersion,
+  fakeMediaDirectory: tgFake ? fakeMediaDirectory(p.support) : null,
+  replyTo: replyTo,
+);
 
 const coreServiceId = 1;
 
@@ -161,17 +168,7 @@ class CoreServiceHandler extends TaskHandler {
     final reply = ReceivePort();
     _core = await Isolate.spawn(
       coreIsolateMain,
-      CoreBootstrap(
-        apiId: tgApiId,
-        apiHash: tgApiHash,
-        databaseDirectory: paths.tdlib,
-        filesDirectory: '${paths.tdlib}/files',
-        appDatabasePath: paths.db,
-        useTestDc: tgTestDc,
-        deviceModel: Platform.isAndroid ? 'Android' : Platform.operatingSystem,
-        systemVersion: Platform.operatingSystemVersion,
-        replyTo: reply.sendPort,
-      ),
+      coreBootstrap(paths, replyTo: reply.sendPort),
       debugName: 'core',
     );
     final port = await reply.first as SendPort;

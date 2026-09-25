@@ -11,6 +11,7 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:app_db/app_db.dart';
+import 'package:fake_telegram/fake_telegram.dart';
 import 'package:telegram_gateway/tdlib_ffi.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -35,6 +36,7 @@ final class CoreBootstrap {
     this.applicationVersion = '0.1.0',
     this.libraryPath = 'libtdjson.so',
     this.logVerbosity = 1,
+    this.fakeMediaDirectory,
     this.replyTo,
   });
   final int apiId;
@@ -50,6 +52,10 @@ final class CoreBootstrap {
   final String applicationVersion;
   final String libraryPath;
   final int logVerbosity;
+
+  /// When set, the core serves a [FakeTelegram] with the media in this directory instead
+  /// of TDLib: the fake build.
+  final String? fakeMediaDirectory;
 
   /// Receives the server's `SendPort` once the core is up.
   final SendPort? replyTo;
@@ -121,7 +127,9 @@ Future<void> coreIsolateMain(CoreBootstrap b) async {
   b.replyTo?.send(server.sendPort);
 }
 
-Future<TdlibGateway> _newGateway(CoreBootstrap b) async {
+Future<TelegramGateway> _newGateway(CoreBootstrap b) async {
+  final fake = b.fakeMediaDirectory;
+  if (fake != null) return FakeTelegram(mediaDirectory: fake);
   final transport = await FfiTransport.create(
     libraryPath: b.libraryPath,
     logVerbosity: b.logVerbosity,
@@ -175,6 +183,7 @@ Future<SendPort> spawnCoreIsolate(CoreBootstrap bootstrap) async {
       applicationVersion: bootstrap.applicationVersion,
       libraryPath: bootstrap.libraryPath,
       logVerbosity: bootstrap.logVerbosity,
+      fakeMediaDirectory: bootstrap.fakeMediaDirectory,
       replyTo: reply.sendPort,
     ),
     debugName: 'core',
