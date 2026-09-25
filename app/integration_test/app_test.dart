@@ -13,6 +13,10 @@ import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_feed/home/home_screen.dart';
 import 'package:telegram_feed/main.dart' as app;
 
+/// Waits for [f], then lets the screen finish arriving: a sheet or a route whose widgets
+/// exist is still sliding in, and a tap at their final place would miss. When [f] never
+/// shows, the texts on the screen are printed, since a failed run on an emulator leaves
+/// nothing else to look at.
 Future<bool> _waitFor(
   WidgetTester tester,
   Finder f, {
@@ -21,8 +25,21 @@ Future<bool> _waitFor(
   final end = DateTime.now().add(timeout);
   while (DateTime.now().isBefore(end)) {
     await tester.pump(const Duration(milliseconds: 250));
-    if (f.evaluate().isNotEmpty) return true;
+    if (f.evaluate().isNotEmpty) {
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 150));
+      }
+      return true;
+    }
   }
+  final texts = find
+      .byType(Text)
+      .evaluate()
+      .map((e) => (e.widget as Text).data)
+      .whereType<String>()
+      .toList();
+  // ignore: avoid_print
+  print('INTEGRATION: waited in vain for $f; on screen: $texts');
   return false;
 }
 
@@ -57,6 +74,10 @@ void main() {
       expect(await _waitFor(tester, home), isTrue, reason: 'login failed');
     }
 
+    // The folder tabs are up once the channels have arrived; before that "New feed"
+    // has no folders to offer and skips the sheet.
+    expect(await _waitFor(tester, find.text('News')), isTrue);
+
     // An empty feed named after the run, with Harbour Times added from the picker.
     final name = 'it-${DateTime.now().millisecondsSinceEpoch % 100000}';
     await tester.tap(find.text('New feed'));
@@ -64,6 +85,8 @@ void main() {
     await tester.tap(find.text('Empty feed'));
     expect(await _waitFor(tester, find.byType(TextField)), isTrue);
     await tester.enterText(find.byType(TextField), name);
+    // The Create button follows the field's contents; a frame lets it enable.
+    await tester.pump();
     await tester.tap(find.text('Create'));
     // A new feed opens its channel editor right away.
     expect(await _waitFor(tester, find.byType(FeedEditorScreen)), isTrue);
@@ -73,9 +96,12 @@ void main() {
       isTrue,
       reason: 'the joined channels were not offered',
     );
+    // The sheet is still sliding in when its rows first exist.
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Harbour Times'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
     expect(
       await _waitFor(tester, find.byIcon(Icons.remove_circle_outline)),
       isTrue,
@@ -83,6 +109,8 @@ void main() {
 
     // Back to the Feeds tab; open the feed: the fixture posts come through the core.
     await tester.pageBack();
+    // Until the editor has slid away its title still carries the name.
+    await tester.pumpAndSettle();
     expect(await _waitFor(tester, find.text(name)), isTrue);
     await tester.tap(find.text(name));
     expect(await _waitFor(tester, find.byType(TimelineScreen)), isTrue);
