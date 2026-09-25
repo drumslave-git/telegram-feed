@@ -21,3 +21,54 @@ jobs:
           for p in packages/*/; do (cd "$p" && dart test --reporter=compact); done
       - run: flutter test
         working-directory: app
+
+  # The Maestro flows against the fake build (app/maestro, ARCHITECTURE section 11) on an
+  # emulator. The fake needs no TDLib binary, no credentials and no account.
+  ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.4
+          channel: stable
+          cache: true
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: flutter pub get
+      - name: Build the fake app
+        run: flutter build apk --debug --dart-define=TG_FAKE=true --target-platform android-x64
+        working-directory: app
+      - name: Install Maestro
+        env:
+          MAESTRO_VERSION: 2.10.0
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run the flows on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            adb install -r app/build/app/outputs/flutter-apk/app-debug.apk
+            maestro test --format junit --output build/maestro-report.xml --debug-output build/maestro-debug app/maestro
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: maestro
+          path: |
+            build/maestro-report.xml
+            build/maestro-debug
+          if-no-files-found: ignore

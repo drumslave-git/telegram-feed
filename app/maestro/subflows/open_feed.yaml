@@ -1,0 +1,10 @@
+# Opens the feed FEED from the Feeds tab and waits for its posts.
+appId: dev.telegramfeed.telegram_feed
+---
+- tapOn: '(?s)${FEED}\n.*channel.*'
+- extendedWaitUntil:
+    visible: 'Edit feed'
+    timeout: 10000
+- extendedWaitUntil:
+    visible: 'Channel info of .*'
+    timeout: 20000

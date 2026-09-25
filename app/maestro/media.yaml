@@ -1,0 +1,57 @@
+# The media viewer: a picture from the timeline, paging sideways, and a video from the
+# feed's shared media.
+appId: dev.telegramfeed.telegram_feed
+---
+- runFlow: subflows/start.yaml
+- runFlow:
+    file: subflows/feed_from_folder.yaml
+    env:
+      FOLDER: News
+- runFlow:
+    file: subflows/open_feed.yaml
+    env:
+      FEED: News
+- assertVisible: '(?s).*The new lighthouse lamp is lit tonight.*'
+- tapOn:
+    text: 'Photo, opens full screen'
+    index: 0
+# Android's one-time "Viewing full screen" hint covers the viewer's bar.
+- runFlow:
+    when:
+      visible: 'Got it'
+    commands:
+      - tapOn: 'Got it'
+- extendedWaitUntil:
+    visible: 'Share'
+    timeout: 10000
+- assertVisible: '(?s)Harbour Times\n.*'
+- swipe:
+    direction: LEFT
+- swipe:
+    direction: RIGHT
+- tapOn: 'Back'
+- assertVisible: 'Edit feed'
+- tapOn: 'Edit feed'
+- tapOn: '(?s)Shared media\n.*Tab 3 of 3'
+- extendedWaitUntil:
+    visible: 'Video 0:10, .*'
+    timeout: 15000
+- tapOn: 'Video 0:10, .*'
+- runFlow:
+    when:
+      visible: 'Got it'
+    commands:
+      - tapOn: 'Got it'
+# The controls hide while the video plays; a tap brings them back.
+- extendedWaitUntil:
+    notVisible: 'Video 0:10, .*'
+    timeout: 10000
+- tapOn:
+    point: '50%,50%'
+- extendedWaitUntil:
+    visible: 'Pause|Play'
+    timeout: 10000
+- assertVisible: 'Picture-in-picture'
+# The controls hide again on their own; the Back key closes the viewer either way.
+- back
+- assertVisible: 'Video 0:10, .*'

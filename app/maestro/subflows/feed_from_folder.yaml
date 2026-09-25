@@ -1,0 +1,9 @@
+# Creates a feed from the channels of the folder FOLDER and returns to the Feeds tab.
+appId: dev.telegramfeed.telegram_feed
+---
+- tapOn: 'New feed'
+- assertVisible: '(?s)Empty feed\n.*'
+- tapOn: '(?s)${FOLDER}\n.*'
+- extendedWaitUntil:
+    visible: '(?s)${FOLDER}\n.*channel.*'
+    timeout: 10000

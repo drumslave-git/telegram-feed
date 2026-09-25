@@ -1,0 +1,38 @@
+# The home screen: the empty Feeds tab, the folder tabs, a channel row's menu, and
+# All channels with its search box and archive.
+appId: dev.telegramfeed.telegram_feed
+---
+- runFlow: subflows/start.yaml
+- assertVisible: '(?s).*No feeds yet.*'
+- assertVisible: 'Create a feed'
+- tapOn: '(?s)News\n.*Tab 2 of \d+'
+- extendedWaitUntil:
+    visible: '(?s)Harbour Times.*'
+    timeout: 10000
+- assertVisible: '(?s)Circuit Weekly.*'
+- assertVisible: '(?s)Northfield Gazette.*'
+- longPressOn: '(?s)Harbour Times.*'
+- assertVisible: 'Mark as read'
+- assertVisible: 'Add to a feed'
+- tapOn: 'Channel info'
+- extendedWaitUntil:
+    visible: 'News from the harbour district: shipping, weather and the market.'
+    timeout: 10000
+- tapOn: 'Back'
+- tapOn: '(?s)Alerts\n.*Tab 3 of \d+'
+- extendedWaitUntil:
+    visible: '(?s).*Wire\n.*'
+    timeout: 10000
+- tapOn: '(?s)All channels.*Tab 4 of \d+'
+- extendedWaitUntil:
+    visible: 'Search channels'
+    timeout: 10000
+- tapOn: '(?s)Archive\nChannels you archived in Telegram'
+- extendedWaitUntil:
+    visible: '(?s).*Old Ledger.*'
+    timeout: 10000
+- tapOn: 'Back'
+- tapOn: 'Search channels'
+- inputText: 'circuit'
+- assertVisible: '(?s)Circuit Weekly.*'
+- assertNotVisible: '(?s)Harbour Times.*'

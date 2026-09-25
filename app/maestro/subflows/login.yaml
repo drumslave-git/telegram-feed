@@ -1,0 +1,19 @@
+# From the login screen to the home screen: the fake account takes any number and the
+# code 12345.
+appId: dev.telegramfeed.telegram_feed
+---
+- extendedWaitUntil:
+    visible: 'Log in to Telegram'
+    timeout: 30000
+- tapOn: 'Phone number'
+- inputText: '+15550100'
+- tapOn: 'Send code'
+- extendedWaitUntil:
+    visible: 'Enter the code'
+    timeout: 10000
+- tapOn: 'Code'
+- inputText: '12345'
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: '(?s)Feeds.*Tab 1 of \d+'
+    timeout: 30000

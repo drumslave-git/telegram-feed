@@ -70,9 +70,10 @@ Sync keeps feeds, rules and settings equal across devices through a hidden app f
 tool/ci.sh                                                      # analyze, format check, unit and widget tests with goldens
 tool/update_goldens.sh                                          # regenerate goldens (Linux, in Docker) after intended UI changes
 cd app && flutter test integration_test -d emulator-5554 --dart-define=TG_FAKE=true
+tool/maestro.sh                                                 # build the fake app, install it on the emulator, run the Maestro UI flows
 ```
 
-Every test runs against the fake Telegram: the widget tests read its fixtures, and the integration test drives the fake build of the real app on an emulator, logging in with any phone number and the code `12345`. Nothing needs a Telegram account.
+Every test runs against the fake Telegram: the widget tests read its fixtures, and the integration test and the Maestro flows (`app/maestro/`) drive the fake build of the real app on an emulator, logging in with any phone number and the code `12345`. The flows need the [Maestro CLI](https://docs.maestro.dev) and Java 17 or newer; CI runs them on an emulator on every push to `main`. Nothing needs a Telegram account.
 
 ## Releases
 

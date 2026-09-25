@@ -1,0 +1,93 @@
+# A rule's life: written in the editor, saved, fired by a post arriving on the Wire (the
+# notification names the rule), paused with the home switch, and deleted.
+appId: dev.telegramfeed.telegram_feed
+---
+- runFlow: subflows/start.yaml
+- runFlow:
+    file: subflows/feed_from_folder.yaml
+    env:
+      FOLDER: Alerts
+- tapOn: 'Rules'
+- extendedWaitUntil:
+    visible: 'New rule'
+    timeout: 10000
+- tapOn: 'New rule'
+- extendedWaitUntil:
+    visible: 'Add a term'
+    timeout: 10000
+- tapOn: 'Name'
+- inputText: 'Breaking news'
+- tapOn: 'Add a term'
+- inputText: 'breaking'
+- tapOn: 'Text'
+- assertVisible: 'breaking'
+- tapOn: 'Builder'
+- hideKeyboard
+- scrollUntilVisible:
+    element: 'AND another word'
+    direction: DOWN
+- scrollUntilVisible:
+    element: 'Silent'
+    direction: DOWN
+- tapOn: 'Silent'
+- tapOn: 'Urgent'
+- extendedWaitUntil:
+    visible: 'Show urgent posts in Do Not Disturb?'
+    timeout: 5000
+- tapOn: 'Later'
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element: 'Normal'
+    direction: DOWN
+- tapOn: 'Normal'
+- assertVisible:
+    text: 'Normal'
+    selected: true
+- scrollUntilVisible:
+    element: '(?s).*Only at certain times.*'
+    direction: DOWN
+- tapOn: '(?s).*Only at certain times.*'
+- scrollUntilVisible:
+    element: 'From .*'
+    direction: DOWN
+- tapOn: '(?s).*Only at certain times.*'
+- tapOn: 'Save'
+- runFlow:
+    when:
+      visible: 'Let the app notify you?'
+    commands:
+      - tapOn: 'Allow'
+- extendedWaitUntil:
+    visible: '(?s)Normal rule\nBreaking news\n.*'
+    timeout: 10000
+- assertVisible: '(?s)Alerts.*'
+# A post arrives on the Wire within 30 s and its notification shows in the shade, which a
+# swipe from the top edge opens. (When two posts have arrived the group is collapsed,
+# so the rule's name and the Listen action are not asserted here.)
+- retry:
+    maxRetries: 3
+    commands:
+      - swipe:
+          start: '50%, 2%'
+          end: '50%, 90%'
+          duration: 1000
+      - extendedWaitUntil:
+          visible: '(?s).*Breaking: fixture post.*'
+          timeout: 35000
+- back
+- tapOn: 'Back'
+- tapOn: 'Pause notifications'
+- assertVisible: 'Resume'
+- tapOn: 'Resume notifications'
+- assertNotVisible: 'Resume'
+- tapOn: 'Rules'
+- tapOn: '(?s).*Breaking news.*'
+- extendedWaitUntil:
+    visible: 'Edit rule'
+    timeout: 10000
+- tapOn: 'Delete'
+- assertVisible: 'Delete "Breaking news"?'
+- tapOn:
+    text: 'Delete'
+    index: 0
+- assertNotVisible: '(?s).*Breaking news.*'

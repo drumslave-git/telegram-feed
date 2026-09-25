@@ -1,0 +1,41 @@
+# Search in a feed (words, chips, the calendar, recent queries) and over every channel.
+appId: dev.telegramfeed.telegram_feed
+---
+- runFlow: subflows/start.yaml
+- runFlow:
+    file: subflows/feed_from_folder.yaml
+    env:
+      FOLDER: News
+- runFlow:
+    file: subflows/open_feed.yaml
+    env:
+      FEED: News
+- tapOn: 'Search'
+- inputText: 'pier'
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: '1 post found'
+    timeout: 15000
+- assertVisible: '(?s).*about the pier.*'
+- tapOn: 'Clear'
+- assertVisible: 'pier'
+- tapOn: 'Media'
+- extendedWaitUntil:
+    visible: '(?s).*Test pattern from the harbour camera.*'
+    timeout: 15000
+- tapOn: 'Links'
+- extendedWaitUntil:
+    visible: '(?s).*tide tables.*'
+    timeout: 15000
+- tapOn: 'Everything'
+- tapOn: 'Jump to date'
+- assertVisible: 'Cancel'
+- tapOn: 'Cancel'
+- tapOn: 'Back'
+- tapOn: 'Back'
+- tapOn: 'Search posts'
+- inputText: 'Northfield'
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: '(?s).*the library opens late on Thursdays.*'
+    timeout: 15000

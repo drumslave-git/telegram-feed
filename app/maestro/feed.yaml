@@ -1,0 +1,64 @@
+# Reading a feed: the unread divider, older posts, a reply quote, a forwarded post, the
+# channel's info, the post menu and the comments.
+appId: dev.telegramfeed.telegram_feed
+---
+- runFlow: subflows/start.yaml
+- runFlow:
+    file: subflows/feed_from_folder.yaml
+    env:
+      FOLDER: News
+- assertVisible: '(?s)News\n3 of 3 channels with news\n\d+ unread'
+- runFlow:
+    file: subflows/open_feed.yaml
+    env:
+      FEED: News
+- assertVisible: '(?s)Unread posts\n.*'
+- assertVisible: '(?s).*The new lighthouse lamp is lit tonight.*'
+- tapOn:
+    text: 'Channel info of Harbour Times.*'
+    index: 0
+- extendedWaitUntil:
+    visible: 'Channel info'
+    timeout: 10000
+- assertVisible: 'News from the harbour district: shipping, weather and the market.'
+- tapOn: 'QR code'
+- tapOn: 'Close'
+- tapOn: 'Back'
+- scrollUntilVisible:
+    element: '(?s).*Three views of the quay.*'
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element: '(?s).*Test pattern from the harbour camera.*'
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element: '(?s).*In reply to Harbour Times.*'
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element: '(?s).*Forwarded from Circuit Weekly.*'
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element: '(?s).*Weekend market.*'
+    direction: DOWN
+    timeout: 30000
+- longPressOn: '(?s).*Weekend market.*'
+- assertVisible: 'Copy text'
+- assertVisible: 'Copy link'
+- assertVisible: 'Share'
+- assertVisible: 'Save to Saved Messages'
+- assertVisible: 'Open in Telegram'
+- tapOn: 'Comments'
+- extendedWaitUntil:
+    visible: '(?s).*Apples from the orchard stall.*'
+    timeout: 10000
+- assertVisible: '(?s).*Is the fish stall back.*'
+- tapOn: 'Back'
+- waitForAnimationToEnd
+- longPressOn: '(?s).*Weekend market.*'
+- tapOn: 'Copy text'
+- assertVisible: 'Text copied'
+- tapOn: 'Back'
+- assertVisible: '(?s)News\n.*channel.*'

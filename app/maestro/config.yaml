@@ -1,0 +1,3 @@
+# Every flow at the top of this folder is a test; subflows/ holds the pieces they share.
+flows:
+  - "*.yaml"

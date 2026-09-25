@@ -1,0 +1,50 @@
+# A feed's life: created empty, a channel added from the picker, renamed, filtered, its
+# tabs, and deleted from the Feeds tab.
+appId: dev.telegramfeed.telegram_feed
+---
+- runFlow: subflows/start.yaml
+- tapOn: 'Create a feed'
+- tapOn: '(?s)Empty feed\n.*'
+- tapOn: 'Name'
+- inputText: 'Maestro feed'
+- tapOn: 'Create'
+- extendedWaitUntil:
+    visible: 'Add channel'
+    timeout: 10000
+- tapOn: 'Add channel'
+- tapOn: 'Search joined channels'
+- inputText: 'circuit'
+- tapOn: '(?s).*Circuit Weekly.*'
+- tapOn: 'Add'
+- extendedWaitUntil:
+    visible: '(?s).*Circuit Weekly.*'
+    timeout: 10000
+- tapOn: 'Rename'
+- tapOn: 'Name'
+- eraseText
+- inputText: 'Maestro renamed'
+- tapOn:
+    text: 'Rename'
+    index: 0
+- assertVisible: 'Maestro renamed'
+- tapOn: '(?s)Show\n.*'
+- tapOn: 'Text only'
+- tapOn: 'Apply'
+- assertVisible: '(?s).*Text only.*'
+- tapOn: '(?s)Rules\n.*Tab 2 of 3'
+- assertVisible: 'New rule'
+- tapOn: '(?s)Shared media\n.*Tab 3 of 3'
+- assertVisible: '(?s)Files.*'
+- tapOn: 'Back'
+- assertVisible: '(?s)Maestro renamed\n.*'
+- tapOn:
+    text: 'Show menu'
+    childOf:
+      text: '(?s)Maestro renamed\n.*'
+- tapOn: 'Delete'
+- assertVisible: 'Delete "Maestro renamed"?'
+- tapOn:
+    text: 'Delete'
+    index: 0
+- assertNotVisible: '(?s)Maestro renamed\n.*'
+- assertVisible: '(?s).*No feeds yet.*'

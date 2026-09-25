@@ -1,0 +1,8 @@
+# A clean app with notifications allowed, logged in and on the home screen.
+appId: dev.telegramfeed.telegram_feed
+---
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: allow
+- runFlow: login.yaml

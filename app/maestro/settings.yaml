@@ -1,0 +1,80 @@
+# Every settings screen opens and comes back; the theme switch is tried and put back;
+# the row into Android's notification settings lands on this app.
+appId: dev.telegramfeed.telegram_feed
+---
+- runFlow: subflows/start.yaml
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible: '(?s)Fixture Account\n.*'
+    timeout: 10000
+- assertVisible: '(?s).*@fixture\n.*'
+- tapOn: 'Accounts'
+- assertVisible: '(?s)Add an account\n.*'
+- tapOn: 'Back'
+- tapOn: 'Saved Messages'
+- extendedWaitUntil:
+    visible: '(?s).*A note to myself.*'
+    timeout: 10000
+- tapOn: 'Back'
+- tapOn: 'Chat settings'
+- tapOn: 'Dark'
+- tapOn: 'System'
+- tapOn: 'Back'
+- tapOn: 'Privacy and security'
+- tapOn: '(?s)App lock.*'
+- assertVisible: 'App lock'
+- tapOn: 'Back'
+- tapOn: 'Back'
+- tapOn: 'Notifications and sounds'
+- assertVisible: '(?s).*Count unread posts.*'
+- assertVisible: '(?s).*Watch channels in the background.*'
+- tapOn: '(?s)System notification settings.*'
+- extendedWaitUntil:
+    visible: '(?s).*TG Feed.*'
+    timeout: 10000
+- back
+- assertVisible: '(?s).*Count unread posts.*'
+- tapOn: 'Back'
+- scrollUntilVisible:
+    element: 'Data and storage'
+    direction: DOWN
+- tapOn: 'Data and storage'
+- assertVisible: '(?s).*Mobile data.*'
+- tapOn: '(?s)Storage usage.*'
+- extendedWaitUntil:
+    visible: '(?s)Cached files.*'
+    timeout: 10000
+- tapOn: 'Back'
+- tapOn: 'Back'
+- scrollUntilVisible:
+    element: 'Read aloud'
+    direction: DOWN
+- tapOn: 'Read aloud'
+- assertVisible: '(?s).*Maximum length.*'
+- tapOn: '(?s)Add language.*'
+- assertVisible: 'Search languages'
+- back
+- runFlow:
+    when:
+      visible: 'Search languages'
+    commands:
+      - back
+- tapOn: 'Back'
+- scrollUntilVisible:
+    element: '(?s)AI rules\n.*'
+    direction: DOWN
+- tapOn: '(?s)AI rules\n.*'
+- assertVisible: 'Save and test'
+- tapOn: 'Back'
+- scrollUntilVisible:
+    element: '(?s)Google Drive sync\n.*'
+    direction: DOWN
+- tapOn: '(?s)Google Drive sync\n.*'
+- assertVisible: '(?s).*(sync cannot be turned on|Sign in with Google and sync|Sync now).*'
+- tapOn: 'Back'
+- scrollUntilVisible:
+    element: 'About Unofficial Telegram Feed'
+    direction: DOWN
+- tapOn: 'About Unofficial Telegram Feed'
+- assertVisible: 'OK'
+- tapOn: 'OK'
