@@ -59,8 +59,9 @@ appId: dev.telegramfeed.telegram_feed
 - waitForAnimationToEnd
 - longPressOn: '(?s).*Weekend market.*'
 - tapOn: 'Copy text'
-- extendedWaitUntil:
-    visible: 'Text copied'
-    timeout: 5000
+# The snackbar that confirms the copy lives four seconds, less than a slow emulator's
+# hierarchy dump; the menu closing is what is checked.
+- waitForAnimationToEnd
+- assertNotVisible: 'Copy link'
 - tapOn: 'Back'
 - assertVisible: '(?s)News\n.*channel.*'
