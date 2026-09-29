@@ -1,6 +1,7 @@
 import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:drift/native.dart';
+import 'package:rules/rules.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/feeds_screen.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
@@ -197,6 +198,30 @@ void main() {
       expect(c.unreadOf(feed.id), 2);
     },
   );
+
+  test('words count a post by its text, an album by its caption', () async {
+    const photo = PhotoMedia(sizes: [FileRef(id: 1, remoteId: 'p', size: 10)]);
+    final gw = TimelineGateway(
+      {
+        -1: [
+          fixturePost(-1, 5, text: 'bitcoin up'),
+          fixturePost(-1, 4, albumId: 9, media: photo, text: ''),
+          fixturePost(-1, 3, albumId: 9, media: photo, text: 'bitcoin album'),
+          fixturePost(-1, 2, text: 'weather'),
+          fixturePost(-1, 1),
+        ],
+      },
+      channels: [_channel(-1, 5)],
+    );
+    final feed = await fixtureFeed(db, 'F', {-1: 'One'}, gateway: gw);
+    await db.setFeedFilter(
+      feed.id,
+      const FeedFilter(text: Term('bitcoin'), minimize: true).encode(),
+    );
+    final c = await start(gw);
+    // Post 5 and both parts of the album; the minimized posts do not count.
+    expect(c.unreadOf(feed.id), 3);
+  });
 
   test('a channel in two feeds counts once on the tab', () async {
     final gw = twoChannels();

@@ -11,7 +11,7 @@ import '../notifications/notification_policy.dart';
 import '../ai/semantic_gate.dart';
 import '../feeds/post_card.dart' show formatDay;
 import '../home/channel_list.dart' show ChannelAvatar;
-import 'rule_builder_model.dart';
+import 'condition_editor.dart';
 import '../widgets/destructive_button.dart';
 
 /// Create or edit one rule: visual builder or text form, its feed and channels, priority,
@@ -54,7 +54,7 @@ class RuleEditorScreen extends StatefulWidget {
 
 class _RuleEditorScreenState extends State<RuleEditorScreen> {
   late final _name = TextEditingController(text: widget.rule?.name ?? '');
-  late final _text = TextEditingController();
+  late final ConditionController _cond;
   late final _prompt = TextEditingController(
     text: widget.rule?.semanticPrompt ?? '',
   );
@@ -78,12 +78,9 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   String _priority = 'normal';
   bool _readAloud = false;
   bool _enabled = true;
-  bool _textMode = false;
-  BuilderModel _model = BuilderModel.empty;
   String? _nameError;
   String? _feedError;
   String? _scheduleError;
-  String? _textError;
   bool _scheduled = false;
   Set<int> _weekdays = {...Schedule.allWeek};
   int _from = 9 * 60;
@@ -102,6 +99,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     final r = widget.rule;
     _feedId = r?.feedId ?? widget.feedId;
     _useAi = (r?.semanticPrompt ?? '').trim().isNotEmpty;
+    var cond = ConditionController();
     if (r != null) {
       _scopeChatId = r.scopeChatId;
       _priority = r.priority;
@@ -109,18 +107,9 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
       _enabled = r.enabled;
       try {
         final spec = RuleSpec.fromRow(r);
-        if (_isMatchAll(spec.condition)) {
-          // Rule without keywords (every post, or every post sent to the AI): both
-          // editors start empty.
-        } else {
-          final m = BuilderModel.fromExpr(spec.condition);
-          if (m != null) {
-            _model = m;
-          } else {
-            _textMode = true;
-          }
-          _text.text = RuleParser.format(spec.condition);
-        }
+        // A rule without keywords (every post, or every post sent to the AI) starts with
+        // both editors empty.
+        cond = ConditionController(spec.condition);
         final s = spec.schedule;
         if (s != null) {
           _scheduled = true;
@@ -129,11 +118,11 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
           _to = s.to;
         }
       } on FormatException {
-        _textMode = true;
-        _text.text = r.conditionJson;
-        _textError = 'Stored condition could not be parsed; rewrite it.';
+        cond = ConditionController.unreadable(r.conditionJson);
       }
     }
+    // The note above the condition and the back guard follow what is typed.
+    _cond = cond..addListener(() => setState(() {}));
     _initial = _snapshot();
     widget.db.allFeeds().then((feeds) {
       if (!mounted) return;
@@ -157,8 +146,6 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
       if (mounted) setState(() => _aiConfigured = (url ?? '').isNotEmpty);
     });
   }
-
-  static bool _isMatchAll(Expr e) => e is And && e.items.isEmpty;
 
   /// The channels of the rule's feed, for the scope list and the dry run.
   Future<void> _loadChannels() async {
@@ -198,34 +185,11 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     _readAloud,
     _enabled,
     _useAi ? _prompt.text.trim() : '',
-    _textMode ? _text.text.trim() : _formatModel(_model),
+    _cond.snapshot,
     _scheduled ? '${_weekdays.toList()..sort()} $_from-$_to' : '',
   ].join('|');
 
   bool get _dirty => _initial != null && _snapshot() != _initial;
-
-  /// The builder's terms as the text form writes them, leaving out rows without words.
-  static String _formatModel(BuilderModel m) {
-    final filled = m.withoutBlankTerms();
-    return filled == null ? '' : RuleParser.format(filled.toExpr());
-  }
-
-  /// A parser error in words, without the parser's prefix and position; the cursor shows
-  /// the position instead.
-  static String _syntaxMessage(FormatException e) {
-    var m = e.message.replaceFirst('rule syntax: ', '');
-    m = m.replaceFirst(RegExp(r' at \d+$'), '');
-    if (m.isEmpty) return 'This condition cannot be read.';
-    return '${m[0].toUpperCase()}${m.substring(1)} where the cursor is.';
-  }
-
-  void _showSyntaxError(FormatException e) {
-    final at = e.offset;
-    if (at != null && at >= 0 && at <= _text.text.length) {
-      _text.selection = TextSelection.collapsed(offset: at);
-    }
-    setState(() => _textError = _syntaxMessage(e));
-  }
 
   /// Leaving with changes: asks whether to throw them away.
   Future<void> _confirmLeave() async {
@@ -250,78 +214,14 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   }
 
   /// No keyword typed in the active editor.
-  bool get _keywordsBlank => _textMode
-      ? _text.text.trim().isEmpty
-      : _model.groups.every((g) => g.every((t) => t.text.trim().isEmpty));
+  bool get _keywordsBlank => _cond.blank;
 
   @override
   void dispose() {
     _name.dispose();
-    _text.dispose();
+    _cond.dispose();
     _prompt.dispose();
     super.dispose();
-  }
-
-  /// The condition from whichever editor is active, or null with an error shown.
-  ///
-  /// No keywords at all is a rule that matches every post in its scope: on an AI rule they
-  /// all go to the model, on a plain one they all notify. `And([])` is that condition.
-  Expr? _condition() {
-    if (_keywordsBlank) return const And([]);
-    if (_textMode) {
-      try {
-        final e = RuleParser.parse(_text.text);
-        setState(() => _textError = null);
-        return e;
-      } on FormatException catch (e) {
-        _showSyntaxError(e);
-        return null;
-      }
-    }
-    // Rows without a word are dropped, exactly as the switch to the text form drops
-    // them: the editor used to refuse to save instead.
-    final filled = _model.withoutBlankTerms();
-    return filled == null ? const And([]) : filled.toExpr();
-  }
-
-  void _switchMode(bool toText) {
-    if (toText == _textMode) return;
-    if (toText) {
-      // The words typed so far go along; rows still without a word are left behind.
-      _text.text = _formatModel(_model);
-      setState(() {
-        _textMode = true;
-        _textError = null;
-      });
-      return;
-    }
-    if (_text.text.trim().isEmpty) {
-      setState(() {
-        _model = BuilderModel.empty;
-        _textMode = false;
-        _textError = null;
-      });
-      return;
-    }
-    try {
-      final e = RuleParser.parse(_text.text);
-      final m = BuilderModel.fromExpr(e);
-      if (m == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Too nested for the builder; keep editing as text.'),
-          ),
-        );
-        return;
-      }
-      setState(() {
-        _model = m;
-        _textMode = false;
-        _textError = null;
-      });
-    } on FormatException catch (e) {
-      _showSyntaxError(e);
-    }
   }
 
   Future<void> _save() async {
@@ -344,7 +244,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
         feedId == null) {
       return;
     }
-    final cond = _condition();
+    final cond = _cond.condition();
     if (cond == null) return;
     setState(() => _saving = true);
     final schedule = _scheduled
@@ -470,7 +370,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   /// Dry run: evaluate the condition against the latest posts of the rule's channels that
   /// its feed shows.
   Future<void> _testOnRecent() async {
-    final cond = _condition();
+    final cond = _cond.condition();
     if (cond == null) return;
     setState(() => _testing = true);
     try {
@@ -492,7 +392,8 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     var failed = 0;
     final titles = {for (final c in _channels) c.chatId: c.title};
     final evaluator = RuleEvaluator();
-    final matchesEverything = _isMatchAll(cond) && !_isSemantic;
+    final matchesEverything =
+        ConditionController.isMatchAll(cond) && !_isSemantic;
     final hits = <Post>[];
     var scanned = 0;
     for (final chat in chats) {
@@ -599,43 +500,6 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
       ),
     );
   }
-
-  /// The whole syntax of the text form, which does not fit under the field.
-  void _showSyntaxHelp() => unawaited(
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          children: [
-            Text(
-              'Writing a condition',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            for (final (example, meaning) in const [
-              ('bitcoin', 'the word, wherever it stands'),
-              ('"interest rate"', 'those words next to each other'),
-              ('bitcoin AND etf', 'both have to be there'),
-              ('bitcoin OR btc', 'either one is enough'),
-              ('NOT airdrop', 'the post must not have it'),
-              ('(a OR b) AND c', 'brackets group the parts'),
-              ('~rate', 'also inside longer words, like "rates"'),
-              ('=Fed', 'exactly that spelling, capitals included'),
-            ])
-              ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(example),
-                subtitle: Text(meaning),
-              ),
-          ],
-        ),
-      ),
-    ),
-  );
 
   Future<void> _pickTime(bool from) async {
     final initial = from ? _from : _to;
@@ -755,62 +619,25 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
               onChanged: (v) => setState(() => _scopeChatId = v),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Text('Condition', style: theme.textTheme.titleMedium),
-                const Spacer(),
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: false, label: Text('Builder')),
-                    ButtonSegment(value: true, label: Text('Text')),
-                  ],
-                  selected: {_textMode},
-                  onSelectionChanged: (s) => _switchMode(s.first),
-                ),
-              ],
+            ConditionEditor(
+              controller: _cond,
+              title: Text('Condition', style: theme.textTheme.titleMedium),
+              note: !_keywordsBlank && !_isSemantic
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        !_isSemantic
+                            ? 'No condition: every new post from this rule\'s channels notifies. Add terms to notify only about some of them.'
+                            : _keywordsBlank
+                            ? 'No keywords: every new post from this rule\'s channels goes to the AI. Add terms to send only posts that contain them.'
+                            : 'The AI checks only the posts that pass these keywords.',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
             ),
-            const SizedBox(height: 8),
-            // Always in the list, empty when there is nothing to say: the note comes
-            // and goes as the first word is typed, and a child that vanished would move
-            // the builder below it to another slot and rebuild the field being typed in.
-            if (!_keywordsBlank && !_isSemantic)
-              const SizedBox.shrink()
-            else
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  !_isSemantic
-                      ? 'No condition: every new post from this rule\'s channels notifies. Add terms to notify only about some of them.'
-                      : _keywordsBlank
-                      ? 'No keywords: every new post from this rule\'s channels goes to the AI. Add terms to send only posts that contain them.'
-                      : 'The AI checks only the posts that pass these keywords.',
-                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                ),
-              ),
-            if (_textMode)
-              TextField(
-                controller: _text,
-                minLines: 2,
-                maxLines: 5,
-                decoration: InputDecoration(
-                  hintText: '("bitcoin" OR btc) AND NOT airdrop',
-                  helperText: 'Words or "phrases" joined by AND, OR, NOT, with brackets.',
-                  helperMaxLines: 2,
-                  errorText: _textError,
-                  errorMaxLines: 3,
-                  suffixIcon: IconButton(
-                    tooltip: 'Syntax',
-                    icon: const Icon(Icons.help_outline),
-                    onPressed: _showSyntaxHelp,
-                  ),
-                ),
-                onChanged: (_) => setState(() => _textError = null),
-              )
-            else
-              _Builder(
-                model: _model,
-                onChanged: (m) => setState(() => _model = m),
-              ),
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerLeft,
@@ -957,213 +784,6 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Groups joined by OR; terms inside a group joined by AND.
-class _Builder extends StatelessWidget {
-  const _Builder({required this.model, required this.onChanged});
-  final BuilderModel model;
-  final ValueChanged<BuilderModel> onChanged;
-
-  void _update(int g, int t, BuilderTerm term) {
-    final groups = [
-      for (final x in model.groups) [...x],
-    ];
-    groups[g][t] = term;
-    onChanged(BuilderModel(groups));
-  }
-
-  void _remove(int g, int t) {
-    final groups = [
-      for (final x in model.groups) [...x],
-    ];
-    groups[g].removeAt(t);
-    if (groups[g].isEmpty) groups.removeAt(g);
-    // Nothing left is a rule without a condition, which is a state of its own.
-    onChanged(BuilderModel(groups));
-  }
-
-  void _addTerm(int g) {
-    final groups = [
-      for (final x in model.groups) [...x],
-    ];
-    groups[g].add(const BuilderTerm(text: ''));
-    onChanged(BuilderModel(groups));
-  }
-
-  void _addGroup() => onChanged(
-    BuilderModel([
-      ...model.groups,
-      [const BuilderTerm(text: '')],
-    ]),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    if (model.groups.isEmpty) {
-      // No blank row with a delete button under a line that says there is no condition.
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: OutlinedButton.icon(
-          onPressed: _addGroup,
-          icon: const Icon(Icons.add),
-          label: const Text('Add a term'),
-        ),
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var g = 0; g < model.groups.length; g++) ...[
-          if (g > 0)
-            const Center(
-              child: Padding(padding: EdgeInsets.all(4), child: Text('OR')),
-            ),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                children: [
-                  for (var t = 0; t < model.groups[g].length; t++) ...[
-                    if (t > 0) const Text('AND'),
-                    _TermRow(
-                      term: model.groups[g][t],
-                      onChanged: (term) => _update(g, t, term),
-                      onRemove: () => _remove(g, t),
-                    ),
-                  ],
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: () => _addTerm(g),
-                      icon: const Icon(Icons.add),
-                      label: const Text('AND another word'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-        TextButton.icon(
-          onPressed: _addGroup,
-          icon: const Icon(Icons.add),
-          label: const Text('OR alternative'),
-        ),
-      ],
-    );
-  }
-}
-
-class _TermRow extends StatefulWidget {
-  const _TermRow({
-    required this.term,
-    required this.onChanged,
-    required this.onRemove,
-  });
-  final BuilderTerm term;
-  final ValueChanged<BuilderTerm> onChanged;
-  final VoidCallback onRemove;
-
-  @override
-  State<_TermRow> createState() => _TermRowState();
-}
-
-class _TermRowState extends State<_TermRow> {
-  late final _ctl = TextEditingController(text: widget.term.text);
-  final _focus = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    // A term that was just added takes the cursor, also away from the name field, so
-    // the word can be typed right after "Add a term".
-    if (widget.term.text.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _focus.requestFocus();
-      });
-    }
-  }
-
-  @override
-  void didUpdateWidget(_TermRow old) {
-    super.didUpdateWidget(old);
-    // A row above was removed and this state now shows another term: its own words.
-    if (widget.term.text != _ctl.text) {
-      _ctl.value = TextEditingValue(
-        text: widget.term.text,
-        selection: TextSelection.collapsed(offset: widget.term.text.length),
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctl.dispose();
-    _focus.dispose();
-    super.dispose();
-  }
-
-  Widget _option(String label, bool on, BuilderTerm Function() toggled) =>
-      FilterChip(
-        label: Text(label),
-        selected: on,
-        onSelected: (_) => widget.onChanged(toggled()),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    final t = widget.term;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _ctl,
-                focusNode: _focus,
-                decoration: InputDecoration(
-                  hintText: t.negated
-                      ? 'word it must not have'
-                      : 'word or phrase',
-                  isDense: true,
-                ),
-                onChanged: (v) => widget.onChanged(t.copyWith(text: v)),
-              ),
-            ),
-            IconButton(
-              tooltip: 'Remove',
-              icon: const Icon(Icons.close),
-              onPressed: widget.onRemove,
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Wrap(
-          spacing: 6,
-          runSpacing: 4,
-          children: [
-            _option(
-              'Must not contain',
-              t.negated,
-              () => t.copyWith(negated: !t.negated),
-            ),
-            _option(
-              'Whole word',
-              t.wholeWord,
-              () => t.copyWith(wholeWord: !t.wholeWord),
-            ),
-            _option(
-              'Match case',
-              t.caseSensitive,
-              () => t.copyWith(caseSensitive: !t.caseSensitive),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

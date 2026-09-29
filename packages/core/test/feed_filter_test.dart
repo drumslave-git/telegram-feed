@@ -1,4 +1,5 @@
 import 'package:core/core.dart';
+import 'package:rules/rules.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:test/test.dart';
 
@@ -112,4 +113,87 @@ void main() {
       );
     },
   );
+
+  group('text condition', () {
+    const bitcoin = FeedFilter(text: Term('bitcoin'));
+    const noAds = FeedFilter(text: Not(Term('#ad', wholeWord: false)));
+    Post part(int id, {String text = ''}) => Post(
+      chatId: -1,
+      messageId: id,
+      date: 1,
+      text: text,
+      albumId: 7,
+      media: const PhotoMedia(sizes: [_file]),
+    );
+
+    test('a post is shown when its words match, as a rule matches them', () {
+      expect(bitcoin.isEmpty, isFalse);
+      expect(bitcoin.allows(_post(text: 'Bitcoin is up')), isTrue);
+      expect(bitcoin.allows(_post(text: 'bitcoins')), isFalse); // whole word
+      expect(bitcoin.allows(_text), isFalse);
+      // A post without words has none of the words it should have...
+      expect(bitcoin.allows(_photo), isFalse);
+      // ...and none of the words it must not have.
+      expect(noAds.allows(_photo), isTrue);
+      expect(noAds.allows(_post(text: 'Buy now #advert')), isFalse);
+      expect(noAds.mayShow(_post(text: 'Buy now #advert')), isFalse);
+    });
+
+    test('an album is judged by its captions, whichever part carries them', () {
+      final album = [part(3), part(2), part(1, text: 'bitcoin news')];
+      expect(bitcoin.shownParts(album), album);
+      expect(noAds.shownParts(album), album);
+      final ad = [part(3), part(2, text: 'sale #ad'), part(1)];
+      expect(noAds.shownParts(ad), isEmpty);
+      expect(bitcoin.shownParts(ad), isEmpty);
+      // One part alone cannot tell: a rule or a search lets it through.
+      expect(bitcoin.mayShow(part(3)), isTrue);
+      expect(noAds.allows(part(3)), isTrue);
+      // The media settings still judge the parts one by one.
+      final withVideo = [
+        part(3, text: 'bitcoin'),
+        Post(
+          chatId: -1,
+          messageId: 2,
+          date: 1,
+          text: '',
+          albumId: 7,
+          media: const VideoMedia(file: _file, durationSeconds: 20),
+        ),
+      ];
+      final videos = bitcoin.copyWith(kinds: {MediaKind.video});
+      expect(videos.shownParts(withVideo), withVideo);
+      expect(videos.copyWith(wholePost: false).shownParts(withVideo), [
+        withVideo[1],
+      ]);
+    });
+
+    test('stored with the filter, described in the text form', () {
+      const f = FeedFilter(
+        text: Or([
+          Term('bitcoin'),
+          And([Term('btc'), Not(Term('ad'))]),
+        ]),
+        minimize: true,
+      );
+      expect(FeedFilter.decode(f.encode()), f);
+      expect(
+        f.describe(),
+        'text: bitcoin OR btc AND NOT ad · the rest minimized',
+      );
+      expect(bitcoin.copyWith(text: null), FeedFilter.none);
+      expect(bitcoin.copyWith(minVideoSeconds: 60).text, bitcoin.text);
+      // A condition every post matches, or one that cannot be read, is none.
+      expect(FeedFilter.decode('{"text":{"and":[]}}'), FeedFilter.none);
+      expect(FeedFilter.decode('{"text":{"xor":1}}'), FeedFilter.none);
+    });
+  });
+
+  test('minimize alone hides nothing but is kept', () {
+    const f = FeedFilter(minimize: true);
+    expect(f.isEmpty, isTrue);
+    expect(f.encode(), isNotNull);
+    expect(FeedFilter.decode(f.encode()), f);
+    expect(f.describe(), 'Everything');
+  });
 }

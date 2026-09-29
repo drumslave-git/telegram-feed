@@ -14,6 +14,10 @@ final class TimelineItem {
   /// Other album parts, newest first. Empty for single posts.
   final List<Post> parts;
 
+  /// The feed's filter leaves this post out and the feed shows such posts minimized
+  /// ([FeedFilter.minimize]): the row stands for a hidden post, with all of its parts.
+  bool minimized = false;
+
   int get chatId => head.chatId;
   int get albumId => head.albumId;
   bool get isAlbum => albumId != 0;
@@ -90,99 +94,41 @@ final class FeedTimeline {
   final bool anchored;
 
   /// What the feed shows. Hidden posts never become rows; [passedAt] reads them with the
-  /// rows around them.
+  /// rows around them. With [FeedFilter.minimize] a hidden post is a minimized row instead.
   final FeedFilter filter;
 
-  /// The posts the filter hid, per chat: message id to date.
+  /// The posts no row shows, per chat: message id to date.
   final _hidden = <int, SplayTreeMap<int, int>>{};
 
-  /// True when the post may be listed; a hidden one is remembered.
-  bool _sort(Post post) {
-    final ok = filter.allows(post);
-    if (!ok) {
-      (_hidden[post.chatId] ??= SplayTreeMap())[post.messageId] = post.date;
-    }
-    return ok;
-  }
+  /// Every part of every album taken so far, shown or not, per (chat, album), newest
+  /// first. The filter decides an album as a whole ([FeedFilter.shownParts]), so each part
+  /// that arrives, changes or goes decides it again with its siblings.
+  final _albums = <(int, int), List<Post>>{};
 
-  /// A part the filter hid that its album's row shows after all.
-  void _promote(Post post) => _hidden[post.chatId]?.remove(post.messageId);
-
-  /// True when the filter hid [post] but its album's row may still carry it
-  /// ([FeedFilter.wholePost]).
-  bool _ridesAlong(Post post) => post.albumId != 0 && filter.mayShow(post);
-
-  /// Hidden parts whose album has no row yet, per (chat, album): the sibling that opens
-  /// the row takes them along. An album that never gets one loses them again, and the map
-  /// is capped so a long run of such albums cannot grow it.
-  final _held = <(int, int), List<Post>>{};
-
-  void _hold(Post post) {
-    final key = (post.chatId, post.albumId);
-    if (_held.length >= 8 && !_held.containsKey(key)) {
-      _held.remove(_held.keys.first);
-    }
-    (_held[key] ??= []).add(post);
-  }
-
-  /// A row for [post] together with the parts held for its album; the newest of them is
-  /// the head, the rest follow newest first.
-  TimelineItem _newRow(Post post) {
-    if (post.albumId == 0) return TimelineItem(post);
-    final held = _held.remove((post.chatId, post.albumId));
-    if (held == null) return TimelineItem(post);
-    for (final p in held) {
-      _promote(p);
-    }
-    final parts = [post, ...held]
-      ..sort((a, b) => b.messageId.compareTo(a.messageId));
-    return TimelineItem(parts.first, parts.sublist(1));
-  }
-
-  /// Puts [post] into its album's row if that row is listed; parts stay newest first.
-  bool _merge(Post post) {
-    if (post.albumId == 0) return false;
-    for (final item in _items) {
-      if (item.chatId != post.chatId || item.albumId != post.albumId) continue;
-      if (post.messageId > item.head.messageId) {
-        item.parts.insert(0, item.head);
-        item.head = post;
-        return true;
-      }
-      var i = 0;
-      while (i < item.parts.length &&
-          item.parts[i].messageId > post.messageId) {
-        i++;
-      }
-      item.parts.insert(i, post);
-      return true;
-    }
-    return false;
-  }
-
-  /// A hidden part of a whole-post feed: into its row when there is one, held for the
-  /// sibling that will open it otherwise. True when the list changed.
-  bool _rideAlong(Post post) {
-    if (!_merge(post)) {
-      _hold(post);
-      return false;
-    }
-    _promote(post);
-    return true;
-  }
+  /// The listed rows by [_rowKey].
+  final _rows = <(int, int, bool), TimelineItem>{};
 
   final TelegramGateway gateway;
   final int pageSize;
   final int historyLimit;
   final List<_Source> _sources;
   final List<TimelineItem> _items = [];
+
+  /// Posts that arrived while the reader was further up, not yet taken into the list.
   final List<Post> _pending = [];
+  int _pendingShown = 0;
 
   /// Set by the screen: true while the user is at the top of the list.
   bool atTop = true;
 
   List<TimelineItem> get items => List.unmodifiable(_items);
-  int get pendingNew => _pending.length;
+
+  /// The posts waiting behind the button that the feed shows, every part of an album one;
+  /// minimized ones are not counted.
+  int get pendingNew => _pendingShown;
+
+  /// True while any post waits behind the button, minimized or hidden ones included.
+  bool get hasPending => _pending.isNotEmpty;
   Set<int> get chatIds => {for (final s in _sources) s.chatId};
   bool get exhausted => _sources.every((s) => s.exhausted && s.buffer.isEmpty);
 
@@ -219,9 +165,112 @@ final class FeedTimeline {
     return b.messageId.compareTo(a.messageId);
   }
 
+  /// The row of [post]: its album's, or its own. An album id and a message id are
+  /// different numbers even where they are equal.
+  static (int, int, bool) _rowKey(Post post) => post.albumId != 0
+      ? (post.chatId, post.albumId, true)
+      : (post.chatId, post.messageId, false);
+
+  /// Takes [post] into the list, alone or into its album, and decides its row again. True
+  /// when the list changed.
+  bool _take(Post post) {
+    if (post.albumId == 0) return _settle([post]);
+    final parts = _albums[(post.chatId, post.albumId)] ??= [];
+    var i = 0;
+    while (i < parts.length && parts[i].messageId > post.messageId) {
+      i++;
+    }
+    parts.insert(i, post);
+    return _settle(parts);
+  }
+
+  /// Puts the row of [posts] (one post, or the known parts of an album, newest first) in
+  /// line with what the filter makes of them: listed whole or in part, minimized, or not
+  /// at all. True when the list changed.
+  bool _settle(List<Post> posts) {
+    final chatId = posts.first.chatId;
+    final shown = filter.shownParts(posts);
+    final minimized = shown.isEmpty && filter.minimize;
+    final listed = {for (final p in minimized ? posts : shown) p.messageId};
+    for (final p in posts) {
+      if (listed.contains(p.messageId)) {
+        _hidden[chatId]?.remove(p.messageId);
+      } else {
+        (_hidden[chatId] ??= SplayTreeMap())[p.messageId] = p.date;
+      }
+    }
+    final key = _rowKey(posts.first);
+    final row = _rows[key];
+    if (listed.isEmpty) {
+      if (row == null) return false;
+      _rows.remove(key);
+      _items.remove(row);
+      return true;
+    }
+    final ordered = [
+      for (final p in posts)
+        if (listed.contains(p.messageId)) p,
+    ];
+    if (row == null) {
+      final item = TimelineItem(ordered.first, ordered.sublist(1))
+        ..minimized = minimized;
+      _rows[key] = item;
+      _insertRow(item);
+      return true;
+    }
+    if (row.minimized == minimized && _holds(row, ordered)) return false;
+    row
+      ..head = ordered.first
+      ..minimized = minimized
+      ..parts.clear()
+      ..parts.addAll(ordered.skip(1));
+    return true;
+  }
+
+  /// Whether [row] shows exactly [posts], newest first.
+  static bool _holds(TimelineItem row, List<Post> posts) {
+    if (!identical(row.head, posts.first) ||
+        row.parts.length != posts.length - 1) {
+      return false;
+    }
+    for (var i = 1; i < posts.length; i++) {
+      if (!identical(row.parts[i - 1], posts[i])) return false;
+    }
+    return true;
+  }
+
+  /// Lists a new row where the order puts it: at the end while paging back, among the
+  /// others for a post that arrived or a page of newer ones.
+  void _insertRow(TimelineItem item) {
+    if (_items.isEmpty || _compare(_items.last.head, item.head) < 0) {
+      _items.add(item);
+      return;
+    }
+    var i = 0;
+    while (i < _items.length && _compare(_items[i].head, item.head) < 0) {
+      i++;
+    }
+    _items.insert(i, item);
+  }
+
+  /// Hides [post] until its row is decided: a single post the reader will not see.
+  void _hide(Post post) =>
+      (_hidden[post.chatId] ??= SplayTreeMap())[post.messageId] = post.date;
+
   /// Appends up to [pageSize] items (older posts). Returns the items added.
   Future<List<TimelineItem>> loadMore() async {
     final added = <TimelineItem>[];
+    void take(Post post) {
+      if (!_seen.add((post.chatId, post.messageId))) return;
+      final key = _rowKey(post);
+      final had = _rows[key];
+      _take(post);
+      final row = _rows[key];
+      if (had == null && row != null) added.add(row);
+    }
+
+    Post? last;
+    _Source? lastSource;
     while (added.length < pageSize) {
       await Future.wait(_sources.map(_fill));
       _Source? best;
@@ -232,30 +281,26 @@ final class FeedTimeline {
         }
       }
       if (best == null) break;
-      final post = best.buffer.removeFirst();
-      if (!_seen.add((post.chatId, post.messageId))) continue;
-      final passes = _sort(post);
-      if (!passes && !_ridesAlong(post)) continue;
-      final last = _items.isEmpty ? null : _items.last;
-      if (post.albumId != 0 &&
-          last != null &&
-          last.chatId == post.chatId &&
-          last.albumId == post.albumId) {
-        if (!passes) _promote(post);
-        last.parts.add(post); // older part of the album already listed
-        continue;
-      }
-      if (!passes) {
-        _hold(
-          post,
-        ); // the next part of this album opens the row, or nothing does
-        continue;
-      }
-      final item = _newRow(post);
-      _items.add(item);
-      added.add(item);
+      last = best.buffer.removeFirst();
+      lastSource = best;
+      take(last);
     }
-    return added;
+    // An album is decided as a whole: its older parts come in before the page ends, so a
+    // caption further down cannot take the row away or bring it afterwards.
+    while (last != null && last.albumId != 0 && lastSource != null) {
+      await _fill(lastSource);
+      if (lastSource.buffer.isEmpty ||
+          lastSource.buffer.first.albumId != last.albumId) {
+        break;
+      }
+      last = lastSource.buffer.removeFirst();
+      take(last);
+    }
+    // A row the rest of its album took away again is not an addition.
+    return [
+      for (final row in added)
+        if (identical(_rows[_rowKey(row.head)], row)) row,
+    ];
   }
 
   /// True when every source has reached the newest post it knows: an anchored timeline is
@@ -285,20 +330,14 @@ final class FeedTimeline {
                 fetched.addAll(posts);
               }),
     ]);
-    var added = 0;
+    final before = _items.length;
     // Oldest first: each one is inserted where the order puts it, so the album parts of a
     // row meet each other whichever end they came from.
     for (final post in fetched..sort((a, b) => _compare(b, a))) {
       if (!_seen.add((post.chatId, post.messageId))) continue;
-      if (!_sort(post)) {
-        if (_ridesAlong(post)) _rideAlong(post);
-        continue;
-      }
-      final before = _items.length;
-      _insertNew(post);
-      if (_items.length > before) added++;
+      _take(post);
     }
-    return added;
+    return _items.length - before;
   }
 
   /// Applies a live event. Returns true when the visible list changed.
@@ -307,80 +346,111 @@ final class FeedTimeline {
       case PostAdded(:final post):
         if (!chatIds.contains(post.chatId)) return false;
         if (!_seen.add((post.chatId, post.messageId))) return false;
-        if (!_sort(post)) {
-          if (!_ridesAlong(post)) return false;
-          // Its row is listed, or it waits for the sibling that opens one — which may
-          // itself still be in [_pending].
-          if (!atTop) {
-            _hold(post);
-            return false;
-          }
-          return _rideAlong(post);
-        }
-        if (atTop) {
-          _insertNew(post);
-          return true;
+        if (atTop) return _take(post);
+        // A single post the reader will not see is hidden at once, so it is read with the
+        // posts around it; everything else waits behind the button, an album part with
+        // its siblings.
+        if (post.albumId == 0 &&
+            !filter.minimize &&
+            filter.shownParts([post]).isEmpty) {
+          _hide(post);
+          return false;
         }
         _pending.add(post);
+        _countPending();
         return false;
       case PostEdited(:final post):
-        for (final item in _items) {
-          if (item.head.chatId == post.chatId &&
-              item.head.messageId == post.messageId) {
-            item.head = post;
-            return true;
-          }
-          final i = item.parts.indexWhere(
-            (p) => p.messageId == post.messageId && p.chatId == post.chatId,
-          );
-          if (i >= 0) {
-            item.parts[i] = post;
-            return true;
-          }
+        final waiting = _pending.indexWhere(
+          (p) => p.chatId == post.chatId && p.messageId == post.messageId,
+        );
+        if (waiting >= 0) {
+          _pending[waiting] = post;
+          _countPending();
+          return false;
         }
-        return false;
+        if (!_seen.contains((post.chatId, post.messageId))) return false;
+        // The words may have changed what the filter makes of the post.
+        if (post.albumId == 0) return _settle([post]);
+        final parts = _albums[(post.chatId, post.albumId)];
+        final i = parts?.indexWhere((p) => p.messageId == post.messageId) ?? -1;
+        if (parts == null || i < 0) return false;
+        parts[i] = post;
+        return _settle(parts);
       case PostsDeleted(:final chatId, :final messageIds):
         var changed = false;
         final ids = messageIds.toSet();
         for (var i = _items.length - 1; i >= 0; i--) {
           final item = _items[i];
-          if (item.chatId != chatId) continue;
-          item.parts.removeWhere((p) => ids.contains(p.messageId));
-          if (ids.contains(item.head.messageId)) {
-            if (item.parts.isEmpty) {
-              _items.removeAt(i);
-            } else {
-              item.head = item.parts.removeAt(0);
-            }
+          if (item.chatId != chatId ||
+              item.isAlbum ||
+              !ids.contains(item.head.messageId)) {
+            continue;
+          }
+          _items.removeAt(i);
+          _rows.remove(_rowKey(item.head));
+          changed = true;
+        }
+        for (final key in [
+          for (final k in _albums.keys)
+            if (k.$1 == chatId) k,
+        ]) {
+          final parts = _albums[key]!;
+          final before = parts.length;
+          parts.removeWhere((p) => ids.contains(p.messageId));
+          if (parts.length == before) continue;
+          if (parts.isNotEmpty) {
+            if (_settle(parts)) changed = true;
+            continue;
+          }
+          _albums.remove(key);
+          final row = _rows.remove((chatId, key.$2, true));
+          if (row != null) {
+            _items.remove(row);
             changed = true;
           }
         }
         _pending.removeWhere(
           (p) => p.chatId == chatId && ids.contains(p.messageId),
         );
-        for (final held in _held.values) {
-          held.removeWhere(
-            (p) => p.chatId == chatId && ids.contains(p.messageId),
-          );
-        }
-        _held.removeWhere((_, held) => held.isEmpty);
+        _countPending();
         return changed;
     }
   }
 
-  /// Whether [item] is newer than the read mark of its chat (0 = never read).
+  /// Counts what the button shows of the posts waiting: an album by all of its parts known
+  /// so far, listed ones included.
+  void _countPending() {
+    var n = 0;
+    final albums = <(int, int), List<Post>>{};
+    for (final p in _pending) {
+      if (p.albumId == 0) {
+        if (filter.shownParts([p]).isNotEmpty) n++;
+      } else {
+        (albums[(p.chatId, p.albumId)] ??= []).add(p);
+      }
+    }
+    albums.forEach((key, waiting) {
+      final shown = filter.shownParts([...?_albums[key], ...waiting]);
+      n += shown.where(waiting.contains).length;
+    });
+    _pendingShown = n;
+  }
+
+  /// Whether [item] is newer than the read mark of its chat (0 = never read). A minimized
+  /// row stands for a hidden post and is never unread.
   static bool isUnread(TimelineItem item, Map<int, int> marks) =>
-      item.head.messageId > (marks[item.chatId] ?? 0);
+      !item.minimized && item.head.messageId > (marks[item.chatId] ?? 0);
 
   /// The unread posts of the loaded rows, counted as Telegram counts them: every part of
   /// an album is one. With [pendingNew], what the button to the newest posts shows.
+  /// Minimized rows count for nothing.
   int unreadPosts(Map<int, int> marks) {
     var n = 0;
     // A channel's rows are newest first, so its first read row ends its unread ones.
     final open = chatIds;
     for (final item in _items) {
       if (open.isEmpty) break;
-      if (!open.contains(item.chatId)) continue;
+      if (item.minimized || !open.contains(item.chatId)) continue;
       final mark = marks[item.chatId] ?? 0;
       if (item.head.messageId <= mark) {
         open.remove(item.chatId);
@@ -464,22 +534,16 @@ final class FeedTimeline {
     return true;
   }
 
-  /// Moves pending new posts to the head (user tapped "N new posts").
-  void releasePending() {
+  /// Moves pending new posts to the head (user tapped "N new posts"). Returns how many
+  /// rows that added.
+  int releasePending() {
     final posts = [..._pending]..sort(_compare);
     _pending.clear();
+    _pendingShown = 0;
+    final before = _items.length;
     for (final p in posts.reversed) {
-      _insertNew(p);
+      _take(p);
     }
-  }
-
-  void _insertNew(Post post) {
-    // Album parts arrive one by one; each one joins the row the first of them opened.
-    if (_merge(post)) return;
-    var i = 0;
-    while (i < _items.length && _compare(_items[i].head, post) < 0) {
-      i++;
-    }
-    _items.insert(i, _newRow(post));
+    return _items.length - before;
   }
 }

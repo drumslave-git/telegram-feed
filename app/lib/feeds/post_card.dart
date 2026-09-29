@@ -152,6 +152,7 @@ class PostCard extends StatelessWidget {
     this.onQuickReact,
     this.reactions,
     this.onSelect,
+    this.onMinimize,
     this.selecting = false,
     this.selected = false,
     this.onViewerMedia,
@@ -206,6 +207,10 @@ class PostCard extends StatelessWidget {
   /// "Select" in the menu, and every tap while the timeline is selecting.
   final VoidCallback? onSelect;
 
+  /// "Minimize" in the menu of a post the feed's filter leaves out, opened from its line:
+  /// folds it into that line again.
+  final VoidCallback? onMinimize;
+
   /// The timeline is choosing posts: a tap anywhere on the row picks this one, and nothing
   /// else in it answers.
   final bool selecting;
@@ -230,6 +235,7 @@ class PostCard extends StatelessWidget {
       onCopyLink != null ||
       onCopyText != null ||
       onSelect != null ||
+      onMinimize != null ||
       onSave != null ||
       availableReactions != null;
 
@@ -288,6 +294,12 @@ class PostCard extends StatelessWidget {
                   leading: const Icon(Icons.checklist),
                   title: const Text('Select'),
                   onTap: () => Navigator.pop(context, onSelect),
+                ),
+              if (onMinimize != null)
+                ListTile(
+                  leading: const Icon(Icons.unfold_less),
+                  title: const Text('Minimize'),
+                  onTap: () => Navigator.pop(context, onMinimize),
                 ),
               if (onAutoplaySettings != null &&
                   item.allPosts.any((p) => p.media is VideoMedia))
@@ -389,6 +401,90 @@ class PostCard extends StatelessWidget {
               ),
               Expanded(child: IgnorePointer(child: card)),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A post the feed's filter leaves out, in a feed that shows such posts minimized: a slim
+/// bubble of one line with the channel's name in its colour, the beginning of the words
+/// (or what the post carries) and the time. A tap opens the whole post in its place.
+class MinimizedPost extends StatelessWidget {
+  const MinimizedPost({
+    super.key,
+    required this.item,
+    required this.channelTitle,
+    this.onOpen,
+  });
+  final TimelineItem item;
+  final String channelTitle;
+
+  /// Opens the post; null while the timeline selects, where this row takes no part.
+  final VoidCallback? onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = ChatColors.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final muted = scheme.onSurfaceVariant;
+    final words = postLabel(item.textPost)
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    final time = formatTime(
+      DateTime.fromMillisecondsSinceEpoch(item.head.date * 1000),
+      context,
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
+      child: Material(
+        color: colors.bubble,
+        elevation: 0.5,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(14)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Semantics(
+          button: onOpen != null,
+          label: 'Minimized post of $channelTitle: $words, $time',
+          excludeSemantics: true,
+          child: InkWell(
+            onTap: onOpen,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 7, 8, 7),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: channelTitle,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: peerColor(item.chatId, scheme.brightness),
+                            ),
+                          ),
+                          const TextSpan(text: '  '),
+                          TextSpan(
+                            text: words,
+                            style: TextStyle(color: muted),
+                          ),
+                        ],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(time, style: TextStyle(fontSize: 12, color: muted)),
+                  const SizedBox(width: 4),
+                  Icon(Icons.unfold_more, size: 16, color: muted),
+                ],
+              ),
+            ),
           ),
         ),
       ),

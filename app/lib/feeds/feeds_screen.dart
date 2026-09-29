@@ -390,8 +390,9 @@ final class _Unread {
     complete = true;
   }
 
-  /// Singles count when the filter lets them through; an album counts when one part does,
-  /// with all its parts when the feed shows whole posts.
+  /// Every post counts with the parts the feed shows of it: a single post when the filter
+  /// lets it through, an album by its captions together and by the media of each part
+  /// ([FeedFilter.shownParts]).
   void _add(List<Post> posts) {
     final albums = <int, List<Post>>{};
     for (final p in posts) {
@@ -402,11 +403,7 @@ final class _Unread {
       }
     }
     for (final parts in albums.values) {
-      final shown = parts.where(filter.allows).toList();
-      if (shown.isEmpty) continue;
-      counted.addAll([
-        for (final p in filter.wholePost ? parts : shown) p.messageId,
-      ]);
+      counted.addAll([for (final p in filter.shownParts(parts)) p.messageId]);
     }
   }
 }

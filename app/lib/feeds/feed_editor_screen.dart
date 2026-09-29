@@ -7,6 +7,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../home/channel_list.dart' show ChannelAvatar, FeedTags;
 import 'post_card.dart' show formatCount;
+import '../rules/condition_editor.dart';
 import '../rules/rules_screen.dart' show RuleList, openRuleEditor;
 import '../widgets/destructive_button.dart';
 import '../widgets/empty_state.dart';
@@ -403,6 +404,26 @@ class FeedFilterSheet extends StatefulWidget {
 class _FeedFilterSheetState extends State<FeedFilterSheet> {
   late FeedFilter _f = widget.initial;
 
+  /// The words the posts must match, edited as a rule's condition.
+  late final _words = ConditionController(widget.initial.text);
+
+  @override
+  void dispose() {
+    _words.dispose();
+    super.dispose();
+  }
+
+  /// Closes with the filter, the words included; a condition that cannot be read keeps
+  /// the sheet open and says why under the field.
+  void _apply() {
+    final words = _words.condition();
+    if (words == null) return;
+    Navigator.pop(
+      context,
+      _f.copyWith(text: ConditionController.isMatchAll(words) ? null : words),
+    );
+  }
+
   static const _videoLengths = [0, 30, 60, 120, 300, 600, 1800];
   static const _textLengths = [0, 50, 100, 280, 500, 1000];
 
@@ -424,145 +445,197 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Text(text, style: theme.textTheme.titleSmall),
     );
-    return ListView(
-      shrinkWrap: true,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-          child: Text('Show in this feed', style: theme.textTheme.titleMedium),
-        ),
-        label('Posts'),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: SegmentedButton<MediaPresence>(
-            segments: const [
-              ButtonSegment(value: MediaPresence.any, label: Text('All')),
-              ButtonSegment(
-                value: MediaPresence.withMedia,
-                label: Text('With media'),
-              ),
-              ButtonSegment(
-                value: MediaPresence.textOnly,
-                label: Text('Text only'),
-              ),
-            ],
-            selected: {_f.media},
-            onSelectionChanged: (s) =>
-                setState(() => _f = _f.copyWith(media: s.first)),
-          ),
-        ),
-        label('Media types'),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Text(
-            'Leave all of them off to allow every type.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+    // The sheet ends where the keyboard of the words' fields begins, so the field being
+    // typed in scrolls into view above it. The buttons stay under the list, which scrolls.
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                  child: Text(
+                    'Show in this feed',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                label('Posts'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: SegmentedButton<MediaPresence>(
+                    segments: const [
+                      ButtonSegment(
+                        value: MediaPresence.any,
+                        label: Text('All'),
+                      ),
+                      ButtonSegment(
+                        value: MediaPresence.withMedia,
+                        label: Text('With media'),
+                      ),
+                      ButtonSegment(
+                        value: MediaPresence.textOnly,
+                        label: Text('Text only'),
+                      ),
+                    ],
+                    selected: {_f.media},
+                    onSelectionChanged: (s) =>
+                        setState(() => _f = _f.copyWith(media: s.first)),
+                  ),
+                ),
+                label('Media types'),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Text(
+                    'Leave all of them off to allow every type.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final kind in MediaKind.values)
+                        FilterChip(
+                          label: Text(kind.chipLabel),
+                          selected: _f.kinds.contains(kind),
+                          onSelected: !mediaPossible
+                              ? null
+                              : (on) => setState(
+                                  () => _f = _f.copyWith(
+                                    kinds: on
+                                        ? {..._f.kinds, kind}
+                                        : ({..._f.kinds}..remove(kind)),
+                                  ),
+                                ),
+                        ),
+                    ],
+                  ),
+                ),
+                ListTile(
+                  enabled: videoPossible,
+                  title: const Text('Video length'),
+                  trailing: DropdownMenu<int>(
+                    enabled: videoPossible,
+                    initialSelection: _videoLengths.contains(_f.minVideoSeconds)
+                        ? _f.minVideoSeconds
+                        : 0,
+                    width: 180,
+                    onSelected: (v) => setState(
+                      () => _f = _f.copyWith(minVideoSeconds: v ?? 0),
+                    ),
+                    dropdownMenuEntries: [
+                      for (final s in _videoLengths)
+                        DropdownMenuEntry(value: s, label: _duration(s)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  enabled: textPossible,
+                  title: const Text('Text posts'),
+                  trailing: DropdownMenu<int>(
+                    enabled: textPossible,
+                    initialSelection: _textLengths.contains(_f.minTextLength)
+                        ? _f.minTextLength
+                        : 0,
+                    width: 180,
+                    onSelected: (v) =>
+                        setState(() => _f = _f.copyWith(minTextLength: v ?? 0)),
+                    dropdownMenuEntries: [
+                      for (final n in _textLengths)
+                        DropdownMenuEntry(
+                          value: n,
+                          label: n == 0 ? 'Any length' : 'From $n characters',
+                        ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: ConditionEditor(
+                    controller: _words,
+                    title: Text(
+                      'Text content',
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    note: Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'Only posts whose words match are shown, as a rule matches them. '
+                        'A "Must not contain" term hides the posts that have it.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                CheckboxListTile(
+                  value: _f.wholePost,
+                  enabled: mediaPossible,
+                  onChanged: !mediaPossible
+                      ? null
+                      : (v) => setState(
+                          () => _f = _f.copyWith(wholePost: v ?? true),
+                        ),
+                  title: const Text('Show the whole post'),
+                  subtitle: const Text(
+                    'A post with several pictures or videos is shown complete, with its caption, '
+                    'as soon as one of them passes. Off shows only the parts that pass.',
+                  ),
+                ),
+                CheckboxListTile(
+                  value: _f.minimize,
+                  onChanged: (v) =>
+                      setState(() => _f = _f.copyWith(minimize: v)),
+                  title: const Text('Show minimized'),
+                  subtitle: const Text(
+                    'The posts this feed leaves out stay in it as one line each, and a tap '
+                    'opens one. They count as hidden all the same.',
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  child: Text(
+                    'Posts this feed hides count as read, and rules stay quiet about them unless '
+                    'another feed with the same channel shows them.',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Wrap(
-            spacing: 8,
-            children: [
-              for (final kind in MediaKind.values)
-                FilterChip(
-                  label: Text(kind.chipLabel),
-                  selected: _f.kinds.contains(kind),
-                  onSelected: !mediaPossible
-                      ? null
-                      : (on) => setState(
-                          () => _f = _f.copyWith(
-                            kinds: on
-                                ? {..._f.kinds, kind}
-                                : ({..._f.kinds}..remove(kind)),
-                          ),
-                        ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Row(
+              children: [
+                TextButton(
+                  onPressed: () {
+                    _words.clear();
+                    setState(() => _f = FeedFilter.none);
+                  },
+                  child: const Text('Show everything'),
                 ),
-            ],
-          ),
-        ),
-        ListTile(
-          enabled: videoPossible,
-          title: const Text('Video length'),
-          trailing: DropdownMenu<int>(
-            enabled: videoPossible,
-            initialSelection: _videoLengths.contains(_f.minVideoSeconds)
-                ? _f.minVideoSeconds
-                : 0,
-            width: 180,
-            onSelected: (v) =>
-                setState(() => _f = _f.copyWith(minVideoSeconds: v ?? 0)),
-            dropdownMenuEntries: [
-              for (final s in _videoLengths)
-                DropdownMenuEntry(value: s, label: _duration(s)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        ListTile(
-          enabled: textPossible,
-          title: const Text('Text posts'),
-          trailing: DropdownMenu<int>(
-            enabled: textPossible,
-            initialSelection: _textLengths.contains(_f.minTextLength)
-                ? _f.minTextLength
-                : 0,
-            width: 180,
-            onSelected: (v) =>
-                setState(() => _f = _f.copyWith(minTextLength: v ?? 0)),
-            dropdownMenuEntries: [
-              for (final n in _textLengths)
-                DropdownMenuEntry(
-                  value: n,
-                  label: n == 0 ? 'Any length' : 'From $n characters',
+                const Spacer(),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
                 ),
-            ],
+                const SizedBox(width: 8),
+                FilledButton(onPressed: _apply, child: const Text('Apply')),
+              ],
+            ),
           ),
-        ),
-        CheckboxListTile(
-          value: _f.wholePost,
-          enabled: mediaPossible,
-          onChanged: !mediaPossible
-              ? null
-              : (v) => setState(() => _f = _f.copyWith(wholePost: v ?? true)),
-          title: const Text('Show the whole post'),
-          subtitle: const Text(
-            'A post with several pictures or videos is shown complete, with its caption, '
-            'as soon as one of them passes. Off shows only the parts that pass.',
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-          child: Text(
-            'Posts this feed hides count as read, and rules stay quiet about them unless '
-            'another feed with the same channel shows them.',
-            style: theme.textTheme.bodySmall,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Row(
-            children: [
-              TextButton(
-                onPressed: () => setState(() => _f = FeedFilter.none),
-                child: const Text('Show everything'),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, _f),
-                child: const Text('Apply'),
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -615,6 +615,13 @@ class TimelineViewState extends State<TimelineView>
   /// not selecting.
   final _selected = <(int, int)>{};
 
+  /// Minimized rows the reader opened in this visit, by (chat id, row id).
+  final _opened = <(int, int)>{};
+
+  /// A row the filter leaves out that is drawn as its one line: not opened by the reader.
+  bool _folded(TimelineItem item) =>
+      item.minimized && !_opened.contains((item.chatId, item.rowId));
+
   /// The channel's pinned post, shown in a bar over the timeline. A feed mixes channels,
   /// so it has no such bar.
   Post? _pinned;
@@ -1111,6 +1118,8 @@ class TimelineViewState extends State<TimelineView>
           index = _indexOf(t, focusChat, isFocus);
           _flash((focusChat, t.items[index].rowId));
         }
+        // A minimized post opens: the reader asked for that post.
+        if (index >= 0) _opened.add((focusChat, t.items[index].rowId));
         _initialAlignment = t.anchored ? 0.55 : 0.3;
       } else if (left != null && !atUnread) {
         // Everything newer than that row is loaded on the way to it, the unread posts
@@ -1237,9 +1246,12 @@ class TimelineViewState extends State<TimelineView>
       }
       if (_readable(item, p)) {
         if (readIndex < 0 || p.index < readIndex) readIndex = p.index;
-        (viewed[item.chatId] ??= []).addAll(
-          item.allPosts.map((x) => x.messageId),
-        );
+        // A minimized line is read with the rest, but its post has not been seen.
+        if (!_folded(item)) {
+          (viewed[item.chatId] ??= []).addAll(
+            item.allPosts.map((x) => x.messageId),
+          );
+        }
       }
     }
     final live = !t.anchored || t.exhaustedNewer;
@@ -1248,7 +1260,7 @@ class TimelineViewState extends State<TimelineView>
       // in every channel of it.
       final passed = t.passedAt(
         readIndex,
-        throughNewest: readIndex == 0 && live && t.pendingNew == 0,
+        throughNewest: readIndex == 0 && live && !t.hasPending,
       );
       _marker.read(passed, viewed: viewed);
       Map<int, int>? moved;
@@ -1284,7 +1296,7 @@ class TimelineViewState extends State<TimelineView>
     if (atNewest != t.atTop) {
       t.atTop = atNewest;
       if (atNewest) _returnTo = null;
-      if (atNewest && t.pendingNew > 0) {
+      if (atNewest && t.hasPending) {
         _release();
       } else {
         _corner.value++; // the button at the corner comes and goes
@@ -1388,8 +1400,7 @@ class TimelineViewState extends State<TimelineView>
   void _release({bool toEnd = false}) {
     final t = _timeline;
     if (t == null) return;
-    final arrived = t.pendingNew;
-    t.releasePending();
+    final arrived = t.releasePending();
     setState(() {});
     if (!_scrollCtl.isAttached) return;
     final middle = !toEnd && arrived > 1;
@@ -1697,6 +1708,7 @@ class TimelineViewState extends State<TimelineView>
     final media = <Media>[];
     final owners = <TimelineItem>[];
     for (final item in _timeline?.items ?? const <TimelineItem>[]) {
+      if (_folded(item)) continue; // its pictures are not on the screen
       final shown = MediaViewerScreen.viewable([
         for (final p in item.allPosts)
           if (p.media != null) p.media!,
@@ -2015,6 +2027,7 @@ class TimelineViewState extends State<TimelineView>
                   : Colors.transparent;
               final inputs = _RowInputs(
                 item,
+                folded: _folded(item),
                 title: _titles[item.chatId] ?? '',
                 photo: _photos[item.chatId],
                 channel: _known[item.chatId],
@@ -2031,54 +2044,70 @@ class TimelineViewState extends State<TimelineView>
               }
               final kept = _rows[id];
               if (kept != null && kept.inputs.same(inputs)) return kept.row;
-              final card = PostCard(
-                item: item,
-                channelTitle: _titles[item.chatId] ?? '',
-                channelPhoto: _photos[item.chatId],
-                gateway: widget.gateway,
-                onOpenInTelegram: () => _openInTelegram(item),
-                onShare: () => _share(item),
-                onCopyLink: () => _copyLink(item),
-                onCopyText: item.text.isEmpty ? null : () => _copyText(item),
-                onSave: () => _save(item),
-                onReact: (emoji, remove) => _react(item, emoji, remove),
-                availableReactions: () => _availableReactions(item),
-                onOpenLink: _openLink,
-                onAutoplaySettings: () => openSettingsScreen(
-                  context,
-                  DataStorageScreen(db: widget.db, gateway: widget.gateway),
-                ),
-                onOpenForward: item.head.forwardedFrom == null
-                    ? null
-                    : () => _openForward(item),
-                onOpenReply: item.textPost.replyTo == null
-                    ? null
-                    : () => _openReply(item),
-                onOpenChannel: _channelInfoOf(item.chatId),
-                reactions: _reactionsOf(item),
-                onQuickReact: () => unawaited(_quickReact(item)),
-                onViewerMedia: _viewerMedia,
-                onMoreViewerMedia: _moreViewerMedia,
-                onViewerDetails: _viewerDetails,
-                onViewerSave: _viewerSave,
-                onSelect: () => toggleSelected(item),
-                selecting: _selected.isNotEmpty,
-                selected: _selected.contains(id),
-                // Only posts of channels with a discussion group have a thread.
-                onOpenThread: !item.head.canComment
-                    ? null
-                    : () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => ThreadScreen(
-                            gateway: widget.gateway,
-                            post: item.head,
-                            item: item,
-                            channelTitle: _titles[item.chatId] ?? '',
-                            channelPhoto: _photos[item.chatId],
-                          ),
+              final card = inputs.folded
+                  ? MinimizedPost(
+                      item: item,
+                      channelTitle: _titles[item.chatId] ?? '',
+                      onOpen: _selected.isNotEmpty
+                          ? null
+                          : () => setState(() => _opened.add(id)),
+                    )
+                  : PostCard(
+                      item: item,
+                      channelTitle: _titles[item.chatId] ?? '',
+                      channelPhoto: _photos[item.chatId],
+                      gateway: widget.gateway,
+                      onOpenInTelegram: () => _openInTelegram(item),
+                      onShare: () => _share(item),
+                      onCopyLink: () => _copyLink(item),
+                      onCopyText: item.text.isEmpty
+                          ? null
+                          : () => _copyText(item),
+                      onSave: () => _save(item),
+                      onReact: (emoji, remove) => _react(item, emoji, remove),
+                      availableReactions: () => _availableReactions(item),
+                      onOpenLink: _openLink,
+                      onAutoplaySettings: () => openSettingsScreen(
+                        context,
+                        DataStorageScreen(
+                          db: widget.db,
+                          gateway: widget.gateway,
                         ),
                       ),
-              );
+                      onOpenForward: item.head.forwardedFrom == null
+                          ? null
+                          : () => _openForward(item),
+                      onOpenReply: item.textPost.replyTo == null
+                          ? null
+                          : () => _openReply(item),
+                      onOpenChannel: _channelInfoOf(item.chatId),
+                      reactions: _reactionsOf(item),
+                      onQuickReact: () => unawaited(_quickReact(item)),
+                      onViewerMedia: _viewerMedia,
+                      onMoreViewerMedia: _moreViewerMedia,
+                      onViewerDetails: _viewerDetails,
+                      onViewerSave: _viewerSave,
+                      onSelect: () => toggleSelected(item),
+                      onMinimize: !item.minimized
+                          ? null
+                          : () => setState(() => _opened.remove(id)),
+                      selecting: _selected.isNotEmpty,
+                      selected: _selected.contains(id),
+                      // Only posts of channels with a discussion group have a thread.
+                      onOpenThread: !item.head.canComment
+                          ? null
+                          : () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => ThreadScreen(
+                                  gateway: widget.gateway,
+                                  post: item.head,
+                                  item: item,
+                                  channelTitle: _titles[item.chatId] ?? '',
+                                  channelPhoto: _photos[item.chatId],
+                                ),
+                              ),
+                            ),
+                    );
               // The tint fades in and out instead of appearing and vanishing, so the
               // eye follows the post the jump landed on.
               final row = RepaintBoundary(
@@ -2120,6 +2149,7 @@ class TimelineViewState extends State<TimelineView>
 final class _RowInputs {
   _RowInputs(
     this.item, {
+    required this.folded,
     required this.title,
     required this.photo,
     required this.channel,
@@ -2130,10 +2160,17 @@ final class _RowInputs {
     required this.newDay,
     required this.firstUnread,
   }) : head = item.head,
-       parts = List.of(item.parts);
+       parts = List.of(item.parts),
+       minimized = item.minimized;
   final TimelineItem item;
   final Post head;
   final List<Post> parts;
+
+  /// The filter leaves the post out; the row may still be open.
+  final bool minimized;
+
+  /// Drawn as the one line of a minimized post.
+  final bool folded;
   final String title;
   final FileRef? photo;
   final Channel? channel;
@@ -2153,7 +2190,9 @@ final class _RowInputs {
     for (var i = 0; i < parts.length; i++) {
       if (!identical(parts[i], o.parts[i])) return false;
     }
-    return title == o.title &&
+    return minimized == o.minimized &&
+        folded == o.folded &&
+        title == o.title &&
         photo == o.photo &&
         identical(channel, o.channel) &&
         identical(reactions, o.reactions) &&

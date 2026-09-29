@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:core/core.dart';
+import 'package:rules/rules.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:test/test.dart';
 
@@ -598,11 +599,166 @@ void main() {
         await t.loadMore();
         t.apply(PostAdded(photo(41, album: 5, text: 'caption')));
         t.apply(PostAdded(video(42, album: 5)));
-        expect(t.pendingNew, 1); // the row, not its parts
+        // Both parts of the whole post, as the unread count counts them once released.
+        expect(t.pendingNew, 2);
         t.releasePending();
         expect(t.items.single.head.messageId, 42);
         expect(t.items.single.text, 'caption');
       });
+    });
+
+    group('text', () {
+      const noAds = FeedFilter(text: Not(Term('#ad', wholeWord: false)));
+      const bitcoin = FeedFilter(text: Term('bitcoin'));
+
+      test(
+        'an album goes by its caption, below its pictures in history',
+        () async {
+          // History is newest first; the caption sits on the oldest part.
+          final gw = HistoryGateway({
+            -1: [
+              text(20),
+              photo(19, album: 9),
+              photo(18, album: 9),
+              photo(17, album: 9, text: 'sale #ad'),
+              photo(16, album: 8),
+              photo(15, album: 8, text: 'bitcoin up'),
+            ],
+          });
+          final hiding = FeedTimeline(gw, [-1], filter: noAds);
+          await hiding.loadMore();
+          expect(hiding.items.map((i) => i.head.messageId), [20, 16]);
+          expect(hiding.passedAt(1), {-1: 16}); // the ad's parts are newer
+          expect(hiding.passedAt(0), {-1: 20});
+
+          final only = FeedTimeline(gw, [-1], filter: bitcoin);
+          await only.loadMore();
+          expect(only.items.single.head.messageId, 16);
+          expect(only.items.single.parts.map((x) => x.messageId), [15]);
+        },
+      );
+
+      test('the rest of an album comes in before the page ends', () async {
+        final gw = HistoryGateway({
+          -1: [
+            photo(19, album: 9),
+            photo(18, album: 9),
+            photo(17, album: 9, text: 'sale #ad'),
+            text(16),
+          ],
+        });
+        final t = FeedTimeline(
+          gw,
+          [-1],
+          filter: noAds,
+          pageSize: 1,
+          historyLimit: 2,
+        );
+        // The first page asks for one row; the pictures alone would pass.
+        expect(await t.loadMore(), isEmpty);
+        expect(t.items, isEmpty);
+        expect((await t.loadMore()).single.head.messageId, 16);
+      });
+
+      test('a caption that arrives last takes its album away', () async {
+        final t = FeedTimeline(HistoryGateway({-1: []}), [-1], filter: noAds);
+        await t.loadMore();
+        expect(t.apply(PostAdded(photo(31, album: 4))), isTrue);
+        expect(t.items.single.head.messageId, 31);
+        expect(t.apply(PostAdded(photo(32, album: 4, text: '#ad'))), isTrue);
+        expect(t.items, isEmpty);
+        expect(t.passedAt(0, throughNewest: true), isEmpty);
+      });
+
+      test('an edit decides the post again', () async {
+        final gw = HistoryGateway({
+          -1: [text(2), text(1)],
+        });
+        final t = FeedTimeline(gw, [-1], filter: noAds);
+        await t.loadMore();
+        final edited = Post(chatId: -1, messageId: 2, date: 2, text: 'now #ad');
+        expect(t.apply(PostEdited(edited)), isTrue);
+        expect(t.items.map((i) => i.head.messageId), [1]);
+        expect(t.apply(PostEdited(text(2))), isTrue);
+        expect(t.items.map((i) => i.head.messageId), [2, 1]);
+      });
+    });
+
+    group('minimized', () {
+      const bitcoin = FeedFilter(text: Term('bitcoin'), minimize: true);
+      Post words(int id, String s) =>
+          Post(chatId: -1, messageId: id, date: id, text: s);
+
+      test('a hidden post is a minimized row with all of its parts', () async {
+        final gw = HistoryGateway({
+          -1: [
+            words(20, 'bitcoin up'),
+            photo(19, album: 9),
+            photo(18, album: 9, text: 'weather'),
+            words(17, 'sports'),
+          ],
+        });
+        final t = FeedTimeline(gw, [-1], filter: bitcoin);
+        await t.loadMore();
+        expect(t.items.map((i) => (i.head.messageId, i.minimized)), [
+          (20, false),
+          (19, true),
+          (17, true),
+        ]);
+        expect(t.items[1].parts.map((x) => x.messageId), [18]);
+        // Nothing hidden is left over: the minimized rows are read as rows.
+        expect(t.passedAt(1, throughNewest: true), {-1: 19});
+      });
+
+      test('minimized rows are never unread', () async {
+        final gw = HistoryGateway({
+          -1: [
+            words(20, 'sports'),
+            words(19, 'bitcoin up'),
+            words(18, 'weather'),
+          ],
+        });
+        final t = FeedTimeline(gw, [-1], filter: bitcoin);
+        await t.loadMore();
+        const marks = {-1: 0};
+        expect(t.unreadPosts(marks), 1);
+        expect(t.firstUnreadIndex(marks), 1);
+        expect(FeedTimeline.isUnread(t.items[0], marks), isFalse);
+      });
+
+      test('a minimized post waits behind the button uncounted', () async {
+        final t = FeedTimeline(HistoryGateway({-1: []}), [-1], filter: bitcoin)
+          ..atTop = false;
+        await t.loadMore();
+        expect(t.apply(PostAdded(words(5, 'sports'))), isFalse);
+        expect(t.pendingNew, 0);
+        expect(t.hasPending, isTrue);
+        expect(t.apply(PostAdded(words(6, 'bitcoin'))), isFalse);
+        expect(t.pendingNew, 1);
+        expect(t.releasePending(), 2);
+        expect(t.items.map((i) => (i.head.messageId, i.minimized)), [
+          (6, false),
+          (5, true),
+        ]);
+      });
+
+      test(
+        'an album minimized by its pictures opens once a part passes',
+        () async {
+          const videos = FeedFilter(kinds: {MediaKind.video}, minimize: true);
+          final t = FeedTimeline(HistoryGateway({-1: []}), [
+            -1,
+          ], filter: videos);
+          await t.loadMore();
+          t.apply(PostAdded(photo(41, album: 5, text: 'caption')));
+          expect(t.items.single.minimized, isTrue);
+          final row = t.items.single;
+          t.apply(PostAdded(video(42, album: 5)));
+          expect(identical(t.items.single, row), isTrue);
+          expect(row.minimized, isFalse);
+          expect(row.allPosts.map((x) => x.messageId), [42, 41]);
+        },
+      );
     });
   });
 }

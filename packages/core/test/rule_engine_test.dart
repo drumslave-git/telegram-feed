@@ -194,6 +194,24 @@ void main() {
     expect(e.evaluate(post(-2, 1, 'btc up'))!.rules.single.id, 2);
   });
 
+  test(
+    "a post the feed's words leave out raises nothing, minimized or not",
+    () {
+      const noAds = FeedFilter(text: Not(Term('#ad', wholeWord: false)));
+      final e = RuleEngine()
+        ..update(
+          rules: [rule(1, 'btc', feed: 1), rule(2, 'btc', feed: 2)],
+          feeds: {
+            1: const RuleFeed({-1}, noAds),
+            2: RuleFeed({-2}, noAds.copyWith(minimize: true)),
+          },
+        );
+      expect(e.evaluate(post(-1, 1, 'btc up')), isNotNull);
+      expect(e.evaluate(post(-1, 2, 'btc up #ad')), isNull);
+      expect(e.evaluate(post(-2, 1, 'btc up #ad')), isNull);
+    },
+  );
+
   test('a rule with no condition notifies about a post without text', () {
     final silent = Post(
       chatId: -1,

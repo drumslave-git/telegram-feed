@@ -1,0 +1,44 @@
+# A feed's words: a condition hides a post, and a feed that shows such posts minimized
+# keeps it as one line that opens and folds again.
+appId: dev.telegramfeed.telegram_feed
+---
+- runFlow: subflows/start.yaml
+- runFlow:
+    file: subflows/feed_from_folder.yaml
+    env:
+      FOLDER: News
+- runFlow:
+    file: subflows/open_feed.yaml
+    env:
+      FEED: News
+- tapOn: 'Edit feed'
+- tapOn: '(?s)Show\n.*'
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element: 'Add a term'
+    direction: DOWN
+- tapOn: 'Add a term'
+- inputText: 'lighthouse'
+- hideKeyboard
+- tapOn: 'Must not contain'
+- scrollUntilVisible:
+    element: '(?s)Show minimized.*'
+    direction: DOWN
+- tapOn: '(?s)Show minimized.*'
+- tapOn: 'Apply'
+- assertVisible: '(?s).*text: NOT lighthouse · the rest minimized.*'
+- tapOn: 'Back'
+- scrollUntilVisible:
+    element: 'Minimized post of Harbour Times: The new lighthouse lamp.*'
+    direction: DOWN
+    timeout: 30000
+- tapOn: 'Minimized post of Harbour Times: The new lighthouse lamp.*'
+- waitForAnimationToEnd
+- assertNotVisible: 'Minimized post of Harbour Times: The new lighthouse lamp.*'
+- assertVisible: '(?s).*The new lighthouse lamp is lit tonight.*'
+- longPressOn: '(?s).*The new lighthouse lamp is lit tonight.*'
+- tapOn: 'Minimize'
+- waitForAnimationToEnd
+- assertVisible: 'Minimized post of Harbour Times: The new lighthouse lamp.*'
+- tapOn: 'Back'
+- assertVisible: '(?s)News\n.*channel.*'
