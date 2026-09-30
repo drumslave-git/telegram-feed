@@ -101,7 +101,8 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - I manage a feed's rules on the Rules tab of its info screen, which the feed's menu also opens. The Rules button of the home screen lists every rule under the name of its feed.
 - A rule's condition is built from terms combined with AND / OR / NOT. A term is a word or phrase with options: whole word, case sensitive.
 - A rule with an empty condition notifies about every post of its channels, including posts without text; the notification then says what the post is (a photo, a video, a file). It still takes a priority, a schedule and read-aloud.
-- A rule has a priority: silent (tray only), normal, urgent (breaks through Do Not Disturb where Android permits). The editor says what each one does, and picking "urgent" offers to open Android's setting for it.
+- A rule has a priority: silent (tray only), normal (pops up on the screen), urgent (pops up and breaks through Do Not Disturb where Android permits). The editor says what each one does, and picking "urgent" offers to open Android's setting for it.
+- While the app is on screen, matching posts sound and vibrate as their priority says but do not pop up over it.
 - I choose the sound and the vibration of normal and urgent notifications; silent ones stay silent. A change applies at once, and the row names the sound as Android's picker does.
 - A rule can request read-aloud.
 - A rule can have a schedule: active on selected weekdays between two times.

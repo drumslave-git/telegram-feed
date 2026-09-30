@@ -44,9 +44,16 @@ final class Notifier {
   /// Channel ids in use, by the logical priority of the plan.
   final _actual = <String, String>{};
 
-  /// The suffix a choice gives a channel id. The default choice adds nothing, so an app
-  /// that was installed before this setting keeps the channels it has, and only a reader
-  /// who picks a sound gets new ones.
+  /// The in-app channel ids in use, by the logical priority of the plan.
+  final _actualInApp = <String, String>{};
+
+  /// Whether the app is on screen. Posts that match then sound and vibrate as their
+  /// priority says but do not pop up over it; Android decides the pop-up by the channel, so
+  /// they go on the in-app channels.
+  bool appOpen = false;
+
+  /// The suffix a choice gives a channel id. The default choice adds nothing, so only a
+  /// reader who picks a sound gets channels of their own.
   String _suffixOf(String? sound, bool vibrate) {
     if ((sound ?? '').isEmpty && vibrate) return '';
     final words = '${sound ?? ''}|$vibrate';
@@ -93,21 +100,26 @@ final class Notifier {
           AndroidFlutterLocalNotificationsPlugin
         >();
     if (android == null) return;
-    final normalId =
-        channelNormal + _suffixOf(sounds.normalSound, sounds.normalVibrate);
-    await android.createNotificationChannel(
-      AndroidNotificationChannel(
-        normalId,
-        'Posts',
-        description: 'Rules with normal priority',
-        importance: Importance.defaultImportance,
-        sound: (sounds.normalSound ?? '').isEmpty
-            ? null
-            : UriAndroidNotificationSound(sounds.normalSound!),
-        enableVibration: sounds.normalVibrate,
-      ),
-    );
-    _actual[channelNormal] = normalId;
+    final suffix = _suffixOf(sounds.normalSound, sounds.normalVibrate);
+    for (final inApp in const [false, true]) {
+      await android.createNotificationChannel(
+        AndroidNotificationChannel(
+          (inApp ? channelNormalInApp : channelNormalPopup) + suffix,
+          channelNameOf(channelNormal, inApp: inApp),
+          description: inApp
+              ? 'Rules with normal priority while the app is open, without a '
+                    'pop-up'
+              : 'Rules with normal priority',
+          importance: inApp ? Importance.defaultImportance : Importance.high,
+          sound: (sounds.normalSound ?? '').isEmpty
+              ? null
+              : UriAndroidNotificationSound(sounds.normalSound!),
+          enableVibration: sounds.normalVibrate,
+        ),
+      );
+    }
+    _actual[channelNormal] = channelNormalPopup + suffix;
+    _actualInApp[channelNormal] = channelNormalInApp + suffix;
     // The urgent channel is made again for the new choice.
     _actual.remove(channelUrgent);
     await _ensureUrgentChannel();
@@ -119,7 +131,13 @@ final class Notifier {
   Future<void> _deleteStaleChannels(
     AndroidFlutterLocalNotificationsPlugin android,
   ) async {
-    final keep = {..._actual.values, channelSilent, _urgentChannel};
+    final keep = {
+      ..._actual.values,
+      ..._actualInApp.values,
+      channelSilent,
+      _urgentId(),
+      _urgentId(inApp: true),
+    };
     final existing = await android.getNotificationChannels() ?? const [];
     for (final channel in existing) {
       final id = channel.id;
@@ -131,80 +149,104 @@ final class Notifier {
     }
   }
 
-  /// Which urgent channel to post on. Re-checked before every urgent notification so that
-  /// granting policy access later takes effect without restarting the service.
-  Future<String> _ensureUrgentChannel() async {
+  /// Makes the urgent channels, the pop-up one and the in-app one, for the current policy
+  /// access. Re-checked before every urgent notification so that granting policy access
+  /// later takes effect without restarting the service.
+  Future<void> _ensureUrgentChannel() async {
     final android = _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >();
-    if (android == null) return channelUrgent;
+    if (android == null) return;
     final bypass = await android.hasNotificationPolicyAccess() ?? false;
-    if (bypass == _urgentBypassesDnd && _actual[channelUrgent] != null) {
-      return _urgentChannel;
-    }
+    if (bypass == _urgentBypassesDnd && _actual[channelUrgent] != null) return;
     _urgentBypassesDnd = bypass;
-    final id = _urgentChannel;
-    await android.createNotificationChannel(
-      AndroidNotificationChannel(
-        id,
-        'Urgent posts',
-        description: bypass
-            ? 'Rules with urgent priority; bypasses Do Not Disturb'
-            : 'Rules with urgent priority',
-        importance: Importance.high,
-        bypassDnd: bypass,
-        sound: (_sounds.urgentSound ?? '').isEmpty
-            ? null
-            : UriAndroidNotificationSound(_sounds.urgentSound!),
-        enableVibration: _sounds.urgentVibrate,
-      ),
-    );
-    _actual[channelUrgent] = id;
-    // One "Urgent posts" row in the system settings, not two.
     final suffix = _suffixOf(_sounds.urgentSound, _sounds.urgentVibrate);
-    await android.deleteNotificationChannel(
-      channelId: (bypass ? channelUrgent : channelUrgentDnd) + suffix,
-    );
-    return id;
+    for (final inApp in const [false, true]) {
+      await android.createNotificationChannel(
+        AndroidNotificationChannel(
+          _urgentId(inApp: inApp),
+          channelNameOf(channelUrgent, inApp: inApp),
+          description:
+              (inApp
+                  ? 'Rules with urgent priority while the app is open, without '
+                        'a pop-up'
+                  : 'Rules with urgent priority') +
+              (bypass ? '; bypasses Do Not Disturb' : ''),
+          importance: inApp ? Importance.defaultImportance : Importance.high,
+          bypassDnd: bypass,
+          sound: (_sounds.urgentSound ?? '').isEmpty
+              ? null
+              : UriAndroidNotificationSound(_sounds.urgentSound!),
+          enableVibration: _sounds.urgentVibrate,
+        ),
+      );
+      // One row per kind in the system settings, not two.
+      await android.deleteNotificationChannel(
+        channelId: _urgentBase(inApp: inApp, dnd: !bypass) + suffix,
+      );
+    }
+    _actual[channelUrgent] = _urgentId();
   }
 
   bool? _urgentBypassesDnd;
 
+  static String _urgentBase({required bool inApp, required bool dnd}) =>
+      switch ((inApp, dnd)) {
+        (false, false) => channelUrgent,
+        (false, true) => channelUrgentDnd,
+        (true, false) => channelUrgentInApp,
+        (true, true) => channelUrgentInAppDnd,
+      };
+
   /// The urgent channel in use: the Do-Not-Disturb one when policy access was granted, and
   /// the sound the reader chose in its id, since Android fixes it at creation.
-  String get _urgentChannel {
-    final base = (_urgentBypassesDnd ?? false)
-        ? channelUrgentDnd
-        : channelUrgent;
-    return base + _suffixOf(_sounds.urgentSound, _sounds.urgentVibrate);
-  }
+  String _urgentId({bool inApp = false}) =>
+      _urgentBase(inApp: inApp, dnd: _urgentBypassesDnd ?? false) +
+      _suffixOf(_sounds.urgentSound, _sounds.urgentVibrate);
 
-  static Importance _importanceOf(String planChannel) => switch (planChannel) {
-    channelSilent => Importance.low,
-    channelUrgent => Importance.high,
-    _ => Importance.defaultImportance,
-  };
+  /// Whether an Android channel is one of the in-app ones, which do not pop up.
+  static bool _isInApp(String channelId) =>
+      channelId.startsWith(channelNormalInApp) ||
+      channelId.startsWith(channelUrgentInApp);
 
-  static Priority _priorityOf(String planChannel) => switch (planChannel) {
-    channelSilent => Priority.low,
-    channelUrgent => Priority.high,
-    _ => Priority.defaultPriority,
-  };
+  /// Normal and urgent posts pop up, unless the app is open; urgent ones differ by their
+  /// sound and the Do Not Disturb bypass.
+  static Importance _importanceOf(String planChannel, String channelId) =>
+      planChannel == channelSilent
+      ? Importance.low
+      : _isInApp(channelId)
+      ? Importance.defaultImportance
+      : Importance.high;
+
+  /// The priority Android 7 goes by, which has no channels.
+  static Priority _priorityOf(String planChannel, String channelId) =>
+      planChannel == channelSilent
+      ? Priority.low
+      : _isInApp(channelId)
+      ? Priority.defaultPriority
+      : Priority.high;
 
   /// The name Android's own settings list a kind of rule notification under.
-  static String channelNameOf(String planChannelId) => switch (planChannelId) {
-    channelSilent => 'Silent posts',
-    channelUrgent => 'Urgent posts',
-    _ => 'Posts',
-  };
+  static String channelNameOf(String planChannelId, {bool inApp = false}) =>
+      switch ((planChannelId, inApp)) {
+        (channelSilent, _) => 'Silent posts',
+        (channelUrgent, false) => 'Urgent posts',
+        (channelUrgent, true) => 'Urgent posts while the app is open',
+        (_, false) => 'Posts',
+        (_, true) => 'Posts while the app is open',
+      };
 
-  /// The Android channel a plan's notification goes on.
-  Future<String> _channelOf(NotificationPlan plan) async =>
-      plan.channelId == channelUrgent
-      ? await _ensureUrgentChannel()
-      // The reader's sound is in the channel's id, so the plan's priority is looked up.
-      : _actual[plan.channelId] ?? plan.channelId;
+  /// The Android channel a plan's notification goes on: an in-app one while the app is
+  /// open. The reader's sound is in the channel's id, so the plan's priority is looked up.
+  Future<String> _channelOf(NotificationPlan plan) async {
+    final inApp = appOpen && plan.channelId != channelSilent;
+    if (plan.channelId == channelUrgent) {
+      await _ensureUrgentChannel();
+      return _urgentId(inApp: inApp);
+    }
+    return (inApp ? _actualInApp : _actual)[plan.channelId] ?? plan.channelId;
+  }
 
   /// Shows a post. One already queued for reading aloud offers Stop from the start.
   Future<void> show(NotificationPlan plan) async {
@@ -236,11 +278,11 @@ final class Notifier {
           channelId,
           // A readable name: were the channel ever created from here, Android's own
           // settings would otherwise list "posts_normal_k3f9".
-          channelNameOf(plan.channelId),
+          channelNameOf(plan.channelId, inApp: _isInApp(channelId)),
           icon: notificationIcon,
           subText: plan.rule.isEmpty ? null : plan.rule,
-          importance: _importanceOf(plan.channelId),
-          priority: _priorityOf(plan.channelId),
+          importance: _importanceOf(plan.channelId, channelId),
+          priority: _priorityOf(plan.channelId, channelId),
           groupKey: plan.groupKey,
           when: plan.when,
           onlyAlertOnce: true,
@@ -328,7 +370,9 @@ final class Notifier {
     }
   }
 
-  /// Group summary per channel so several posts collapse into one row.
+  /// Group summary per channel so several posts collapse into one row. Only the posts
+  /// alert: the pop-up shows the new post with its buttons, not the whole group, and a
+  /// summary posted again after a cancellation makes no sound.
   Future<void> _showSummary(
     NotificationPlan plan,
     String channelId,
@@ -342,10 +386,11 @@ final class Notifier {
         channelId,
         channelId,
         icon: notificationIcon,
-        importance: _importanceOf(plan.channelId),
-        priority: _priorityOf(plan.channelId),
+        importance: _importanceOf(plan.channelId, channelId),
+        priority: _priorityOf(plan.channelId, channelId),
         groupKey: plan.groupKey,
         setAsGroupSummary: true,
+        groupAlertBehavior: GroupAlertBehavior.children,
       ),
     ),
   );
@@ -379,7 +424,7 @@ final class Notifier {
     await _showSummary(
       plan,
       plan.channelId == channelUrgent
-          ? _urgentChannel
+          ? _urgentId()
           : _actual[plan.channelId] ?? plan.channelId,
       live.length,
     );

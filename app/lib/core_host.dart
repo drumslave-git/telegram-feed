@@ -8,12 +8,14 @@ import 'package:core/core.dart';
 import 'package:core/native_isolate.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'ai/semantic_gate.dart';
 import 'host/app_host.dart';
 import 'service/core_service.dart';
+import 'service/notification_plan.dart';
 import 'service/reading_now.dart';
 import 'sync/drive_auth.dart';
 import 'sync/sync_controller.dart';
@@ -173,6 +175,22 @@ final class CoreHost implements AppHost {
     if (!_inService) return;
     FlutterForegroundTask.addTaskDataCallback(_onTaskData);
     FlutterForegroundTask.sendDataToTask(askReading);
+    // Posts that match while the app is on screen do not pop up over it.
+    _lifecycle = AppLifecycleListener(onStateChange: _sendAppOpen);
+    _sendAppOpen(
+      WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
+    );
+  }
+
+  AppLifecycleListener? _lifecycle;
+  bool? _appOpen;
+
+  /// Only a resumed app counts as open, so in picture-in-picture posts pop up as usual.
+  void _sendAppOpen(AppLifecycleState state) {
+    final open = state == AppLifecycleState.resumed;
+    if (open == _appOpen) return;
+    _appOpen = open;
+    FlutterForegroundTask.sendDataToTask(appOpenMessage(open));
   }
 
   void _onTaskData(Object data) {
@@ -239,6 +257,7 @@ final class CoreHost implements AppHost {
   @override
   Future<void> dispose() async {
     FlutterForegroundTask.removeTaskDataCallback(_onTaskData);
+    _lifecycle?.dispose();
     for (final s in _subs) {
       await s.cancel();
     }

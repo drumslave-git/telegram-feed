@@ -230,19 +230,22 @@ void main() {
             .setMockMethodCallHandler(plugin, null),
       );
 
-      // The default choice keeps the ids an older install already has.
+      // The default choice uses the plain ids.
       await Notifier().init();
       expect(
         created,
-        containsAll(['posts_silent', 'posts_normal', 'posts_urgent']),
+        containsAll(['posts_silent', 'posts_normal_popup', 'posts_urgent']),
       );
 
       created.clear();
       await Notifier().init(
         sounds: const NotificationSounds(normalSound: 'content://media/42'),
       );
-      expect(created.where((id) => id == 'posts_normal'), isEmpty);
-      expect(created.where((id) => id.startsWith('posts_normal_')), isNotEmpty);
+      expect(created.where((id) => id == 'posts_normal_popup'), isEmpty);
+      expect(
+        created.where((id) => id.startsWith('posts_normal_popup_')),
+        isNotEmpty,
+      );
     },
   );
 }

@@ -370,14 +370,18 @@ class CoreServiceHandler extends TaskHandler {
 
   @override
   void onReceiveData(Object data) {
-    // The UI sends 'refresh' after database changes (feeds, sources, rules), and 'sounds'
-    // after a rule sound or vibration changed.
+    // The UI sends 'refresh' after database changes (feeds, sources, rules), 'sounds'
+    // after a rule sound or vibration changed, and whether it is on screen.
     if (data == 'refresh') {
       unawaited(_client?.refresh());
       unawaited(_updateNotification());
     }
     if (data == 'sounds' && _db != null) {
       unawaited(_sounds().then(_notifier.setSounds));
+    }
+    // Posts that match while the app is on screen do not pop up (appOpenMessage).
+    if (data is Map && data['appOpen'] is bool) {
+      _notifier.appOpen = data['appOpen'] as bool;
     }
     // The read-aloud banner asks what is read, and stops it (reading_now.dart).
     if (data is Map) {

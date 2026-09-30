@@ -7,6 +7,17 @@ const channelSilent = 'posts_silent';
 const channelNormal = 'posts_normal';
 const channelUrgent = 'posts_urgent';
 
+/// The Android channel of normal rules, which pops up. Android keeps the importance a
+/// channel was created with, and phones may hold a `posts_normal` channel that does not
+/// pop up, so that id is not reused; [Notifier] deletes it.
+const channelNormalPopup = 'posts_normal_popup';
+
+/// Channels of posts that match while the app is open: the sound and vibration of their
+/// priority without the pop-up. Silent posts do not pop up anyway.
+const channelNormalInApp = 'posts_normal_inapp';
+const channelUrgentInApp = 'posts_urgent_inapp';
+const channelUrgentInAppDnd = 'posts_urgent_inapp_dnd';
+
 /// Urgent channel that bypasses Do Not Disturb. Android fixes a channel's DND bypass when
 /// the channel is created, and only honours it if the app already has notification policy
 /// access, so this second channel is created once access is granted ([Notifier]).
@@ -17,6 +28,10 @@ const channelUrgentDnd = 'posts_urgent_dnd';
 const actionListen = 'listen';
 const actionStop = 'stop';
 const actionOpenTelegram = 'open_tg';
+
+/// What the app sends the service host with `FlutterForegroundTask.sendDataToTask` when
+/// its screen comes up or goes away ([Notifier.appOpen]).
+Map<String, bool> appOpenMessage(bool open) => {'appOpen': open};
 
 /// Port name under which the service host receives notification actions
 /// (the background action isolate has no other way to reach it).

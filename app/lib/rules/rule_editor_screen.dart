@@ -684,12 +684,30 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
             ),
             Padding(
               padding: const EdgeInsets.only(top: 6, bottom: 4),
-              child: Text(switch (_priority) {
-                'silent' => 'In the tray only, with no sound and no vibration.',
-                'urgent' =>
-                  'Breaks through Do Not Disturb where Android allows it.',
-                _ => 'The sound and vibration set in Notifications and sounds.',
-              }, style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+              // The tallest text sets the height, so nothing below moves when the
+              // priority changes.
+              child: IndexedStack(
+                index: switch (_priority) {
+                  'silent' => 0,
+                  'urgent' => 2,
+                  _ => 1,
+                },
+                children: [
+                  for (final text in const [
+                    'In the tray only, with no sound and no vibration.',
+                    'Pops up, with the sound and vibration set in '
+                        'Notifications and sounds.',
+                    'Pops up, and breaks through Do Not Disturb where Android '
+                        'allows it.',
+                  ])
+                    Text(
+                      text,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
