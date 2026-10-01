@@ -64,7 +64,7 @@ jobs:
           script: |
             adb install -r app/build/app/outputs/flutter-apk/app-debug.apk
             mkdir -p build
-            maestro test --format junit --output build/maestro-report.xml app/maestro
+            maestro test --format junit --output build/maestro-report.xml app/maestro || { sh tool/ui_diagnostics.sh; exit 1; }
       - uses: actions/upload-artifact@v7
         if: always()
         with:
