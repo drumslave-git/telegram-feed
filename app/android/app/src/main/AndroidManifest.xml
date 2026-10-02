@@ -84,5 +84,9 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="tg"/>
         </intent>
+        <!-- The speech engine's example sentence for a voice preview -->
+        <intent>
+            <action android:name="android.speech.tts.engine.GET_SAMPLE_TEXT"/>
+        </intent>
     </queries>
 </manifest>

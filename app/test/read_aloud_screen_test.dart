@@ -12,9 +12,17 @@ void main() {
   late AppDatabase db;
   final previews = <Map<String, Object?>>[];
 
+  /// The engine's example sentences; a language missing here has none.
+  final samples = <String, String>{};
+  final sampleAsks = <String>[];
+
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
     previews.clear();
+    samples
+      ..clear()
+      ..['en'] = 'This is an example of speech synthesis in English.';
+    sampleAsks.clear();
   });
 
   Future<void> settle(WidgetTester tester) => tester.runAsync(() async {
@@ -42,6 +50,10 @@ void main() {
         {'name': 'ru-ru-x-c', 'locale': 'ru-RU'},
       ],
       stopPreview: () async {},
+      sampleText: (language, country) async {
+        sampleAsks.add('$language-$country');
+        return samples[language];
+      },
       preview: ({required text, required language, voice, rate, pitch}) async {
         previews.add({
           'text': text,
@@ -92,6 +104,62 @@ void main() {
     await settle(tester);
     expect(await db.setting(TtsKeys.voiceFor('en')), '');
     expect(find.text('Voice B · GB'), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('each language and each voice in the picker can be heard', (
+    tester,
+  ) async {
+    await db.setSetting(
+      TtsKeys.voiceFor('en'),
+      jsonEncode({'name': 'en-gb-x-b', 'locale': 'en-GB'}),
+    );
+    await db.setSetting(
+      TtsKeys.voiceFor('ru'),
+      jsonEncode({'name': 'ru-ru-x-c', 'locale': 'ru-RU'}),
+    );
+    await tester.pumpWidget(app());
+    await settle(tester);
+    Finder previewOf(String text) => find.descendant(
+      of: find.ancestor(of: find.text(text), matching: find.byType(ListTile)),
+      matching: find.byTooltip('Preview'),
+    );
+
+    // A language's row speaks its voice the engine's example sentence.
+    await tester.tap(previewOf('Voice B · GB'));
+    await settle(tester);
+    expect(previews.last['text'], samples['en']);
+    expect(previews.last['language'], 'en');
+    expect((previews.last['voice'] as Map)['name'], 'en-gb-x-b');
+    await tester.tap(previewOf('Voice B · GB'));
+    await settle(tester);
+    expect(previews, hasLength(2));
+    expect(sampleAsks, ['en-GB'], reason: 'the sentence is asked for once');
+
+    // Without one from the engine, the app's own sentence.
+    await tester.tap(previewOf('Voice C · RU'));
+    await settle(tester);
+    expect(
+      previews.last['text'],
+      'New post in Example channel. This is how posts will sound.',
+    );
+    expect((previews.last['voice'] as Map)['name'], 'ru-ru-x-c');
+
+    // In the picker every voice is heard before it is chosen, and the sheet stays.
+    await tester.tap(find.text('Voice B · GB'));
+    await tester.pumpAndSettle();
+    await tester.tap(previewOf('Voice A · US'));
+    await settle(tester);
+    expect((previews.last['voice'] as Map)['name'], 'en-us-x-a');
+    expect(previews.last['text'], samples['en']);
+    await tester.tap(previewOf("The phone's default voice"));
+    await settle(tester);
+    expect(previews.last['voice'], isNull);
+    expect(previews.last['language'], 'en');
+    expect(find.text('Voice A · US'), findsOneWidget);
+    final stored =
+        jsonDecode((await db.setting(TtsKeys.voiceFor('en')))!) as Map;
+    expect(stored['name'], 'en-gb-x-b');
     await unmount(tester);
   });
 

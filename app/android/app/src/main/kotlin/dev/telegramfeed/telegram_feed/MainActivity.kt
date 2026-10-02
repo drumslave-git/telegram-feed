@@ -2,6 +2,7 @@ package dev.telegramfeed.telegram_feed
 
 import android.app.NotificationManager
 import android.app.PictureInPictureParams
+import android.content.ActivityNotFoundException
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -14,6 +15,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.provider.Settings
+import android.speech.tts.TextToSpeech
 import java.io.File
 import android.util.Rational
 import androidx.annotation.RequiresApi
@@ -28,6 +30,9 @@ class MainActivity : FlutterActivity() {
 
     /** Waiting for the system sound picker (H-33). */
     private var soundPick: MethodChannel.Result? = null
+
+    /** Waiting for the speech engine's example sentence. */
+    private var sampleText: MethodChannel.Result? = null
     private var pipArmed = false
     private var pipAspect = Rational(16, 9)
 
@@ -132,6 +137,35 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        // The speech engine's own example sentence in a language, the one Android's
+        // text-to-speech settings play; null when the engine has none.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "tf/tts")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "sampleText" -> {
+                        val intent = Intent(TextToSpeech.Engine.ACTION_GET_SAMPLE_TEXT)
+                            .putExtra("language", call.argument<String>("language") ?: "")
+                            .putExtra("country", call.argument<String>("country") ?: "")
+                            .putExtra("variant", "")
+                        val engine = sampleTextEngine(intent)
+                        if (engine == null || sampleText != null) {
+                            result.success(null)
+                        } else {
+                            sampleText = result
+                            try {
+                                startActivityForResult(
+                                    intent.setPackage(engine),
+                                    SAMPLE_TEXT_REQUEST,
+                                )
+                            } catch (e: ActivityNotFoundException) {
+                                sampleText = null
+                                result.success(null)
+                            }
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
         // What the phone is on, for the automatic downloads of H-24.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "tf/network")
             .setMethodCallHandler { call, result ->
@@ -216,8 +250,31 @@ class MainActivity : FlutterActivity() {
         return uri.toString()
     }
 
+    /**
+     * The engine that speaks: the one chosen in Android's settings, otherwise the first that
+     * answers [intent], as TextToSpeech picks the system's own engine then.
+     */
+    private fun sampleTextEngine(intent: Intent): String? {
+        val engines = packageManager.queryIntentActivities(intent, 0)
+            .map { it.activityInfo.packageName }
+        val chosen = Settings.Secure.getString(contentResolver, "tts_default_synth")
+        return if (chosen in engines) chosen else engines.firstOrNull()
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == SAMPLE_TEXT_REQUEST) {
+            val pending = sampleText ?: return
+            sampleText = null
+            pending.success(
+                if (resultCode == TextToSpeech.LANG_AVAILABLE) {
+                    data?.getStringExtra(TextToSpeech.Engine.EXTRA_SAMPLE_TEXT)
+                } else {
+                    null
+                },
+            )
+            return
+        }
         if (requestCode != SOUND_PICK_REQUEST) return
         val pending = soundPick ?: return
         soundPick = null
@@ -263,5 +320,6 @@ class MainActivity : FlutterActivity() {
 
     private companion object {
         const val SOUND_PICK_REQUEST = 7301
+        const val SAMPLE_TEXT_REQUEST = 7302
     }
 }

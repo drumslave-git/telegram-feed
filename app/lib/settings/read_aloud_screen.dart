@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:intl/intl.dart';
 
@@ -52,6 +53,27 @@ Future<void> enginePreview({
 }
 
 Future<void> engineStopPreview() => _previewTts.stop();
+
+/// The speech engine's example sentence in a language, or null when it has none;
+/// injectable for tests.
+typedef SampleText = Future<String?> Function(String language, String country);
+
+const _ttsChannel = MethodChannel('tf/tts');
+
+/// Asks the engine for the sentence Android's text-to-speech settings play
+/// (`MainActivity`, `ACTION_GET_SAMPLE_TEXT`).
+Future<String?> engineSampleText(String language, String country) async {
+  try {
+    return await _ttsChannel.invokeMethod<String>('sampleText', {
+      'language': language,
+      'country': country,
+    });
+  } on PlatformException {
+    return null;
+  } on MissingPluginException {
+    return null;
+  }
+}
 
 /// The languages speech engines offer whose names the app has, by ISO 639 code
 /// (`AppLocalizations.languageName`).
@@ -216,10 +238,14 @@ class ReadAloudScreen extends StatefulWidget {
     this.voices = engineVoices,
     this.preview = enginePreview,
     this.stopPreview = engineStopPreview,
+    this.sampleText = engineSampleText,
   });
   final AppDatabase db;
   final VoiceLister voices;
   final Previewer preview;
+
+  /// What a preview says in a language.
+  final SampleText sampleText;
 
   /// Stops a preview still speaking; called when the screen closes.
   final Future<void> Function() stopPreview;
@@ -238,6 +264,9 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
   /// Languages with a voice of their own, by code; every other one uses the default.
   final Map<String, Map<String, String>> _chosen = {};
   bool _loaded = false;
+
+  /// The engine's example sentences by language and country, null where it has none.
+  final Map<String, String?> _samples = {};
 
   @override
   void initState() {
@@ -292,17 +321,37 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
         v,
   ];
 
-  Future<void> _preview() async {
-    // The sample in the language it is spoken in where the app has that language.
-    final strings = AppLanguage.stringsOfLanguage(_language) ?? context.l10n;
+  /// Speaks [voice], or the phone's default voice of [language] when it is null, with the
+  /// speed and pitch on the screen. The words are the engine's example sentence in that
+  /// language, or the app's own where the engine has none: in that language when the app
+  /// has it, otherwise in the interface language.
+  Future<void> _preview(String language, Map<String, String>? voice) async {
+    final own = (AppLanguage.stringsOfLanguage(language) ?? context.l10n)
+        .readAloudPreviewText;
+    final parts = (voice?['locale'] ?? '').split(RegExp('[-_]'));
+    final country = parts.length > 1 ? parts[1].toUpperCase() : '';
+    final key = '$language-$country';
+    if (!_samples.containsKey(key)) {
+      _samples[key] = await widget.sampleText(language, country);
+    }
+    final sample = _samples[key]?.trim() ?? '';
     await widget.preview(
-      text: strings.readAloudPreviewText,
-      language: _language,
-      voice: _chosen[_language],
+      text: sample.isEmpty ? own : sample,
+      language: language,
+      voice: voice,
       rate: _rate,
       pitch: _pitch,
     );
   }
+
+  /// The button that plays a voice, on a language's row and beside each voice in the
+  /// picker.
+  Widget _previewButton(String language, Map<String, String>? voice) =>
+      IconButton(
+        tooltip: context.l10n.readAloudPreview,
+        icon: const Icon(Icons.volume_up_outlined),
+        onPressed: () => unawaited(_preview(language, voice)),
+      );
 
   Future<void> _setVoice(String language, Map<String, String>? voice) async {
     await widget.db.setSetting(
@@ -351,6 +400,8 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 title: Text(l10n.readAloudPhoneDefaultVoice),
+                // Heard before it is chosen; the sheet stays open.
+                trailing: _previewButton(language, null),
                 onTap: () => Navigator.pop(context, const <String, String>{}),
               ),
               for (final v in _voicesFor(language))
@@ -360,6 +411,7 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
                     color: Theme.of(context).colorScheme.primary,
                   ),
                   title: Text(voiceLabel(v, l10n)),
+                  trailing: _previewButton(language, v),
                   onTap: () => Navigator.pop(context, v),
                 ),
             ],
@@ -408,7 +460,7 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
           IconButton(
             tooltip: l10n.readAloudPreview,
             icon: const Icon(Icons.volume_up),
-            onPressed: _preview,
+            onPressed: () => unawaited(_preview(_language, _chosen[_language])),
           ),
         ],
       ),
@@ -495,10 +547,16 @@ class _ReadAloudScreenState extends State<ReadAloudScreen> {
                 title: Text(languageName(l, l10n)),
                 subtitle: Text(voiceLabel(_chosen[l]!, l10n)),
                 onTap: () => unawaited(_pickVoice(l)),
-                trailing: IconButton(
-                  tooltip: l10n.readAloudUseDefaultVoice,
-                  icon: const Icon(Icons.close),
-                  onPressed: () => unawaited(_setVoice(l, null)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _previewButton(l, _chosen[l]),
+                    IconButton(
+                      tooltip: l10n.readAloudUseDefaultVoice,
+                      icon: const Icon(Icons.close),
+                      onPressed: () => unawaited(_setVoice(l, null)),
+                    ),
+                  ],
                 ),
               ),
             ListTile(

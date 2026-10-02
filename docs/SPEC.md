@@ -133,7 +133,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - While a post is read aloud, a banner under the header of every screen names its channel and how many posts wait after it, with "Stop" (this post; the next one follows) and "Stop and clear queue" (this post and every waiting one).
 - The app detects the post's language and picks a matching voice.
 - Posts are queued, never spoken over each other and never dropped. Other audio is ducked, and a phone call pauses speech.
-- Settings: speed, pitch, maximum length, language when detection fails, and a preview. Voices are listed by language name for the languages I gave one; "Add language" picks another from a searchable list, and every other language uses the phone's default voice.
+- Settings: speed, pitch, maximum length, language when detection fails, and a preview. Voices are listed by language name for the languages I gave one, each with a button that plays its voice; "Add language" picks another from a searchable list, and every other language uses the phone's default voice. The voice picker plays every voice, the phone's default included, before I choose one. A preview speaks the speech engine's own example sentence in that language, or the app's when the engine has none.
 
 ### Interactions
 
