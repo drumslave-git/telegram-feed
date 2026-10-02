@@ -1,0 +1,21 @@
+# A launch with the app's data cleared and notifications allowed, up to the login screen.
+# On a slow emulator Android can kill the app it has just launched while it still removes
+# the task of the instance whose data was cleared ("Destroy timeout of remove-task"); a
+# launch that does not stop the app starts it again then, and otherwise only brings it to
+# the front.
+appId: dev.telegramfeed.telegram_feed
+---
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: allow
+- retry:
+    maxRetries: 2
+    commands:
+      - launchApp:
+          stopApp: false
+          permissions:
+            notifications: allow
+      - extendedWaitUntil:
+          visible: 'Log in to Telegram'
+          timeout: 45000

@@ -28,10 +28,13 @@ appId: dev.telegramfeed.telegram_feed
 - tapOn: 'Apply'
 - assertVisible: '(?s).*text: NOT lighthouse · the rest minimized.*'
 - tapOn: 'Back'
+# Centred: where the post lands depends on the time of day the fixture dates follow, and
+# a sliver at the list's edge counts as visible but does not take the tap.
 - scrollUntilVisible:
     element: 'Minimized post of Harbour Times: The new lighthouse lamp.*'
     direction: DOWN
     timeout: 30000
+    centerElement: true
 - tapOn: 'Minimized post of Harbour Times: The new lighthouse lamp.*'
 - waitForAnimationToEnd
 - assertNotVisible: 'Minimized post of Harbour Times: The new lighthouse lamp.*'

@@ -40,10 +40,12 @@ appId: dev.telegramfeed.telegram_feed
     element: '(?s).*Forwarded from Circuit Weekly.*'
     direction: DOWN
     timeout: 30000
+# Centred, so the long press lands on the post wherever the time of day put it.
 - scrollUntilVisible:
     element: '(?s).*Weekend market.*'
     direction: DOWN
     timeout: 30000
+    centerElement: true
 - longPressOn: '(?s).*Weekend market.*'
 - assertVisible: 'Copy text'
 - assertVisible: 'Copy link'

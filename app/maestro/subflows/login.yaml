@@ -4,7 +4,7 @@ appId: dev.telegramfeed.telegram_feed
 ---
 - extendedWaitUntil:
     visible: 'Log in to Telegram'
-    timeout: 90000
+    timeout: 10000
 - tapOn: 'Phone number'
 - inputText: '+15550100'
 - tapOn: 'Send code'
