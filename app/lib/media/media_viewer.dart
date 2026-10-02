@@ -172,7 +172,13 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    // The status bar goes, the navigation bar stays, as in the official viewer: with the
+    // navigation bar hidden Android leaves the first swipe from a side edge to the app,
+    // which pages the pictures or only brings the bars back, and goes back on the second.
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: const [SystemUiOverlay.bottom],
+    );
     MediaViewerScreen.showing.value++;
     _quietAudioFor(_index);
     // Once the first page holds its session: a mini player that was opened in the viewer
