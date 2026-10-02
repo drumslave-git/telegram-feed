@@ -327,6 +327,9 @@ final class Notifier {
           groupKey: plan.groupKey,
           when: plan.when,
           onlyAlertOnce: true,
+          // Swiping it away reaches the service host, which stops reading the post; a
+          // tap or a cancellation is not reported.
+          dismissIsolate: NotificationDismissedIsolate.background,
           styleInformation: BigTextStyleInformation(plan.body),
           // The button that changes comes last, so the other one never moves.
           actions: [
@@ -472,9 +475,10 @@ final class Notifier {
   }
 }
 
-/// Entry point for action taps. For background actions Android starts a fresh isolate, so
-/// the response is forwarded to whoever registered [notifierPortName] (the service host);
-/// for foreground taps the app's own handler also receives it through the plugin.
+/// Entry point for action taps and swipes. For background actions and swipes Android starts
+/// a fresh isolate, so the response is forwarded to whoever registered [notifierPortName]
+/// (the service host); for foreground taps the app's own handler also receives it through
+/// the plugin.
 @pragma('vm:entry-point')
 void notificationActionEntryPoint(NotificationResponse response) {
   final port = IsolateNameServer.lookupPortByName(notifierPortName);

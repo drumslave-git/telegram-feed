@@ -1,3 +1,6 @@
+import 'dart:isolate';
+import 'dart:ui';
+
 import 'package:core/core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -106,6 +109,11 @@ void main() {
       expect(androidOf(p)['onlyAlertOnce'], isTrue);
       expect(androidOf(p)['subText'], 'rates');
       expect(androidOf(p)['groupKey'], plan.groupKey);
+      // A swipe is reported, so the service stops reading the post.
+      expect(
+        androidOf(p)['dismissIsolate'],
+        NotificationDismissedIsolate.background.index,
+      );
     }
 
     // No change, nothing posted.
@@ -132,6 +140,28 @@ void main() {
     live = []; // swiped away while it was read
     await notifier.setReading({});
     expect(posted, hasLength(1));
+  });
+
+  test('a swipe reaches the service host as a dismissal', () async {
+    final port = ReceivePort();
+    IsolateNameServer.removePortNameMapping(notifierPortName);
+    IsolateNameServer.registerPortWithName(port.sendPort, notifierPortName);
+    addTearDown(() {
+      IsolateNameServer.removePortNameMapping(notifierPortName);
+      port.close();
+    });
+    final plan = planFor(5 << 20);
+    notificationActionEntryPoint(
+      NotificationResponse(
+        notificationResponseType:
+            NotificationResponseType.notificationDismissed,
+        id: plan.id,
+        payload: plan.payload,
+      ),
+    );
+    final m = await port.first as Map;
+    expect(m['type'], NotificationResponseType.notificationDismissed.name);
+    expect(PostRef.decode(m['payload'] as String?)!.messageId, 5 << 20);
   });
 
   test('a notification from before the service started changes too', () async {

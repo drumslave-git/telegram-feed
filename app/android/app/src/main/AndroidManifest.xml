@@ -12,7 +12,7 @@
     <application
         android:label="TG Feed"
         android:usesCleartextTraffic="true"
-        android:name="${applicationName}"
+        android:name=".FeedApplication"
         android:icon="@mipmap/ic_launcher">
         <!-- Starts the app afresh from a process of its own (background watching). -->
         <activity

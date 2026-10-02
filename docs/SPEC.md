@@ -27,7 +27,7 @@ It does not replace the official Telegram app. Chats, calls, stories and account
 | Rules | Every rule belongs to a feed and watches its channels, or one of them, as the feed shows them. Boolean conditions (AND / OR / NOT, phrases, whole word, case sensitivity), with optional schedules. AI semantic rules check a description in the user's words through an OpenAI-compatible endpoint the user configures. |
 | Rule text | Post text and media captions only. Forward origin, edits and link targets are not matched. |
 | Rule actions | Priority (silent, normal, urgent) and read-aloud |
-| Read aloud | Device text-to-speech with per-post language detection; while it speaks, a banner under the header stops it |
+| Read aloud | Device text-to-speech with per-post language detection; while it speaks, a banner under the header stops it, and so do volume down and swiping the post's notification away |
 | Pause | One switch, in the home screen's header and on the permanent notification, silences every rule until it is turned off |
 | Background | A persistent foreground service keeps TDLib connected. It can be turned off. |
 | Sync | Feeds, rules and some settings sync through the user's own Google Drive. No backend. |
@@ -128,6 +128,8 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 
 - When a rule with read-aloud fires, the app speaks "New post in <channel>" followed by the post text, also with the screen off. The words the app adds are in the post's language when the app has it (English or Ukrainian), otherwise in the interface language.
 - Every rule notification carries a "Listen" action that speaks the post on demand. While its post is being read or waits to be read, the action is "Stop" instead, which silences that post only; the next waiting post is read. Neither action takes the notification away.
+- Swiping a post's notification away stops that post the way its Stop does. "Clear all" in the shade stops every post it clears.
+- Volume down stops the post being read and clears the queue, also with the screen off or locked; that press does not lower the volume. Volume up still raises it. A headset's pause button does the same as volume down. When nothing is read, the keys work as usual.
 - While a post is read aloud, a banner under the header of every screen names its channel and how many posts wait after it, with "Stop" (this post; the next one follows) and "Stop and clear queue" (this post and every waiting one).
 - The app detects the post's language and picks a matching voice.
 - Posts are queued, never spoken over each other and never dropped. Other audio is ducked, and a phone call pauses speech.

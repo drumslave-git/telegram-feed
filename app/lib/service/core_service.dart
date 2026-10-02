@@ -18,6 +18,7 @@ import '../host/accounts.dart';
 import '../host/fake_media.dart';
 import '../l10n/l10n.dart';
 import 'notifier.dart';
+import 'read_aloud_keys.dart';
 import 'reading_now.dart';
 import 'tts_service.dart';
 import '../app_name.dart';
@@ -145,6 +146,7 @@ class CoreServiceHandler extends TaskHandler {
   final _actions = ReceivePort();
   Map<int, String> _titles = const {};
   TtsService? _tts;
+  ReadAloudKeys? _keys;
   SemanticGate? _gate;
 
   /// The interface language: the Language setting, or the phone's. The app tells the
@@ -195,6 +197,12 @@ class CoreServiceHandler extends TaskHandler {
     try {
       await tts.init();
       _tts = tts;
+      _keys = ReadAloudKeys(
+        onStop: () {
+          _log('read-aloud stopped by a key');
+          unawaited(tts.stopAll());
+        },
+      );
       tts.readingChanges.listen(_onReadingChanged);
     } catch (e) {
       _log('tts unavailable: $e');
@@ -289,9 +297,10 @@ class CoreServiceHandler extends TaskHandler {
     }
   }
 
-  /// A post's notification offers Stop while the post is read or waits to be, and the
-  /// app's banner names the post being read.
+  /// A post's notification offers Stop while the post is read or waits to be, the app's
+  /// banner names the post being read, and volume down stops it all.
   void _onReadingChanged(Set<Object> keys) {
+    unawaited(_keys?.watch(keys.isNotEmpty));
     unawaited(
       _notifier.setReading({
         for (final k in keys)
@@ -325,10 +334,18 @@ class CoreServiceHandler extends TaskHandler {
   Future<void> _onNotificationAction(Object? msg) async {
     final m = msg as Map<Object?, Object?>;
     final ref = PostRef.decode(m['payload'] as String?);
+    final dismissed =
+        m['type'] == NotificationResponseType.notificationDismissed.name;
     _log(
-      'notification action ${m['actionId']} on ${ref?.chatId}/${ref?.messageId}',
+      'notification ${dismissed ? 'dismissed' : 'action ${m['actionId']}'} '
+      'on ${ref?.chatId}/${ref?.messageId}',
     );
     if (ref == null) return;
+    // A post swiped away is not read any more, as with its Stop.
+    if (dismissed) {
+      unawaited(_tts?.stop((ref.chatId, ref.messageId)));
+      return;
+    }
     // Android counts a tap on a notification as the app being used, so the service's
     // notification is posted again within it: a service that Android started after a
     // reboot or an update then may take the audio focus, and read aloud, from now on.
