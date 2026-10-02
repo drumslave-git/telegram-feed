@@ -240,6 +240,10 @@ final class CoreClient implements TelegramGateway {
   );
 
   @override
+  Future<void> deleteFromSavedMessages(List<int> messageIds) =>
+      _call('deleteFromSavedMessages', {'messageIds': messageIds});
+
+  @override
   Future<FileRef> download(FileRef ref, {int priority = 16}) async =>
       decodeFileRef(
         (await _call('download', {

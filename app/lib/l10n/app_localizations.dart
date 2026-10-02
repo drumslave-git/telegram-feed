@@ -476,6 +476,36 @@ abstract class AppLocalizations {
   /// **'Could not save the posts.'**
   String get timelineSavePostsFailed;
 
+  /// Title of the dialog that asks before a post of Saved Messages is deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete post'**
+  String get timelineDeletePostTitle;
+
+  /// No description provided for @timelineDeletePostMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this post?'**
+  String get timelineDeletePostMessage;
+
+  /// Title of the dialog that asks before several posts of Saved Messages are deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Delete {count} post} other{Delete {count} posts}}'**
+  String timelineDeletePostsTitle(int count);
+
+  /// No description provided for @timelineDeletePostsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete these posts?'**
+  String get timelineDeletePostsMessage;
+
+  /// No description provided for @timelineDeletePostsFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not delete the posts.'**
+  String get timelineDeletePostsFailed;
+
   /// No description provided for @timelineJumpToDate.
   ///
   /// In en, this message translates to:

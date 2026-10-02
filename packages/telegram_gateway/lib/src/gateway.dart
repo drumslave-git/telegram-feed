@@ -149,6 +149,11 @@ abstract interface class TelegramGateway {
   /// official app's "Save to Saved Messages" does: with the channel as its source.
   Future<void> saveToSavedMessages(int chatId, List<int> messageIds);
 
+  /// Deletes posts from the account's Saved Messages, as the official app's Delete does
+  /// there, on every device of the account. It is the only deletion the app makes:
+  /// channels are read, not managed.
+  Future<void> deleteFromSavedMessages(List<int> messageIds);
+
   /// The post's discussion thread, or null when the channel has no discussion group.
   /// Opening a thread makes its new comments arrive on [comments] until [closeThread].
   Future<Thread?> discussion(int chatId, int messageId);

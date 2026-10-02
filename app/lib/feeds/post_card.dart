@@ -143,6 +143,7 @@ class PostCard extends StatelessWidget {
     this.onCopyLink,
     this.onCopyText,
     this.onSave,
+    this.onDelete,
     this.onReact,
     this.availableReactions,
     this.onOpenThread,
@@ -175,6 +176,9 @@ class PostCard extends StatelessWidget {
 
   /// Forwards the post into the account's Saved Messages.
   final VoidCallback? onSave;
+
+  /// Deletes the post; only in Saved Messages.
+  final VoidCallback? onDelete;
 
   /// Tap on a reaction: adds it, or removes it when already chosen.
   final void Function(String emoji, bool remove)? onReact;
@@ -239,6 +243,7 @@ class PostCard extends StatelessWidget {
       onSelect != null ||
       onMinimize != null ||
       onSave != null ||
+      onDelete != null ||
       availableReactions != null;
 
   Future<void> _menu(BuildContext context) async {
@@ -310,6 +315,21 @@ class PostCard extends StatelessWidget {
                   leading: const Icon(Icons.play_circle_outline),
                   title: Text(l10n.postAutoplaySettings),
                   onTap: () => Navigator.pop(context, onAutoplaySettings),
+                ),
+              // In the error colour, as the official app draws Delete.
+              if (onDelete != null)
+                ListTile(
+                  leading: Icon(
+                    Icons.delete_outline,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  title: Text(
+                    l10n.commonDelete,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                  onTap: () => Navigator.pop(context, onDelete),
                 ),
               // Last, behind a line: it leaves the app, and it is the rarest of them.
               if (onOpenInTelegram != null) ...[

@@ -18,6 +18,7 @@ import '../l10n/l10n.dart';
 import '../media/media_viewer.dart';
 import '../settings/data_storage_screen.dart' show DataStorageScreen;
 import '../settings/settings_tiles.dart' show openSettingsScreen;
+import '../widgets/destructive_button.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
 import 'feed_editor_screen.dart';
@@ -45,11 +46,15 @@ class TimelineScreen extends StatefulWidget {
     this.focusChatId,
     this.focusMessageId,
     this.share = TimelineView.shareWithSystemSheet,
+    this.savedMessages = false,
   }) : assert((feed == null) != (channel == null));
   final AppDatabase db;
   final TelegramGateway gateway;
   final Feed? feed;
   final Channel? channel;
+
+  /// [channel] is the account's Saved Messages, whose posts can be deleted.
+  final bool savedMessages;
   final int? focusChatId;
   final int? focusMessageId;
   final Future<void> Function(String text, {required String subject}) share;
@@ -254,6 +259,12 @@ class _TimelineScreenState extends State<TimelineScreen> {
         icon: const Icon(Icons.bookmark_add_outlined),
         onPressed: () => unawaited(_saveSelected()),
       ),
+      if (widget.savedMessages)
+        IconButton(
+          tooltip: l10n.commonDelete,
+          icon: const Icon(Icons.delete_outline),
+          onPressed: () => unawaited(_view.currentState?.deletePosts(_picked)),
+        ),
     ],
   );
 
@@ -454,6 +465,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                             setState(() => _selected = n),
                         feed: widget.feed,
                         channel: widget.channel,
+                        savedMessages: widget.savedMessages,
                         focusChatId: widget.focusChatId,
                         focusMessageId: widget.focusMessageId,
                         share: widget.share,
@@ -543,9 +555,13 @@ class TimelineView extends StatefulWidget {
     this.onSources,
     this.onSelectionChanged,
     this.onEditFeed,
+    this.savedMessages = false,
   }) : assert((feed == null) != (channel == null));
   final AppDatabase db;
   final TelegramGateway gateway;
+
+  /// [channel] is the account's Saved Messages: the post menu offers Delete.
+  final bool savedMessages;
 
   /// Reports the channels, the filter and the photos as they are loaded, for the search.
   final ValueChanged<TimelineSources>? onSources;
@@ -1613,6 +1629,49 @@ class TimelineViewState extends State<TimelineView>
     );
   }
 
+  /// Deletes posts of Saved Messages, albums whole, once the reader says yes, as the
+  /// official app asks. They leave the timeline when Telegram reports them deleted.
+  Future<void> deletePosts(List<TimelineItem> items) async {
+    if (items.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          items.length == 1
+              ? l10n.timelineDeletePostTitle
+              : l10n.timelineDeletePostsTitle(items.length),
+        ),
+        content: Text(
+          items.length == 1
+              ? l10n.timelineDeletePostMessage
+              : l10n.timelineDeletePostsMessage,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.commonCancel),
+          ),
+          DestructiveButton(
+            onPressed: () => Navigator.pop(context, true),
+            label: l10n.commonDelete,
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    clearSelection();
+    try {
+      await widget.gateway.deleteFromSavedMessages([
+        for (final i in items)
+          for (final p in i.allPosts) p.messageId,
+      ]);
+    } on TelegramException catch (e) {
+      showTelegramError(messenger, e, what: l10n.timelineDeletePostsFailed);
+    }
+  }
+
   /// Forwards the post, and with it the whole album, into Saved Messages.
   Future<void> _save(TimelineItem item) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -2071,6 +2130,9 @@ class TimelineViewState extends State<TimelineView>
                           ? null
                           : () => _copyText(item),
                       onSave: () => _save(item),
+                      onDelete: widget.savedMessages
+                          ? () => unawaited(deletePosts([item]))
+                          : null,
                       onReact: (emoji, remove) => _react(item, emoji, remove),
                       availableReactions: () => _availableReactions(item),
                       onOpenLink: _openLink,

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' show max;
 
 import 'package:fake_telegram/fake_telegram.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
@@ -163,5 +164,21 @@ void main() {
     final saved = await tg.history(FakeChats.savedMessages);
     expect(saved.first.forwardedFrom?.title, 'Harbour Times');
     expect(saved, hasLength(2));
+  });
+
+  test('saved posts get ids of their own, also after a deletion', () async {
+    await tg.saveToSavedMessages(FakeChats.harbourTimes, [11, 10]);
+    var saved = await tg.history(FakeChats.savedMessages);
+    expect(saved.map((p) => p.messageId).toSet(), hasLength(3));
+
+    final deleted = tg.postEvents.first;
+    await tg.deleteFromSavedMessages([for (final p in saved) p.messageId]);
+    final event = (await deleted) as PostsDeleted;
+    expect(event.chatId, FakeChats.savedMessages);
+    expect(await tg.history(FakeChats.savedMessages), isEmpty);
+
+    await tg.saveToSavedMessages(FakeChats.harbourTimes, [11]);
+    saved = await tg.history(FakeChats.savedMessages);
+    expect(saved.single.messageId, greaterThan(event.messageIds.reduce(max)));
   });
 }

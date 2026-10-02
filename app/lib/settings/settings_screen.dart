@@ -114,6 +114,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             db: widget.db,
             gateway: widget.gateway,
             channel: channel,
+            savedMessages: true,
           ),
         ),
       );

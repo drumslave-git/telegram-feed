@@ -23,7 +23,7 @@ It does not replace the official Telegram app. Chats, calls, stories and account
 | Feed filters | Each feed can limit what it shows, by media, length and words (a condition built like a rule's). What a feed leaves out is gone from it, or stays as one collapsed line when the feed shows such posts minimized. A post hidden by every feed that contains its channel raises no rule notification. |
 | Read state | Telegram's own: one read position per channel, shared by every feed, the channel's own timeline and the official app. Reading, opening, the unread divider, the counters and the button to the newest posts work as in the official app. |
 | Media | Photos, video, voice and audio play in the app |
-| Interactions | Open in Telegram, share, copy link, react, comment, save to Saved Messages |
+| Interactions | Open in Telegram, share, copy link, react, comment, save to Saved Messages, delete in Saved Messages |
 | Rules | Every rule belongs to a feed and watches its channels, or one of them, as the feed shows them. Boolean conditions (AND / OR / NOT, phrases, whole word, case sensitivity), with optional schedules. AI semantic rules check a description in the user's words through an OpenAI-compatible endpoint the user configures. |
 | Rule text | Post text and media captions only. Forward origin, edits and link targets are not matched. |
 | Rule actions | Priority (silent, normal, urgent) and read-aloud |
@@ -140,7 +140,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - I react to a post with the reactions the channel allows.
 - I open the comments of a post and reply, when the channel has a discussion group.
 - I share a post or copy its link.
-- I save a post, with its whole album, to my Saved Messages, and read Saved Messages in the app from Settings.
+- I save a post, with its whole album, to my Saved Messages, and read Saved Messages in the app from Settings. There I delete posts, one from its menu or several selected, after confirming, as in the official app.
 
 ### Accounts and security
 
@@ -154,7 +154,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 1. **Login**: phone number, code (with "Resend code" and "Change number"), two-step password, new-account name, or QR-code login. States that the app reads the channels the account has joined, and offers to go back to another account that is already logged in.
 2. **Home**: search over all channels, the pause, Rules and Settings in the app bar; tabs Feeds (list of feeds with counts, and a button that creates one), one per folder, All channels.
 3. **Feed editor**, the feed's info screen: its name with a pencil, and three tabs — the ordered channels with the add-channel sheet and the filter row, the feed's rules, and the shared media of all its channels (Media, Files, Links, Music, Voice inside that tab).
-4. **Timeline** of a feed or a channel: posts drawn like the official app, with full-width bubbles (coloured channel name and the channel's photo at the right end of that line, albums as a mosaic, formatted text, views and time in the corner, reactions, comments bar, link cards, day labels, the floating day), minimized posts as one-line bubbles, the "Unread posts" divider, and the button to the newest posts with the number of unread posts. A long press opens the post menu: reactions, Comments, Copy text, Copy link, Share, Save to Saved Messages, Select, Minimize on an opened minimized post, on video posts the autoplay and download settings, and Open in Telegram at the end.
+4. **Timeline** of a feed or a channel: posts drawn like the official app, with full-width bubbles (coloured channel name and the channel's photo at the right end of that line, albums as a mosaic, formatted text, views and time in the corner, reactions, comments bar, link cards, day labels, the floating day), minimized posts as one-line bubbles, the "Unread posts" divider, and the button to the newest posts with the number of unread posts. A long press opens the post menu: reactions, Comments, Copy text, Copy link, Share, Save to Saved Messages, Select, Delete in Saved Messages, Minimize on an opened minimized post, on video posts the autoplay and download settings, and Open in Telegram at the end.
 5. **Search** in a feed, a channel or all channels: results with channel, text and date, filter chips, recent queries, a calendar.
 6. **Channel info**, opened from the channel's title: photo (a tap opens it full screen), name, subscribers, description, link, QR code, similar channels (a tap opens one in the official app), and the shared media tabs. No mute and no leave.
 7. **Comments** of a post: the post on top, comments as bubbles, a reply field and a search.
@@ -164,7 +164,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 
 ## 5. Out of scope
 
-- Sending messages in private chats or groups. Comments and reactions are the only writes.
+- Sending messages in private chats or groups. Comments, reactions, saving to Saved Messages and deleting there are the only writes.
 - Stories, calls, secret chats, Telegram Premium features.
 - Joining or leaving channels, adding channels the account has not joined, editing Telegram's chat folders, muting a channel (rules take that place).
 - Server-side session storage. The app never uploads the Telegram session.

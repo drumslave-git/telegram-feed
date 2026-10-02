@@ -225,6 +225,33 @@ class AppLocalizationsUk extends AppLocalizations {
   String get timelineSavePostsFailed => 'Не вдалося зберегти дописи.';
 
   @override
+  String get timelineDeletePostTitle => 'Видалити допис';
+
+  @override
+  String get timelineDeletePostMessage =>
+      'Ви впевнені, що хочете видалити цей допис?';
+
+  @override
+  String timelineDeletePostsTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Видалити $count допису',
+      many: 'Видалити $count дописів',
+      few: 'Видалити $count дописи',
+      one: 'Видалити $count допис',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get timelineDeletePostsMessage =>
+      'Ви впевнені, що хочете видалити ці дописи?';
+
+  @override
+  String get timelineDeletePostsFailed => 'Не вдалося видалити дописи.';
+
+  @override
   String get timelineJumpToDate => 'Перейти до дати';
 
   @override

@@ -125,6 +125,22 @@
     }
   },
   "timelineSavePostsFailed": "Could not save the posts.",
+  "timelineDeletePostTitle": "Delete post",
+  "@timelineDeletePostTitle": {
+    "description": "Title of the dialog that asks before a post of Saved Messages is deleted."
+  },
+  "timelineDeletePostMessage": "Are you sure you want to delete this post?",
+  "timelineDeletePostsTitle": "{count, plural, one{Delete {count} post} other{Delete {count} posts}}",
+  "@timelineDeletePostsTitle": {
+    "description": "Title of the dialog that asks before several posts of Saved Messages are deleted.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timelineDeletePostsMessage": "Are you sure you want to delete these posts?",
+  "timelineDeletePostsFailed": "Could not delete the posts.",
   "timelineJumpToDate": "Jump to date",
   "timelineSubscribers": "{count, plural, other{{shown} subscribers}}",
   "@timelineSubscribers": {

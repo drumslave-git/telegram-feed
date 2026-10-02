@@ -594,11 +594,17 @@ final class FakeTelegram extends TimelineGateway {
   Future<Channel> savedMessages() async =>
       const Channel(chatId: FakeChats.savedMessages, title: 'Saved Messages');
 
+  /// The newest id Saved Messages gave out: Telegram never gives one twice, not even
+  /// after the post with it was deleted.
+  int _lastSavedId = 0;
+
   @override
   Future<void> saveToSavedMessages(int chatId, List<int> messageIds) async {
     await super.saveToSavedMessages(chatId, messageIds);
     final saved = histories[FakeChats.savedMessages]!;
-    final next = saved.first.messageId + 1;
+    for (final p in saved) {
+      if (p.messageId > _lastSavedId) _lastSavedId = p.messageId;
+    }
     for (final id in messageIds) {
       final source = histories[chatId]
           ?.where((p) => p.messageId == id)
@@ -608,7 +614,7 @@ final class FakeTelegram extends TimelineGateway {
         0,
         Post(
           chatId: FakeChats.savedMessages,
-          messageId: next,
+          messageId: ++_lastSavedId,
           date: _now.millisecondsSinceEpoch ~/ 1000,
           text: source.text,
           media: source.media,

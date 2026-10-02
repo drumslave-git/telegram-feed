@@ -221,6 +221,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get timelineSavePostsFailed => 'Could not save the posts.';
 
   @override
+  String get timelineDeletePostTitle => 'Delete post';
+
+  @override
+  String get timelineDeletePostMessage =>
+      'Are you sure you want to delete this post?';
+
+  @override
+  String timelineDeletePostsTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Delete $count posts',
+      one: 'Delete $count post',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get timelineDeletePostsMessage =>
+      'Are you sure you want to delete these posts?';
+
+  @override
+  String get timelineDeletePostsFailed => 'Could not delete the posts.';
+
+  @override
   String get timelineJumpToDate => 'Jump to date';
 
   @override

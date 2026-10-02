@@ -451,7 +451,9 @@ Map<String, Object?> encodePostEvent(PostEvent e) => switch (e) {
   PostsDeleted(:final chatId, :final messageIds) => {
     'kind': 'deleted',
     'chatId': chatId,
-    'messageIds': messageIds,
+    // A list of its own: the event's may be a view (`cast`) that no SendPort to another
+    // isolate group takes.
+    'messageIds': [...messageIds],
   },
 };
 

@@ -788,6 +788,50 @@ void main() {
     },
   );
 
+  test('deleteFromSavedMessages deletes in the chat with self, and the update '
+      'reaches its timeline', () async {
+    t.handlers['getMe'] = (_) => {
+      '@type': 'user',
+      'id': 42,
+      'first_name': 'Ann',
+    };
+    t.handlers['createPrivateChat'] = (r) =>
+        chatJson(r['user_id'] as int, 'Saved Messages');
+    t.handlers['deleteMessages'] = (_) => {'@type': 'ok'};
+
+    await g.deleteFromSavedMessages([9, 8]);
+    final r = t.sent.last;
+    expect(r['@type'], 'deleteMessages');
+    expect(r['chat_id'], 42);
+    expect(r['message_ids'], [9, 8]);
+    expect(r['revoke'], false);
+
+    final events = <PostEvent>[];
+    final sub = g.postEvents.listen(events.add);
+    t.update({
+      '@type': 'updateNewChat',
+      'chat': chatJson(-1001, 'News', supergroupId: 1),
+    });
+    t.update({'@type': 'updateNewChat', 'chat': chatJson(42, 'Me')});
+    t.update({'@type': 'updateNewChat', 'chat': chatJson(7, 'Bob')});
+    for (final chat in [42, 7]) {
+      t.update({
+        '@type': 'updateDeleteMessages',
+        'chat_id': chat,
+        'message_ids': [9, 8],
+        'is_permanent': true,
+        'from_cache': false,
+      });
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await sub.cancel();
+    // Saved Messages only: another private chat is none of the app's business.
+    expect(events, hasLength(1));
+    final deleted = events.single as PostsDeleted;
+    expect(deleted.chatId, 42);
+    expect(deleted.messageIds, [9, 8]);
+  });
+
   test(
     "Telegram's read state: asked for, and pushed for channels only",
     () async {

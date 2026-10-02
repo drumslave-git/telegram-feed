@@ -128,7 +128,10 @@ final class TdlibGateway implements TelegramGateway {
         :final isPermanent,
         :final fromCache,
       ):
-        if (isPermanent && !fromCache && _isChannelChat(chatId)) {
+        // Saved Messages too: its timeline drops what the reader deleted there.
+        if (isPermanent &&
+            !fromCache &&
+            (_isChannelChat(chatId) || chatId == _myId)) {
           _postCtl.add(PostsDeleted(chatId: chatId, messageIds: messageIds));
         }
       case td.UpdateSupergroup(:final supergroup):
@@ -762,6 +765,21 @@ final class TdlibGateway implements TelegramGateway {
         messageIds: [...messageIds]..sort(),
         sendCopy: false,
         removeCaption: false,
+      ),
+    );
+  }
+
+  @override
+  Future<void> deleteFromSavedMessages(List<int> messageIds) async {
+    final me = _myId ??= (await _client.call(const td.GetMe())).id;
+    final saved = await _client.call(
+      td.CreatePrivateChat(userId: me, force: false),
+    );
+    await _client.call(
+      td.DeleteMessages(
+        chatId: saved.id,
+        messageIds: messageIds,
+        revoke: false,
       ),
     );
   }

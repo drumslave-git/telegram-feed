@@ -144,6 +144,19 @@ class ChannelsGateway implements TelegramGateway {
   /// Records hold lists badly (a record with a list is never equal to another), so the
   /// saved posts are kept as text.
   final saved = <String>[];
+
+  /// The chat id of Saved Messages.
+  static const savedChatId = 42;
+
+  /// Deletes as TDLib does: the posts go, and an update says so.
+  @override
+  Future<void> deleteFromSavedMessages(List<int> messageIds) async {
+    deletedSaved.add(messageIds.join(','));
+    posts.add(PostsDeleted(chatId: savedChatId, messageIds: messageIds));
+  }
+
+  /// The posts deleted from Saved Messages, as text like [saved].
+  final deletedSaved = <String>[];
   @override
   Future<FileRef> download(FileRef ref, {int priority = 16}) async => ref;
   @override
@@ -190,7 +203,7 @@ class ChannelsGateway implements TelegramGateway {
   Future<List<Channel>> archivedChannels() async => const [];
   @override
   Future<Channel> savedMessages() async =>
-      const Channel(chatId: 42, title: 'Saved Messages');
+      const Channel(chatId: savedChatId, title: 'Saved Messages');
   @override
   Future<List<Comment>> searchThread(
     Thread thread, {
@@ -376,6 +389,16 @@ class TimelineGateway extends ChannelsGateway {
     if (history == null) return super.unreadOf(chatId);
     final read = readPositions[chatId] ?? 0;
     return history.where((p) => p.messageId > read).length;
+  }
+
+  /// Saved Messages' history loses the posts as well, so a reopened timeline does not
+  /// bring them back.
+  @override
+  Future<void> deleteFromSavedMessages(List<int> messageIds) async {
+    histories[ChannelsGateway.savedChatId]?.removeWhere(
+      (p) => messageIds.contains(p.messageId),
+    );
+    await super.deleteFromSavedMessages(messageIds);
   }
 
   /// A post that arrives now: it joins the channel's history, so paging and a later
