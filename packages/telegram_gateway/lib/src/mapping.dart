@@ -96,6 +96,7 @@ Channel channel(td.Chat chat, td.Supergroup sg) => Channel(
   lastReadMessageId: chat.lastReadInboxMessageId,
   unreadCount: chat.unreadCount,
   lastMessageText: preview(chat.lastMessage?.content),
+  lastMessageMedia: previewMedia(chat.lastMessage?.content),
   lastMessageDate: chat.lastMessage?.date ?? 0,
 );
 
@@ -109,24 +110,16 @@ td.SearchMessagesFilter? searchFilter(HistoryFilter f) => switch (f) {
   HistoryFilter.voice => const td.SearchMessagesFilterVoiceNote(),
 };
 
-/// One line for a channel list: the text or caption, else what kind of media it is.
-String preview(td.MessageContent? c) {
+/// One line for a channel list: the text or caption on one line; empty when there is
+/// none, and [previewMedia] says what the post carries instead.
+String preview(td.MessageContent? c) =>
+    content(c).$1.replaceAll(RegExp(r'\s+'), ' ');
+
+/// The media of a post without text, which the app names in its own language; null when
+/// the post has text or nothing at all.
+Media? previewMedia(td.MessageContent? c) {
   final (text, media) = content(c);
-  if (text.isNotEmpty) return text.replaceAll(RegExp(r'\s+'), ' ');
-  return switch (media) {
-    PhotoMedia() => 'Photo',
-    VideoMedia(:final isAnimation, :final isVideoNote) =>
-      isVideoNote
-          ? 'Video message'
-          : isAnimation
-          ? 'GIF'
-          : 'Video',
-    AudioMedia(:final isVoice) => isVoice ? 'Voice message' : 'Audio',
-    DocumentMedia(:final fileName) => fileName,
-    StickerMedia(:final emoji) => emoji.isEmpty ? 'Sticker' : '$emoji Sticker',
-    UnsupportedMedia(:final tdType) => tdType.replaceFirst('message', ''),
-    null => '',
-  };
+  return text.isEmpty ? media : null;
 }
 
 Post post(td.Message m, {ForwardOrigin? forwardedFrom, ReplyTarget? replyTo}) {
@@ -184,6 +177,7 @@ ReplyTarget? replyTarget(td.Message m) {
       _ => '',
     },
     text: r.quote?.text?.text ?? (r.content == null ? '' : preview(r.content)),
+    media: r.quote?.text?.text == null ? previewMedia(r.content) : null,
     manualQuote: r.quote?.isManual ?? false,
     photo: replyPhoto(r.content),
   );

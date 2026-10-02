@@ -4,6 +4,7 @@ import 'package:app_db/app_db.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telegram_feed/l10n/l10n.dart';
 import 'package:telegram_feed/service/tts_service.dart';
 import 'package:telegram_feed/settings/read_aloud_screen.dart';
 
@@ -95,16 +96,17 @@ void main() {
   });
 
   test('voice names read like names', () {
+    final en = lookupAppLocalizations(const Locale('en'));
     expect(
-      voiceLabel({'name': 'en-us-x-sfg#female_1-local', 'locale': 'en-US'}),
+      voiceLabel({'name': 'en-us-x-sfg#female_1-local', 'locale': 'en-US'}, en),
       'Female 1 · US',
     );
     expect(
-      voiceLabel({'name': 'uk-ua-x-hfd-network', 'locale': 'uk-UA'}),
+      voiceLabel({'name': 'uk-ua-x-hfd-network', 'locale': 'uk-UA'}, en),
       'Voice HFD · UA · online',
     );
-    expect(languageName('uk'), 'Ukrainian');
-    expect(languageName('xx'), 'XX');
+    expect(languageName('uk', en), 'Ukrainian');
+    expect(languageName('xx', en), 'XX');
   });
 
   testWidgets('max length and default language are persisted', (tester) async {

@@ -27,22 +27,25 @@ appId: dev.telegramfeed.telegram_feed
     element: 'AND another word'
     direction: DOWN
 - scrollUntilVisible:
-    element: 'Silent'
+    element: '(?s)Silent\n.*'
     direction: DOWN
-- tapOn: 'Silent'
-- tapOn: 'Urgent'
+- tapOn: '(?s)Silent\n.*'
+- scrollUntilVisible:
+    element: '(?s)Urgent\n.*'
+    direction: DOWN
+- tapOn: '(?s)Urgent\n.*'
 - extendedWaitUntil:
     visible: 'Show urgent posts in Do Not Disturb?'
     timeout: 5000
 - tapOn: 'Later'
 - waitForAnimationToEnd
 - scrollUntilVisible:
-    element: 'Normal'
+    element: '(?s)Normal\n.*'
     direction: DOWN
-- tapOn: 'Normal'
+- tapOn: '(?s)Normal\n.*'
 - assertVisible:
-    text: 'Normal'
-    selected: true
+    text: '(?s)Normal\n.*'
+    checked: true
 - scrollUntilVisible:
     element: '(?s).*Only at certain times.*'
     direction: DOWN

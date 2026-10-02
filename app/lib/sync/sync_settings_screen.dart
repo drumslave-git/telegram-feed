@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
+import 'drive_sync_store.dart';
 import 'sync_controller.dart';
 
 /// Google Drive sync: what it does, on/off, state of the last run.
@@ -10,46 +12,65 @@ class SyncSettingsScreen extends StatelessWidget {
   /// When the last sync ran, with the day unless it was today: "at 14:32",
   /// "yesterday at 14:32", "Sep 20 at 14:32".
   static String syncedAt(DateTime t, BuildContext context, {DateTime? now}) {
+    final l10n = context.l10n;
     final today = DateUtils.dateOnly(now ?? DateTime.now());
     final day = DateUtils.dateOnly(t);
     final time = TimeOfDay.fromDateTime(t).format(context);
-    if (day == today) return 'at $time';
+    if (day == today) return l10n.syncAtTime(time);
     if (day == today.subtract(const Duration(days: 1))) {
-      return 'yesterday at $time';
+      return l10n.syncYesterdayAt(time);
     }
-    return '${MaterialLocalizations.of(context).formatShortMonthDay(t)} at $time';
+    return l10n.syncDateAtTime(
+      MaterialLocalizations.of(context).formatShortMonthDay(t),
+      time,
+    );
   }
 
+  /// [failure] in the words of [l10n].
+  static String failureText(SyncFailure failure, AppLocalizations l10n) =>
+      switch (failure) {
+        SyncSignedOut() => l10n.syncSignedOutError,
+        SyncFailed(:final error) => l10n.sync(error),
+        SyncDriveFailed(:final error) => switch (error.failure) {
+          DriveFailure.noClientId => l10n.syncNoClientIdError,
+          DriveFailure.cancelled => l10n.syncSignInCancelled,
+          DriveFailure.signInFailed => l10n.syncSignInFailed(error.detail),
+          DriveFailure.notSignedIn => l10n.syncNotSignedIn,
+          DriveFailure.unreachable => l10n.syncDriveUnreachable(error.detail),
+          DriveFailure.refused => l10n.syncDriveRefused(
+            (error.request ?? DriveRequest.update).name,
+            '${error.status}',
+            error.detail.isEmpty ? '' : ': ${error.detail}',
+          ),
+        },
+      };
+
   static String describe(SyncStatus s, BuildContext context) {
-    if (!s.available) return 'Not available in this build';
-    if (!s.isOn) return 'Off';
+    final l10n = context.l10n;
+    if (!s.available) return l10n.syncUnavailable;
+    if (!s.isOn) return l10n.commonOff;
     final last = s.lastSyncedAt;
-    if (s.error != null) return 'Problem: ${s.error}';
-    if (last == null) return 'On, ${s.account}';
-    return 'On, ${s.account} · last synced ${syncedAt(last, context)}';
+    if (s.failure case final f?) return l10n.syncProblem(failureText(f, l10n));
+    if (last == null) return l10n.syncOnAccount(s.account!);
+    return l10n.syncOnAccountLastSynced(s.account!, syncedAt(last, context));
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('Google Drive sync')),
+      appBar: AppBar(title: Text(l10n.syncTitle)),
       body: ValueListenableBuilder<SyncStatus>(
         valueListenable: controller.status,
         builder: (context, s, _) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text(
-              'Keeps your feeds with their channels, your rules and your settings the same on '
-              'all your devices through a hidden app file in your own Google Drive. There is no '
-              'server of ours. Read positions, the AI API key and your Telegram session stay '
-              'on each device.',
-              style: theme.textTheme.bodyMedium,
-            ),
+            Text(l10n.syncIntro, style: theme.textTheme.bodyMedium),
             const SizedBox(height: 16),
             if (!s.available)
               Text(
-                'This build was made without a Google client id, so sync cannot be turned on.',
+                l10n.syncNoClientIdBuild,
                 style: TextStyle(color: theme.colorScheme.error),
               )
             else if (!s.isOn)
@@ -58,7 +79,7 @@ class SyncSettingsScreen extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: controller.turnOn,
                   icon: const Icon(Icons.cloud_sync_outlined),
-                  label: const Text('Sign in with Google and sync'),
+                  label: Text(l10n.syncSignIn),
                 ),
               )
             else ...[
@@ -68,10 +89,10 @@ class SyncSettingsScreen extends StatelessWidget {
                 title: Text(s.account!),
                 subtitle: Text(
                   s.syncing
-                      ? 'Syncing…'
+                      ? l10n.syncSyncing
                       : s.lastSyncedAt == null
-                      ? 'Not synced yet'
-                      : 'Last synced ${syncedAt(s.lastSyncedAt!, context)}',
+                      ? l10n.syncNotSyncedYet
+                      : l10n.syncLastSynced(syncedAt(s.lastSyncedAt!, context)),
                 ),
               ),
               Wrap(
@@ -80,20 +101,20 @@ class SyncSettingsScreen extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: s.syncing ? null : controller.syncNow,
                     icon: const Icon(Icons.sync),
-                    label: const Text('Sync now'),
+                    label: Text(l10n.syncNow),
                   ),
                   TextButton(
                     onPressed: s.syncing ? null : controller.turnOff,
-                    child: const Text('Turn off on this device'),
+                    child: Text(l10n.syncTurnOff),
                   ),
                 ],
               ),
             ],
-            if (s.error != null)
+            if (s.failure case final failure?)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: Text(
-                  s.error!,
+                  failureText(failure, l10n),
                   style: TextStyle(color: theme.colorScheme.error),
                 ),
               ),

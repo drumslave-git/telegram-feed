@@ -1,5 +1,38 @@
 import 'ast.dart';
 
+/// What is wrong with a condition's text form, for a message in the reader's language.
+enum RuleSyntaxProblem {
+  /// A character that cannot stand here; [RuleSyntaxError.detail] is the character.
+  unexpected,
+  expectedTerm,
+  expectedClosingParen,
+  unterminatedQuote,
+  danglingEscape,
+  emptyTerm,
+
+  /// A bare AND, OR or NOT where a word was meant; [RuleSyntaxError.detail] is the word.
+  keyword,
+}
+
+/// A condition's text form does not parse. [message] says it in English, for logs.
+final class RuleSyntaxError extends FormatException {
+  RuleSyntaxError(
+    this.problem,
+    String message,
+    String source,
+    int offset, {
+    this.detail = '',
+  }) : super('rule syntax: $message at ${offset + 1}', source, offset);
+
+  final RuleSyntaxProblem problem;
+
+  /// The character or the word [problem] is about; empty for the others.
+  final String detail;
+
+  /// The 1-based position in the text.
+  int get position => (offset ?? 0) + 1;
+}
+
 /// Text form of a condition, parsed to the same AST the visual builder produces.
 ///
 ///     ("bitcoin" OR btc) AND NOT airdrop
@@ -18,7 +51,10 @@ final class RuleParser {
     final p = RuleParser._(source);
     final e = p._or();
     p._skipWs();
-    if (!p._atEnd) p._fail('unexpected "${p._src[p._pos]}"');
+    if (!p._atEnd) {
+      final c = p._src[p._pos];
+      p._fail(RuleSyntaxProblem.unexpected, 'unexpected "$c"', detail: c);
+    }
     return e;
   }
 
@@ -45,8 +81,8 @@ final class RuleParser {
 
   bool get _atEnd => _pos >= _src.length;
 
-  Never _fail(String msg) =>
-      throw FormatException('rule syntax: $msg at ${_pos + 1}', _src, _pos);
+  Never _fail(RuleSyntaxProblem problem, String msg, {String detail = ''}) =>
+      throw RuleSyntaxError(problem, msg, _src, _pos, detail: detail);
 
   void _skipWs() {
     while (!_atEnd && _src[_pos].trim().isEmpty) {
@@ -89,12 +125,14 @@ final class RuleParser {
 
   Expr _primary() {
     _skipWs();
-    if (_atEnd) _fail('expected a term');
+    if (_atEnd) _fail(RuleSyntaxProblem.expectedTerm, 'expected a term');
     if (_src[_pos] == '(') {
       _pos++;
       final e = _or();
       _skipWs();
-      if (_atEnd || _src[_pos] != ')') _fail('expected ")"');
+      if (_atEnd || _src[_pos] != ')') {
+        _fail(RuleSyntaxProblem.expectedClosingParen, 'expected ")"');
+      }
       _pos++;
       return e;
     }
@@ -113,10 +151,14 @@ final class RuleParser {
     _pos++; // opening quote
     final buf = StringBuffer();
     while (true) {
-      if (_atEnd) _fail('unterminated quote');
+      if (_atEnd) {
+        _fail(RuleSyntaxProblem.unterminatedQuote, 'unterminated quote');
+      }
       final c = _src[_pos++];
       if (c == r'\') {
-        if (_atEnd) _fail('dangling escape');
+        if (_atEnd) {
+          _fail(RuleSyntaxProblem.danglingEscape, 'dangling escape');
+        }
         buf.write(_src[_pos++]);
       } else if (c == '"') {
         break;
@@ -125,7 +167,7 @@ final class RuleParser {
       }
     }
     final text = buf.toString().trim();
-    if (text.isEmpty) _fail('empty term');
+    if (text.isEmpty) _fail(RuleSyntaxProblem.emptyTerm, 'empty term');
     return text;
   }
 
@@ -135,9 +177,13 @@ final class RuleParser {
       _pos++;
     }
     final text = _src.substring(start, _pos);
-    if (text.isEmpty) _fail('expected a term');
+    if (text.isEmpty) _fail(RuleSyntaxProblem.expectedTerm, 'expected a term');
     if (_keywords.contains(text.toUpperCase())) {
-      _fail('"$text" is a keyword; quote it to match the word');
+      _fail(
+        RuleSyntaxProblem.keyword,
+        '"$text" is a keyword; quote it to match the word',
+        detail: text,
+      );
     }
     return text;
   }

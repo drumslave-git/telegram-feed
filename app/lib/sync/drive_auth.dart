@@ -1,4 +1,3 @@
-import 'package:core/core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -21,7 +20,8 @@ abstract interface class DriveAuth {
   /// "Signing you in" sheet for a moment.
   Future<String?> restore({String? knownEmail});
 
-  /// Interactive sign-in and consent for the Drive app data scope. Returns the email.
+  /// Interactive sign-in and consent for the Drive app data scope. Returns the email;
+  /// throws [DriveException] when there is none.
   Future<String> signIn();
 
   /// Access token for [DriveSyncStore.scope], or null when not signed in or not consented.
@@ -68,7 +68,7 @@ final class GoogleDriveAuth implements DriveAuth {
   @override
   Future<String> signIn() async {
     if (!isConfigured) {
-      throw const SyncException('This build has no Google client id.');
+      throw const DriveException(DriveFailure.noClientId);
     }
     try {
       await _ensureInit();
@@ -80,11 +80,12 @@ final class GoogleDriveAuth implements DriveAuth {
       ]);
       return account.email;
     } on GoogleSignInException catch (e) {
-      throw SyncException(
-        e.code == GoogleSignInExceptionCode.canceled
-            ? 'Sign-in was cancelled.'
-            : 'Google sign-in failed: ${e.description ?? e.code.name}',
-      );
+      throw e.code == GoogleSignInExceptionCode.canceled
+          ? const DriveException(DriveFailure.cancelled)
+          : DriveException(
+              DriveFailure.signInFailed,
+              detail: e.description ?? e.code.name,
+            );
     }
   }
 

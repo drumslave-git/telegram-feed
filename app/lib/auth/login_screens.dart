@@ -6,6 +6,7 @@ import 'dart:async';
 
 import '../app_name.dart';
 import '../host/accounts.dart';
+import '../l10n/l10n.dart';
 import '../service/core_service.dart' show appPaths;
 import '../widgets/error_state.dart';
 
@@ -121,6 +122,7 @@ class _StepFormState extends State<_StepForm> {
   }
 
   Future<void> _guard(Future<void> Function() action) async {
+    final l10n = context.l10n;
     setState(() {
       _busy = true;
       _error = null;
@@ -129,11 +131,15 @@ class _StepFormState extends State<_StepForm> {
       await action();
     } on TelegramException catch (e) {
       setState(
-        () => _error = telegramErrorLine(e, what: 'Telegram refused that.'),
+        () => _error = telegramErrorLine(
+          e,
+          what: l10n.loginTelegramRefused,
+          l10n: l10n,
+        ),
       );
     } catch (e) {
       debugPrint('login: $e');
-      setState(() => _error = 'Something went wrong. Try again.');
+      setState(() => _error = l10n.loginSomethingWentWrong);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -141,6 +147,7 @@ class _StepFormState extends State<_StepForm> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
       // Scrolls, so the keyboard never pushes the buttons off a small screen.
@@ -164,7 +171,9 @@ class _StepFormState extends State<_StepForm> {
               suffixIcon: !widget.obscure
                   ? null
                   : IconButton(
-                      tooltip: _hidden ? 'Show' : 'Hide',
+                      tooltip: _hidden
+                          ? l10n.loginShowPassword
+                          : l10n.loginHidePassword,
                       icon: Icon(
                         _hidden
                             ? Icons.visibility_outlined
@@ -194,7 +203,7 @@ class _StepFormState extends State<_StepForm> {
                   : () async {
                       await _guard(widget.onTertiary!);
                       if (mounted && _error == null) {
-                        setState(() => _note = 'A new code is on its way.');
+                        setState(() => _note = l10n.loginNewCodeSent);
                       }
                     },
               icon: Icon(widget.tertiaryIcon),
@@ -240,18 +249,17 @@ class PhoneScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return _StepForm(
-      title: 'Log in to Telegram',
-      explanation:
-          '$appName reads the channels your Telegram account has joined. '
-          'Enter the phone number of that account in international format.',
-      label: 'Phone number',
-      action: 'Send code',
+      title: l10n.loginPhoneTitle,
+      explanation: l10n.loginPhoneExplanation(appName),
+      label: l10n.loginPhoneNumber,
+      action: l10n.loginSendCode,
       keyboardType: TextInputType.phone,
       hint: '+44 7700 900123',
       initialValue: '+',
       onSubmit: gateway.setPhoneNumber,
-      secondaryLabel: 'Log in with QR code instead',
+      secondaryLabel: l10n.loginWithQrInstead,
       secondaryIcon: Icons.qr_code,
       onSecondary: gateway.requestQrCode,
     );
@@ -271,22 +279,22 @@ class CodeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return _StepForm(
-      title: 'Enter the code',
-      explanation:
-          'Telegram sent a code to $phoneNumber (by SMS or to another logged-in device).',
-      label: 'Code',
-      action: 'Continue',
+      title: l10n.loginCodeTitle,
+      explanation: l10n.loginCodeExplanation(phoneNumber),
+      label: l10n.loginCode,
+      action: l10n.commonContinue,
       keyboardType: TextInputType.number,
       maxLength: codeLength > 0 ? codeLength : null,
       onSubmit: gateway.checkCode,
       // A code that never arrived: ask for it again without starting over.
-      tertiaryLabel: 'Resend code',
+      tertiaryLabel: l10n.loginResendCode,
       tertiaryIcon: Icons.refresh,
       onTertiary: gateway.resendCode,
       // A mistyped number, or a code that never came: back to the number, as the
       // official app's "Wrong number?".
-      secondaryLabel: 'Change number',
+      secondaryLabel: l10n.loginChangeNumber,
       secondaryIcon: Icons.edit_outlined,
       onSecondary: gateway.logOut,
     );
@@ -300,18 +308,17 @@ class PasswordScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return _StepForm(
-      title: 'Two-step verification',
+      title: l10n.loginPasswordTitle,
       explanation: hint.isEmpty
-          ? 'Your account has a cloud password.'
-          : 'Your account has a cloud password. Hint: $hint',
-      label: 'Password',
-      action: 'Continue',
+          ? l10n.loginPasswordExplanation
+          : l10n.loginPasswordExplanationWithHint(hint),
+      label: l10n.loginPassword,
+      action: l10n.commonContinue,
       obscure: true,
       // Resetting it is part of two-step verification, which stays in the official app.
-      footnote:
-          'Forgotten it? A cloud password can only be reset in the official Telegram '
-          'app, under Settings, Privacy and Security.',
+      footnote: l10n.loginPasswordForgotten,
       onSubmit: gateway.checkPassword,
     );
   }
@@ -323,11 +330,12 @@ class RegistrationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return _StepForm(
-      title: 'New account',
-      explanation: 'This number has no Telegram account yet. Enter a first name to create one.',
-      label: 'First name',
-      action: 'Create account',
+      title: l10n.loginNewAccountTitle,
+      explanation: l10n.loginNewAccountExplanation,
+      label: l10n.loginFirstName,
+      action: l10n.loginCreateAccount,
       onSubmit: (name) => gateway.registerUser(firstName: name),
     );
   }
@@ -340,16 +348,14 @@ class QrScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('Log in with QR code')),
+      appBar: AppBar(title: Text(l10n.loginQrTitle)),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            const Text(
-              'In Telegram on your phone open Settings, Devices, Link Desktop Device, '
-              'and scan this code. It refreshes automatically.',
-            ),
+            Text(l10n.loginQrExplanation),
             const SizedBox(height: 24),
             Center(
               child: QrImageView(
@@ -364,14 +370,10 @@ class QrScreen extends StatelessWidget {
               onPressed: () {
                 final messenger = ScaffoldMessenger.of(context);
                 gateway.logOut().catchError((Object e) {
-                  showTelegramError(
-                    messenger,
-                    e,
-                    what: 'Could not go back to the phone number.',
-                  );
+                  showTelegramError(messenger, e, what: l10n.loginQrBackFailed);
                 });
               },
-              child: const Text('Use a phone number instead'),
+              child: Text(l10n.loginWithPhoneInstead),
             ),
           ],
         ),
@@ -436,7 +438,7 @@ class _OtherAccountButtonState extends State<OtherAccountButton> {
       child: TextButton.icon(
         onPressed: _busy ? null : () => unawaited(_use(other)),
         icon: const Icon(Icons.switch_account_outlined),
-        label: Text('Use ${other.label} instead'),
+        label: Text(context.l10n.loginUseOtherAccount(other.label)),
       ),
     );
   }

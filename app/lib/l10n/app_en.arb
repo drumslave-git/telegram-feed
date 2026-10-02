@@ -1,0 +1,2222 @@
+{
+  "@@locale": "en",
+  "commonCancel": "Cancel",
+  "commonOk": "OK",
+  "commonSave": "Save",
+  "commonDelete": "Delete",
+  "commonDone": "Done",
+  "commonClose": "Close",
+  "commonRetry": "Retry",
+  "commonTryAgain": "Try again",
+  "commonOn": "On",
+  "@commonOn": {
+    "description": "Value of a settings row whose feature is on."
+  },
+  "commonOff": "Off",
+  "@commonOff": {
+    "description": "Value of a settings row whose feature is off."
+  },
+  "commonUndo": "Undo",
+  "commonShare": "Share",
+  "commonRemove": "Remove",
+  "commonClear": "Clear",
+  "commonRename": "Rename",
+  "commonMore": "More",
+  "@commonMore": {
+    "description": "Tooltip of an overflow (three dots) menu button."
+  },
+  "commonLoading": "Loading…",
+  "commonLater": "Later",
+  "commonNotNow": "Not now",
+  "commonAllow": "Allow",
+  "commonContinue": "Continue",
+  "commonApply": "Apply",
+  "commonReset": "Reset",
+  "commonSelect": "Select",
+  "commonOpen": "Open",
+  "commonAdd": "Add",
+  "commonSearch": "Search",
+  "commonSettings": "Settings",
+  "commonRules": "Rules",
+  "commonComments": "Comments",
+  "commonCopyLink": "Copy link",
+  "commonOpenInTelegram": "Open in Telegram",
+  "commonOpenSettings": "Open settings",
+  "commonDiscard": "Discard",
+  "commonKeepEditing": "Keep editing",
+  "commonMarkAsRead": "Mark as read",
+  "@commonMarkAsRead": {
+    "description": "Menu action on a feed, folder or channel."
+  },
+  "mediaPhoto": "Photo",
+  "mediaVideo": "Video",
+  "mediaGif": "GIF",
+  "mediaVideoMessage": "Video message",
+  "mediaVoiceMessage": "Voice message",
+  "mediaAudio": "Audio",
+  "mediaSticker": "Sticker",
+  "mediaFile": "File",
+  "mediaPost": "Post",
+  "@mediaPost": {
+    "description": "What a post without text or known media is called."
+  },
+  "tabMedia": "Media",
+  "tabFiles": "Files",
+  "tabLinks": "Links",
+  "tabMusic": "Music",
+  "tabVoice": "Voice",
+  "mediaStickerWithEmoji": "{emoji} Sticker",
+  "@mediaStickerWithEmoji": {
+    "description": "A sticker named by the emoji it stands for.",
+    "placeholders": {
+      "emoji": {
+        "type": "String"
+      }
+    }
+  },
+  "timelineSpoiler": "spoiler",
+  "@timelineSpoiler": {
+    "description": "Screen-reader label of hidden spoiler text in a post."
+  },
+  "timelineCodeCopied": "Code copied",
+  "timelineCopyCode": "Copy code",
+  "@timelineCopyCode": {
+    "description": "Button at the end of a monospace block in a post."
+  },
+  "timelineCannotPlay": "Cannot play: {error}",
+  "@timelineCannotPlay": {
+    "description": "A voice message or music file in a post failed to play.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "timelinePlay": "Play",
+  "timelinePause": "Pause",
+  "timelineSelectedCount": "{count} selected",
+  "@timelineSelectedCount": {
+    "description": "Title of the bar that replaces the app bar while posts are selected.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timelineCopyText": "Copy text",
+  "timelineSaveToSavedMessages": "Save to Saved Messages",
+  "@timelineSaveToSavedMessages": {
+    "description": "Forwards the selected posts to the account's Saved Messages chat."
+  },
+  "timelinePostsCopied": "{count, plural, =1{{count} post copied} other{{count} posts copied}}",
+  "@timelinePostsCopied": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timelinePostsSaved": "{count, plural, =1{{count} post saved to Saved Messages} other{{count} posts saved to Saved Messages}}",
+  "@timelinePostsSaved": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timelineSavePostsFailed": "Could not save the posts.",
+  "timelineJumpToDate": "Jump to date",
+  "timelineSubscribers": "{count, plural, other{{shown} subscribers}}",
+  "@timelineSubscribers": {
+    "description": "Under a channel's name. shown is count in short form, e.g. 1.2K.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "shown": {
+        "type": "String"
+      }
+    }
+  },
+  "timelineEditFeed": "Edit feed",
+  "timelineJumpToDayFailed": "Could not jump to that day.",
+  "timelineNothingFromDay": "Nothing here from {day} or earlier.",
+  "@timelineNothingFromDay": {
+    "description": "The calendar jump found no post on or before the picked day, e.g. Today, September 12.",
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "timelineNoAppForPost": "No app can open this post.",
+  "timelineForwardHidden": "That post came from an account that hides itself.",
+  "timelineForwardNotFollowed": "{title} is not a channel you follow.",
+  "@timelineForwardNotFollowed": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "timelineReplyNotFollowed": "That post is in a channel you do not follow.",
+  "timelineNoAppForLink": "No app can open {url}",
+  "@timelineNoAppForLink": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "timelineNoLinkToShare": "This post has no link to share.",
+  "timelineTextCopied": "Text copied",
+  "timelineNoLinkToCopy": "This post has no link to copy.",
+  "timelineLinkCopied": "Link copied: {link}",
+  "@timelineLinkCopied": {
+    "placeholders": {
+      "link": {
+        "type": "String"
+      }
+    }
+  },
+  "timelineSavedToSavedMessages": "Saved to Saved Messages",
+  "timelineSavePostFailed": "Could not save the post.",
+  "timelineReactionFailed": "Could not send the reaction.",
+  "timelineNewPosts": "{count, plural, =1{{count} new post} other{{count} new posts}}",
+  "@timelineNewPosts": {
+    "description": "Tooltip of the button that goes down to the newest posts.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timelineUnreadPostsCount": "{count, plural, =1{{count} unread post} other{{count} unread posts}}",
+  "@timelineUnreadPostsCount": {
+    "description": "Tooltip of the button that goes down to the newest posts.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timelineNewestPosts": "Newest posts",
+  "@timelineNewestPosts": {
+    "description": "Tooltip of the button that goes down to the newest posts."
+  },
+  "timelineNoChannelsTitle": "This feed has no channels yet",
+  "timelineNoChannelsMessage": "Add the channels it should collect; their posts then read as one timeline, oldest first.",
+  "timelineAddChannels": "Add channels",
+  "timelineLoadFailed": "Could not load the posts.",
+  "timelineNoPosts": "No posts.",
+  "timelineNoPostsPassFilter": "No posts pass this feed's filter ({filter}).",
+  "@timelineNoPostsPassFilter": {
+    "placeholders": {
+      "filter": {
+        "type": "String"
+      }
+    }
+  },
+  "timelineBeginningOfFeed": "Beginning of the feed",
+  "timelineOlderFailed": "Could not load older posts.",
+  "timelinePinnedPost": "Pinned post",
+  "timelineHidePinned": "Hide",
+  "@timelineHidePinned": {
+    "description": "Tooltip of the cross that puts the pinned-post bar away."
+  },
+  "timelineUnreadDivider": "Unread posts",
+  "@timelineUnreadDivider": {
+    "description": "Divider above the first post that was unread when the timeline opened."
+  },
+  "searchFilterEverything": "Everything",
+  "@searchFilterEverything": {
+    "description": "Search filter chip: posts of every kind."
+  },
+  "searchRecent": "Recent searches",
+  "searchFailed": "Could not search.",
+  "searchTypeToSearch": "Type to search the posts.",
+  "searchNothingFound": "Nothing found for \"{query}\".",
+  "@searchNothingFound": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "searchPostsFound": "{count, plural, =1{{count} post found} other{{count} posts found}}",
+  "@searchPostsFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchMoreFailed": "Could not load more results.",
+  "searchOlderMatch": "Older match",
+  "searchNewerMatch": "Newer match",
+  "searchNoMatches": "No matches",
+  "searchMatchOf": "{current} of {total}",
+  "@searchMatchOf": {
+    "description": "Which search result the timeline stands on, e.g. 3 of 17.",
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "searchPostsHint": "Search posts",
+  "threadSearchFailed": "Could not search the comments.",
+  "threadPostFailed": "Could not post the comment.",
+  "threadSearchComments": "Search comments",
+  "threadTitleWithChannel": "Comments · {channel}",
+  "@threadTitleWithChannel": {
+    "placeholders": {
+      "channel": {
+        "type": "String"
+      }
+    }
+  },
+  "threadNoDiscussion": "This channel has no discussion group, so posts cannot be commented on.",
+  "threadLoadFailed": "Could not load the comments.",
+  "threadSearching": "Searching…",
+  "threadNoComments": "No comments yet.",
+  "threadWriteComment": "Write a comment",
+  "@threadWriteComment": {
+    "description": "Hint of the comment composer."
+  },
+  "threadSend": "Send",
+  "threadLoadOlder": "Load older comments",
+  "threadDiscussionStarted": "Discussion started",
+  "@threadDiscussionStarted": {
+    "description": "Pill above the first comment of a thread."
+  },
+  "postDayToday": "Today",
+  "@postDayToday": {
+    "description": "Label between two days of a chat."
+  },
+  "postDayYesterday": "Yesterday",
+  "@postDayYesterday": {
+    "description": "Label between two days of a chat."
+  },
+  "postDayPattern": "MMMM d",
+  "@postDayPattern": {
+    "description": "intl DateFormat pattern of a day of this year between two days of a chat, e.g. September 17. Not a sentence: only the order of the fields changes."
+  },
+  "postDayYearPattern": "MMMM d, y",
+  "@postDayYearPattern": {
+    "description": "intl DateFormat pattern of a day of another year between two days of a chat, e.g. March 3, 2025. Not a sentence: only the order of the fields changes."
+  },
+  "postDayJumpToDate": "{day}. Jump to a date",
+  "@postDayJumpToDate": {
+    "description": "Screen reader label of the day pill, which opens the calendar.",
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "postCopyText": "Copy text",
+  "postSaveToSavedMessages": "Save to Saved Messages",
+  "@postSaveToSavedMessages": {
+    "description": "Post menu: forwards the post into the account's Saved Messages."
+  },
+  "postMinimize": "Minimize",
+  "@postMinimize": {
+    "description": "Post menu: folds a post the feed's filter leaves out back into one line."
+  },
+  "postAutoplaySettings": "Autoplay and download settings",
+  "postMinimizedSemantics": "Minimized post of {channel}: {words}, {time}",
+  "@postMinimizedSemantics": {
+    "description": "Screen reader label of a post shown as one line.",
+    "placeholders": {
+      "channel": {
+        "type": "String"
+      },
+      "words": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "postChannelInfoOf": "Channel info of {name}",
+  "@postChannelInfoOf": {
+    "description": "Screen reader label of the channel name on a post, which opens the channel's info.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "postHiddenAccount": "a hidden account",
+  "@postHiddenAccount": {
+    "description": "Stands for the name in postForwardedFrom when the original author hides their account."
+  },
+  "postForwardedFrom": "Forwarded from {name}",
+  "@postForwardedFrom": {
+    "description": "Line above a forwarded post; the name is drawn bold.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "postForwardedFromOpen": "Forwarded from {name}. Open the original",
+  "@postForwardedFromOpen": {
+    "description": "Screen reader label of the forwarded-from line when it opens the original post.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "postInReplyTo": "In reply to {name}",
+  "@postInReplyTo": {
+    "description": "Screen reader label of the quote block of the post this one answers.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "postInReplyToOpen": "In reply to {name}. Go to that post",
+  "@postInReplyToOpen": {
+    "description": "Screen reader label of the quote block when a tap jumps to the answered post.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "postEdited": "edited",
+  "@postEdited": {
+    "description": "In a post's footer, before the time."
+  },
+  "postCommentCount": "{count, plural, =1{{shown} comment} other{{shown} comments}}",
+  "@postCommentCount": {
+    "description": "Comments bar under a post. shown is count in short form, e.g. 1.2K.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "shown": {
+        "type": "String"
+      }
+    }
+  },
+  "postLeaveComment": "Leave a comment",
+  "@postLeaveComment": {
+    "description": "Comments bar under a post without comments."
+  },
+  "postReactionsLoadFailed": "Reactions could not be loaded.",
+  "postReactionsNotAllowed": "This channel does not allow reactions.",
+  "postDownloadFailed": "Download failed. Tap to retry.",
+  "postDownloading": "Downloading…",
+  "postTapToDownload": "Tap to download",
+  "postFileTapToDownload": "{size} · tap to download",
+  "@postFileTapToDownload": {
+    "description": "Under a file's name before it is downloaded; size is e.g. 3.4 MB.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "postOnThisDevice": "On this device",
+  "@postOnThisDevice": {
+    "description": "Under a downloaded file whose size is unknown."
+  },
+  "postOpenWith": "Open with…",
+  "@postOpenWith": {
+    "description": "Tooltip: hands a downloaded file to another app."
+  },
+  "postPhotoOpensFullScreen": "Photo, opens full screen",
+  "@postPhotoOpensFullScreen": {
+    "description": "Screen reader label of a photo that opens the viewer."
+  },
+  "postPlay": "Play",
+  "sharedMediaNoChannels": "No channels yet.",
+  "sharedMediaLoadFailed": "Could not load this media.",
+  "sharedMediaEmpty": "Nothing here yet.",
+  "sharedMediaGifTile": "GIF, {day}",
+  "@sharedMediaGifTile": {
+    "description": "Screen reader label of a GIF in the media grid; day is e.g. Today or March 3.",
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedMediaVideoTile": "Video {duration}, {day}",
+  "@sharedMediaVideoTile": {
+    "description": "Screen reader label of a video in the media grid; duration is e.g. 1:05.",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      },
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedMediaPhotoTile": "Photo, {day}",
+  "@sharedMediaPhotoTile": {
+    "description": "Screen reader label of a photo in the media grid.",
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedMediaPostTile": "Post of {day}",
+  "@sharedMediaPostTile": {
+    "description": "Screen reader label of a cell of the media grid that is neither photo nor video.",
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedMediaNoAppCanOpen": "No app can open {link}",
+  "@sharedMediaNoAppCanOpen": {
+    "placeholders": {
+      "link": {
+        "type": "String"
+      }
+    }
+  },
+  "channelInfoTitle": "Channel info",
+  "channelInfoQrCode": "QR code",
+  "channelInfoLinkCopied": "Link copied",
+  "channelInfoSubscribers": "{count, plural, =1{{shown} subscriber} other{{shown} subscribers}}",
+  "@channelInfoSubscribers": {
+    "description": "Under the channel's name. shown is count in short form, e.g. 1.2K.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "shown": {
+        "type": "String"
+      }
+    }
+  },
+  "channelInfoChannel": "Channel",
+  "@channelInfoChannel": {
+    "description": "Under the channel's name when the number of subscribers is unknown."
+  },
+  "channelInfoLoadFailed": "Could not load the channel details.",
+  "channelInfoSimilarChannels": "Similar channels",
+  "homeTabFeeds": "Feeds",
+  "@homeTabFeeds": {
+    "description": "Home screen tab that lists the feeds."
+  },
+  "homeTabAllChannels": "All channels",
+  "@homeTabAllChannels": {
+    "description": "Home screen tab that lists every channel."
+  },
+  "homeSearchPosts": "Search posts",
+  "@homeSearchPosts": {
+    "description": "Tooltip of the home screen's search button."
+  },
+  "homeSearchHint": "Search all channels",
+  "@homeSearchHint": {
+    "description": "Hint of the search field that searches posts of every channel."
+  },
+  "homeSearchChannelNotInList": "That channel is not in your list.",
+  "homeMarkAllAsRead": "Mark all as read",
+  "@homeMarkAllAsRead": {
+    "description": "Menu action on a folder tab or a feed."
+  },
+  "homeNothingToMarkRead": "Nothing to mark read.",
+  "homeChannelsMarkedRead": "{count, plural, =1{{count} channel marked read.} other{{count} channels marked read.}}",
+  "@homeChannelsMarkedRead": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeFolderCreateFeed": "Create feed from folder",
+  "@homeFolderCreateFeed": {
+    "description": "Long-press menu of a folder tab."
+  },
+  "homeRulesHintTitle": "Nothing notifies you yet",
+  "@homeRulesHintTitle": {
+    "description": "Title of the card on the Feeds tab shown until the reader has rules."
+  },
+  "homeRulesHintDismiss": "Dismiss",
+  "@homeRulesHintDismiss": {
+    "description": "Tooltip of the close button of a hint card."
+  },
+  "homeRulesHintBody": "This app never repeats Telegram's own notifications. A rule of a feed watches its channels for the words you pick and notifies you, and can read the post aloud.",
+  "homeRulesHintAction": "Set up rules",
+  "homeUnreadBadge": "{count} unread",
+  "@homeUnreadBadge": {
+    "description": "Screen-reader label of an unread counter (posts or channels).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeWaitingForNetwork": "Waiting for network…",
+  "@homeWaitingForNetwork": {
+    "description": "App bar subtitle while there is no network."
+  },
+  "homeConnecting": "Connecting…",
+  "@homeConnecting": {
+    "description": "App bar subtitle while connecting to Telegram."
+  },
+  "homeConnectingToProxy": "Connecting to proxy…",
+  "@homeConnectingToProxy": {
+    "description": "App bar subtitle while connecting to a proxy."
+  },
+  "homeUpdating": "Updating…",
+  "@homeUpdating": {
+    "description": "App bar subtitle while Telegram catches up on missed updates."
+  },
+  "feedsNewFeed": "New feed",
+  "feedsRenameFeed": "Rename feed",
+  "feedsNameLabel": "Name",
+  "@feedsNameLabel": {
+    "description": "Label of a feed's name field."
+  },
+  "feedsCreate": "Create",
+  "feedsEmptyFeed": "Empty feed",
+  "@feedsEmptyFeed": {
+    "description": "Choice in the New feed sheet: a feed without channels."
+  },
+  "feedsEmptyFeedSubtitle": "Name it, then pick its channels",
+  "feedsFromFolder": "From a folder",
+  "@feedsFromFolder": {
+    "description": "Header in the New feed sheet above the Telegram folders."
+  },
+  "feedsChannelCount": "{count, plural, =1{{count} channel} other{{count} channels}}",
+  "@feedsChannelCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "feedsChannelsWithNews": "{fresh} of {count, plural, =1{{count} channel} other{{count} channels}} with news",
+  "@feedsChannelsWithNews": {
+    "description": "Line under a feed's name: how many of its channels have unread posts.",
+    "placeholders": {
+      "fresh": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "feedsCreatedFromFolder": "Feed \"{name}\" created with {count, plural, =1{{count} channel} other{{count} channels}}.",
+  "@feedsCreatedFromFolder": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "feedsNothingToMarkRead": "Nothing to mark read in \"{name}\".",
+  "@feedsNothingToMarkRead": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "feedsMarkedRead": "\"{name}\" marked read.",
+  "@feedsMarkedRead": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "feedsDeleteTitle": "Delete \"{name}\"?",
+  "@feedsDeleteTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "feedsDeleteMessage": "{count, plural, =0{The feed and its kept positions are removed.} =1{The feed, its rule and its kept positions are removed.} other{The feed, its {count} rules and its kept positions are removed.}} Channels stay joined in Telegram.",
+  "@feedsDeleteMessage": {
+    "description": "Body of the Delete feed dialog; count is the number of the feed's rules.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "feedsCountersRefreshFailed": "Could not refresh the counters.",
+  "feedsEmptyTitle": "No feeds yet",
+  "feedsEmptyMessage": "A feed is a set of channels read as one timeline. Rules of the feed then notify you about the posts you care about; without them this app stays quiet.",
+  "feedsEmptyAction": "Create a feed",
+  "feedsEmptySecondary": "A feed can also start from one of your Telegram folders, or from the \"Add to a feed\" menu of any channel.",
+  "feedsEditChannels": "Edit channels",
+  "@feedsEditChannels": {
+    "description": "Feed row menu: opens the feed's channel list."
+  },
+  "channelsInfo": "Channel info",
+  "@channelsInfo": {
+    "description": "Long-press menu of a channel row."
+  },
+  "channelsAddToFeed": "Add to a feed",
+  "@channelsAddToFeed": {
+    "description": "Long-press menu of a channel row."
+  },
+  "channelsAlreadyInFeed": "Already in this feed",
+  "channelsAddedToFeed": "{channel} added to \"{feed}\".",
+  "@channelsAddedToFeed": {
+    "placeholders": {
+      "channel": {
+        "type": "String"
+      },
+      "feed": {
+        "type": "String"
+      }
+    }
+  },
+  "channelsArchive": "Archive",
+  "@channelsArchive": {
+    "description": "The channels archived in Telegram (a row and a screen title)."
+  },
+  "channelsArchiveSubtitle": "Channels you archived in Telegram",
+  "channelsArchiveEmpty": "No archived channels.",
+  "channelsArchiveOpenFailed": "Could not open the archive.",
+  "channelsEmptyAll": "No channels yet. Join channels in Telegram and they show up here.",
+  "channelsEmptyFolder": "No channels in this folder.",
+  "channelsEmpty": "No channels here.",
+  "channelsLoadFailed": "Could not load the channels.",
+  "channelsRefreshFailed": "Could not refresh the channels.",
+  "channelsNoMatch": "No channel matches \"{query}\".",
+  "@channelsNoMatch": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "channelsSearchHint": "Search channels",
+  "logOutTitle": "Log out?",
+  "logOutMessage": "Your feeds, rules, settings and the AI key on this device are deleted, and Google Drive sync is turned off. A copy stays in your Drive if sync was on.",
+  "logOutAction": "Log out",
+  "bannerStop": "Stop",
+  "@bannerStop": {
+    "description": "Banner button: stops reading the current post aloud."
+  },
+  "bannerStopAndClearQueue": "Stop and clear queue",
+  "bannerPaused": "Notifications are paused. Rules notify about nothing and read nothing aloud.",
+  "bannerResume": "Resume",
+  "@bannerResume": {
+    "description": "Banner button: ends the pause of notifications."
+  },
+  "bannerReadingAloud": "Reading aloud",
+  "bannerReadingAloudChannel": "Reading aloud: {channel}",
+  "@bannerReadingAloudChannel": {
+    "placeholders": {
+      "channel": {
+        "type": "String"
+      }
+    }
+  },
+  "bannerReadingQueue": "{line}. {count, plural, =1{{count} more post waits.} other{{count} more posts wait.}}",
+  "@bannerReadingQueue": {
+    "description": "The reading-aloud banner with the number of posts queued after the current one; line is the banner's first part.",
+    "placeholders": {
+      "line": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bannerPauseNotifications": "Pause notifications",
+  "bannerResumeNotifications": "Resume notifications",
+  "errorRateLimited": "Telegram is rate-limiting this account. Wait a minute and try again.",
+  "errorPhoneNumberInvalid": "That phone number is not valid.",
+  "errorPhoneNumberBanned": "Telegram has banned that phone number.",
+  "errorPhoneNumberFlood": "That number has asked for too many codes today. Try again tomorrow.",
+  "errorPhoneNumberOccupied": "That number already belongs to another account.",
+  "errorCodeInvalid": "Wrong code.",
+  "errorCodeExpired": "The code expired. Ask for a new one.",
+  "errorPasswordInvalid": "Wrong password.",
+  "errorPasswordRecoveryUnavailable": "This account has no recovery email, so the password cannot be reset here.",
+  "errorApiIdInvalid": "This build has no valid Telegram api_id/api_hash (see README).",
+  "errorChannelUnknown": "Telegram does not know that channel any more.",
+  "errorChannelPrivate": "That channel is private now, or the account has left it.",
+  "errorPostGone": "That post no longer exists.",
+  "errorWriteForbidden": "This channel does not let the account write here.",
+  "errorBannedInChannel": "The account is banned in that channel.",
+  "errorReactionInvalid": "This channel does not allow that reaction.",
+  "errorConnectionClosed": "The connection to Telegram closed. Try again.",
+  "feedEditorFallbackTitle": "Feed",
+  "@feedEditorFallbackTitle": {
+    "description": "Title of the feed's info screen while its name is loading."
+  },
+  "feedEditorRenameTitle": "Rename feed",
+  "feedEditorNameLabel": "Name",
+  "@feedEditorNameLabel": {
+    "description": "Label of the feed name field in the rename dialog."
+  },
+  "feedEditorTabChannels": "Channels",
+  "feedEditorTabSharedMedia": "Shared media",
+  "@feedEditorTabSharedMedia": {
+    "description": "Tab with the photos, videos, files, links and voice messages of all the feed's channels."
+  },
+  "feedEditorAddChannel": "Add channel",
+  "feedEditorNewRule": "New rule",
+  "feedEditorRemoveChannel": "Remove",
+  "@feedEditorRemoveChannel": {
+    "description": "Takes a channel out of the feed (the channel itself stays). Tooltip of the row's button and the confirming button of the dialog."
+  },
+  "feedEditorRemoveChannelTitle": "Remove {channel}?",
+  "@feedEditorRemoveChannelTitle": {
+    "description": "Title of the dialog that takes a channel out of the feed.",
+    "placeholders": {
+      "channel": {
+        "type": "String"
+      }
+    }
+  },
+  "feedEditorQuotedRuleName": "\"{name}\"",
+  "@feedEditorQuotedRuleName": {
+    "description": "A rule's name in quotes, inside a sentence. Several are joined by commas.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "feedEditorRemoveChannelOneRule": "The rule {names} watches only this channel and is deleted with it.",
+  "@feedEditorRemoveChannelOneRule": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "feedEditorRemoveChannelRules": "The rules {names} watch only this channel and are deleted with it.",
+  "@feedEditorRemoveChannelRules": {
+    "description": "Two or more rules; {names} is their quoted names joined by commas.",
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "feedEditorChannelRemoved": "{channel} removed",
+  "@feedEditorChannelRemoved": {
+    "description": "Snackbar after a channel was taken out of the feed, with Undo.",
+    "placeholders": {
+      "channel": {
+        "type": "String"
+      }
+    }
+  },
+  "feedEditorNoChannelsTitle": "No channels yet",
+  "feedEditorNoChannelsMessage": "Add channels your Telegram account has joined; this app never joins one for you.",
+  "feedEditorChannelLeft": "Left in Telegram; history stays readable",
+  "@feedEditorChannelLeft": {
+    "description": "Subtitle of a feed's channel the account has left."
+  },
+  "feedEditorSearchJoinedChannels": "Search joined channels",
+  "feedEditorHideChannelsInFeeds": "Hide channels already in a feed",
+  "feedEditorAllChannelsInFeed": "Every channel you have joined is already in this feed.",
+  "feedEditorRestInOtherFeeds": "The rest are in other feeds. Untick \"{option}\" to see them.",
+  "@feedEditorRestInOtherFeeds": {
+    "description": "{option} is the checkbox label 'Hide channels already in a feed'.",
+    "placeholders": {
+      "option": {
+        "type": "String"
+      }
+    }
+  },
+  "feedEditorNoChannelMatches": "No channel matches \"{query}\".",
+  "@feedEditorNoChannelMatches": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "feedEditorTickChannels": "Tick the channels to add",
+  "feedEditorChannelsTicked": "{count, plural, =1{{count} channel ticked} other{{count} channels ticked}}",
+  "@feedEditorChannelsTicked": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filterTileTitle": "Show",
+  "@filterTileTitle": {
+    "description": "Row of the feed's info screen that opens the feed's filter; its subtitle says what the filter lets through."
+  },
+  "filterSheetTitle": "Show in this feed",
+  "filterPosts": "Posts",
+  "filterPostsAll": "All",
+  "@filterPostsAll": {
+    "description": "Filter choice: posts with and without media."
+  },
+  "filterPostsWithMedia": "With media",
+  "filterPostsTextOnly": "Text only",
+  "filterMediaTypes": "Media types",
+  "filterMediaTypesNote": "Leave all of them off to allow every type.",
+  "filterKindPhotos": "photos",
+  "@filterKindPhotos": {
+    "description": "Kind of media in a feed's filter, lowercase: it is listed mid-line, and capitalized on the filter's chips."
+  },
+  "filterKindVideos": "videos",
+  "filterKindGifs": "GIFs",
+  "filterKindAudio": "audio",
+  "filterKindVoice": "voice messages",
+  "filterKindFiles": "files",
+  "filterKindOther": "other (polls, stickers, …)",
+  "filterVideoLength": "Video length",
+  "filterVideoAnyLength": "Any length",
+  "@filterVideoAnyLength": {
+    "description": "Choice of the 'Video length' row: no minimum duration."
+  },
+  "filterFromSeconds": "From {seconds} s",
+  "@filterFromSeconds": {
+    "description": "Minimum video duration in seconds.",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "filterFromMinutes": "From {minutes} min",
+  "@filterFromMinutes": {
+    "description": "Minimum video duration in minutes.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "filterTextPosts": "Text posts",
+  "@filterTextPosts": {
+    "description": "Row that sets the minimum text length of posts without media."
+  },
+  "filterTextAnyLength": "Any length",
+  "@filterTextAnyLength": {
+    "description": "Choice of the 'Text posts' row: no minimum length."
+  },
+  "filterFromCharacters": "{count, plural, other{From {count} characters}}",
+  "@filterFromCharacters": {
+    "description": "Minimum text length of posts without media.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filterTextContent": "Text content",
+  "@filterTextContent": {
+    "description": "Heading of the words a feed's posts must match."
+  },
+  "filterTextContentNote": "Only posts whose words match are shown, as a rule matches them. A \"Must not contain\" term hides the posts that have it.",
+  "filterWholePost": "Show the whole post",
+  "filterWholePostNote": "A post with several pictures or videos is shown complete, with its caption, as soon as one of them passes. Off shows only the parts that pass.",
+  "filterShowMinimized": "Show minimized",
+  "filterShowMinimizedNote": "The posts this feed leaves out stay in it as one line each, and a tap opens one. They count as hidden all the same.",
+  "filterHiddenCountAsRead": "Posts this feed hides count as read, and rules stay quiet about them unless another feed with the same channel shows them.",
+  "filterShowEverything": "Show everything",
+  "filterDescribeEverything": "Everything",
+  "@filterDescribeEverything": {
+    "description": "Summary of a feed filter that hides nothing."
+  },
+  "filterDescribeWithMedia": "with media",
+  "@filterDescribeWithMedia": {
+    "description": "Part of a feed filter's one-line summary; parts are joined by ' · '."
+  },
+  "filterDescribeTextOnly": "text only",
+  "filterDescribeVideosFromSeconds": "videos from {seconds} s",
+  "@filterDescribeVideosFromSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "filterDescribeVideosFromMinutes": "videos from {minutes} min",
+  "@filterDescribeVideosFromMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "filterDescribeTextFrom": "{count, plural, other{text from {count} characters}}",
+  "@filterDescribeTextFrom": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filterDescribeText": "text: {condition}",
+  "@filterDescribeText": {
+    "description": "{condition} is the filter's word condition in rule syntax.",
+    "placeholders": {
+      "condition": {
+        "type": "String"
+      }
+    }
+  },
+  "filterDescribeMatchingParts": "matching parts only",
+  "filterDescribeRestMinimized": "the rest minimized",
+  "loginTelegramRefused": "Telegram refused that.",
+  "@loginTelegramRefused": {
+    "description": "Shown with Telegram's error code when a login step fails."
+  },
+  "loginSomethingWentWrong": "Something went wrong. Try again.",
+  "loginShowPassword": "Show",
+  "@loginShowPassword": {
+    "description": "Tooltip of the button that shows the typed password."
+  },
+  "loginHidePassword": "Hide",
+  "@loginHidePassword": {
+    "description": "Tooltip of the button that hides the typed password."
+  },
+  "loginNewCodeSent": "A new code is on its way.",
+  "loginPhoneTitle": "Log in to Telegram",
+  "loginPhoneExplanation": "{appName} reads the channels your Telegram account has joined. Enter the phone number of that account in international format.",
+  "@loginPhoneExplanation": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "loginPhoneNumber": "Phone number",
+  "loginSendCode": "Send code",
+  "loginWithQrInstead": "Log in with QR code instead",
+  "loginCodeTitle": "Enter the code",
+  "loginCodeExplanation": "Telegram sent a code to {phoneNumber} (by SMS or to another logged-in device).",
+  "@loginCodeExplanation": {
+    "placeholders": {
+      "phoneNumber": {
+        "type": "String"
+      }
+    }
+  },
+  "loginCode": "Code",
+  "loginResendCode": "Resend code",
+  "loginChangeNumber": "Change number",
+  "loginPasswordTitle": "Two-step verification",
+  "loginPasswordExplanation": "Your account has a cloud password.",
+  "loginPasswordExplanationWithHint": "Your account has a cloud password. Hint: {hint}",
+  "@loginPasswordExplanationWithHint": {
+    "placeholders": {
+      "hint": {
+        "type": "String"
+      }
+    }
+  },
+  "loginPassword": "Password",
+  "loginPasswordForgotten": "Forgotten it? A cloud password can only be reset in the official Telegram app, under Settings, Privacy and Security.",
+  "loginNewAccountTitle": "New account",
+  "loginNewAccountExplanation": "This number has no Telegram account yet. Enter a first name to create one.",
+  "loginFirstName": "First name",
+  "loginCreateAccount": "Create account",
+  "loginQrTitle": "Log in with QR code",
+  "loginQrExplanation": "In Telegram on your phone open Settings, Devices, Link Desktop Device, and scan this code. It refreshes automatically.",
+  "@loginQrExplanation": {
+    "description": "The Ukrainian names the menu items as the official app shows them today."
+  },
+  "loginQrBackFailed": "Could not go back to the phone number.",
+  "loginWithPhoneInstead": "Use a phone number instead",
+  "loginUseOtherAccount": "Use {account} instead",
+  "@loginUseOtherAccount": {
+    "description": "Button on the login screens that switches back to an account already logged in; {account} is its name.",
+    "placeholders": {
+      "account": {
+        "type": "String"
+      }
+    }
+  },
+  "conditionErrorStoredUnreadable": "Stored condition could not be parsed; rewrite it.",
+  "conditionErrorTooNested": "Too nested for the builder; keep editing as text.",
+  "conditionErrorUnreadable": "This condition cannot be read.",
+  "conditionErrorExpectedTerm": "Expected a term where the cursor is.",
+  "@conditionErrorExpectedTerm": {
+    "description": "Syntax error in the text form of a condition; the cursor is placed where it is."
+  },
+  "conditionErrorExpectedBracket": "Expected \")\" where the cursor is.",
+  "@conditionErrorExpectedBracket": {
+    "description": "Syntax error: a closing bracket is missing."
+  },
+  "conditionErrorUnexpected": "Unexpected \"{symbol}\" where the cursor is.",
+  "@conditionErrorUnexpected": {
+    "description": "Syntax error: a character that does not belong there.",
+    "placeholders": {
+      "symbol": {
+        "type": "String"
+      }
+    }
+  },
+  "conditionErrorUnterminatedQuote": "Unterminated quote where the cursor is.",
+  "conditionErrorDanglingEscape": "Dangling escape where the cursor is.",
+  "@conditionErrorDanglingEscape": {
+    "description": "Syntax error: a backslash at the end with nothing after it."
+  },
+  "conditionErrorEmptyTerm": "Empty term where the cursor is.",
+  "@conditionErrorEmptyTerm": {
+    "description": "Syntax error: quotes with nothing inside."
+  },
+  "conditionErrorKeyword": "\"{word}\" is a keyword; quote it to match the word where the cursor is.",
+  "@conditionErrorKeyword": {
+    "description": "Syntax error: AND, OR or NOT used as a search word.",
+    "placeholders": {
+      "word": {
+        "type": "String"
+      }
+    }
+  },
+  "conditionModeBuilder": "Builder",
+  "@conditionModeBuilder": {
+    "description": "Segment: edit the condition with the visual builder."
+  },
+  "conditionModeText": "Text",
+  "@conditionModeText": {
+    "description": "Segment: edit the condition as text."
+  },
+  "conditionTextHelper": "Words or \"phrases\" joined by AND, OR, NOT, with brackets.",
+  "conditionSyntaxTooltip": "Syntax",
+  "conditionSyntaxTitle": "Writing a condition",
+  "conditionSyntaxWord": "the word, wherever it stands",
+  "conditionSyntaxPhrase": "those words next to each other",
+  "conditionSyntaxAnd": "both have to be there",
+  "conditionSyntaxOr": "either one is enough",
+  "conditionSyntaxNot": "the post must not have it",
+  "conditionSyntaxBrackets": "brackets group the parts",
+  "conditionSyntaxSubstring": "also inside longer words, like \"rates\"",
+  "conditionSyntaxCase": "exactly that spelling, capitals included",
+  "conditionAddTerm": "Add a term",
+  "conditionOr": "OR",
+  "@conditionOr": {
+    "description": "Between two groups of words in the visual condition builder."
+  },
+  "conditionAnd": "AND",
+  "@conditionAnd": {
+    "description": "Between two words of a group in the visual condition builder."
+  },
+  "conditionAndAnotherWord": "AND another word",
+  "conditionOrAlternative": "OR alternative",
+  "conditionTermHint": "word or phrase",
+  "conditionTermHintNegated": "word it must not have",
+  "conditionMustNotContain": "Must not contain",
+  "conditionWholeWord": "Whole word",
+  "conditionMatchCase": "Match case",
+  "ruleDiscardTitle": "Discard changes?",
+  "ruleDiscardMessage": "The changes to this rule are not saved.",
+  "ruleErrorNoName": "Give the rule a name.",
+  "ruleErrorNoFeed": "A rule belongs to a feed: create one first.",
+  "scheduleErrorNoDays": "Pick at least one day, or the rule never notifies.",
+  "ruleNotifyAskTitle": "Let the app notify you?",
+  "ruleNotifyAskMessage": "This rule notifies you about the posts it matches, which Android has to allow. Without it the rule still runs, but stays silent.",
+  "ruleDndAskTitle": "Show urgent posts in Do Not Disturb?",
+  "ruleDndAskMessage": "Urgent rules can break through Do Not Disturb, but Android must allow this app to do so. Open the setting now? The rule works either way.",
+  "ruleDeleteTitle": "Delete \"{name}\"?",
+  "@ruleDeleteTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "ruleDryRunScopeChannels": "{count, plural, =1{from {count} channel} other{from {count} channels}}",
+  "@ruleDryRunScopeChannels": {
+    "description": "Part of the dry-run footer: how many channels' posts were read.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleDryRunScopeOfTotal": "of {total} (the first {limit} are checked)",
+  "@ruleDryRunScopeOfTotal": {
+    "description": "Part of the dry-run footer, after the channel count, when the feed has more channels than a dry run reads.",
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleDryRunScopeFailed": "({count} could not be read)",
+  "@ruleDryRunScopeFailed": {
+    "description": "Part of the dry-run footer: channels whose posts could not be loaded.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleDryRunChecked": "Checked the latest posts {scope}.",
+  "@ruleDryRunChecked": {
+    "description": "Dry-run footer. scope is ruleDryRunScopeChannels, optionally followed by ruleDryRunScopeOfTotal and ruleDryRunScopeFailed.",
+    "placeholders": {
+      "scope": {
+        "type": "String"
+      }
+    }
+  },
+  "ruleDryRunAiNone": "The AI matched none of the {checked} newest posts it checked ({passed} of the last {scanned} passed the keywords).",
+  "@ruleDryRunAiNone": {
+    "placeholders": {
+      "checked": {
+        "type": "int"
+      },
+      "passed": {
+        "type": "int"
+      },
+      "scanned": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleDryRunAiMatched": "The AI matched {matched} of the {checked} newest posts it checked:",
+  "@ruleDryRunAiMatched": {
+    "placeholders": {
+      "matched": {
+        "type": "int"
+      },
+      "checked": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleDryRunAiFailed": "The AI check failed: {message}",
+  "@ruleDryRunAiFailed": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "ruleDryRunNoMatch": "No match in the last {scanned} posts.",
+  "@ruleDryRunNoMatch": {
+    "placeholders": {
+      "scanned": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleDryRunMatches": "{matched} of the last {scanned} posts match:",
+  "@ruleDryRunMatches": {
+    "description": "Heading above the posts a dry run matched.",
+    "placeholders": {
+      "matched": {
+        "type": "int"
+      },
+      "scanned": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleNew": "New rule",
+  "@ruleNew": {
+    "description": "Title of the rule editor for a new rule, and the button that opens it."
+  },
+  "ruleEditTitle": "Edit rule",
+  "ruleNameLabel": "Name",
+  "ruleEnabledTitle": "Enabled",
+  "ruleEnabledSubtitle": "Off keeps the rule but stops it notifying",
+  "ruleFeedLabel": "Feed",
+  "ruleChannelsLabel": "Channels",
+  "ruleEveryChannelOfFeed": "Every channel of the feed",
+  "ruleConditionTitle": "Condition",
+  "ruleNoConditionNote": "No condition: every new post from this rule's channels notifies. Add terms to notify only about some of them.",
+  "semanticNoKeywordsNote": "No keywords: every new post from this rule's channels goes to the AI. Add terms to send only posts that contain them.",
+  "semanticAfterKeywordsNote": "The AI checks only the posts that pass these keywords.",
+  "ruleDryRunTesting": "Testing…",
+  "ruleDryRunButton": "Test on recent posts",
+  "ruleNotificationTitle": "Notification",
+  "@ruleNotificationTitle": {
+    "description": "Heading above the priority choice of a rule."
+  },
+  "rulePrioritySilent": "Silent",
+  "rulePriorityNormal": "Normal",
+  "rulePriorityUrgent": "Urgent",
+  "rulePrioritySilentInfo": "In the tray only, with no sound and no vibration.",
+  "rulePriorityNormalInfo": "Pops up, with the sound and vibration set in Notifications and sounds.",
+  "rulePriorityUrgentInfo": "Pops up, and breaks through Do Not Disturb where Android allows it.",
+  "ruleReadAloud": "Read the post aloud",
+  "scheduleSwitch": "Only at certain times",
+  "scheduleMon": "Mon",
+  "scheduleTue": "Tue",
+  "scheduleWed": "Wed",
+  "scheduleThu": "Thu",
+  "scheduleFri": "Fri",
+  "scheduleSat": "Sat",
+  "scheduleSun": "Sun",
+  "scheduleFrom": "From {time}",
+  "@scheduleFrom": {
+    "description": "Button with the start time of a rule's schedule.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleTo": "To {time}",
+  "@scheduleTo": {
+    "description": "Button with the end time of a rule's schedule.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleNextDay": "(next day)",
+  "semanticAlsoAsk": "Also ask the AI",
+  "semanticAlsoAskSubtitle": "A model you set up in Settings decides whether a post is about what you describe.",
+  "semanticPromptLabel": "What the post should be about",
+  "semanticPromptHint": "Central bank interest rate decisions",
+  "semanticNotConfigured": "The AI endpoint is not set up yet (Settings, AI rules). Until then this rule is skipped.",
+  "rulesNoFeedsTitle": "No feeds yet",
+  "rulesNoFeedsMessage": "Every rule belongs to a feed and watches its channels. Make a feed first, then give it rules.",
+  "rulesGoToFeeds": "Go to feeds",
+  "semanticSkippedTitle": "AI rules are being skipped",
+  "semanticSkippedSubtitle": "{message} (last tried {time})",
+  "@semanticSkippedSubtitle": {
+    "description": "Why AI rules fail, and the time of the last attempt.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "ruleScopeChannelLeft": "A channel that left the feed",
+  "rulesEmptyTitle": "No rules yet",
+  "rulesEmptyNoFeeds": "Rules belong to feeds. Make a feed first, then give it rules.",
+  "rulesEmptyFeed": "A rule watches this feed's channels, or one of them, and notifies you, optionally reading the post aloud: give it words to look for, or leave the condition empty to be notified about every post the feed shows.",
+  "rulesEmptyAll": "Every feed has its own rules: a rule watches the feed's channels, or one of them, and notifies you, optionally reading the post aloud.",
+  "ruleScopeEveryChannel": "Every channel",
+  "@ruleScopeEveryChannel": {
+    "description": "In a rule's summary line: the rule watches every channel of its feed."
+  },
+  "ruleTileUrgent": "urgent",
+  "@ruleTileUrgent": {
+    "description": "In a rule's summary line: its priority."
+  },
+  "ruleTileSilent": "silent",
+  "@ruleTileSilent": {
+    "description": "In a rule's summary line: its priority."
+  },
+  "ruleTileReadAloud": "read aloud",
+  "@ruleTileReadAloud": {
+    "description": "In a rule's summary line: the rule reads the post aloud."
+  },
+  "ruleTileEveryPost": "every post",
+  "@ruleTileEveryPost": {
+    "description": "In a rule's summary line: a rule without a condition."
+  },
+  "ruleTileInvalidCondition": "(invalid condition)",
+  "ruleSemanticsUrgent": "Urgent rule",
+  "ruleSemanticsSilent": "Silent rule",
+  "ruleSemanticsNormal": "Normal rule",
+  "semanticPreview": "AI: {prompt}",
+  "@semanticPreview": {
+    "description": "In a rule's summary line: the description the AI checks.",
+    "placeholders": {
+      "prompt": {
+        "type": "String"
+      }
+    }
+  },
+  "semanticPreviewWithKeywords": "AI: {prompt} · only if {keywords}",
+  "@semanticPreviewWithKeywords": {
+    "description": "In a rule's summary line: the AI description and the keyword condition (in rule syntax) a post must pass first.",
+    "placeholders": {
+      "prompt": {
+        "type": "String"
+      },
+      "keywords": {
+        "type": "String"
+      }
+    }
+  },
+  "ruleBatteryBanner": "Android may stop background watching, and rules would then go quiet. Allow the app to ignore battery optimisation so they keep working.",
+  "semanticProblemNotSetUp": "The AI endpoint is not set up in Settings.",
+  "semanticProblemUnreachable": "Could not reach the AI endpoint: {error}",
+  "@semanticProblemUnreachable": {
+    "description": "error is the network error, in English.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "semanticProblemHttpStatus": "The AI endpoint answered {status}: {error}",
+  "@semanticProblemHttpStatus": {
+    "description": "status is the HTTP status code; error is the endpoint's own error text.",
+    "placeholders": {
+      "status": {
+        "type": "int"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "semanticProblemUnexpectedAnswer": "The AI endpoint sent an unexpected answer.",
+  "semanticProblemEmptyAnswer": "The model returned an empty answer.",
+  "readAloudTitle": "Read aloud",
+  "readAloudPreview": "Preview",
+  "@readAloudPreview": {
+    "description": "Tooltip of the button that speaks a sample with the chosen speed, pitch and voice."
+  },
+  "readAloudPreviewText": "New post in Example channel. This is how posts will sound.",
+  "@readAloudPreviewText": {
+    "description": "The sample sentence the preview button speaks aloud."
+  },
+  "readAloudSpeed": "Speed  ·  {speed}×",
+  "@readAloudSpeed": {
+    "description": "Title of the speech speed slider with its value, e.g. 1.0×.",
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "readAloudSpeedSemantics": "Speed {speed} times",
+  "@readAloudSpeedSemantics": {
+    "description": "What a screen reader says for the speed slider's value.",
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "readAloudPitch": "Pitch  ·  {pitch}",
+  "@readAloudPitch": {
+    "description": "Title of the voice pitch slider with its value.",
+    "placeholders": {
+      "pitch": {
+        "type": "String"
+      }
+    }
+  },
+  "readAloudPitchSemantics": "Pitch {pitch}",
+  "@readAloudPitchSemantics": {
+    "description": "What a screen reader says for the pitch slider's value.",
+    "placeholders": {
+      "pitch": {
+        "type": "String"
+      }
+    }
+  },
+  "readAloudMaxLength": "Maximum length",
+  "readAloudMaxLengthSubtitle": "Posts longer than {maxChars} characters end with \"and more\"",
+  "@readAloudMaxLengthSubtitle": {
+    "description": "The quoted words are what read-aloud says where it cuts a long post short.",
+    "placeholders": {
+      "maxChars": {
+        "type": "int"
+      }
+    }
+  },
+  "readAloudDefaultLanguage": "Language when unknown",
+  "readAloudDefaultLanguageSubtitle": "Used when a post's language cannot be detected",
+  "readAloudVoices": "Voices",
+  "readAloudNoVoices": "No voices reported by the speech engine",
+  "readAloudNoVoicesSubtitle": "The system default voice is used for every language",
+  "readAloudUseDefaultVoice": "Use the default voice",
+  "@readAloudUseDefaultVoice": {
+    "description": "Tooltip of the button that drops a language's chosen voice."
+  },
+  "readAloudAddLanguage": "Add language",
+  "readAloudOtherLanguagesFooter": "Every other language is read with the phone's default voice for it.",
+  "readAloudPhoneDefaultVoice": "The phone's default voice",
+  "readAloudSearchLanguages": "Search languages",
+  "readAloudVoiceId": "Voice {id}",
+  "@readAloudVoiceId": {
+    "description": "A speech engine voice named by its id, e.g. Voice SFG.",
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "readAloudVoiceOnline": "online",
+  "@readAloudVoiceOnline": {
+    "description": "Marks a voice that needs the internet, e.g. Voice HFD · UA · online."
+  },
+  "readAloudVoiceFemale": "Female",
+  "@readAloudVoiceFemale": {
+    "description": "A female voice, followed by its number, e.g. Female 1 · US."
+  },
+  "readAloudVoiceMale": "Male",
+  "@readAloudVoiceMale": {
+    "description": "A male voice, followed by its number, e.g. Male 2 · GB."
+  },
+  "notificationSettingsTitle": "Notifications and sounds",
+  "notificationSettingsRestartTitle": "Restart the app?",
+  "notificationSettingsRestartStartsWatching": "Watching in the background starts when the app starts again.",
+  "notificationSettingsRestartStopsWatching": "The permanent notification goes away when the app starts again.",
+  "notificationSettingsRestartDueStopsWatching": "The permanent notification goes when the app starts again.",
+  "@notificationSettingsRestartDueStopsWatching": {
+    "description": "Banner shown while background watching is off but the app has not restarted yet."
+  },
+  "notificationSettingsRestartNow": "Restart now",
+  "notificationSettingsBlocked": "Android blocks this app's notifications, so no rule can notify you.",
+  "notificationSettingsTurnOn": "Turn them on",
+  "@notificationSettingsTurnOn": {
+    "description": "Button that opens Android's notification settings of the app."
+  },
+  "notificationSettingsRuleNotifications": "Rule notifications",
+  "notificationSettingsBadgeCounter": "Badge counter",
+  "notificationSettingsCountUnreadPosts": "Count unread posts",
+  "notificationSettingsCountFooter": "The badges of the feeds and of the folder tabs count the unread posts. Off, they count the channels that have unread posts.",
+  "notificationSettingsBackground": "Background",
+  "notificationSettingsWatchInBackground": "Watch channels in the background",
+  "notificationSettingsWatchInBackgroundSubtitle": "Rules keep running while the app is closed. Off removes the permanent notification, and rules then only notify while the app is open. The app restarts to apply it.",
+  "notificationSettingsSystemSettings": "System notification settings",
+  "notificationSettingsNoSoundPicker": "No sound picker: {message}",
+  "@notificationSettingsNoSoundPicker": {
+    "description": "The message is Android's own error text.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationSettingsNoSoundPickerOnDevice": "No sound picker on this device.",
+  "notificationSettingsNormalSound": "Normal rules: sound",
+  "notificationSettingsNormalVibrate": "Normal rules: vibrate",
+  "notificationSettingsUrgentSound": "Urgent rules: sound",
+  "notificationSettingsUrgentVibrate": "Urgent rules: vibrate",
+  "notificationSettingsSystemDefaultSound": "The system default",
+  "@notificationSettingsSystemDefaultSound": {
+    "description": "Subtitle of a sound row when no sound was chosen."
+  },
+  "notificationSettingsChosenSound": "A chosen sound",
+  "@notificationSettingsChosenSound": {
+    "description": "Subtitle of a sound row when Android cannot name the chosen sound."
+  },
+  "notificationSettingsUseDefaultSound": "Use the default",
+  "@notificationSettingsUseDefaultSound": {
+    "description": "Tooltip of the button that resets a rule sound to the system default."
+  },
+  "notificationSettingsSilentRulesFooter": "Silent rules stay silent.",
+  "privacyTitle": "Privacy and security",
+  "privacySecurity": "Security",
+  "privacyAppLockFooter": "A PIN, or the phone's own fingerprint or face, is asked for when the app has rested. Without it anyone holding the unlocked phone can read your channels.",
+  "appLockTitle": "App lock",
+  "appLockLocked": "{appName} is locked",
+  "@appLockLocked": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "appLockUnlockReason": "Unlock {appName}",
+  "@appLockUnlockReason": {
+    "description": "What Android's fingerprint or face prompt says it is for.",
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "appLockBiometricsUnavailable": "The phone's check is not available; use the PIN.",
+  "appLockWrongPin": "Wrong PIN",
+  "appLockPin": "PIN",
+  "appLockUnlock": "Unlock",
+  "appLockUseBiometrics": "Use fingerprint or face",
+  "appLockRemoveTitle": "Remove the lock?",
+  "appLockRemoveMessage": "Anyone holding the unlocked phone can then read your channels.",
+  "appLockTooShort": "At least four digits",
+  "appLockMismatch": "The two do not match",
+  "@appLockMismatch": {
+    "description": "The PIN and its repetition differ."
+  },
+  "appLockPinReplaced": "PIN replaced",
+  "appLockPinSet": "PIN set, the lock is on",
+  "appLockTimeoutAtOnce": "At once",
+  "@appLockTimeoutAtOnce": {
+    "description": "Ask for the PIN again as soon as the app is left."
+  },
+  "appLockTimeoutMinute": "After a minute",
+  "appLockTimeoutFiveMinutes": "After five minutes",
+  "appLockTimeoutHour": "After an hour",
+  "appLockEnterPinToChange": "Enter your PIN to change the lock",
+  "appLockIntroWithPin": "The app asks for this PIN when it has rested. Setting a new one replaces it.",
+  "appLockIntroNoPin": "A PIN keeps the channels you read out of the hands of whoever holds the unlocked phone.",
+  "appLockNewPin": "New PIN",
+  "appLockPinAgain": "PIN again",
+  "appLockReplacePin": "Replace the PIN",
+  "appLockSetPin": "Set the PIN",
+  "appLockRemove": "Remove the lock",
+  "appLockAskAgain": "Ask again",
+  "@appLockAskAgain": {
+    "description": "Header above the choices of how long the app may rest before it asks for the PIN again."
+  },
+  "appLockBiometrics": "Fingerprint or face",
+  "appLockBiometricsSubtitle": "Offered first when the app is locked; the PIN always works too",
+  "languageName": "{code, select, af{Afrikaans} am{Amharic} ar{Arabic} as{Assamese} az{Azerbaijani} be{Belarusian} bg{Bulgarian} bn{Bengali} brx{Bodo} bs{Bosnian} ca{Catalan} cmn{Mandarin} cs{Czech} cy{Welsh} da{Danish} de{German} doi{Dogri} el{Greek} en{English} es{Spanish} et{Estonian} eu{Basque} fa{Persian} fi{Finnish} fil{Filipino} fr{French} ga{Irish} gl{Galician} gu{Gujarati} he{Hebrew} hi{Hindi} hr{Croatian} hu{Hungarian} hy{Armenian} id{Indonesian} is{Icelandic} it{Italian} ja{Japanese} jv{Javanese} ka{Georgian} kk{Kazakh} km{Khmer} kn{Kannada} ko{Korean} kok{Konkani} ks{Kashmiri} ky{Kyrgyz} lo{Lao} lt{Lithuanian} lv{Latvian} mai{Maithili} mk{Macedonian} ml{Malayalam} mn{Mongolian} mni{Manipuri} mr{Marathi} ms{Malay} my{Burmese} nb{Norwegian} ne{Nepali} nl{Dutch} no{Norwegian} or{Odia} pa{Punjabi} pl{Polish} pt{Portuguese} ro{Romanian} ru{Russian} sa{Sanskrit} sat{Santali} sd{Sindhi} si{Sinhala} sk{Slovak} sl{Slovenian} sq{Albanian} sr{Serbian} su{Sundanese} sv{Swedish} sw{Swahili} ta{Tamil} te{Telugu} th{Thai} tr{Turkish} uk{Ukrainian} ur{Urdu} uz{Uzbek} vi{Vietnamese} yue{Cantonese} zh{Chinese} zu{Zulu} other{?}}",
+  "@languageName": {
+    "description": "The name of a language a speech engine offers, by its ISO 639 code, as a list item. The app shows the code itself for codes outside this list.",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsLogOut": "Log out",
+  "@settingsLogOut": {
+    "description": "Overflow menu item on the Settings screen that logs the account out."
+  },
+  "accountsTitle": "Accounts",
+  "@accountsTitle": {
+    "description": "Settings row and title of the screen listing the accounts on this device."
+  },
+  "settingsSavedMessages": "Saved Messages",
+  "@settingsSavedMessages": {
+    "description": "Settings row that opens Telegram's chat with oneself."
+  },
+  "chatSettingsTitle": "Chat settings",
+  "@chatSettingsTitle": {
+    "description": "Settings row and screen title: text size of posts and the theme."
+  },
+  "settingsPrivacyAndSecurity": "Privacy and security",
+  "settingsNotificationsAndSounds": "Notifications and sounds",
+  "dataStorageTitle": "Data and storage",
+  "@dataStorageTitle": {
+    "description": "Settings row and screen title: storage usage, automatic downloads, autoplay."
+  },
+  "settingsReadAloud": "Read aloud",
+  "@settingsReadAloud": {
+    "description": "Settings row that opens the read-aloud settings."
+  },
+  "aiSettingsTitle": "AI rules",
+  "@aiSettingsTitle": {
+    "description": "Settings row and screen title for the AI endpoint that AI rules use."
+  },
+  "syncTitle": "Google Drive sync",
+  "@syncTitle": {
+    "description": "Settings row and screen title."
+  },
+  "settingsSyncSignedOut": "Signed out",
+  "@settingsSyncSignedOut": {
+    "description": "Value of the Google Drive sync row: sync is meant to be on, but Google wants the user to sign in again."
+  },
+  "settingsAbout": "About",
+  "@settingsAbout": {
+    "description": "Section header over the About and licenses rows."
+  },
+  "settingsAboutApp": "About {appName}",
+  "@settingsAboutApp": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsLicenses": "Open-source licenses",
+  "settingsAppForAndroid": "{appName} for Android",
+  "@settingsAppForAndroid": {
+    "description": "Signature under the Settings list when the version is unknown.",
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsAppVersion": "{appName} for Android {version}",
+  "@settingsAppVersion": {
+    "description": "Signature under the Settings list, e.g. 'v0.1.0 (1)' as the version.",
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsAboutText": "Free software under the GNU GPL v3. Reads your joined channels; nothing leaves the device except Telegram traffic and, if you create AI rules, the posts those rules check, sent to the endpoint you chose.",
+  "@settingsAboutText": {
+    "description": "Text of the About dialog."
+  },
+  "settingsAccountUnavailable": "Account unavailable",
+  "@settingsAccountUnavailable": {
+    "description": "Profile header when the profile could not be loaded."
+  },
+  "settingsReloadProfile": "Reload the profile",
+  "@settingsReloadProfile": {
+    "description": "Tooltip of the refresh button beside the profile."
+  },
+  "accountsNumbered": "Account {id}",
+  "@accountsNumbered": {
+    "description": "Name of an account whose profile is not known yet: its number on this device.",
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
+  "accountsLimitReached": "Four accounts is as many as the app holds.",
+  "@accountsLimitReached": {
+    "description": "Snackbar when a fifth account is added."
+  },
+  "accountsRemoveTitle": "Remove {name}?",
+  "@accountsRemoveTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "accountsRemoveText": "Its session, feeds, rules and cached posts are deleted from this device. The Telegram account itself stays as it is.",
+  "accountsLastCannotBeRemoved": "The last account cannot be removed; log out instead.",
+  "accountsIntro": "Each account has its own session, feeds and rules on this device. Switching takes the watcher down and brings it up again on the other account.",
+  "accountsInUse": "In use",
+  "@accountsInUse": {
+    "description": "Subtitle of the account the app is on now."
+  },
+  "accountsTapToSwitch": "Tap to switch to it",
+  "@accountsTapToSwitch": {
+    "description": "Subtitle of an account the app is not on."
+  },
+  "accountsRemoveTooltip": "Remove from this device",
+  "accountsAdd": "Add an account",
+  "accountsAddLimit": "Four is as many as the app holds",
+  "@accountsAddLimit": {
+    "description": "Subtitle of the disabled Add an account row when four accounts exist."
+  },
+  "accountsAddSubtitle": "Logs in as another account and switches to it",
+  "aiSettingsTestOk": "Works: the model answered correctly.",
+  "aiSettingsTestUnexpected": "The endpoint answered, but not as expected. Try a stronger model.",
+  "aiSettingsIntro": "AI rules describe in your own words what a post should be about. To check them, the app sends the text of candidate posts to the endpoint below. Nothing is sent unless you create such a rule.",
+  "aiSettingsEndpoint": "Endpoint",
+  "@aiSettingsEndpoint": {
+    "description": "Label of the field holding the base URL of an OpenAI-compatible API."
+  },
+  "aiSettingsEndpointHelper": "Any OpenAI-compatible API: OpenAI, OpenRouter, a local Ollama (…/v1), …",
+  "aiSettingsHttpWarning": "http:// is not encrypted: posts and the key travel in the clear. Use it only for an endpoint on your own network.",
+  "aiSettingsModel": "Model",
+  "aiSettingsApiKey": "API key",
+  "aiSettingsApiKeyHelper": "Stored in the Android keystore. Leave empty for local endpoints.",
+  "aiSettingsHideKey": "Hide key",
+  "aiSettingsShowKey": "Show key",
+  "aiSettingsSaveAndTest": "Save and test",
+  "chatSettingsTextSize": "Text size in posts",
+  "chatSettingsTextSizePreview": "A post is drawn at this size.",
+  "@chatSettingsTextSizePreview": {
+    "description": "Sample line drawn at the chosen text size."
+  },
+  "chatSettingsTheme": "Theme",
+  "chatSettingsThemeSystem": "System",
+  "@chatSettingsThemeSystem": {
+    "description": "Theme that follows the phone's dark theme switch."
+  },
+  "chatSettingsThemeLight": "Light",
+  "chatSettingsThemeDark": "Dark",
+  "chatSettingsThemeFooter": "System follows the dark theme switch of the phone.",
+  "dataStorageResetTitle": "Reset auto-download settings?",
+  "dataStorageResetText": "Mobile data goes back to Medium, Wi-Fi to High and roaming to Low.",
+  "@dataStorageResetText": {
+    "description": "Medium, High and Low are the data-usage presets."
+  },
+  "dataStorageDiskAndNetwork": "Disk and network usage",
+  "dataStorageStorageUsage": "Storage usage",
+  "@dataStorageStorageUsage": {
+    "description": "Row and screen title: how much Telegram's cache takes on the phone."
+  },
+  "dataStorageAutoDownload": "Automatic media download",
+  "@dataStorageAutoDownload": {
+    "description": "Section header over the three connections."
+  },
+  "dataStorageReset": "Reset auto-download settings",
+  "dataStorageAutoplay": "Autoplay media",
+  "dataStorageGifs": "GIFs",
+  "dataStorageVideos": "Videos",
+  "dataStorageAutoplayFooter": "A video that loads by itself on the connection the phone is on plays muted in its post; a tap opens it with sound.",
+  "dataStorageDataUsage": "Data usage",
+  "@dataStorageDataUsage": {
+    "description": "Header over the Low / Medium / High slider."
+  },
+  "dataStoragePresetCustom": "Custom",
+  "@dataStoragePresetCustom": {
+    "description": "Stop on the data-usage slider for settings that match no preset."
+  },
+  "dataStorageMediaTypes": "Types of media",
+  "dataStoragePhotos": "Photos",
+  "dataStorageEveryPhoto": "Every photo",
+  "@dataStorageEveryPhoto": {
+    "description": "Subtitle of the Photos row when photos load by themselves."
+  },
+  "dataStorageUpTo": "Up to {size}",
+  "@dataStorageUpTo": {
+    "description": "Size limit of videos or files that load by themselves, e.g. 'Up to 10 MB'.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataStorageTypesFooter": "GIFs and round video messages count as videos, music and voice messages as files. A video within the limit also autoplays, if Autoplay is on for it in Data and storage.",
+  "dataStorageMaxVideoSize": "Maximum video size",
+  "dataStorageMaxFileSize": "Maximum file size",
+  "dataStoragePreload": "Preload larger videos",
+  "dataStoragePreloadFooter": "The first seconds of videos larger than {size} are loaded ahead, so that they start at once.",
+  "@dataStoragePreloadFooter": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataStorageAutoDownloadMedia": "Auto-download media",
+  "@dataStorageAutoDownloadMedia": {
+    "description": "Switch of a whole connection at the top of its screen."
+  },
+  "dataStorageClearTitle": "Clear {size} of cache?",
+  "@dataStorageClearTitle": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataStorageClearText": "Pictures, videos and files load again from Telegram when you open them.",
+  "dataStorageStatsFailed": "Telegram did not say how much it stores.",
+  "dataStorageTelegramCache": "Telegram's cache",
+  "dataStorageCachedFiles": "Cached files",
+  "dataStorageFileCount": "{count, plural, other{{count} files}}",
+  "@dataStorageFileCount": {
+    "description": "How many files Telegram's cache holds.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataStorageDatabase": "Database",
+  "dataStorageClearing": "Clearing…",
+  "dataStorageClearCache": "Clear cache ({size})",
+  "@dataStorageClearCache": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dataStorageClearFooter": "Pictures, videos and files are loaded again from Telegram when you open them. Your feeds, rules and read positions stay.",
+  "syncAtTime": "at {time}",
+  "@syncAtTime": {
+    "description": "When the last sync ran today, e.g. 'at 14:32'; follows 'Last synced'.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "syncYesterdayAt": "yesterday at {time}",
+  "@syncYesterdayAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "syncDateAtTime": "{date} at {time}",
+  "@syncDateAtTime": {
+    "description": "When the last sync ran, e.g. 'Sep 20 at 14:32'.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "syncUnavailable": "Not available in this build",
+  "syncProblem": "Problem: {error}",
+  "@syncProblem": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "syncOnAccount": "On, {account}",
+  "@syncOnAccount": {
+    "description": "Sync state with the Google account's email.",
+    "placeholders": {
+      "account": {
+        "type": "String"
+      }
+    }
+  },
+  "syncOnAccountLastSynced": "On, {account} · last synced {when}",
+  "@syncOnAccountLastSynced": {
+    "description": "when is e.g. 'at 14:32', 'yesterday at 14:32' or 'Sep 20 at 14:32'.",
+    "placeholders": {
+      "account": {
+        "type": "String"
+      },
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "syncIntro": "Keeps your feeds with their channels, your rules and your settings the same on all your devices through a hidden app file in your own Google Drive. There is no server of ours. Read positions, the AI API key and your Telegram session stay on each device.",
+  "syncNoClientIdBuild": "This build was made without a Google client id, so sync cannot be turned on.",
+  "syncSignIn": "Sign in with Google and sync",
+  "syncSyncing": "Syncing…",
+  "syncNotSyncedYet": "Not synced yet",
+  "syncLastSynced": "Last synced {when}",
+  "@syncLastSynced": {
+    "description": "when is e.g. 'at 14:32', 'yesterday at 14:32' or 'Sep 20 at 14:32'.",
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "syncNow": "Sync now",
+  "syncTurnOff": "Turn off on this device",
+  "syncSignedOutError": "Signed out of Google. Sign in again to keep syncing.",
+  "syncNoClientIdError": "This build has no Google client id.",
+  "syncSignInCancelled": "Sign-in was cancelled.",
+  "syncSignInFailed": "Google sign-in failed: {detail}",
+  "@syncSignInFailed": {
+    "description": "detail is Google's own description of the failure.",
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "syncNotSignedIn": "Not signed in to Google Drive.",
+  "syncDriveUnreachable": "Google Drive cannot be reached: {detail}",
+  "@syncDriveUnreachable": {
+    "description": "detail is the technical error text.",
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "syncDriveRefused": "Google Drive refused to {request, select, find{look for the sync file} read{read the sync file} create{create the sync file} other{update the sync file}} ({status}){detail}",
+  "@syncDriveRefused": {
+    "description": "status is the HTTP status code; detail is empty or ': ' followed by Google's own message.",
+    "placeholders": {
+      "request": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      },
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "viewerCounter": "{index} of {total}",
+  "@viewerCounter": {
+    "description": "Position of the picture in front within its album in the full-screen viewer.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "viewerSaveToSavedMessages": "Save to Saved Messages",
+  "@viewerSaveToSavedMessages": {
+    "description": "Viewer menu item: forwards the post into the Saved Messages chat."
+  },
+  "viewerSaveToGallery": "Save to gallery",
+  "@viewerSaveToGallery": {
+    "description": "Viewer menu item: copies the picture or video into the phone's gallery."
+  },
+  "viewerVideoSavedToGallery": "Video saved to gallery",
+  "viewerPictureSavedToGallery": "Picture saved to gallery",
+  "viewerSaveFailed": "Cannot save: {error}",
+  "@viewerSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "viewerShareNeedsDownload": "Download the video first to share it.",
+  "viewerShareFileMissing": "Cannot share: the file did not arrive",
+  "viewerShareFailed": "Cannot share: {error}",
+  "@viewerShareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "pipOpen": "Picture-in-picture",
+  "@pipOpen": {
+    "description": "Tooltip of the viewer button that shrinks the video into a floating player."
+  },
+  "pipFloatingPlayer": "Floating video player",
+  "@pipFloatingPlayer": {
+    "description": "Accessibility label of the small floating video player."
+  },
+  "pipBackToFullScreen": "Back to full screen",
+  "@pipBackToFullScreen": {
+    "description": "Tooltip of the floating player's button that reopens the full-screen viewer."
+  },
+  "playerPlay": "Play",
+  "@playerPlay": {
+    "description": "Tooltip of a play button."
+  },
+  "playerPause": "Pause",
+  "@playerPause": {
+    "description": "Tooltip of a pause button."
+  },
+  "playerSpeed": "Speed",
+  "@playerSpeed": {
+    "description": "Tooltip of the playback speed menu."
+  },
+  "audioStop": "Stop",
+  "@audioStop": {
+    "description": "Tooltip of the audio bar's close button, which stops playback."
+  },
+  "videoSoundOn": "Sound on",
+  "@videoSoundOn": {
+    "description": "Tooltip of the mute button while the video is muted."
+  },
+  "videoSoundOff": "Sound off",
+  "@videoSoundOff": {
+    "description": "Tooltip of the mute button while the video plays with sound."
+  },
+  "videoSeekSeconds": "{seconds} s",
+  "@videoSeekSeconds": {
+    "description": "Hint shown when a double tap seeks the video by this many seconds.",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "videoCannotPlay": "Cannot play this video: {error}",
+  "@videoCannotPlay": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "videoDownload": "Download",
+  "videoDownloadWithSize": "Download ({size})",
+  "@videoDownloadWithSize": {
+    "description": "Viewer menu item; size is the file size, e.g. 12 MB.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "videoCancelDownload": "Cancel download",
+  "videoDownloadFailed": "Failed, try again",
+  "@videoDownloadFailed": {
+    "description": "Label of the download pill on a video after the download failed."
+  },
+  "autoDownloadRowMobile": "When using mobile data",
+  "@autoDownloadRowMobile": {
+    "description": "Row in Data and storage that opens the automatic download settings for mobile data."
+  },
+  "autoDownloadRowWifi": "When connected on Wi-Fi",
+  "autoDownloadRowRoaming": "When roaming",
+  "autoDownloadTitleMobile": "Using mobile data",
+  "@autoDownloadTitleMobile": {
+    "description": "Title of the automatic download screen for mobile data."
+  },
+  "autoDownloadTitleWifi": "Using Wi-Fi",
+  "autoDownloadTitleRoaming": "Roaming",
+  "autoDownloadPresetLow": "Low",
+  "@autoDownloadPresetLow": {
+    "description": "Data usage preset of automatic downloads."
+  },
+  "autoDownloadPresetMedium": "Medium",
+  "@autoDownloadPresetMedium": {
+    "description": "Data usage preset of automatic downloads."
+  },
+  "autoDownloadPresetHigh": "High",
+  "@autoDownloadPresetHigh": {
+    "description": "Data usage preset of automatic downloads."
+  },
+  "autoDownloadSummaryDisabled": "Disabled",
+  "@autoDownloadSummaryDisabled": {
+    "description": "Line under a connection's row when nothing downloads automatically on it."
+  },
+  "autoDownloadSummaryNothing": "Nothing",
+  "@autoDownloadSummaryNothing": {
+    "description": "Line under a connection's row when it is on but no kind of media is chosen."
+  },
+  "autoDownloadSummaryPhotos": "Photos",
+  "@autoDownloadSummaryPhotos": {
+    "description": "Part of the line under a connection's row, e.g. Photos, Videos (10 MB), Files (1 MB)."
+  },
+  "autoDownloadSummaryVideos": "Videos ({limit})",
+  "@autoDownloadSummaryVideos": {
+    "description": "Part of the line under a connection's row; limit is the size limit, e.g. 10 MB.",
+    "placeholders": {
+      "limit": {
+        "type": "String"
+      }
+    }
+  },
+  "autoDownloadSummaryFiles": "Files ({limit})",
+  "@autoDownloadSummaryFiles": {
+    "description": "Part of the line under a connection's row; limit is the size limit, e.g. 1 MB.",
+    "placeholders": {
+      "limit": {
+        "type": "String"
+      }
+    }
+  },
+  "appStartFailed": "Could not start the core: {error}",
+  "@appStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "languageTitle": "Language",
+  "@languageTitle": {
+    "description": "Settings row and screen that pick the interface language."
+  },
+  "languageSystem": "System",
+  "@languageSystem": {
+    "description": "Language choice that follows the phone's language."
+  },
+  "languageFooter": "System picks the phone's language when the app is translated into it, and English otherwise.",
+  "ttsIntro": "New post in {channel}.",
+  "@ttsIntro": {
+    "description": "Spoken before a post that is read aloud.",
+    "placeholders": {
+      "channel": {
+        "type": "String"
+      }
+    }
+  },
+  "ttsLink": "link",
+  "@ttsLink": {
+    "description": "Spoken in place of a web address when a post is read aloud."
+  },
+  "ttsMore": "… and more",
+  "@ttsMore": {
+    "description": "Spoken after a post cut short when it is read aloud."
+  },
+  "serviceChannelName": "Watching channels",
+  "@serviceChannelName": {
+    "description": "Android notification channel of the permanent notification."
+  },
+  "serviceChannelDescription": "Keeps the Telegram connection open for keyword rules",
+  "serviceStarting": "Starting…",
+  "servicePause": "Pause",
+  "@servicePause": {
+    "description": "Button on the permanent notification that pauses every rule."
+  },
+  "serviceResume": "Resume",
+  "servicePaused": "Paused: rules are not evaluated",
+  "serviceWatching": "{count, plural, =1{Watching 1 channel} other{Watching {count} channels}}",
+  "@serviceWatching": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyNewPost": "New post",
+  "@notifyNewPost": {
+    "description": "Title of a rule notification whose channel has no name."
+  },
+  "notifyNewPosts": "{count, plural, =1{1 new post} other{{count} new posts}}",
+  "@notifyNewPosts": {
+    "description": "Group summary of a channel's rule notifications.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notifyListen": "Listen",
+  "@notifyListen": {
+    "description": "Notification action that reads the post aloud."
+  },
+  "notifyStop": "Stop",
+  "@notifyStop": {
+    "description": "Notification action that stops reading the post aloud."
+  },
+  "notifyChannelSilent": "Silent posts",
+  "@notifyChannelSilent": {
+    "description": "Android notification channel name."
+  },
+  "notifyChannelSilentDescription": "Rules with silent priority: no sound, no heads-up",
+  "notifyChannelNormal": "Posts",
+  "@notifyChannelNormal": {
+    "description": "Android notification channel name."
+  },
+  "notifyChannelNormalDescription": "Rules with normal priority",
+  "notifyChannelNormalInApp": "Posts while the app is open",
+  "notifyChannelNormalInAppDescription": "Rules with normal priority while the app is open, without a pop-up",
+  "notifyChannelUrgent": "Urgent posts",
+  "notifyChannelUrgentDescription": "Rules with urgent priority",
+  "notifyChannelUrgentInApp": "Urgent posts while the app is open",
+  "notifyChannelUrgentInAppDescription": "Rules with urgent priority while the app is open, without a pop-up",
+  "notifyChannelBypassesDnd": "{description}; bypasses Do Not Disturb",
+  "@notifyChannelBypassesDnd": {
+    "description": "A channel description, then that its notifications sound in Do Not Disturb.",
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "mediaPoll": "Poll",
+  "mediaLocation": "Location",
+  "mediaVenue": "Venue",
+  "mediaContact": "Contact",
+  "mediaDice": "Dice",
+  "mediaGame": "Game",
+  "mediaInvoice": "Invoice",
+  "mediaGiveaway": "Giveaway",
+  "mediaStory": "Story",
+  "problemSyncNewerVersion": "The sync file was written by a newer version of the app. Update this device.",
+  "problemSyncUnreadable": "The sync file cannot be read: {error}",
+  "@problemSyncUnreadable": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
+}

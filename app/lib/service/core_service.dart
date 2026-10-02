@@ -16,6 +16,7 @@ import '../ai/semantic_gate.dart';
 import '../credentials.dart';
 import '../host/accounts.dart';
 import '../host/fake_media.dart';
+import '../l10n/l10n.dart';
 import 'notifier.dart';
 import 'reading_now.dart';
 import 'tts_service.dart';
@@ -74,17 +75,16 @@ const _retiredServiceChannel = 'core_min';
 /// else: registering it again would drop the one the app is already listening on.
 void initCoreService() {
   FlutterForegroundTask.initCommunicationPort();
-  _configureServiceNotification();
+  _configureServiceNotification(AppLanguage.strings(null));
 }
 
-/// The service's notification options.
-void _configureServiceNotification() {
+/// The service's notification options, its channel named in [strings].
+void _configureServiceNotification(AppLocalizations strings) {
   FlutterForegroundTask.init(
     androidNotificationOptions: AndroidNotificationOptions(
       channelId: serviceChannel,
-      channelName: 'Watching channels',
-      channelDescription:
-          'Keeps the Telegram connection open for keyword rules',
+      channelName: strings.serviceChannelName,
+      channelDescription: strings.serviceChannelDescription,
       onlyAlertOnce: true,
       channelImportance: NotificationChannelImportance.LOW,
       priority: NotificationPriority.LOW,
@@ -102,10 +102,11 @@ void _configureServiceNotification() {
   );
 }
 
-/// Starts the service (idempotent). Returns false when Android refused.
-Future<bool> startCoreService() async {
+/// Starts the service (idempotent), its notification in [strings]. Returns false when
+/// Android refused.
+Future<bool> startCoreService(AppLocalizations strings) async {
   if (await FlutterForegroundTask.isRunningService) return true;
-  _configureServiceNotification();
+  _configureServiceNotification(strings);
   // One "Watching channels" row in the system settings, not two.
   await FlutterLocalNotificationsPlugin()
       .resolvePlatformSpecificImplementation<
@@ -116,10 +117,10 @@ Future<bool> startCoreService() async {
     serviceId: coreServiceId,
     serviceTypes: [ForegroundServiceTypes.specialUse],
     notificationTitle: appName,
-    notificationText: 'Starting…',
+    notificationText: strings.serviceStarting,
     notificationIcon: const NotificationIcon(metaDataName: serviceIconMetaData),
-    notificationButtons: const [
-      NotificationButton(id: pauseButtonId, text: 'Pause'),
+    notificationButtons: [
+      NotificationButton(id: pauseButtonId, text: strings.servicePause),
     ],
     callback: coreServiceCallback,
   );
@@ -146,6 +147,10 @@ class CoreServiceHandler extends TaskHandler {
   TtsService? _tts;
   SemanticGate? _gate;
 
+  /// The interface language: the Language setting, or the phone's. The app tells the
+  /// service when it changes ('language').
+  AppLocalizations _strings = AppLanguage.strings(null);
+
   /// Recent matched posts so the Listen action can find their text.
   final _recentTexts = <(int, int), String>{};
 
@@ -165,6 +170,7 @@ class CoreServiceHandler extends TaskHandler {
     _log('onStart ($starter)');
     final paths = await appPaths();
     _db = AppDatabase(appDatabaseFile(File(paths.db)));
+    _strings = AppLanguage.strings(await _db!.setting(SettingKeys.language));
     final reply = ReceivePort();
     _core = await Isolate.spawn(
       coreIsolateMain,
@@ -184,7 +190,7 @@ class CoreServiceHandler extends TaskHandler {
       if (p) unawaited(_tts?.stopAll());
       unawaited(_updateNotification());
     });
-    await _notifier.init(sounds: await _sounds());
+    await _notifier.init(sounds: await _sounds(), strings: _strings);
     final tts = TtsService(db: _db!, speaker: FlutterTtsSpeaker());
     try {
       await tts.init();
@@ -225,6 +231,7 @@ class CoreServiceHandler extends TaskHandler {
     final plan = NotificationPlan.forMatch(
       m,
       channelTitle: _titles[m.post.chatId] ?? '',
+      strings: _strings,
     );
     _remember(m.post.chatId, m.post.messageId, m.post.text);
     // Queued first, so the notification offers Stop from the start.
@@ -341,8 +348,8 @@ class CoreServiceHandler extends TaskHandler {
     await FlutterForegroundTask.updateService(
       notificationTitle: appName,
       notificationText: _paused
-          ? 'Paused: rules are not evaluated'
-          : 'Watching $n channel${n == 1 ? '' : 's'}',
+          ? _strings.servicePaused
+          : _strings.serviceWatching(n),
       // Named again on every update: Android restores a running service with the content
       // saved when it was started, which may come from a build that had no icon of its own
       // and so fell back to the launcher icon, in colour.
@@ -351,14 +358,45 @@ class CoreServiceHandler extends TaskHandler {
       ),
       notificationButtons: [
         _paused
-            ? const NotificationButton(id: resumeButtonId, text: 'Resume')
-            : const NotificationButton(id: pauseButtonId, text: 'Pause'),
+            ? NotificationButton(
+                id: resumeButtonId,
+                text: _strings.serviceResume,
+              )
+            : NotificationButton(
+                id: pauseButtonId,
+                text: _strings.servicePause,
+              ),
       ],
     );
   }
 
   @override
   void onRepeatEvent(DateTime timestamp) => unawaited(_updateNotification());
+
+  /// The app's interface language changed (its setting, or the phone's language while
+  /// the setting follows the phone): the permanent notification, the rule notifications
+  /// and the channels' names in Android's settings follow.
+  Future<void> _setLanguage(String code) async {
+    final strings = AppLanguage.stringsOfLanguage(code);
+    if (strings == null || strings.localeName == _strings.localeName) return;
+    _strings = strings;
+    await FlutterLocalNotificationsPlugin()
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(
+          AndroidNotificationChannel(
+            serviceChannel,
+            strings.serviceChannelName,
+            description: strings.serviceChannelDescription,
+            importance: Importance.low,
+            playSound: false,
+            enableVibration: false,
+          ),
+        );
+    await _notifier.setStrings(strings);
+    await _updateNotification();
+  }
 
   /// The rule sounds and vibrations as the settings say.
   Future<NotificationSounds> _sounds() async => NotificationSounds(
@@ -378,6 +416,9 @@ class CoreServiceHandler extends TaskHandler {
     }
     if (data == 'sounds' && _db != null) {
       unawaited(_sounds().then(_notifier.setSounds));
+    }
+    if (data is Map && data['language'] is String) {
+      unawaited(_setLanguage(data['language'] as String));
     }
     // Posts that match while the app is on screen do not pop up (appOpenMessage).
     if (data is Map && data['appOpen'] is bool) {

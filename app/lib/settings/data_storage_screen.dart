@@ -6,6 +6,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../media/auto_download.dart';
 import '../feeds/media_view.dart' show formatBytes;
+import '../l10n/l10n.dart';
 import 'settings_tiles.dart';
 import '../widgets/destructive_button.dart';
 
@@ -38,21 +39,20 @@ class _DataStorageScreenState extends State<DataStorageScreen> {
   }
 
   Future<void> _reset(BuildContext context) async {
+    final l10n = context.l10n;
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset auto-download settings?'),
-        content: const Text(
-          'Mobile data goes back to Medium, Wi-Fi to High and roaming to Low.',
-        ),
+        title: Text(l10n.dataStorageResetTitle),
+        content: Text(l10n.dataStorageResetText),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Reset'),
+            child: Text(l10n.commonReset),
           ),
         ],
       ),
@@ -66,16 +66,17 @@ class _DataStorageScreenState extends State<DataStorageScreen> {
   @override
   Widget build(BuildContext context) {
     final db = widget.db;
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('Data and storage')),
+      appBar: AppBar(title: Text(l10n.dataStorageTitle)),
       body: ListView(
         children: [
-          const SettingsHeader('Disk and network usage'),
+          SettingsHeader(l10n.dataStorageDiskAndNetwork),
           FutureBuilder<StorageStats>(
             future: _storage,
             builder: (context, snap) => SettingsLink(
               icon: Icons.storage_outlined,
-              title: 'Storage usage',
+              title: l10n.dataStorageStorageUsage,
               value: snap.data == null
                   ? null
                   : formatBytes(snap.data!.totalBytes),
@@ -83,14 +84,14 @@ class _DataStorageScreenState extends State<DataStorageScreen> {
             ),
           ),
           const Divider(),
-          const SettingsHeader('Automatic media download'),
+          SettingsHeader(l10n.dataStorageAutoDownload),
           for (final c in Connection.values)
             _PresetStream(
               db: db,
               connection: c,
               builder: (context, preset) => SplitSwitchTile(
-                title: c.rowTitle,
-                subtitle: preset.summary,
+                title: c.rowTitleIn(l10n),
+                subtitle: preset.summaryIn(l10n),
                 value: preset.enabled,
                 onTap: () => openSettingsScreen(
                   context,
@@ -111,27 +112,24 @@ class _DataStorageScreenState extends State<DataStorageScreen> {
               ].isNotEmpty;
               return ListTile(
                 enabled: changed,
-                title: const Text('Reset auto-download settings'),
+                title: Text(l10n.dataStorageReset),
                 onTap: () => unawaited(_reset(context)),
               );
             },
           ),
           const Divider(),
-          const SettingsHeader('Autoplay media'),
+          SettingsHeader(l10n.dataStorageAutoplay),
           _SettingSwitch(
             db: db,
             settingKey: SettingKeys.autoplayGifs,
-            title: 'GIFs',
+            title: l10n.dataStorageGifs,
           ),
           _SettingSwitch(
             db: db,
             settingKey: SettingKeys.autoplay,
-            title: 'Videos',
+            title: l10n.dataStorageVideos,
           ),
-          const SettingsFooter(
-            'A video that loads by itself on the connection the phone is on plays muted '
-            'in its post; a tap opens it with sound.',
-          ),
+          SettingsFooter(l10n.dataStorageAutoplayFooter),
         ],
       ),
     );
@@ -154,65 +152,66 @@ class AutoDownloadScreen extends StatelessWidget {
       db.setSetting(connection.settingKey, p.encode());
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(connection.screenTitle)),
-    body: _PresetStream(
-      db: db,
-      connection: connection,
-      builder: (context, p) {
-        final on = p.enabled;
-        return ListView(
-          children: [
-            _MasterSwitch(
-              value: on,
-              onChanged: (v) => _write(p.copyWith(enabled: v)),
-            ),
-            const SettingsHeader('Data usage'),
-            DataUsageSlider(
-              preset: p,
-              enabled: on,
-              onChanged: (chosen) => _write(p.adopt(chosen)),
-            ),
-            const Divider(),
-            const SettingsHeader('Types of media'),
-            SplitSwitchTile(
-              title: 'Photos',
-              subtitle: p.photos ? 'Every photo' : 'Off',
-              value: p.photos,
-              enabled: on,
-              onTap: () => _write(p.copyWith(photos: !p.photos)),
-              onChanged: (v) => _write(p.copyWith(photos: v)),
-            ),
-            SplitSwitchTile(
-              title: 'Videos',
-              subtitle: p.videos
-                  ? 'Up to ${formatLimit(p.videoMaxBytes)}'
-                  : 'Off',
-              value: p.videos,
-              enabled: on,
-              onTap: () => _sizeSheet(context, p, videos: true),
-              onChanged: (v) => _write(p.copyWith(videos: v)),
-            ),
-            SplitSwitchTile(
-              title: 'Files',
-              subtitle: p.files
-                  ? 'Up to ${formatLimit(p.fileMaxBytes)}'
-                  : 'Off',
-              value: p.files,
-              enabled: on,
-              onTap: () => _sizeSheet(context, p, videos: false),
-              onChanged: (v) => _write(p.copyWith(files: v)),
-            ),
-            const SettingsFooter(
-              'GIFs and round video messages count as videos, music and voice messages as '
-              'files. A video within the limit also autoplays, if Autoplay is on for it '
-              'in Data and storage.',
-            ),
-          ],
-        );
-      },
-    ),
-  );
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Scaffold(
+      appBar: AppBar(title: Text(connection.screenTitleIn(l10n))),
+      body: _PresetStream(
+        db: db,
+        connection: connection,
+        builder: (context, p) {
+          final on = p.enabled;
+          return ListView(
+            children: [
+              _MasterSwitch(
+                value: on,
+                onChanged: (v) => _write(p.copyWith(enabled: v)),
+              ),
+              SettingsHeader(l10n.dataStorageDataUsage),
+              DataUsageSlider(
+                preset: p,
+                enabled: on,
+                onChanged: (chosen) => _write(p.adopt(chosen)),
+              ),
+              const Divider(),
+              SettingsHeader(l10n.dataStorageMediaTypes),
+              SplitSwitchTile(
+                title: l10n.dataStoragePhotos,
+                subtitle: p.photos
+                    ? l10n.dataStorageEveryPhoto
+                    : l10n.commonOff,
+                value: p.photos,
+                enabled: on,
+                onTap: () => _write(p.copyWith(photos: !p.photos)),
+                onChanged: (v) => _write(p.copyWith(photos: v)),
+              ),
+              SplitSwitchTile(
+                title: l10n.dataStorageVideos,
+                subtitle: p.videos
+                    ? l10n.dataStorageUpTo(formatLimit(p.videoMaxBytes))
+                    : l10n.commonOff,
+                value: p.videos,
+                enabled: on,
+                onTap: () => _sizeSheet(context, p, videos: true),
+                onChanged: (v) => _write(p.copyWith(videos: v)),
+              ),
+              SplitSwitchTile(
+                title: l10n.tabFiles,
+                subtitle: p.files
+                    ? l10n.dataStorageUpTo(formatLimit(p.fileMaxBytes))
+                    : l10n.commonOff,
+                value: p.files,
+                enabled: on,
+                onTap: () => _sizeSheet(context, p, videos: false),
+                onChanged: (v) => _write(p.copyWith(files: v)),
+              ),
+              SettingsFooter(l10n.dataStorageTypesFooter),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
   Future<void> _sizeSheet(
     BuildContext context,
@@ -243,15 +242,17 @@ class DataUsageSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final names = DownloadPreset.presetNamesIn(l10n);
     final stops = <(String, DownloadPreset)>[
       for (var i = 0; i < DownloadPreset.presets.length; i++)
-        (DownloadPreset.presetNames[i], DownloadPreset.presets[i]),
+        (names[i], DownloadPreset.presets[i]),
     ];
     var at = preset.presetIndex;
     if (at < 0) {
       at = stops.indexWhere((s) => s.$2.weight > preset.weight);
       if (at < 0) at = stops.length;
-      stops.insert(at, ('Custom', preset));
+      stops.insert(at, (l10n.dataStoragePresetCustom, preset));
     }
     final theme = Theme.of(context);
     return Padding(
@@ -360,6 +361,7 @@ class _SizeSheetState extends State<_SizeSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final size = downloadSizeSteps[_step];
     return SafeArea(
       child: Column(
@@ -369,16 +371,18 @@ class _SizeSheetState extends State<_SizeSheet> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text(
-              widget.videos ? 'Videos' : 'Files',
+              widget.videos ? l10n.dataStorageVideos : l10n.tabFiles,
               style: theme.textTheme.titleMedium,
             ),
           ),
           ListTile(
             title: Text(
-              widget.videos ? 'Maximum video size' : 'Maximum file size',
+              widget.videos
+                  ? l10n.dataStorageMaxVideoSize
+                  : l10n.dataStorageMaxFileSize,
             ),
             trailing: Text(
-              'Up to ${formatLimit(size)}',
+              l10n.dataStorageUpTo(formatLimit(size)),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.primary,
               ),
@@ -396,14 +400,11 @@ class _SizeSheetState extends State<_SizeSheet> {
           ),
           if (widget.videos) ...[
             SwitchListTile(
-              title: const Text('Preload larger videos'),
+              title: Text(l10n.dataStoragePreload),
               value: _preload,
               onChanged: (v) => setState(() => _preload = v),
             ),
-            SettingsFooter(
-              'The first seconds of videos larger than ${formatLimit(size)} are loaded '
-              'ahead, so that they start at once.',
-            ),
+            SettingsFooter(l10n.dataStoragePreloadFooter(formatLimit(size))),
           ],
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -418,7 +419,7 @@ class _SizeSheetState extends State<_SizeSheet> {
                       )
                     : widget.preset.copyWith(files: true, fileMaxBytes: size),
               ),
-              child: const Text('Save'),
+              child: Text(l10n.commonSave),
             ),
           ),
         ],
@@ -489,7 +490,7 @@ class _MasterSwitch extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: SwitchListTile(
-          title: const Text('Auto-download media'),
+          title: Text(context.l10n.dataStorageAutoDownloadMedia),
           value: value,
           onChanged: onChanged,
         ),
@@ -578,21 +579,20 @@ class _StorageUsageScreenState extends State<StorageUsageScreen> {
   bool _clearing = false;
 
   Future<void> _clearCache(int bytes) async {
+    final l10n = context.l10n;
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Clear ${formatBytes(bytes)} of cache?'),
-        content: const Text(
-          'Pictures, videos and files load again from Telegram when you open them.',
-        ),
+        title: Text(l10n.dataStorageClearTitle(formatBytes(bytes))),
+        content: Text(l10n.dataStorageClearText),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           DestructiveButton(
             onPressed: () => Navigator.pop(context, true),
-            label: 'Clear',
+            label: l10n.commonClear,
           ),
         ],
       ),
@@ -615,73 +615,73 @@ class _StorageUsageScreenState extends State<StorageUsageScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Storage usage')),
-    body: FutureBuilder<StorageStats>(
-      future: _storage,
-      builder: (context, snap) {
-        final s = snap.data;
-        if (s == null) {
-          return Center(
-            child: snap.hasError
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Telegram did not say how much it stores.'),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: () => setState(
-                          () => _storage = widget.gateway.storageStats(),
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.dataStorageStorageUsage)),
+      body: FutureBuilder<StorageStats>(
+        future: _storage,
+        builder: (context, snap) {
+          final s = snap.data;
+          if (s == null) {
+            return Center(
+              child: snap.hasError
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(l10n.dataStorageStatsFailed),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => setState(
+                            () => _storage = widget.gateway.storageStats(),
+                          ),
+                          child: Text(l10n.commonTryAgain),
                         ),
-                        child: const Text('Try again'),
-                      ),
-                    ],
-                  )
-                : const CircularProgressIndicator(),
-          );
-        }
-        return ListView(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-              child: Text(
-                formatBytes(s.totalBytes),
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-            ),
-            const SettingsHeader("Telegram's cache"),
-            ListTile(
-              leading: const Icon(Icons.perm_media_outlined),
-              title: const Text('Cached files'),
-              subtitle: Text('${s.fileCount} files'),
-              trailing: Text(formatBytes(s.filesBytes)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.dns_outlined),
-              title: const Text('Database'),
-              trailing: Text(formatBytes(s.databaseBytes)),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: FilledButton.tonal(
-                onPressed: _clearing
-                    ? null
-                    : () => unawaited(_clearCache(s.filesBytes)),
+                      ],
+                    )
+                  : const CircularProgressIndicator(),
+            );
+          }
+          return ListView(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
                 child: Text(
-                  _clearing
-                      ? 'Clearing…'
-                      : 'Clear cache (${formatBytes(s.filesBytes)})',
+                  formatBytes(s.totalBytes),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineMedium,
                 ),
               ),
-            ),
-            const SettingsFooter(
-              'Pictures, videos and files are loaded again from Telegram when you open '
-              'them. Your feeds, rules and read positions stay.',
-            ),
-          ],
-        );
-      },
-    ),
-  );
+              SettingsHeader(l10n.dataStorageTelegramCache),
+              ListTile(
+                leading: const Icon(Icons.perm_media_outlined),
+                title: Text(l10n.dataStorageCachedFiles),
+                subtitle: Text(l10n.dataStorageFileCount(s.fileCount)),
+                trailing: Text(formatBytes(s.filesBytes)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.dns_outlined),
+                title: Text(l10n.dataStorageDatabase),
+                trailing: Text(formatBytes(s.databaseBytes)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: FilledButton.tonal(
+                  onPressed: _clearing
+                      ? null
+                      : () => unawaited(_clearCache(s.filesBytes)),
+                  child: Text(
+                    _clearing
+                        ? l10n.dataStorageClearing
+                        : l10n.dataStorageClearCache(formatBytes(s.filesBytes)),
+                  ),
+                ),
+              ),
+              SettingsFooter(l10n.dataStorageClearFooter),
+            ],
+          );
+        },
+      ),
+    );
+  }
 }

@@ -1,8 +1,10 @@
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../home/channel_list.dart' show ChannelAvatar;
+import '../l10n/l10n.dart';
 import '../media/media_viewer.dart';
 import 'album_layout.dart';
 import 'bubble_text.dart';
@@ -110,7 +112,7 @@ class ChatPill extends StatelessWidget {
           ? Semantics(header: true, child: pill)
           : Semantics(
               button: true,
-              label: '$label. Jump to a date',
+              label: context.l10n.postDayJumpToDate(label),
               child: GestureDetector(
                 onTap: onTap,
                 behavior: HitTestBehavior.opaque,
@@ -240,6 +242,7 @@ class PostCard extends StatelessWidget {
       availableReactions != null;
 
   Future<void> _menu(BuildContext context) async {
+    final l10n = context.l10n;
     final action = await showModalBottomSheet<VoidCallback>(
       context: context,
       showDragHandle: true,
@@ -262,50 +265,50 @@ class PostCard extends StatelessWidget {
               if (onOpenThread != null)
                 ListTile(
                   leading: const Icon(Icons.forum_outlined),
-                  title: const Text('Comments'),
+                  title: Text(l10n.commonComments),
                   onTap: () => Navigator.pop(context, onOpenThread),
                 ),
               if (onCopyText != null && item.text.isNotEmpty)
                 ListTile(
                   leading: const Icon(Icons.content_copy),
-                  title: const Text('Copy text'),
+                  title: Text(l10n.postCopyText),
                   onTap: () => Navigator.pop(context, onCopyText),
                 ),
               if (onCopyLink != null)
                 ListTile(
                   leading: const Icon(Icons.link),
-                  title: const Text('Copy link'),
+                  title: Text(l10n.commonCopyLink),
                   onTap: () => Navigator.pop(context, onCopyLink),
                 ),
               if (onShare != null)
                 ListTile(
                   leading: const Icon(Icons.share_outlined),
-                  title: const Text('Share'),
+                  title: Text(l10n.commonShare),
                   onTap: () => Navigator.pop(context, onShare),
                 ),
               if (onSave != null)
                 ListTile(
                   leading: const Icon(Icons.bookmark_add_outlined),
-                  title: const Text('Save to Saved Messages'),
+                  title: Text(l10n.postSaveToSavedMessages),
                   onTap: () => Navigator.pop(context, onSave),
                 ),
               if (onSelect != null)
                 ListTile(
                   leading: const Icon(Icons.checklist),
-                  title: const Text('Select'),
+                  title: Text(l10n.commonSelect),
                   onTap: () => Navigator.pop(context, onSelect),
                 ),
               if (onMinimize != null)
                 ListTile(
                   leading: const Icon(Icons.unfold_less),
-                  title: const Text('Minimize'),
+                  title: Text(l10n.postMinimize),
                   onTap: () => Navigator.pop(context, onMinimize),
                 ),
               if (onAutoplaySettings != null &&
                   item.allPosts.any((p) => p.media is VideoMedia))
                 ListTile(
                   leading: const Icon(Icons.play_circle_outline),
-                  title: const Text('Autoplay and download settings'),
+                  title: Text(l10n.postAutoplaySettings),
                   onTap: () => Navigator.pop(context, onAutoplaySettings),
                 ),
               // Last, behind a line: it leaves the app, and it is the rarest of them.
@@ -313,7 +316,7 @@ class PostCard extends StatelessWidget {
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.open_in_new),
-                  title: const Text('Open in Telegram'),
+                  title: Text(l10n.commonOpenInTelegram),
                   onTap: () => Navigator.pop(context, onOpenInTelegram),
                 ),
               ],
@@ -429,9 +432,11 @@ class MinimizedPost extends StatelessWidget {
     final colors = ChatColors.of(context);
     final scheme = Theme.of(context).colorScheme;
     final muted = scheme.onSurfaceVariant;
-    final words = postLabel(item.textPost)
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    final l10n = context.l10n;
+    final words = postLabel(
+      item.textPost,
+      l10n.mediaWords,
+    ).replaceAll(RegExp(r'\s+'), ' ').trim();
     final time = formatTime(
       DateTime.fromMillisecondsSinceEpoch(item.head.date * 1000),
       context,
@@ -447,7 +452,7 @@ class MinimizedPost extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Semantics(
           button: onOpen != null,
-          label: 'Minimized post of $channelTitle: $words, $time',
+          label: l10n.postMinimizedSemantics(channelTitle, words, time),
           excludeSemantics: true,
           child: InkWell(
             onTap: onOpen,
@@ -539,7 +544,7 @@ class BubbleTitle extends StatelessWidget {
     if (tap == null) return row;
     return Semantics(
       button: true,
-      label: 'Channel info of $name',
+      label: context.l10n.postChannelInfoOf(name),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: tap,
@@ -561,15 +566,21 @@ class ForwardedFrom extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final name = origin.title.isEmpty ? 'a hidden account' : origin.title;
+    final l10n = context.l10n;
+    final name = origin.title.isEmpty ? l10n.postHiddenAccount : origin.title;
+    // The words around the name, wherever the language puts it; the name itself is bold.
+    const mark = '\u0000';
+    final around = l10n.postForwardedFrom(mark).split(mark);
     final row = Text.rich(
       TextSpan(
         children: [
-          const TextSpan(text: 'Forwarded from '),
+          if (around.first.isNotEmpty) TextSpan(text: around.first),
           TextSpan(
             text: name,
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
+          if (around.length > 1 && around.last.isNotEmpty)
+            TextSpan(text: around.last),
           if (origin.signature.isNotEmpty)
             TextSpan(text: ' (${origin.signature})'),
         ],
@@ -587,7 +598,7 @@ class ForwardedFrom extends StatelessWidget {
         ? row
         : Semantics(
             button: true,
-            label: 'Forwarded from $name. Open the original',
+            label: l10n.postForwardedFromOpen(name),
             child: GestureDetector(
               onTap: onTap,
               behavior: HitTestBehavior.opaque,
@@ -621,9 +632,14 @@ class RepliedPost extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final accent = peerColor(colorId, scheme.brightness);
     final name = reply.title.isEmpty ? channelTitle : reply.title;
     final photo = reply.photo;
+    // What the answered post said, else what it carried, else that it was a post.
+    final said = reply.text.isEmpty
+        ? l10n.mediaPreview(reply.media)
+        : reply.text;
     final block = Material(
       color: accent.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(6),
@@ -631,8 +647,8 @@ class RepliedPost extends StatelessWidget {
       child: Semantics(
         button: onTap != null,
         label: onTap == null
-            ? 'In reply to $name'
-            : 'In reply to $name. Go to that post',
+            ? l10n.postInReplyTo(name)
+            : l10n.postInReplyToOpen(name),
         child: InkWell(
           onTap: onTap,
           child: Container(
@@ -673,7 +689,7 @@ class RepliedPost extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        reply.text.isEmpty ? 'Post' : reply.text,
+                        said.isEmpty ? l10n.mediaPost : said,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -982,7 +998,7 @@ class PostFooter extends StatelessWidget {
           const SizedBox(width: 6),
         ],
         if (post.editDate > 0) ...[
-          Text('edited', style: style),
+          Text(context.l10n.postEdited, style: style),
           const SizedBox(width: 4),
         ],
         Text(formatTime(date, context), style: style),
@@ -1062,8 +1078,11 @@ class _CommentsBar extends StatelessWidget {
                 Expanded(
                   child: Text(
                     count > 0
-                        ? '${formatCount(count)} comment${count == 1 ? '' : 's'}'
-                        : 'Leave a comment',
+                        ? context.l10n.postCommentCount(
+                            count,
+                            formatCount(count),
+                          )
+                        : context.l10n.postLeaveComment,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -1121,8 +1140,8 @@ class _ReactionStripState extends State<_ReactionStrip> {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
           child: Text(
             snap.hasError
-                ? 'Reactions could not be loaded.'
-                : 'This channel does not allow reactions.',
+                ? context.l10n.postReactionsLoadFailed
+                : context.l10n.postReactionsNotAllowed,
             style: TextStyle(color: scheme.onSurfaceVariant),
           ),
         );
@@ -1246,32 +1265,27 @@ String formatTime(DateTime d, [BuildContext? context]) {
   return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 }
 
-/// The label between two days of a chat: Today, Yesterday, September 17, March 3, 2025.
-String formatDay(DateTime d, {DateTime? now}) {
+/// The label between two days of a chat: Today, Yesterday, September 17, March 3, 2025,
+/// in the language of [l10n]; English without it.
+String formatDay(DateTime d, {DateTime? now, AppLocalizations? l10n}) {
+  final words = l10n ?? _english;
   final n = now ?? DateTime.now();
   final day = DateTime(d.year, d.month, d.day);
   // Rounded: a day with a clock change is 23 or 25 hours long.
   final days = (DateTime(n.year, n.month, n.day).difference(day).inHours / 24)
       .round();
-  if (days == 0) return 'Today';
-  if (days == 1) return 'Yesterday';
-  const months = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
-  final label = '${months[d.month - 1]} ${d.day}';
-  return d.year == n.year ? label : '$label, ${d.year}';
+  if (days == 0) return words.postDayToday;
+  if (days == 1) return words.postDayYesterday;
+  final pattern = d.year == n.year
+      ? words.postDayPattern
+      : words.postDayYearPattern;
+  // English is en_US, the one locale intl knows before the app's localizations load the
+  // names of the months: a widget test on a bare MaterialApp formats days too.
+  final locale = words.localeName == 'en' ? 'en_US' : words.localeName;
+  return DateFormat(pattern, locale).format(d);
 }
+
+final AppLocalizations _english = lookupAppLocalizations(const Locale('en'));
 
 /// Counts a double tap without taking the gesture arena, so the links and mentions under
 /// it answer the first tap at once instead of waiting out the double-tap window.

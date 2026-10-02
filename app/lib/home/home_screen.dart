@@ -20,6 +20,7 @@ import '../widgets/menu_item.dart';
 import '../widgets/skeleton_list.dart';
 import '../widgets/error_state.dart';
 import '../app_name.dart';
+import '../l10n/l10n.dart';
 
 /// The main screen: `+`, the "Feeds" tab (list of feeds), one tab per Telegram folder (its
 /// channels), and "All channels". Feeds and channels open as timelines of their own.
@@ -181,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen>
     final channel = {for (final c in _channels) c.chatId: c}[post.chatId];
     if (channel == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('That channel is not in your list.')),
+        SnackBar(content: Text(context.l10n.homeSearchChannelNotInList)),
       );
       return;
     }
@@ -259,11 +260,15 @@ class _HomeScreenState extends State<HomeScreen>
     return showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(initial == null ? 'New feed' : 'Rename feed'),
+        title: Text(
+          initial == null
+              ? context.l10n.feedsNewFeed
+              : context.l10n.feedsRenameFeed,
+        ),
         content: TextField(
           controller: c,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Name'),
+          decoration: InputDecoration(labelText: context.l10n.feedsNameLabel),
           onSubmitted: (v) {
             if (v.trim().isNotEmpty) Navigator.pop(context, v.trim());
           },
@@ -271,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.commonCancel),
           ),
           // Enabled once there is a name to give.
           ValueListenableBuilder<TextEditingValue>(
@@ -280,7 +285,11 @@ class _HomeScreenState extends State<HomeScreen>
               onPressed: v.text.trim().isEmpty
                   ? null
                   : () => Navigator.pop(context, v.text.trim()),
-              child: Text(initial == null ? 'Create' : 'Rename'),
+              child: Text(
+                initial == null
+                    ? context.l10n.feedsCreate
+                    : context.l10n.commonRename,
+              ),
             ),
           ),
         ],
@@ -307,15 +316,15 @@ class _HomeScreenState extends State<HomeScreen>
             children: [
               ListTile(
                 leading: const Icon(Icons.add),
-                title: const Text('Empty feed'),
-                subtitle: const Text('Name it, then pick its channels'),
+                title: Text(context.l10n.feedsEmptyFeed),
+                subtitle: Text(context.l10n.feedsEmptyFeedSubtitle),
                 onTap: () => Navigator.pop(context, 'empty'),
               ),
               const Divider(),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                 child: Text(
-                  'From a folder',
+                  context.l10n.feedsFromFolder,
                   style: Theme.of(context).textTheme.titleSmall
                       ?.copyWith(color: Theme.of(context).colorScheme.primary),
                 ),
@@ -327,7 +336,7 @@ class _HomeScreenState extends State<HomeScreen>
                     return ListTile(
                       leading: const Icon(Icons.folder_outlined),
                       title: Text(f.title),
-                      subtitle: Text('$n channel${n == 1 ? '' : 's'}'),
+                      subtitle: Text(context.l10n.feedsChannelCount(n)),
                       onTap: () => Navigator.pop(context, f),
                     );
                   },
@@ -383,8 +392,8 @@ class _HomeScreenState extends State<HomeScreen>
         Offset.zero & overlay.size,
       ),
       items: [
-        menuItem('feed', Icons.rss_feed, 'Create feed from folder'),
-        menuItem('read', Icons.done_all, 'Mark all as read'),
+        menuItem('feed', Icons.rss_feed, context.l10n.homeFolderCreateFeed),
+        menuItem('read', Icons.done_all, context.l10n.homeMarkAllAsRead),
       ],
     );
     if (choice == 'feed') await _createFeedFromFolder(folder);
@@ -399,12 +408,13 @@ class _HomeScreenState extends State<HomeScreen>
       gateway: widget.gateway,
     ).channels(chatIds);
     if (!mounted) return;
+    final l10n = context.l10n;
     messenger.showSnackBar(
       SnackBar(
         content: Text(
           moved == 0
-              ? 'Nothing to mark read.'
-              : '$moved channel${moved == 1 ? '' : 's'} marked read.',
+              ? l10n.homeNothingToMarkRead
+              : l10n.homeChannelsMarkedRead(moved),
         ),
       ),
     );
@@ -428,10 +438,12 @@ class _HomeScreenState extends State<HomeScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Feed "${folder.title}" created with ${channels.length} '
-          'channel${channels.length == 1 ? '' : 's'}.',
+          context.l10n.feedsCreatedFromFolder(folder.title, channels.length),
         ),
-        action: SnackBarAction(label: 'Open', onPressed: () => _openFeed(feed)),
+        action: SnackBarAction(
+          label: context.l10n.commonOpen,
+          onPressed: () => _openFeed(feed),
+        ),
         // Flutter keeps a snack bar with an action up until it is swiped away.
         persist: false,
       ),
@@ -467,12 +479,13 @@ class _HomeScreenState extends State<HomeScreen>
       gateway: widget.gateway,
     ).feed(f.id);
     if (!mounted) return;
+    final l10n = context.l10n;
     messenger.showSnackBar(
       SnackBar(
         content: Text(
           moved == 0
-              ? 'Nothing to mark read in "${f.name}".'
-              : '"${f.name}" marked read.',
+              ? l10n.feedsNothingToMarkRead(f.name)
+              : l10n.feedsMarkedRead(f.name),
         ),
       ),
     );
@@ -483,24 +496,19 @@ class _HomeScreenState extends State<HomeScreen>
         .where((r) => r.feedId == f.id)
         .length;
     if (!mounted) return;
-    final what = switch (rules) {
-      0 => 'The feed and its kept positions are removed.',
-      1 => 'The feed, its rule and its kept positions are removed.',
-      _ => 'The feed, its $rules rules and its kept positions are removed.',
-    };
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Delete "${f.name}"?'),
-        content: Text('$what Channels stay joined in Telegram.'),
+        title: Text(context.l10n.feedsDeleteTitle(f.name)),
+        content: Text(context.l10n.feedsDeleteMessage(rules)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.commonCancel),
           ),
           DestructiveButton(
             onPressed: () => Navigator.pop(context, true),
-            label: 'Delete',
+            label: context.l10n.commonDelete,
           ),
         ],
       ),
@@ -522,6 +530,7 @@ class _HomeScreenState extends State<HomeScreen>
         Overlay.of(context).context.findRenderObject()! as RenderBox;
     final feeds = await widget.db.allFeeds();
     if (!mounted) return;
+    final l10n = context.l10n;
     final choice = await showMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
@@ -529,11 +538,11 @@ class _HomeScreenState extends State<HomeScreen>
         Offset.zero & overlay.size,
       ),
       items: [
-        menuItem('read', Icons.done_all, 'Mark as read'),
-        menuItem('info', Icons.info_outline, 'Channel info'),
+        menuItem('read', Icons.done_all, l10n.commonMarkAsRead),
+        menuItem('info', Icons.info_outline, l10n.channelsInfo),
         // Offered with no feeds too: it then makes the first one, which is exactly what
         // a reader who wants this channel in a feed needs.
-        menuItem('add', Icons.playlist_add, 'Add to a feed'),
+        menuItem('add', Icons.playlist_add, l10n.channelsAddToFeed),
       ],
     );
     if (!mounted) return;
@@ -556,6 +565,7 @@ class _HomeScreenState extends State<HomeScreen>
   /// read position as the feed editor does.
   Future<void> _addToFeed(Channel channel, List<Feed> feeds) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     if (feeds.isEmpty) {
       // No feed to add it to: make one, which lands in its channel picker.
       await _createFeed();
@@ -578,7 +588,7 @@ class _HomeScreenState extends State<HomeScreen>
                 leading: const Icon(Icons.rss_feed),
                 title: Text(f.name),
                 subtitle: inFeeds.contains(f.id)
-                    ? const Text('Already in this feed')
+                    ? Text(context.l10n.channelsAlreadyInFeed)
                     : null,
                 enabled: !inFeeds.contains(f.id),
                 onTap: () => Navigator.pop(context, f),
@@ -596,9 +606,9 @@ class _HomeScreenState extends State<HomeScreen>
     );
     messenger.showSnackBar(
       SnackBar(
-        content: Text('${channel.title} added to "${feed.name}".'),
+        content: Text(l10n.channelsAddedToFeed(channel.title, feed.name)),
         action: SnackBarAction(
-          label: 'Undo',
+          label: l10n.commonUndo,
           onPressed: () =>
               unawaited(widget.db.removeSource(feed.id, channel.chatId)),
         ),
@@ -615,10 +625,10 @@ class _HomeScreenState extends State<HomeScreen>
 
   /// The line under a feed's name: how many channels it has, and how many have news.
   /// Short enough to stand beside the counter, the menu and the drag handle on one line.
-  static String _feedLine(int fresh, int channels) {
-    final all = '$channels channel${channels == 1 ? '' : 's'}';
-    return fresh > 0 ? '$fresh of $all with news' : all;
-  }
+  static String _feedLine(AppLocalizations l10n, int fresh, int channels) =>
+      fresh > 0
+      ? l10n.feedsChannelsWithNews(fresh, channels)
+      : l10n.feedsChannelCount(channels);
 
   /// The list of feeds: tap opens, drag reorders, the menu edits.
   Widget _feedsTab() => ListenableBuilder(
@@ -635,13 +645,14 @@ class _HomeScreenState extends State<HomeScreen>
               content: Text(
                 telegramErrorLine(
                   _feeds.error!,
-                  what: 'Could not refresh the counters.',
+                  what: context.l10n.feedsCountersRefreshFailed,
+                  l10n: context.l10n,
                 ),
               ),
               actions: [
                 TextButton(
                   onPressed: _feeds.refreshChannels,
-                  child: const Text('Retry'),
+                  child: Text(context.l10n.commonRetry),
                 ),
               ],
             ),
@@ -651,16 +662,11 @@ class _HomeScreenState extends State<HomeScreen>
             Expanded(
               child: EmptyState(
                 icon: Icons.rss_feed,
-                title: 'No feeds yet',
-                message:
-                    'A feed is a set of channels read as one timeline. Rules of the feed '
-                    'then notify you about the posts you care about; without them this app '
-                    'stays quiet.',
-                actionLabel: 'Create a feed',
+                title: context.l10n.feedsEmptyTitle,
+                message: context.l10n.feedsEmptyMessage,
+                actionLabel: context.l10n.feedsEmptyAction,
                 onAction: () => unawaited(_newFeed()),
-                secondary:
-                    'A feed can also start from one of your Telegram folders, or from the '
-                    '"Add to a feed" menu of any channel.',
+                secondary: context.l10n.feedsEmptySecondary,
               ),
             )
           else
@@ -687,7 +693,7 @@ class _HomeScreenState extends State<HomeScreen>
                     leading: const Icon(Icons.rss_feed),
                     // Always one line, so a row keeps its height as the feed is read.
                     subtitle: Text(
-                      _feedLine(fresh, _feeds.channelsIn(f.id)),
+                      _feedLine(context.l10n, fresh, _feeds.channelsIn(f.id)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -714,23 +720,27 @@ class _HomeScreenState extends State<HomeScreen>
                             menuItem(
                               'channels',
                               Icons.playlist_add,
-                              'Edit channels',
+                              context.l10n.feedsEditChannels,
                             ),
                             menuItem(
                               'rules',
                               Icons.notifications_active_outlined,
-                              'Rules',
+                              context.l10n.commonRules,
                             ),
-                            menuItem('rename', Icons.edit_outlined, 'Rename'),
+                            menuItem(
+                              'rename',
+                              Icons.edit_outlined,
+                              context.l10n.commonRename,
+                            ),
                             menuItem(
                               'read',
                               Icons.done_all,
-                              'Mark all as read',
+                              context.l10n.homeMarkAllAsRead,
                             ),
                             menuItem(
                               'delete',
                               Icons.delete_outline,
-                              'Delete',
+                              context.l10n.commonDelete,
                               danger: true,
                             ),
                           ],
@@ -768,8 +778,8 @@ class _HomeScreenState extends State<HomeScreen>
           controller: _queryCtl,
           autofocus: true,
           textInputAction: TextInputAction.search,
-          decoration: const InputDecoration(
-            hintText: 'Search all channels',
+          decoration: InputDecoration(
+            hintText: context.l10n.homeSearchHint,
             border: InputBorder.none,
           ),
           onChanged: _onQuery,
@@ -777,7 +787,7 @@ class _HomeScreenState extends State<HomeScreen>
         actions: [
           if (_queryCtl.text.isNotEmpty)
             IconButton(
-              tooltip: 'Clear',
+              tooltip: context.l10n.commonClear,
               icon: const Icon(Icons.close),
               onPressed: () {
                 _queryCtl.clear();
@@ -838,6 +848,7 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _openArchive() async {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+    final l10n = context.l10n;
     List<Channel> archived;
     try {
       archived = await widget.gateway.archivedChannels();
@@ -845,22 +856,22 @@ class _HomeScreenState extends State<HomeScreen>
       showTelegramError(
         messenger,
         e,
-        what: 'Could not open the archive.',
+        what: l10n.channelsArchiveOpenFailed,
         onRetry: () => unawaited(_openArchive()),
       );
       return;
     }
     await navigator.push(
       MaterialPageRoute<void>(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('Archive')),
+        builder: (context) => Scaffold(
+          appBar: AppBar(title: Text(context.l10n.channelsArchive)),
           body: ChannelList(
             channels: archived,
             feedsByChat: _feedTags,
             gateway: widget.gateway,
             onOpen: _openChannel,
             onMenu: _channelMenu,
-            emptyText: 'No archived channels.',
+            emptyText: context.l10n.channelsArchiveEmpty,
           ),
         ),
       ),
@@ -883,15 +894,15 @@ class _HomeScreenState extends State<HomeScreen>
       loading: !_channelsLoaded,
       error: _error,
       emptyText: folder == null
-          ? 'No channels yet. Join channels in Telegram and they show up here.'
-          : 'No channels in this folder.',
+          ? context.l10n.channelsEmptyAll
+          : context.l10n.channelsEmptyFolder,
       // Only All channels carries it, as the official app carries its Archive.
       header: folder != null
           ? null
           : ListTile(
               leading: const Icon(Icons.archive_outlined),
-              title: const Text('Archive'),
-              subtitle: const Text('Channels you archived in Telegram'),
+              title: Text(context.l10n.channelsArchive),
+              subtitle: Text(context.l10n.channelsArchiveSubtitle),
               onTap: () => unawaited(_openArchive()),
             ),
     );
@@ -922,7 +933,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         actions: [
           IconButton(
-            tooltip: 'Search posts',
+            tooltip: context.l10n.homeSearchPosts,
             icon: const Icon(Icons.search),
             onPressed: _openSearch,
           ),
@@ -950,7 +961,7 @@ class _HomeScreenState extends State<HomeScreen>
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Text('Feeds'),
+                                Text(context.l10n.homeTabFeeds),
                                 if (fresh > 0)
                                   Padding(
                                     padding: const EdgeInsets.only(left: 6),
@@ -990,7 +1001,9 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                         ),
                       ),
-                    Tab(child: _tabLabel(const Text('All channels'))),
+                    Tab(
+                      child: _tabLabel(Text(context.l10n.homeTabAllChannels)),
+                    ),
                   ],
                 ),
               ),
@@ -1001,9 +1014,9 @@ class _HomeScreenState extends State<HomeScreen>
       // Only the Feeds tab makes feeds, so the button belongs to it and to no other.
       floatingActionButton: _tabCtl.index == 0
           ? FloatingActionButton.extended(
-              label: const Text('New feed'),
+              label: Text(context.l10n.feedsNewFeed),
               icon: const Icon(Icons.add),
-              tooltip: 'New feed',
+              tooltip: context.l10n.feedsNewFeed,
               onPressed: () => unawaited(_newFeed()),
             )
           : null,
@@ -1052,12 +1065,12 @@ class RulesHint extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            'Nothing notifies you yet',
+                            context.l10n.homeRulesHintTitle,
                             style: theme.textTheme.titleSmall,
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Dismiss',
+                          tooltip: context.l10n.homeRulesHintDismiss,
                           visualDensity: VisualDensity.compact,
                           icon: const Icon(Icons.close, size: 18),
                           onPressed: () => unawaited(
@@ -1070,16 +1083,14 @@ class RulesHint extends StatelessWidget {
                       ],
                     ),
                     Text(
-                      'This app never repeats Telegram\'s own notifications. A rule of a '
-                      'feed watches its channels for the words you pick and notifies you, '
-                      'and can read the post aloud.',
+                      context.l10n.homeRulesHintBody,
                       style: theme.textTheme.bodyMedium,
                     ),
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
                         onPressed: onOpenRules,
-                        child: const Text('Set up rules'),
+                        child: Text(context.l10n.homeRulesHintAction),
                       ),
                     ),
                   ],

@@ -10,6 +10,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../app_name.dart';
+import '../l10n/l10n.dart';
 import '../widgets/destructive_button.dart';
 
 /// Where the hash of the PIN is kept. The app uses the keystore, tests a map of their own.
@@ -192,14 +193,15 @@ class LockScreen extends StatefulWidget {
     required this.lock,
     required this.onUnlocked,
     this.auth,
-    this.title = '$appName is locked',
+    this.title,
   });
   final AppLock lock;
   final VoidCallback onUnlocked;
   final LocalAuthentication? auth;
 
-  /// What the screen asks for: unlocking the app, or opening the lock's own settings.
-  final String title;
+  /// What the screen asks for: unlocking the app (the default), or opening the lock's
+  /// own settings.
+  final String? title;
 
   @override
   State<LockScreen> createState() => _LockScreenState();
@@ -226,21 +228,20 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   Future<void> _biometrics() async {
-    if (!await widget.lock.biometrics) return;
-    if (mounted) setState(() => _biometricsAllowed = true);
+    if (!await widget.lock.biometrics || !mounted) return;
+    setState(() => _biometricsAllowed = true);
+    final l10n = context.l10n;
     final auth = widget.auth ?? LocalAuthentication();
     try {
       final ok = await auth.authenticate(
-        localizedReason: 'Unlock $appName',
+        localizedReason: l10n.appLockUnlockReason(appName),
         persistAcrossBackgrounding: true,
       );
       if (ok && mounted) widget.onUnlocked();
     } on Object {
       // The PIN is always there as the way in.
       if (mounted) {
-        setState(
-          () => _error = 'The phone\'s check is not available; use the PIN.',
-        );
+        setState(() => _error = l10n.appLockBiometricsUnavailable);
       }
     }
   }
@@ -251,55 +252,61 @@ class _LockScreenState extends State<LockScreen> {
     if (!mounted) return;
     setState(() {
       _checking = false;
-      _error = ok ? null : 'Wrong PIN';
+      _error = ok ? null : context.l10n.appLockWrongPin;
       if (ok) _pin.clear();
     });
     if (ok) widget.onUnlocked();
   }
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: Theme.of(context).colorScheme.surface,
-    child: Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.lock_outline, size: 48),
-            const SizedBox(height: 16),
-            Text(widget.title, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _pin,
-              autofocus: true,
-              obscureText: true,
-              keyboardType: TextInputType.number,
-              inputFormatters: _pinDigits,
-              maxLength: _pinMaxLength,
-              textAlign: TextAlign.center,
-              decoration: InputDecoration(
-                labelText: 'PIN',
-                errorText: _error,
-                border: const OutlineInputBorder(),
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock_outline, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                widget.title ?? l10n.appLockLocked(appName),
+                textAlign: TextAlign.center,
               ),
-              onSubmitted: (_) => unawaited(_check()),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _checking ? null : () => unawaited(_check()),
-              child: const Text('Unlock'),
-            ),
-            if (_biometricsAllowed)
-              TextButton(
-                onPressed: () => unawaited(_biometrics()),
-                child: const Text('Use fingerprint or face'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _pin,
+                autofocus: true,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: _pinDigits,
+                maxLength: _pinMaxLength,
+                textAlign: TextAlign.center,
+                decoration: InputDecoration(
+                  labelText: l10n.appLockPin,
+                  errorText: _error,
+                  border: const OutlineInputBorder(),
+                ),
+                onSubmitted: (_) => unawaited(_check()),
               ),
-          ],
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _checking ? null : () => unawaited(_check()),
+                child: Text(l10n.appLockUnlock),
+              ),
+              if (_biometricsAllowed)
+                TextButton(
+                  onPressed: () => unawaited(_biometrics()),
+                  child: Text(l10n.appLockUseBiometrics),
+                ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// The lock's own settings: set or change the PIN, the timeout, and the device check.
@@ -350,18 +357,16 @@ class _AppLockScreenState extends State<AppLockScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove the lock?'),
-        content: const Text(
-          'Anyone holding the unlocked phone can then read your channels.',
-        ),
+        title: Text(context.l10n.appLockRemoveTitle),
+        content: Text(context.l10n.appLockRemoveMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.commonCancel),
           ),
           DestructiveButton(
             onPressed: () => Navigator.pop(context, true),
-            label: 'Remove',
+            label: context.l10n.commonRemove,
           ),
         ],
       ),
@@ -372,12 +377,13 @@ class _AppLockScreenState extends State<AppLockScreen> {
   }
 
   Future<void> _save() async {
+    final l10n = context.l10n;
     if (_pin.text.length < 4) {
-      setState(() => _error = 'At least four digits');
+      setState(() => _error = l10n.appLockTooShort);
       return;
     }
     if (_pin.text != _again.text) {
-      setState(() => _error = 'The two do not match');
+      setState(() => _error = l10n.appLockMismatch);
       return;
     }
     final replaced = _hasPin;
@@ -388,32 +394,34 @@ class _AppLockScreenState extends State<AppLockScreen> {
     setState(() => _error = null);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(replaced ? 'PIN replaced' : 'PIN set, the lock is on'),
+        content: Text(replaced ? l10n.appLockPinReplaced : l10n.appLockPinSet),
       ),
     );
     await _read();
   }
 
-  static String _timeoutLabel(int seconds) => switch (seconds) {
-    0 => 'At once',
-    60 => 'After a minute',
-    300 => 'After five minutes',
-    _ => 'After an hour',
-  };
+  static String _timeoutLabel(AppLocalizations l10n, int seconds) =>
+      switch (seconds) {
+        0 => l10n.appLockTimeoutAtOnce,
+        60 => l10n.appLockTimeoutMinute,
+        300 => l10n.appLockTimeoutFiveMinutes,
+        _ => l10n.appLockTimeoutHour,
+      };
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final needsPin = _needsPin;
     if (needsPin == null) {
-      return Scaffold(appBar: AppBar(title: const Text('App lock')));
+      return Scaffold(appBar: AppBar(title: Text(l10n.appLockTitle)));
     }
     if (needsPin) {
       return Scaffold(
-        appBar: AppBar(title: const Text('App lock')),
+        appBar: AppBar(title: Text(l10n.appLockTitle)),
         body: LockScreen(
           lock: _lock,
           auth: widget.auth,
-          title: 'Enter your PIN to change the lock',
+          title: l10n.appLockEnterPinToChange,
           onUnlocked: () => setState(() => _needsPin = false),
         ),
       );
@@ -421,118 +429,119 @@ class _AppLockScreenState extends State<AppLockScreen> {
     return _settings(context);
   }
 
-  Widget _settings(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('App lock')),
-    body: ListView(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            _hasPin
-                ? 'The app asks for this PIN when it has rested. Setting a new one replaces it.'
-                : 'A PIN keeps the channels you read out of the hands of whoever holds the '
-                      'unlocked phone.',
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: TextField(
-            controller: _pin,
-            obscureText: true,
-            keyboardType: TextInputType.number,
-            inputFormatters: _pinDigits,
-            maxLength: _pinMaxLength,
-            decoration: InputDecoration(
-              labelText: _hasPin ? 'New PIN' : 'PIN',
-              errorText: _error,
+  Widget _settings(BuildContext context) {
+    final l10n = context.l10n;
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.appLockTitle)),
+      body: ListView(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              _hasPin ? l10n.appLockIntroWithPin : l10n.appLockIntroNoPin,
             ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: TextField(
-            controller: _again,
-            obscureText: true,
-            keyboardType: TextInputType.number,
-            inputFormatters: _pinDigits,
-            maxLength: _pinMaxLength,
-            decoration: const InputDecoration(labelText: 'PIN again'),
-            onSubmitted: (_) => unawaited(_save()),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              FilledButton(
-                onPressed: () => unawaited(_save()),
-                child: Text(_hasPin ? 'Replace the PIN' : 'Set the PIN'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              controller: _pin,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: _pinDigits,
+              maxLength: _pinMaxLength,
+              decoration: InputDecoration(
+                labelText: _hasPin ? l10n.appLockNewPin : l10n.appLockPin,
+                errorText: _error,
               ),
-              const SizedBox(width: 12),
-              if (_hasPin)
-                TextButton(
-                  onPressed: () => unawaited(_remove()),
-                  child: const Text('Remove the lock'),
-                ),
-            ],
+            ),
           ),
-        ),
-        const Divider(),
-        StreamBuilder<String?>(
-          stream: widget.db.watchSetting(SettingKeys.lockTimeout),
-          builder: (context, snap) {
-            final seconds =
-                int.tryParse(snap.data ?? '') ?? AppLock.defaultTimeout;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: TextField(
+              controller: _again,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: _pinDigits,
+              maxLength: _pinMaxLength,
+              decoration: InputDecoration(labelText: l10n.appLockPinAgain),
+              onSubmitted: (_) => unawaited(_save()),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
               children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Text('Ask again'),
-                ),
-                RadioGroup<int>(
-                  groupValue: seconds,
-                  // Nothing to time out before there is a PIN.
-                  onChanged: (v) {
-                    if (!_hasPin) return;
-                    unawaited(
-                      widget.db.setSetting(
-                        SettingKeys.lockTimeout,
-                        '${v ?? AppLock.defaultTimeout}',
-                      ),
-                    );
-                  },
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final t in AppLock.timeouts)
-                        RadioListTile<int>(
-                          value: t,
-                          enabled: _hasPin,
-                          title: Text(_timeoutLabel(t)),
-                        ),
-                    ],
+                FilledButton(
+                  onPressed: () => unawaited(_save()),
+                  child: Text(
+                    _hasPin ? l10n.appLockReplacePin : l10n.appLockSetPin,
                   ),
                 ),
+                const SizedBox(width: 12),
+                if (_hasPin)
+                  TextButton(
+                    onPressed: () => unawaited(_remove()),
+                    child: Text(l10n.appLockRemove),
+                  ),
               ],
-            );
-          },
-        ),
-        const Divider(),
-        StreamBuilder<String?>(
-          stream: widget.db.watchSetting(SettingKeys.lockBiometrics),
-          builder: (context, snap) => SwitchListTile(
-            value: snap.data == 'true',
-            title: const Text('Fingerprint or face'),
-            subtitle: const Text(
-              'Offered first when the app is locked; the PIN always works too',
             ),
-            onChanged: _hasPin
-                ? (v) => widget.db.setSetting(SettingKeys.lockBiometrics, '$v')
-                : null,
           ),
-        ),
-      ],
-    ),
-  );
+          const Divider(),
+          StreamBuilder<String?>(
+            stream: widget.db.watchSetting(SettingKeys.lockTimeout),
+            builder: (context, snap) {
+              final seconds =
+                  int.tryParse(snap.data ?? '') ?? AppLock.defaultTimeout;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: Text(l10n.appLockAskAgain),
+                  ),
+                  RadioGroup<int>(
+                    groupValue: seconds,
+                    // Nothing to time out before there is a PIN.
+                    onChanged: (v) {
+                      if (!_hasPin) return;
+                      unawaited(
+                        widget.db.setSetting(
+                          SettingKeys.lockTimeout,
+                          '${v ?? AppLock.defaultTimeout}',
+                        ),
+                      );
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final t in AppLock.timeouts)
+                          RadioListTile<int>(
+                            value: t,
+                            enabled: _hasPin,
+                            title: Text(_timeoutLabel(l10n, t)),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          const Divider(),
+          StreamBuilder<String?>(
+            stream: widget.db.watchSetting(SettingKeys.lockBiometrics),
+            builder: (context, snap) => SwitchListTile(
+              value: snap.data == 'true',
+              title: Text(l10n.appLockBiometrics),
+              subtitle: Text(l10n.appLockBiometricsSubtitle),
+              onChanged: _hasPin
+                  ? (v) =>
+                        widget.db.setSetting(SettingKeys.lockBiometrics, '$v')
+                  : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

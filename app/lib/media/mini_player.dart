@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../l10n/l10n.dart';
 import 'media_viewer.dart';
 import 'video_sessions.dart';
 import 'video_stage.dart';
@@ -143,7 +144,7 @@ class _MiniPlayerViewState extends State<_MiniPlayerView> {
       width: size.width,
       height: size.height,
       child: Semantics(
-        label: 'Floating video player',
+        label: context.l10n.pipFloatingPlayer,
         button: true,
         child: GestureDetector(
           onTap: _s.togglePlay,
@@ -188,14 +189,14 @@ class _MiniPlayerViewState extends State<_MiniPlayerView> {
                       child: Row(
                         children: [
                           IconButton(
-                            tooltip: 'Back to full screen',
+                            tooltip: context.l10n.pipBackToFullScreen,
                             visualDensity: VisualDensity.compact,
                             icon: const Icon(Icons.open_in_full),
                             onPressed: widget.onExpand,
                           ),
                           const Spacer(),
                           IconButton(
-                            tooltip: 'Close',
+                            tooltip: context.l10n.commonClose,
                             visualDensity: VisualDensity.compact,
                             icon: const Icon(Icons.close),
                             onPressed: widget.onClose,

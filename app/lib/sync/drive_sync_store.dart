@@ -3,6 +3,58 @@ import 'dart:convert';
 import 'package:core/core.dart';
 import 'package:http/http.dart' as http;
 
+/// What went wrong with Google sign-in or Drive. The sync screen puts it in words.
+enum DriveFailure {
+  /// The build has no Google client id.
+  noClientId,
+
+  /// The user closed Google's sign-in.
+  cancelled,
+
+  /// Google's sign-in failed; [DriveException.detail] is Google's description.
+  signInFailed,
+
+  /// No access token: not signed in, or the Drive scope is not granted.
+  notSignedIn,
+
+  /// No answer from Drive; [DriveException.detail] is the error.
+  unreachable,
+
+  /// Drive answered [DriveException.request] with an error status.
+  refused,
+}
+
+/// The requests the store makes to Drive.
+enum DriveRequest { find, read, create, update }
+
+/// Google sign-in or Drive failed.
+final class DriveException implements Exception {
+  const DriveException(
+    this.failure, {
+    this.request,
+    this.status,
+    this.detail = '',
+  });
+  final DriveFailure failure;
+
+  /// The request Drive refused.
+  final DriveRequest? request;
+
+  /// The HTTP status of the refused request.
+  final int? status;
+
+  /// Google's own message or the error's text; empty when there is none.
+  final String detail;
+
+  @override
+  String toString() => [
+    'DriveException: ${failure.name}',
+    if (request != null) request!.name,
+    if (status != null) '$status',
+    if (detail.isNotEmpty) detail,
+  ].join(' ');
+}
+
 /// Gives an OAuth access token for the Drive app data scope. With [fresh] the cached token
 /// was rejected and a new one is wanted. Null when the user is not signed in.
 typedef DriveTokenProvider = Future<String?> Function({bool fresh});
@@ -32,7 +84,7 @@ final class DriveSyncStore implements SyncStore {
       _fileId = null;
       return null;
     }
-    _check(res, 'read the sync file');
+    _check(res, DriveRequest.read);
     return utf8.decode(res.bodyBytes);
   }
 
@@ -46,7 +98,7 @@ final class DriveSyncStore implements SyncStore {
         headers: {'content-type': 'application/json; charset=utf-8'},
         body: utf8.encode(content),
       );
-      _check(res, 'update the sync file');
+      _check(res, DriveRequest.update);
       return;
     }
     const boundary = 'telegram-feed-sync-boundary';
@@ -66,7 +118,7 @@ final class DriveSyncStore implements SyncStore {
       headers: {'content-type': 'multipart/related; boundary=$boundary'},
       body: utf8.encode(body),
     );
-    _check(res, 'create the sync file');
+    _check(res, DriveRequest.create);
     _fileId = (jsonDecode(res.body) as Map<String, Object?>)['id'] as String?;
   }
 
@@ -84,7 +136,7 @@ final class DriveSyncStore implements SyncStore {
         },
       ),
     );
-    _check(res, 'look for the sync file');
+    _check(res, DriveRequest.find);
     final files =
         (jsonDecode(res.body) as Map<String, Object?>)['files'] as List;
     if (files.isEmpty) return null;
@@ -101,7 +153,7 @@ final class DriveSyncStore implements SyncStore {
     Future<http.Response> attempt({required bool fresh}) async {
       final token = await _token(fresh: fresh);
       if (token == null) {
-        throw const SyncException('Not signed in to Google Drive.');
+        throw const DriveException(DriveFailure.notSignedIn);
       }
       final req = http.Request(method, uri)
         ..headers.addAll(headers)
@@ -111,10 +163,10 @@ final class DriveSyncStore implements SyncStore {
         return await http.Response.fromStream(
           await _http.send(req).timeout(const Duration(seconds: 30)),
         );
-      } on SyncException {
+      } on DriveException {
         rethrow;
       } on Exception catch (e) {
-        throw SyncException('Google Drive cannot be reached: $e');
+        throw DriveException(DriveFailure.unreachable, detail: '$e');
       }
     }
 
@@ -122,18 +174,21 @@ final class DriveSyncStore implements SyncStore {
     return res.statusCode == 401 ? attempt(fresh: true) : res;
   }
 
-  static void _check(http.Response res, String what) {
+  static void _check(http.Response res, DriveRequest request) {
     if (res.statusCode >= 200 && res.statusCode < 300) return;
     var detail = '';
     try {
       if (jsonDecode(res.body) case {'error': {'message': final String m}}) {
-        detail = ': $m';
+        detail = m;
       }
     } catch (_) {
       // body is not JSON
     }
-    throw SyncException(
-      'Google Drive refused to $what (${res.statusCode})$detail',
+    throw DriveException(
+      DriveFailure.refused,
+      request: request,
+      status: res.statusCode,
+      detail: detail,
     );
   }
 }

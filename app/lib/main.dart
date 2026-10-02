@@ -9,6 +9,7 @@ import 'home/home_screen.dart';
 import 'host/accounts.dart';
 import 'host/app_host.dart';
 import 'feeds/text_scale.dart';
+import 'l10n/l10n.dart';
 import 'media/audio_bar.dart';
 import 'media/auto_download.dart';
 import 'media/system_pip.dart';
@@ -66,53 +67,61 @@ class _TelegramFeedAppState extends State<TelegramFeedApp> {
       future: _host,
       builder: (context, snap) => StreamBuilder<String?>(
         stream: snap.data?.db.watchSetting(SettingKeys.themeMode),
-        builder: (context, mode) => MaterialApp(
-          navigatorKey: navigatorKey,
-          title: appName,
-          theme: ThemeData(
-            colorSchemeSeed: Colors.blue,
-            useMaterial3: true,
-            pageTransitionsTheme: appPageTransitions,
-          ),
-          darkTheme: ThemeData(
-            colorSchemeSeed: Colors.blue,
-            brightness: Brightness.dark,
-            useMaterial3: true,
-            pageTransitionsTheme: appPageTransitions,
-          ),
-          themeMode: themeModeFrom(mode.data),
-          // Above the navigator, so every route's media sees the download settings, and
-          // every route reaches the account switch (the Accounts screen is pushed over
-          // the home route, not built inside it).
-          builder: (context, child) => AccountSwitch(
-            onSwitched: _switchAccount,
-            child: PipHost(
-              child: snap.data == null
-                  ? child!
-                  : AutoDownloadScope(
-                      db: snap.data!.db,
-                      child: PostTextScale(
+        builder: (context, mode) => StreamBuilder<String?>(
+          stream: snap.data?.db.watchSetting(SettingKeys.language),
+          builder: (context, language) => MaterialApp(
+            navigatorKey: navigatorKey,
+            title: appName,
+            // The Language setting, or the phone's language while it says System (and
+            // before the database is open).
+            locale: AppLanguage.localeOf(language.data),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: ThemeData(
+              colorSchemeSeed: Colors.blue,
+              useMaterial3: true,
+              pageTransitionsTheme: appPageTransitions,
+            ),
+            darkTheme: ThemeData(
+              colorSchemeSeed: Colors.blue,
+              brightness: Brightness.dark,
+              useMaterial3: true,
+              pageTransitionsTheme: appPageTransitions,
+            ),
+            themeMode: themeModeFrom(mode.data),
+            // Above the navigator, so every route's media sees the download settings, and
+            // every route reaches the account switch (the Accounts screen is pushed over
+            // the home route, not built inside it).
+            builder: (context, child) => AccountSwitch(
+              onSwitched: _switchAccount,
+              child: PipHost(
+                child: snap.data == null
+                    ? child!
+                    : AutoDownloadScope(
                         db: snap.data!.db,
-                        // Under the header of every screen while a post is read
-                        // aloud or notifications are paused.
-                        child: StatusBannerHost(
-                          reading: snap.data!.reading,
-                          paused: snap.data!.paused,
-                          onStop: ({required clear}) =>
-                              snap.data!.stopReading(clear: clear),
-                          onResume: () =>
-                              unawaited(snap.data!.setPaused(false)),
-                          // Under every screen while a voice message or a song plays.
-                          // The lock sits above every screen the navigator builds.
-                          child: AudioBarHost(
-                            child: LockGate(db: snap.data!.db, child: child!),
+                        child: PostTextScale(
+                          db: snap.data!.db,
+                          // Under the header of every screen while a post is read
+                          // aloud or notifications are paused.
+                          child: StatusBannerHost(
+                            reading: snap.data!.reading,
+                            paused: snap.data!.paused,
+                            onStop: ({required clear}) =>
+                                snap.data!.stopReading(clear: clear),
+                            onResume: () =>
+                                unawaited(snap.data!.setPaused(false)),
+                            // Under every screen while a voice message or a song plays.
+                            // The lock sits above every screen the navigator builds.
+                            child: AudioBarHost(
+                              child: LockGate(db: snap.data!.db, child: child!),
+                            ),
                           ),
                         ),
                       ),
-                    ),
+              ),
             ),
+            home: _Root(host: _host),
           ),
-          home: _Root(host: _host),
         ),
       ),
     );
@@ -147,7 +156,7 @@ class _Root extends StatelessWidget {
         if (snap.hasError) {
           return Scaffold(
             body: Center(
-              child: Text('Could not start the core: ${snap.error}'),
+              child: Text(context.l10n.appStartFailed('${snap.error}')),
             ),
           );
         }
@@ -166,13 +175,13 @@ class _Root extends StatelessWidget {
             actions: [
               PauseButton(paused: h.paused, onChanged: h.setPaused),
               IconButton(
-                tooltip: 'Rules',
+                tooltip: context.l10n.commonRules,
                 // A bell, not a list: these rules exist to notify.
                 icon: const Icon(Icons.notifications_active_outlined),
                 onPressed: () => _openRules(context, h),
               ),
               IconButton(
-                tooltip: 'Settings',
+                tooltip: context.l10n.commonSettings,
                 icon: const Icon(Icons.settings_outlined),
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(

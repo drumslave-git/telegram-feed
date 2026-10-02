@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telegram_feed/l10n/l10n.dart';
 import 'package:telegram_feed/media/media_viewer.dart' show MediaViewerScreen;
 import 'package:telegram_feed/service/reading_now.dart';
 import 'package:telegram_feed/widgets/status_banner.dart';
@@ -147,10 +148,12 @@ void main() {
   });
 
   test('the words for the queue', () {
-    expect(readingLine(null), '');
+    final en = lookupAppLocalizations(const Locale('en'));
+    expect(readingLine(null, en), '');
     expect(
       readingLine(
         const ReadingNow(chatId: 1, messageId: 1, channelTitle: '', waiting: 1),
+        en,
       ),
       'Reading aloud. 1 more post waits.',
     );

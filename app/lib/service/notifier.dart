@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../l10n/l10n.dart';
 import 'notification_plan.dart';
 
 export 'notification_plan.dart';
@@ -47,6 +48,9 @@ final class Notifier {
   /// The in-app channel ids in use, by the logical priority of the plan.
   final _actualInApp = <String, String>{};
 
+  /// The interface language of the notifications and of the channels' names.
+  AppLocalizations _strings = AppLanguage.englishStrings;
+
   /// Whether the app is on screen. Posts that match then sound and vibrate as their
   /// priority says but do not pop up over it; Android decides the pop-up by the channel, so
   /// they go on the in-app channels.
@@ -62,8 +66,10 @@ final class Notifier {
 
   Future<void> init({
     NotificationSounds sounds = const NotificationSounds(),
+    AppLocalizations? strings,
   }) async {
     _sounds = sounds;
+    if (strings != null) _strings = strings;
     await _plugin.initialize(
       settings: const InitializationSettings(
         android: AndroidInitializationSettings(notificationIcon),
@@ -76,18 +82,36 @@ final class Notifier {
           AndroidFlutterLocalNotificationsPlugin
         >();
     if (android == null) return;
-    await android.createNotificationChannel(
-      const AndroidNotificationChannel(
-        channelSilent,
-        'Silent posts',
-        description: 'Rules with silent priority: no sound, no heads-up',
-        importance: Importance.low,
-        playSound: false,
-        enableVibration: false,
-      ),
-    );
+    await _createSilentChannel(android);
     _actual[channelSilent] = channelSilent;
     await setSounds(sounds);
+  }
+
+  Future<void> _createSilentChannel(
+    AndroidFlutterLocalNotificationsPlugin android,
+  ) => android.createNotificationChannel(
+    AndroidNotificationChannel(
+      channelSilent,
+      _strings.notifyChannelSilent,
+      description: _strings.notifyChannelSilentDescription,
+      importance: Importance.low,
+      playSound: false,
+      enableVibration: false,
+    ),
+  );
+
+  /// A change of the interface language: Android's settings list the channels under
+  /// their new names, and later notifications use the new words.
+  Future<void> setStrings(AppLocalizations strings) async {
+    if (strings.localeName == _strings.localeName) return;
+    _strings = strings;
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (android == null) return;
+    await _createSilentChannel(android);
+    await setSounds(_sounds);
   }
 
   /// Applies the sound and vibration choices: channels under new ids where a choice
@@ -105,11 +129,10 @@ final class Notifier {
       await android.createNotificationChannel(
         AndroidNotificationChannel(
           (inApp ? channelNormalInApp : channelNormalPopup) + suffix,
-          channelNameOf(channelNormal, inApp: inApp),
+          channelNameOf(channelNormal, inApp: inApp, strings: _strings),
           description: inApp
-              ? 'Rules with normal priority while the app is open, without a '
-                    'pop-up'
-              : 'Rules with normal priority',
+              ? _strings.notifyChannelNormalInAppDescription
+              : _strings.notifyChannelNormalDescription,
           importance: inApp ? Importance.defaultImportance : Importance.high,
           sound: (sounds.normalSound ?? '').isEmpty
               ? null
@@ -159,20 +182,25 @@ final class Notifier {
         >();
     if (android == null) return;
     final bypass = await android.hasNotificationPolicyAccess() ?? false;
-    if (bypass == _urgentBypassesDnd && _actual[channelUrgent] != null) return;
+    if (bypass == _urgentBypassesDnd &&
+        _actual[channelUrgent] != null &&
+        _urgentNamedIn == _strings.localeName) {
+      return;
+    }
+    _urgentNamedIn = _strings.localeName;
     _urgentBypassesDnd = bypass;
     final suffix = _suffixOf(_sounds.urgentSound, _sounds.urgentVibrate);
     for (final inApp in const [false, true]) {
       await android.createNotificationChannel(
         AndroidNotificationChannel(
           _urgentId(inApp: inApp),
-          channelNameOf(channelUrgent, inApp: inApp),
-          description:
-              (inApp
-                  ? 'Rules with urgent priority while the app is open, without '
-                        'a pop-up'
-                  : 'Rules with urgent priority') +
-              (bypass ? '; bypasses Do Not Disturb' : ''),
+          channelNameOf(channelUrgent, inApp: inApp, strings: _strings),
+          description: switch (inApp
+              ? _strings.notifyChannelUrgentInAppDescription
+              : _strings.notifyChannelUrgentDescription) {
+            final d when bypass => _strings.notifyChannelBypassesDnd(d),
+            final d => d,
+          },
           importance: inApp ? Importance.defaultImportance : Importance.high,
           bypassDnd: bypass,
           sound: (_sounds.urgentSound ?? '').isEmpty
@@ -190,6 +218,9 @@ final class Notifier {
   }
 
   bool? _urgentBypassesDnd;
+
+  /// The language the urgent channels were last named in.
+  String? _urgentNamedIn;
 
   static String _urgentBase({required bool inApp, required bool dnd}) =>
       switch ((inApp, dnd)) {
@@ -228,14 +259,20 @@ final class Notifier {
       : Priority.high;
 
   /// The name Android's own settings list a kind of rule notification under.
-  static String channelNameOf(String planChannelId, {bool inApp = false}) =>
-      switch ((planChannelId, inApp)) {
-        (channelSilent, _) => 'Silent posts',
-        (channelUrgent, false) => 'Urgent posts',
-        (channelUrgent, true) => 'Urgent posts while the app is open',
-        (_, false) => 'Posts',
-        (_, true) => 'Posts while the app is open',
-      };
+  static String channelNameOf(
+    String planChannelId, {
+    bool inApp = false,
+    AppLocalizations? strings,
+  }) {
+    final s = strings ?? AppLanguage.englishStrings;
+    return switch ((planChannelId, inApp)) {
+      (channelSilent, _) => s.notifyChannelSilent,
+      (channelUrgent, false) => s.notifyChannelUrgent,
+      (channelUrgent, true) => s.notifyChannelUrgentInApp,
+      (_, false) => s.notifyChannelNormal,
+      (_, true) => s.notifyChannelNormalInApp,
+    };
+  }
 
   /// The Android channel a plan's notification goes on: an in-app one while the app is
   /// open. The reader's sound is in the channel's id, so the plan's priority is looked up.
@@ -278,7 +315,11 @@ final class Notifier {
           channelId,
           // A readable name: were the channel ever created from here, Android's own
           // settings would otherwise list "posts_normal_k3f9".
-          channelNameOf(plan.channelId, inApp: _isInApp(channelId)),
+          channelNameOf(
+            plan.channelId,
+            inApp: _isInApp(channelId),
+            strings: _strings,
+          ),
           icon: notificationIcon,
           subText: plan.rule.isEmpty ? null : plan.rule,
           importance: _importanceOf(plan.channelId, channelId),
@@ -289,21 +330,21 @@ final class Notifier {
           styleInformation: BigTextStyleInformation(plan.body),
           // The button that changes comes last, so the other one never moves.
           actions: [
-            const AndroidNotificationAction(
+            AndroidNotificationAction(
               actionOpenTelegram,
-              'Open in Telegram',
+              _strings.commonOpenInTelegram,
               showsUserInterface: true,
               cancelNotification: true,
             ),
             reading
-                ? const AndroidNotificationAction(
+                ? AndroidNotificationAction(
                     actionStop,
-                    'Stop',
+                    _strings.notifyStop,
                     cancelNotification: false,
                   )
-                : const AndroidNotificationAction(
+                : AndroidNotificationAction(
                     actionListen,
-                    'Listen',
+                    _strings.notifyListen,
                     cancelNotification: false,
                   ),
           ],
@@ -380,7 +421,7 @@ final class Notifier {
   ) => _plugin.show(
     id: plan.summaryId,
     title: plan.title,
-    body: '$count new post${count == 1 ? '' : 's'}',
+    body: _strings.notifyNewPosts(count),
     notificationDetails: NotificationDetails(
       android: AndroidNotificationDetails(
         channelId,

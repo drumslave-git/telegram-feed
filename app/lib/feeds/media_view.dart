@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import '../l10n/l10n.dart';
 import '../media/auto_download.dart';
 import '../media/media_viewer.dart';
 import '../media/video_downloads.dart';
@@ -106,6 +107,7 @@ class MediaView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final policy = AutoDownloadScope.of(context);
+    final l10n = context.l10n;
     return switch (media) {
       PhotoMedia(:final sizes) => PhotoView(
         file: pickPhotoSize(
@@ -166,7 +168,7 @@ class MediaView extends StatelessWidget {
           file: file,
           durationSeconds: durationSeconds,
           label: isVoice
-              ? 'Voice message'
+              ? l10n.mediaVoiceMessage
               : [title, performer].where((s) => s.isNotEmpty).join(' – '),
           gateway: gateway,
           autoLoad: policy.file(file.size),
@@ -180,7 +182,7 @@ class MediaView extends StatelessWidget {
           autoStart: policy.file(file.size),
         ),
       UnsupportedMedia(:final tdType) => Chip(
-        label: Text(tdType.replaceFirst('message', '')),
+        label: Text(l10n.unsupportedLabel(tdType)),
         visualDensity: VisualDensity.compact,
       ),
     };
@@ -321,7 +323,7 @@ class _DownloadedState extends State<Downloaded> {
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        'Download failed. Tap to retry.',
+                        context.l10n.postDownloadFailed,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
@@ -349,7 +351,11 @@ class _DownloadedState extends State<Downloaded> {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(_started ? 'Downloading…' : 'Tap to download'),
+              Text(
+                _started
+                    ? context.l10n.postDownloading
+                    : context.l10n.postTapToDownload,
+              ),
             ],
           ),
         );
@@ -424,7 +430,9 @@ class PhotoView extends StatelessWidget {
     return Semantics(
       image: true,
       button: onTap != null,
-      label: onTap == null ? 'Photo' : 'Photo, opens full screen',
+      label: onTap == null
+          ? context.l10n.mediaPhoto
+          : context.l10n.postPhotoOpensFullScreen,
       child: GestureDetector(
         onTap: onTap,
         // The picture flies from here into the viewer and back to here.
@@ -732,7 +740,7 @@ class _VideoViewState extends State<VideoView> {
                 if (session == null)
                   MediaBadge(
                     widget.video.isAnimation
-                        ? 'GIF'
+                        ? context.l10n.mediaGif
                         : formatDuration(widget.video.durationSeconds),
                   ),
               ],
@@ -767,7 +775,7 @@ class _PlayBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: 'Play',
+    message: context.l10n.postPlay,
     child: Material(
       color: Colors.black45,
       shape: const CircleBorder(),
@@ -863,19 +871,20 @@ class _AudioViewState extends State<AudioView> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final label = widget.label.isEmpty ? l10n.mediaAudio : widget.label;
     if (!_requested) {
       return ListTile(
         contentPadding: EdgeInsets.zero,
         leading: IconButton.filled(
-          tooltip: 'Play',
+          tooltip: l10n.postPlay,
           onPressed: () => setState(() => _requested = true),
           icon: const Icon(Icons.play_arrow),
         ),
-        title: Text(widget.label.isEmpty ? 'Audio' : widget.label),
+        title: Text(label),
         subtitle: Text(formatDuration(widget.durationSeconds)),
       );
     }
-    final label = widget.label.isEmpty ? 'Audio' : widget.label;
     return Downloaded(
       file: widget.file,
       gateway: widget.gateway,
@@ -921,6 +930,7 @@ class DocumentView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Downloaded(
       file: file,
       gateway: gateway,
@@ -942,10 +952,10 @@ class DocumentView extends StatelessWidget {
         title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(
           started
-              ? 'Downloading…'
+              ? l10n.postDownloading
               : file.size > 0
-              ? '${formatBytes(file.size)} · tap to download'
-              : 'Tap to download',
+              ? l10n.postFileTapToDownload(formatBytes(file.size))
+              : l10n.postTapToDownload,
         ),
         onTap: started ? null : start,
       ),
@@ -954,11 +964,11 @@ class DocumentView extends StatelessWidget {
         leading: const Icon(Icons.insert_drive_file_outlined),
         title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(
-          file.size > 0 ? formatBytes(file.size) : 'On this device',
+          file.size > 0 ? formatBytes(file.size) : l10n.postOnThisDevice,
         ),
         // The app has no viewer of its own for documents; another app opens it.
         trailing: IconButton(
-          tooltip: 'Open with…',
+          tooltip: l10n.postOpenWith,
           icon: const Icon(Icons.open_in_new),
           onPressed: () => unawaited(
             SharePlus.instance.share(

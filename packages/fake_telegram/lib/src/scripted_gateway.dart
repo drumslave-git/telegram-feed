@@ -33,6 +33,7 @@ class ChannelsGateway implements TelegramGateway {
         lastReadMessageId: readPositions[c.chatId] ?? 0,
         unreadCount: unreadOf(c.chatId),
         lastMessageText: c.lastMessageText,
+        lastMessageMedia: c.lastMessageMedia,
         lastMessageDate: c.lastMessageDate,
       ),
   ];

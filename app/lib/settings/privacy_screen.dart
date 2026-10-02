@@ -1,6 +1,7 @@
 import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import 'app_lock.dart';
 import 'settings_tiles.dart';
 
@@ -11,25 +12,25 @@ class PrivacyScreen extends StatelessWidget {
   final AppDatabase db;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Privacy and security')),
-    body: ListView(
-      children: [
-        const SettingsHeader('Security'),
-        StreamBuilder<String?>(
-          stream: db.watchSetting(SettingKeys.lockEnabled),
-          builder: (context, snap) => SettingsLink(
-            icon: Icons.lock_outline,
-            title: 'App lock',
-            value: snap.data == 'true' ? 'On' : 'Off',
-            onTap: () => openSettingsScreen(context, AppLockScreen(db: db)),
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.privacyTitle)),
+      body: ListView(
+        children: [
+          SettingsHeader(l10n.privacySecurity),
+          StreamBuilder<String?>(
+            stream: db.watchSetting(SettingKeys.lockEnabled),
+            builder: (context, snap) => SettingsLink(
+              icon: Icons.lock_outline,
+              title: l10n.appLockTitle,
+              value: snap.data == 'true' ? l10n.commonOn : l10n.commonOff,
+              onTap: () => openSettingsScreen(context, AppLockScreen(db: db)),
+            ),
           ),
-        ),
-        const SettingsFooter(
-          'A PIN, or the phone\'s own fingerprint or face, is asked for when the app has '
-          'rested. Without it anyone holding the unlocked phone can read your channels.',
-        ),
-      ],
-    ),
-  );
+          SettingsFooter(l10n.privacyAppLockFooter),
+        ],
+      ),
+    );
+  }
 }

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../l10n/l10n.dart';
 import '../media/audio_session.dart';
 import 'media_view.dart' show formatDuration;
 
@@ -64,7 +65,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     builder: (context, track, _) {
       final mine = track?.path == widget.path;
       final error = mine ? _sessions.error.value : null;
-      if (error != null) return Text('Cannot play: $error');
+      if (error != null) return Text(context.l10n.timelineCannotPlay(error));
       return ValueListenableBuilder<bool>(
         valueListenable: _sessions.playing,
         builder: (context, playing, _) => ValueListenableBuilder<Duration>(
@@ -75,7 +76,9 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
             return ListTile(
               contentPadding: EdgeInsets.zero,
               leading: IconButton.filled(
-                tooltip: mine && playing ? 'Pause' : 'Play',
+                tooltip: mine && playing
+                    ? context.l10n.timelinePause
+                    : context.l10n.timelinePlay,
                 onPressed: () => unawaited(
                   mine
                       ? _sessions.toggle()

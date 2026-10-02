@@ -14,6 +14,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../home/channel_info_screen.dart';
 import '../home/connection_title.dart';
+import '../l10n/l10n.dart';
 import '../media/media_viewer.dart';
 import '../settings/data_storage_screen.dart' show DataStorageScreen;
 import '../settings/settings_tiles.dart' show openSettingsScreen;
@@ -230,26 +231,26 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
   /// What the reader picked, and what can be done with it: the official app's own set,
   /// minus forwarding to a chat, which this app does not do.
-  PreferredSizeWidget _selectionBar() => AppBar(
+  PreferredSizeWidget _selectionBar(AppLocalizations l10n) => AppBar(
     leading: IconButton(
-      tooltip: 'Cancel',
+      tooltip: l10n.commonCancel,
       icon: const Icon(Icons.close),
       onPressed: () => _view.currentState?.clearSelection(),
     ),
-    title: Text('$_selected selected'),
+    title: Text(l10n.timelineSelectedCount(_selected)),
     actions: [
       IconButton(
-        tooltip: 'Copy text',
+        tooltip: l10n.timelineCopyText,
         icon: const Icon(Icons.content_copy),
         onPressed: () => unawaited(_copySelected()),
       ),
       IconButton(
-        tooltip: 'Share',
+        tooltip: l10n.commonShare,
         icon: const Icon(Icons.share),
         onPressed: () => unawaited(_shareSelected()),
       ),
       IconButton(
-        tooltip: 'Save to Saved Messages',
+        tooltip: l10n.timelineSaveToSavedMessages,
         icon: const Icon(Icons.bookmark_add_outlined),
         onPressed: () => unawaited(_saveSelected()),
       ),
@@ -261,6 +262,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
   Future<void> _copySelected() async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     final items = _picked;
     final text = [
       for (final i in items)
@@ -269,11 +271,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
     await Clipboard.setData(ClipboardData(text: text));
     _view.currentState?.clearSelection();
     messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          '${items.length} post${items.length == 1 ? '' : 's'} copied',
-        ),
-      ),
+      SnackBar(content: Text(l10n.timelinePostsCopied(items.length))),
     );
   }
 
@@ -290,6 +288,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
   Future<void> _saveSelected() async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     final items = _picked;
     final byChat = <int, List<int>>{};
     for (final i in items) {
@@ -303,20 +302,17 @@ class _TimelineScreenState extends State<TimelineScreen> {
         await widget.gateway.saveToSavedMessages(entry.key, entry.value);
       }
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            '${items.length} post${items.length == 1 ? '' : 's'} saved to Saved Messages',
-          ),
-        ),
+        SnackBar(content: Text(l10n.timelinePostsSaved(items.length))),
       );
     } on TelegramException catch (e) {
-      showTelegramError(messenger, e, what: 'Could not save the posts.');
+      showTelegramError(messenger, e, what: l10n.timelineSavePostsFailed);
     }
   }
 
   PreferredSizeWidget _appBar(BuildContext context) {
     final theme = Theme.of(context);
-    if (_selected > 0) return _selectionBar();
+    final l10n = context.l10n;
+    if (_selected > 0) return _selectionBar(l10n);
     if (_searchOpen) {
       return AppBar(
         leading: BackButton(onPressed: _closeSearch),
@@ -326,8 +322,8 @@ class _TimelineScreenState extends State<TimelineScreen> {
           focusNode: _queryFocus,
           autofocus: true,
           textInputAction: TextInputAction.search,
-          decoration: const InputDecoration(
-            hintText: 'Search posts',
+          decoration: InputDecoration(
+            hintText: l10n.searchPostsHint,
             border: InputBorder.none,
           ),
           onChanged: _onQuery,
@@ -336,7 +332,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
         actions: [
           if (_queryCtl.text.isNotEmpty)
             IconButton(
-              tooltip: 'Clear',
+              tooltip: l10n.commonClear,
               icon: const Icon(Icons.close),
               onPressed: () {
                 _queryCtl.clear();
@@ -344,7 +340,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
               },
             ),
           IconButton(
-            tooltip: 'Jump to date',
+            tooltip: l10n.timelineJumpToDate,
             icon: const Icon(Icons.calendar_month),
             // The calendar takes over from the search, as in the official app; cancelled,
             // it leaves the search as it was.
@@ -392,7 +388,10 @@ class _TimelineScreenState extends State<TimelineScreen> {
                     Text(channel.title, style: theme.textTheme.titleLarge),
                     if (channel.memberCount > 0)
                       Text(
-                        '${formatCount(channel.memberCount)} subscribers',
+                        l10n.timelineSubscribers(
+                          channel.memberCount,
+                          formatCount(channel.memberCount),
+                        ),
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -403,13 +402,13 @@ class _TimelineScreenState extends State<TimelineScreen> {
       ),
       actions: [
         IconButton(
-          tooltip: 'Search',
+          tooltip: l10n.commonSearch,
           icon: const Icon(Icons.search),
           onPressed: _openSearch,
         ),
         if (widget.feed != null)
           IconButton(
-            tooltip: 'Edit feed',
+            tooltip: l10n.timelineEditFeed,
             icon: const Icon(Icons.tune),
             onPressed: _openFeedEditor,
           ),
@@ -920,7 +919,7 @@ class TimelineViewState extends State<TimelineView>
       // Telegram itself is younger than this.
       firstDate: DateTime(2013),
       lastDate: now,
-      helpText: 'Jump to date',
+      helpText: context.l10n.timelineJumpToDate,
     );
     if (picked == null || !mounted) return false;
     onPicked?.call();
@@ -932,6 +931,7 @@ class TimelineViewState extends State<TimelineView>
   /// the newest older one), and the list settles on the first post of the day.
   Future<void> jumpToDate(DateTime day) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     final end = DateTime(day.year, day.month, day.day, 23, 59, 59);
     Map<int, int> anchors;
     try {
@@ -939,14 +939,16 @@ class TimelineViewState extends State<TimelineView>
         for (final s in _sourceRows) s.chatId,
       ], end.millisecondsSinceEpoch ~/ 1000);
     } on TelegramException catch (e) {
-      showTelegramError(messenger, e, what: 'Could not jump to that day.');
+      showTelegramError(messenger, e, what: l10n.timelineJumpToDayFailed);
       return;
     }
     if (!mounted) return;
     if (anchors.isEmpty) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Nothing here from ${formatDay(day)} or earlier.'),
+          content: Text(
+            l10n.timelineNothingFromDay(formatDay(day, l10n: l10n)),
+          ),
         ),
       );
       return;
@@ -1415,6 +1417,7 @@ class TimelineViewState extends State<TimelineView>
   /// Opens the post in the Telegram app, falling back to t.me in the browser.
   Future<void> _openInTelegram(TimelineItem item) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     final uri = telegramPostUri(
       chatId: item.chatId,
       messageId: item.head.messageId,
@@ -1425,9 +1428,7 @@ class TimelineViewState extends State<TimelineView>
       messageId: item.head.messageId,
     );
     if (await launchFirst([uri, web])) return;
-    messenger.showSnackBar(
-      const SnackBar(content: Text('No app can open this post.')),
-    );
+    messenger.showSnackBar(SnackBar(content: Text(l10n.timelineNoAppForPost)));
   }
 
   /// Tap on the forwarded-from line: opens the original post in the channel it came from,
@@ -1442,8 +1443,8 @@ class TimelineViewState extends State<TimelineView>
         SnackBar(
           content: Text(
             origin.title.isEmpty
-                ? 'That post came from an account that hides itself.'
-                : '${origin.title} is not a channel you follow.',
+                ? context.l10n.timelineForwardHidden
+                : context.l10n.timelineForwardNotFollowed(origin.title),
           ),
         ),
       );
@@ -1491,9 +1492,7 @@ class TimelineViewState extends State<TimelineView>
     final channel = _known[reply.chatId];
     if (channel == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('That post is in a channel you do not follow.'),
-        ),
+        SnackBar(content: Text(context.l10n.timelineReplyNotFollowed)),
       );
       return;
     }
@@ -1516,10 +1515,13 @@ class TimelineViewState extends State<TimelineView>
   /// and all; everything else goes to whatever app handles it (the browser for web pages).
   Future<void> _openLink(String url) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     final uri = Uri.tryParse(url);
     if (uri != null && _openTelegramLink(uri)) return;
     if (await launchFirst([uri])) return;
-    messenger.showSnackBar(SnackBar(content: Text('No app can open $url')));
+    messenger.showSnackBar(
+      SnackBar(content: Text(l10n.timelineNoAppForLink(url))),
+    );
   }
 
   /// The link path, for the test of H-18: answers whether the app opened it itself.
@@ -1576,7 +1578,7 @@ class TimelineViewState extends State<TimelineView>
     final link = _shareLink(item);
     if (link == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This post has no link to share.')),
+        SnackBar(content: Text(context.l10n.timelineNoLinkToShare)),
       );
       return;
     }
@@ -1590,35 +1592,40 @@ class TimelineViewState extends State<TimelineView>
   /// The post's words, as the official app's "Copy" does.
   Future<void> _copyText(TimelineItem item) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     await Clipboard.setData(ClipboardData(text: item.text));
-    messenger.showSnackBar(const SnackBar(content: Text('Text copied')));
+    messenger.showSnackBar(SnackBar(content: Text(l10n.timelineTextCopied)));
   }
 
   Future<void> _copyLink(TimelineItem item) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     final link = _shareLink(item);
     if (link == null) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('This post has no link to copy.')),
+        SnackBar(content: Text(l10n.timelineNoLinkToCopy)),
       );
       return;
     }
     await Clipboard.setData(ClipboardData(text: link.toString()));
-    messenger.showSnackBar(SnackBar(content: Text('Link copied: $link')));
+    messenger.showSnackBar(
+      SnackBar(content: Text(l10n.timelineLinkCopied(link.toString()))),
+    );
   }
 
   /// Forwards the post, and with it the whole album, into Saved Messages.
   Future<void> _save(TimelineItem item) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     try {
       await widget.gateway.saveToSavedMessages(item.chatId, [
         for (final p in item.allPosts) p.messageId,
       ]);
       messenger.showSnackBar(
-        const SnackBar(content: Text('Saved to Saved Messages')),
+        SnackBar(content: Text(l10n.timelineSavedToSavedMessages)),
       );
     } on TelegramException catch (e) {
-      showTelegramError(messenger, e, what: 'Could not save the post.');
+      showTelegramError(messenger, e, what: l10n.timelineSavePostFailed);
     }
   }
 
@@ -1664,6 +1671,7 @@ class TimelineViewState extends State<TimelineView>
 
   Future<void> _react(TimelineItem item, String emoji, bool remove) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     final key = (item.chatId, item.head.messageId);
     // A second tap before Telegram answered would undo the first.
     if (_reacting.contains(key)) return;
@@ -1689,7 +1697,7 @@ class TimelineViewState extends State<TimelineView>
       }
     } on TelegramException catch (e) {
       if (mounted) setState(() => _optimistic.remove(key));
-      showTelegramError(messenger, e, what: 'Could not send the reaction.');
+      showTelegramError(messenger, e, what: l10n.timelineReactionFailed);
     } finally {
       _reacting.remove(key);
     }
@@ -1920,10 +1928,10 @@ class TimelineViewState extends State<TimelineView>
         child: FloatingActionButton.small(
           heroTag: null,
           tooltip: t.pendingNew > 0
-              ? '${t.pendingNew} new post${t.pendingNew == 1 ? '' : 's'}'
+              ? context.l10n.timelineNewPosts(t.pendingNew)
               : unread > 0
-              ? '$unread unread post${unread == 1 ? '' : 's'}'
-              : 'Newest posts',
+              ? context.l10n.timelineUnreadPostsCount(unread)
+              : context.l10n.timelineNewestPosts,
           onPressed: _onDownButton,
           child: const Icon(Icons.keyboard_arrow_down),
         ),
@@ -1941,21 +1949,20 @@ class TimelineViewState extends State<TimelineView>
     FeedTimeline? t,
     List<TimelineItem> items,
   ) {
+    final l10n = context.l10n;
     return t == null || _opening
         ? const Center(child: CircularProgressIndicator())
         : items.isEmpty && t.chatIds.isEmpty
         ? EmptyState(
             icon: Icons.rss_feed,
-            title: 'This feed has no channels yet',
-            message:
-                'Add the channels it should collect; their posts then read as one '
-                'timeline, oldest first.',
-            actionLabel: 'Add channels',
+            title: l10n.timelineNoChannelsTitle,
+            message: l10n.timelineNoChannelsMessage,
+            actionLabel: l10n.timelineAddChannels,
             onAction: widget.onEditFeed,
           )
         : items.isEmpty && _error != null
         ? ErrorState(
-            what: 'Could not load the posts.',
+            what: l10n.timelineLoadFailed,
             message: _error,
             onRetry: _retryLoad,
           )
@@ -1963,8 +1970,8 @@ class TimelineViewState extends State<TimelineView>
         ? Center(
             child: Text(
               _filter.isEmpty
-                  ? 'No posts.'
-                  : 'No posts pass this feed\'s filter (${_filter.describe()}).',
+                  ? l10n.timelineNoPosts
+                  : l10n.timelineNoPostsPassFilter(_filter.describeIn(l10n)),
               textAlign: TextAlign.center,
             ),
           )
@@ -1996,10 +2003,10 @@ class TimelineViewState extends State<TimelineView>
                   padding: const EdgeInsets.all(10),
                   child: Center(
                     child: t.exhausted
-                        ? const ChatPill('Beginning of the feed')
+                        ? ChatPill(l10n.timelineBeginningOfFeed)
                         : _error != null
                         ? ErrorState(
-                            what: 'Could not load older posts.',
+                            what: l10n.timelineOlderFailed,
                             message: _error,
                             compact: true,
                             onRetry: () {
@@ -2127,7 +2134,7 @@ class TimelineViewState extends State<TimelineView>
                         children: [
                           if (newDay)
                             ChatPill(
-                              formatDay(day),
+                              formatDay(day, l10n: context.l10n),
                               onTap: () => unawaited(pickDate(around: day)),
                             ),
                           if (id == _firstUnread) const UnreadDivider(),
@@ -2263,7 +2270,7 @@ class _FloatingDayState extends State<FloatingDay>
       return Opacity(
         opacity: _fade.value,
         child: ChatPill(
-          formatDay(day),
+          formatDay(day, l10n: context.l10n),
           onTap: widget.onTap == null ? null : () => widget.onTap!(day),
         ),
       );
@@ -2316,7 +2323,7 @@ class PinnedBar extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Pinned post',
+                              context.l10n.timelinePinnedPost,
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -2325,8 +2332,10 @@ class PinnedBar extends StatelessWidget {
                             ),
                             Text(
                               // One line: a pinned post may be a long one.
-                              postLabel(post)
-                                  .replaceAll(String.fromCharCode(10), ' '),
+                              postLabel(
+                                post,
+                                context.l10n.mediaWords,
+                              ).replaceAll(String.fromCharCode(10), ' '),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -2343,7 +2352,7 @@ class PinnedBar extends StatelessWidget {
               ),
             ),
             IconButton(
-              tooltip: 'Hide',
+              tooltip: context.l10n.timelineHidePinned,
               icon: const Icon(Icons.close, size: 18),
               onPressed: onHide,
             ),
@@ -2367,7 +2376,7 @@ class UnreadDivider extends StatelessWidget {
       color: scheme.secondaryContainer.withValues(alpha: 0.85),
       alignment: Alignment.center,
       child: Text(
-        'Unread posts',
+        context.l10n.timelineUnreadDivider,
         style: Theme.of(context).textTheme.labelMedium
             ?.copyWith(color: scheme.onSecondaryContainer),
       ),

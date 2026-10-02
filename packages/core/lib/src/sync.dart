@@ -15,10 +15,29 @@ abstract interface class SyncStore {
   Future<void> write(String content);
 }
 
+/// Why sync could not run, for a message in the reader's language.
+enum SyncProblem {
+  /// Sync itself failed; [SyncException.message] is all there is to say (it may come from
+  /// Google's sign-in or Drive).
+  other,
+
+  /// The file comes from a newer version of the app.
+  newerVersion,
+
+  /// The file is not a snapshot; [SyncException.detail] is the parser's complaint.
+  unreadable,
+}
+
 /// Sync could not run or the file is unusable. The local database is left untouched.
 final class SyncException implements Exception {
-  const SyncException(this.message);
+  const SyncException(
+    this.message, {
+    this.problem = SyncProblem.other,
+    this.detail = '',
+  });
   final String message;
+  final SyncProblem problem;
+  final String detail;
 
   @override
   String toString() => 'SyncException: $message';
@@ -256,6 +275,7 @@ final class SyncSnapshot {
       if (version > formatVersion) {
         throw const SyncException(
           'The sync file was written by a newer version of the app. Update this device.',
+          problem: SyncProblem.newerVersion,
         );
       }
       List<T> list<T>(String key, T Function(Map<String, Object?>) f) => [
@@ -274,7 +294,11 @@ final class SyncSnapshot {
     } on SyncException {
       rethrow;
     } catch (e) {
-      throw SyncException('The sync file cannot be read: $e');
+      throw SyncException(
+        'The sync file cannot be read: $e',
+        problem: SyncProblem.unreadable,
+        detail: '$e',
+      );
     }
   }
 

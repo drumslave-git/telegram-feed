@@ -8,6 +8,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../feeds/media_view.dart' show Downloaded, pickPhotoSize;
 import '../feeds/post_card.dart' show formatDay;
+import '../l10n/l10n.dart';
 import 'audio_session.dart';
 import 'gallery.dart';
 import 'mini_player.dart';
@@ -253,6 +254,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
   /// reader's back, it says what is missing and offers to fetch it.
   Future<void> _share() async {
     final messenger = ScaffoldMessenger.maybeOf(context);
+    final l10n = context.l10n;
     final current = _current();
     if (current == null) return;
     final (:file, :video) = current;
@@ -265,23 +267,23 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
         messenger?.showSnackBar(
           video
               ? SnackBar(
-                  content: const Text('Download the video first to share it.'),
+                  content: Text(l10n.viewerShareNeedsDownload),
                   action: SnackBarAction(
-                    label: 'Download',
+                    label: l10n.videoDownload,
                     onPressed: () => unawaited(
                       VideoDownloads.of(widget.gateway).start(file),
                     ),
                   ),
                 )
-              : const SnackBar(
-                  content: Text('Cannot share: the file did not arrive'),
-                ),
+              : SnackBar(content: Text(l10n.viewerShareFileMissing)),
         );
         return;
       }
       await widget.share(path, mimeType: video ? 'video/mp4' : 'image/jpeg');
     } on Object catch (e) {
-      messenger?.showSnackBar(SnackBar(content: Text('Cannot share: $e')));
+      messenger?.showSnackBar(
+        SnackBar(content: Text(l10n.viewerShareFailed('$e'))),
+      );
     }
   }
 
@@ -289,6 +291,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
   /// is downloaded first if it is not there yet, as the download button would.
   Future<void> _saveToGallery() async {
     final messenger = ScaffoldMessenger.maybeOf(context);
+    final l10n = context.l10n;
     final current = _current();
     if (current == null) return;
     final (:file, :video) = current;
@@ -306,12 +309,16 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
       messenger?.showSnackBar(
         SnackBar(
           content: Text(
-            video ? 'Video saved to gallery' : 'Picture saved to gallery',
+            video
+                ? l10n.viewerVideoSavedToGallery
+                : l10n.viewerPictureSavedToGallery,
           ),
         ),
       );
     } on Object catch (e) {
-      messenger?.showSnackBar(SnackBar(content: Text('Cannot save: $e')));
+      messenger?.showSnackBar(
+        SnackBar(content: Text(l10n.viewerSaveFailed('$e'))),
+      );
     }
   }
 
@@ -343,15 +350,15 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
 
   /// "N of M" for the album the picture in front belongs to, or for the whole list when
   /// it is one post's album on its own. Null when there is nothing to count.
-  String? _counter() {
+  String? _counter(AppLocalizations l10n) {
     final key = _index < _details.length ? _details[_index].postKey : '';
     if (key.isEmpty) {
       return _items.length > 1 && widget.onNeedOlder == null
-          ? '${_index + 1} of ${_items.length}'
+          ? l10n.viewerCounter(_index + 1, _items.length)
           : null;
     }
     final (place, total) = _albumPlace(_index, key);
-    return total > 1 ? '${place + 1} of $total' : null;
+    return total > 1 ? l10n.viewerCounter(place + 1, total) : null;
   }
 
   /// Near the older end (the last page): ask the timeline for its next page of posts.
@@ -382,6 +389,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final items = _items;
     final detail = _index < _details.length ? _details[_index] : null;
     // The channel and the day above, the counter under them, as the official app does.
@@ -406,10 +414,11 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
           [
             // Within the post the picture came from: a feed's pictures grow as older
             // ones load, so counting them all would say "3 of 60".
-            ?_counter(),
+            ?_counter(l10n),
             if (detail != null && detail.date > 0)
               formatDay(
                 DateTime.fromMillisecondsSinceEpoch(detail.date * 1000),
+                l10n: l10n,
               ),
           ].join(' · '),
           maxLines: 1,
@@ -423,12 +432,15 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     // the three dots, so that the channel and the day keep their room on a phone.
     List<ViewerAction> menu() => [
       if (widget.onSave != null)
-        ViewerAction('Save to Saved Messages', () => widget.onSave!(_index)),
-      ViewerAction('Save to gallery', () => unawaited(_saveToGallery())),
+        ViewerAction(
+          l10n.viewerSaveToSavedMessages,
+          () => widget.onSave!(_index),
+        ),
+      ViewerAction(l10n.viewerSaveToGallery, () => unawaited(_saveToGallery())),
     ];
     final actions = [
       IconButton(
-        tooltip: 'Share',
+        tooltip: l10n.commonShare,
         color: Colors.white,
         icon: const Icon(Icons.share),
         onPressed: () => unawaited(_share()),
@@ -641,7 +653,7 @@ class _VideoPageState extends State<_VideoPage> {
         // is asked for.
         VideoDownloadButton(file: file, gateway: widget.gateway, compact: true),
         IconButton(
-          tooltip: 'Picture-in-picture',
+          tooltip: context.l10n.pipOpen,
           color: Colors.white,
           icon: const Icon(Icons.picture_in_picture_alt),
           onPressed: () => widget.onPip(session),
@@ -650,7 +662,11 @@ class _VideoPageState extends State<_VideoPage> {
         ...widget.actions.take(widget.actions.length - 1),
         ViewerMenu(
           actions: () => [
-            ...VideoDownloadButton.menuActions(file, widget.gateway),
+            ...VideoDownloadButton.menuActions(
+              file,
+              widget.gateway,
+              context.l10n,
+            ),
             ...widget.menu(),
           ],
         ),

@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
+import 'package:rules/rules.dart' show RuleParser;
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../home/channel_list.dart' show ChannelAvatar, FeedTags;
+import '../l10n/l10n.dart';
 import 'post_card.dart' show formatCount;
 import '../rules/condition_editor.dart';
 import '../rules/rules_screen.dart' show RuleList, openRuleEditor;
@@ -61,24 +63,25 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
     final feed = await widget.db.feedById(widget.feedId);
     if (!mounted || feed == null) return;
     final ctl = TextEditingController(text: feed.name);
+    final l10n = context.l10n;
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Rename feed'),
+        title: Text(l10n.feedEditorRenameTitle),
         content: TextField(
           controller: ctl,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Name'),
+          decoration: InputDecoration(labelText: l10n.feedEditorNameLabel),
           onSubmitted: (v) => Navigator.pop(context, v.trim()),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, ctl.text.trim()),
-            child: const Text('Rename'),
+            child: Text(l10n.commonRename),
           ),
         ],
       ),
@@ -127,6 +130,7 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return StreamBuilder<List<WatchedChannel>>(
       stream: _sourcesStream,
       builder: (context, sourcesSnap) {
@@ -138,11 +142,12 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
             // "Feed" on every rebuild nor keeps the old name after a rename.
             title: StreamBuilder<Feed?>(
               stream: _feedStream,
-              builder: (context, s) => Text(s.data?.name ?? 'Feed'),
+              builder: (context, s) =>
+                  Text(s.data?.name ?? l10n.feedEditorFallbackTitle),
             ),
             actions: [
               IconButton(
-                tooltip: 'Rename',
+                tooltip: l10n.commonRename,
                 icon: const Icon(Icons.edit_outlined),
                 onPressed: () => unawaited(_rename()),
               ),
@@ -151,10 +156,10 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
               controller: _tab,
               // Three tabs fit a phone; the five kinds of media live inside the last one,
               // where the official app keeps them too.
-              tabs: const [
-                Tab(text: 'Channels'),
-                Tab(text: 'Rules'),
-                Tab(text: 'Shared media'),
+              tabs: [
+                Tab(text: l10n.feedEditorTabChannels),
+                Tab(text: l10n.commonRules),
+                Tab(text: l10n.feedEditorTabSharedMedia),
               ],
             ),
           ),
@@ -166,7 +171,7 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
               FloatingActionButton.extended(
                 onPressed: () => _pick(sources),
                 icon: const Icon(Icons.add),
-                label: const Text('Add channel'),
+                label: Text(l10n.feedEditorAddChannel),
               ),
             FeedEditorScreen.rulesTab => FloatingActionButton.extended(
               onPressed: () => openRuleEditor(
@@ -176,7 +181,7 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
                 feedId: widget.feedId,
               ),
               icon: const Icon(Icons.add),
-              label: const Text('New rule'),
+              label: Text(l10n.feedEditorNewRule),
             ),
             _ => null,
           },
@@ -215,30 +220,33 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
   /// the user is asked first when there are any; otherwise an Undo puts it back in place.
   Future<void> _removeSource(WatchedChannel s, List<int> order) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     final rules = [
       for (final r in await widget.db.allRules())
         if (r.feedId == widget.feedId && r.scopeChatId == s.chatId) r,
     ];
     if (!mounted) return;
     if (rules.isNotEmpty) {
-      final names = rules.map((r) => '"${r.name}"').join(', ');
+      final names = rules
+          .map((r) => l10n.feedEditorQuotedRuleName(r.name))
+          .join(', ');
       final ok = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('Remove ${s.title}?'),
+          title: Text(l10n.feedEditorRemoveChannelTitle(s.title)),
           content: Text(
             rules.length == 1
-                ? 'The rule $names watches only this channel and is deleted with it.'
-                : 'The rules $names watch only this channel and are deleted with it.',
+                ? l10n.feedEditorRemoveChannelOneRule(names)
+                : l10n.feedEditorRemoveChannelRules(names),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+              child: Text(l10n.commonCancel),
             ),
             DestructiveButton(
               onPressed: () => Navigator.pop(context, true),
-              label: 'Remove',
+              label: l10n.feedEditorRemoveChannel,
             ),
           ],
         ),
@@ -252,9 +260,9 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text('${s.title} removed'),
+          content: Text(l10n.feedEditorChannelRemoved(s.title)),
           action: SnackBarAction(
-            label: 'Undo',
+            label: l10n.commonUndo,
             onPressed: () => unawaited(() async {
               await widget.db.addSource(
                 widget.feedId,
@@ -273,6 +281,7 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
     return FutureBuilder<List<Channel>>(
       future: _channels,
       builder: (context, chSnap) {
+        final l10n = context.l10n;
         final left = {
           for (final c in chSnap.data ?? const <Channel>[])
             if (!c.isMember) c.chatId,
@@ -288,11 +297,9 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
               Expanded(
                 child: EmptyState(
                   icon: Icons.playlist_add,
-                  title: 'No channels yet',
-                  message:
-                      'Add channels your Telegram account has joined; this app never '
-                      'joins one for you.',
-                  actionLabel: 'Add channel',
+                  title: l10n.feedEditorNoChannelsTitle,
+                  message: l10n.feedEditorNoChannelsMessage,
+                  actionLabel: l10n.feedEditorAddChannel,
                   onAction: () => unawaited(_pick(sources)),
                 ),
               ),
@@ -322,13 +329,13 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
               ),
               title: Text(s.title),
               subtitle: hasLeft
-                  ? const Text('Left in Telegram; history stays readable')
+                  ? Text(l10n.feedEditorChannelLeft)
                   : (s.username == null ? null : Text('@${s.username}')),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    tooltip: 'Remove',
+                    tooltip: l10n.feedEditorRemoveChannel,
                     icon: const Icon(Icons.remove_circle_outline),
                     onPressed: () => unawaited(
                       _removeSource(s, [for (final x in sources) x.chatId]),
@@ -369,8 +376,8 @@ class FeedFilterTile extends StatelessWidget {
         children: [
           ListTile(
             leading: const Icon(Icons.filter_list),
-            title: const Text('Show'),
-            subtitle: Text(filter.describe()),
+            title: Text(context.l10n.filterTileTitle),
+            subtitle: Text(filter.describeIn(context.l10n)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () async {
               final edited = await showModalBottomSheet<FeedFilter>(
@@ -427,15 +434,16 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
   static const _videoLengths = [0, 30, 60, 120, 300, 600, 1800];
   static const _textLengths = [0, 50, 100, 280, 500, 1000];
 
-  static String _duration(int s) => s == 0
-      ? 'Any length'
+  static String _duration(AppLocalizations l10n, int s) => s == 0
+      ? l10n.filterVideoAnyLength
       : s < 60
-      ? 'From $s s'
-      : 'From ${s ~/ 60} min';
+      ? l10n.filterFromSeconds(s)
+      : l10n.filterFromMinutes(s ~/ 60);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final mediaPossible = _f.media != MediaPresence.textOnly;
     final textPossible = _f.media != MediaPresence.withMedia;
     final videoPossible =
@@ -459,26 +467,26 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
                   child: Text(
-                    'Show in this feed',
+                    l10n.filterSheetTitle,
                     style: theme.textTheme.titleMedium,
                   ),
                 ),
-                label('Posts'),
+                label(l10n.filterPosts),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: SegmentedButton<MediaPresence>(
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: MediaPresence.any,
-                        label: Text('All'),
+                        label: Text(l10n.filterPostsAll),
                       ),
                       ButtonSegment(
                         value: MediaPresence.withMedia,
-                        label: Text('With media'),
+                        label: Text(l10n.filterPostsWithMedia),
                       ),
                       ButtonSegment(
                         value: MediaPresence.textOnly,
-                        label: Text('Text only'),
+                        label: Text(l10n.filterPostsTextOnly),
                       ),
                     ],
                     selected: {_f.media},
@@ -486,11 +494,11 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
                         setState(() => _f = _f.copyWith(media: s.first)),
                   ),
                 ),
-                label('Media types'),
+                label(l10n.filterMediaTypes),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: Text(
-                    'Leave all of them off to allow every type.',
+                    l10n.filterMediaTypesNote,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -503,7 +511,7 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
                     children: [
                       for (final kind in MediaKind.values)
                         FilterChip(
-                          label: Text(kind.chipLabel),
+                          label: Text(kind.chipLabelIn(l10n)),
                           selected: _f.kinds.contains(kind),
                           onSelected: !mediaPossible
                               ? null
@@ -520,7 +528,7 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
                 ),
                 ListTile(
                   enabled: videoPossible,
-                  title: const Text('Video length'),
+                  title: Text(l10n.filterVideoLength),
                   trailing: DropdownMenu<int>(
                     enabled: videoPossible,
                     initialSelection: _videoLengths.contains(_f.minVideoSeconds)
@@ -532,14 +540,14 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
                     ),
                     dropdownMenuEntries: [
                       for (final s in _videoLengths)
-                        DropdownMenuEntry(value: s, label: _duration(s)),
+                        DropdownMenuEntry(value: s, label: _duration(l10n, s)),
                     ],
                   ),
                 ),
                 const SizedBox(height: 8),
                 ListTile(
                   enabled: textPossible,
-                  title: const Text('Text posts'),
+                  title: Text(l10n.filterTextPosts),
                   trailing: DropdownMenu<int>(
                     enabled: textPossible,
                     initialSelection: _textLengths.contains(_f.minTextLength)
@@ -552,7 +560,9 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
                       for (final n in _textLengths)
                         DropdownMenuEntry(
                           value: n,
-                          label: n == 0 ? 'Any length' : 'From $n characters',
+                          label: n == 0
+                              ? l10n.filterTextAnyLength
+                              : l10n.filterFromCharacters(n),
                         ),
                     ],
                   ),
@@ -562,14 +572,13 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
                   child: ConditionEditor(
                     controller: _words,
                     title: Text(
-                      'Text content',
+                      l10n.filterTextContent,
                       style: theme.textTheme.titleSmall,
                     ),
                     note: Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
-                        'Only posts whose words match are shown, as a rule matches them. '
-                        'A "Must not contain" term hides the posts that have it.',
+                        l10n.filterTextContentNote,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -585,27 +594,20 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
                       : (v) => setState(
                           () => _f = _f.copyWith(wholePost: v ?? true),
                         ),
-                  title: const Text('Show the whole post'),
-                  subtitle: const Text(
-                    'A post with several pictures or videos is shown complete, with its caption, '
-                    'as soon as one of them passes. Off shows only the parts that pass.',
-                  ),
+                  title: Text(l10n.filterWholePost),
+                  subtitle: Text(l10n.filterWholePostNote),
                 ),
                 CheckboxListTile(
                   value: _f.minimize,
                   onChanged: (v) =>
                       setState(() => _f = _f.copyWith(minimize: v)),
-                  title: const Text('Show minimized'),
-                  subtitle: const Text(
-                    'The posts this feed leaves out stay in it as one line each, and a tap '
-                    'opens one. They count as hidden all the same.',
-                  ),
+                  title: Text(l10n.filterShowMinimized),
+                  subtitle: Text(l10n.filterShowMinimizedNote),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                   child: Text(
-                    'Posts this feed hides count as read, and rules stay quiet about them unless '
-                    'another feed with the same channel shows them.',
+                    l10n.filterHiddenCountAsRead,
                     style: theme.textTheme.bodySmall,
                   ),
                 ),
@@ -622,15 +624,15 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
                     _words.clear();
                     setState(() => _f = FeedFilter.none);
                   },
-                  child: const Text('Show everything'),
+                  child: Text(l10n.filterShowEverything),
                 ),
                 const Spacer(),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  child: Text(l10n.commonCancel),
                 ),
                 const SizedBox(width: 8),
-                FilledButton(onPressed: _apply, child: const Text('Apply')),
+                FilledButton(onPressed: _apply, child: Text(l10n.commonApply)),
               ],
             ),
           ),
@@ -714,6 +716,7 @@ class _ChannelPickerState extends State<ChannelPicker> {
   }
 
   Widget _sheet(List<Channel> shown) {
+    final l10n = context.l10n;
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.8,
@@ -723,9 +726,9 @@ class _ChannelPickerState extends State<ChannelPicker> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
               autofocus: true,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Search joined channels',
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: l10n.feedEditorSearchJoinedChannels,
               ),
               onChanged: (v) => setState(() => _query = v),
             ),
@@ -734,7 +737,7 @@ class _ChannelPickerState extends State<ChannelPicker> {
             CheckboxListTile(
               dense: true,
               controlAffinity: ListTileControlAffinity.leading,
-              title: const Text('Hide channels already in a feed'),
+              title: Text(l10n.feedEditorHideChannelsInFeeds),
               value: _hideInFeeds,
               onChanged: (v) => _setHideInFeeds(v ?? false),
             ),
@@ -743,11 +746,12 @@ class _ChannelPickerState extends State<ChannelPicker> {
                 ? Center(
                     child: Text(
                       widget.channels.isEmpty
-                          ? 'Every channel you have joined is already in this feed.'
+                          ? l10n.feedEditorAllChannelsInFeed
                           : _query.trim().isEmpty
-                          ? 'The rest are in other feeds. Untick "Hide channels '
-                                'already in a feed" to see them.'
-                          : 'No channel matches "$_query".',
+                          ? l10n.feedEditorRestInOtherFeeds(
+                              l10n.feedEditorHideChannelsInFeeds,
+                            )
+                          : l10n.feedEditorNoChannelMatches(_query),
                       textAlign: TextAlign.center,
                     ),
                   )
@@ -810,8 +814,8 @@ class _ChannelPickerState extends State<ChannelPicker> {
                   Expanded(
                     child: Text(
                       _picked.isEmpty
-                          ? 'Tick the channels to add'
-                          : '${_picked.length} channel${_picked.length == 1 ? '' : 's'} ticked',
+                          ? l10n.feedEditorTickChannels
+                          : l10n.feedEditorChannelsTicked(_picked.length),
                     ),
                   ),
                   FilledButton(
@@ -821,7 +825,7 @@ class _ChannelPickerState extends State<ChannelPicker> {
                             for (final c in widget.channels)
                               if (_picked.contains(c.chatId)) c,
                           ]),
-                    child: const Text('Add'),
+                    child: Text(l10n.commonAdd),
                   ),
                 ],
               ),
@@ -830,5 +834,51 @@ class _ChannelPickerState extends State<ChannelPicker> {
         ],
       ),
     );
+  }
+}
+
+/// A feed filter in the interface language; [FeedFilter.describe] says it in English.
+extension FeedFilterWords on FeedFilter {
+  /// Short description for lists, e.g. "with media · photos, videos · videos from 1 min".
+  String describeIn(AppLocalizations l10n) {
+    if (isEmpty) return l10n.filterDescribeEverything;
+    final words = text;
+    return [
+      if (media == MediaPresence.withMedia) l10n.filterDescribeWithMedia,
+      if (media == MediaPresence.textOnly) l10n.filterDescribeTextOnly,
+      if (kinds.isNotEmpty)
+        [
+          for (final k in MediaKind.values)
+            if (kinds.contains(k)) k.labelIn(l10n),
+        ].join(', '),
+      if (minVideoSeconds > 0)
+        minVideoSeconds % 60 == 0
+            ? l10n.filterDescribeVideosFromMinutes(minVideoSeconds ~/ 60)
+            : l10n.filterDescribeVideosFromSeconds(minVideoSeconds),
+      if (minTextLength > 0) l10n.filterDescribeTextFrom(minTextLength),
+      if (words != null) l10n.filterDescribeText(RuleParser.format(words)),
+      if (!wholePost) l10n.filterDescribeMatchingParts,
+      if (minimize) l10n.filterDescribeRestMinimized,
+    ].join(' · ');
+  }
+}
+
+/// What each kind of media is called in a feed's filter, in the interface language.
+extension MediaKindWords on MediaKind {
+  /// The word mid-line, e.g. "photos".
+  String labelIn(AppLocalizations l10n) => switch (this) {
+    MediaKind.photo => l10n.filterKindPhotos,
+    MediaKind.video => l10n.filterKindVideos,
+    MediaKind.gif => l10n.filterKindGifs,
+    MediaKind.audio => l10n.filterKindAudio,
+    MediaKind.voice => l10n.filterKindVoice,
+    MediaKind.document => l10n.filterKindFiles,
+    MediaKind.other => l10n.filterKindOther,
+  };
+
+  /// The same word to start a line with, as the filter's chips show it.
+  String chipLabelIn(AppLocalizations l10n) {
+    final label = labelIn(l10n);
+    return label[0].toUpperCase() + label.substring(1);
   }
 }

@@ -1,5 +1,6 @@
 /// Text preparation for read-aloud (ARCHITECTURE.md section 7): strip URLs (say "link"),
 /// drop emoji and formatting markers, collapse whitespace, prepend the channel, truncate.
+/// The words it adds come in the language of the voice that reads the post.
 library;
 
 final _url = RegExp(r'(https?://|www\.)[^\s<>()]+', caseSensitive: false);
@@ -18,6 +19,7 @@ String prepareForSpeech(
   int maxChars = 600,
   String linkWord = 'link',
   String moreSuffix = '… and more',
+  String Function(String channel) intro = _englishIntro,
 }) {
   var t = text
       .replaceAll(_url, ' $linkWord ')
@@ -39,7 +41,9 @@ String prepareForSpeech(
         .replaceAll(_emoji, ' ')
         .replaceAll(_ws, ' ')
         .trim();
-    return 'New post in $cleanTitle. $t';
+    return '${intro(cleanTitle)} $t';
   }
   return t;
 }
+
+String _englishIntro(String channel) => 'New post in $channel.';

@@ -4,6 +4,8 @@ import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../l10n/l10n.dart';
+
 /// Settings for AI semantic rules (ARCHITECTURE 6.4). The endpoint and model live in the
 /// app database; the API key lives in the platform keystore.
 abstract final class AiKeys {
@@ -54,11 +56,65 @@ Future<AiConfig> loadAiConfig(AppDatabase db, SecretStore secrets) async =>
       apiKey: await secrets.read(AiKeys.apiKeySecret) ?? '',
     );
 
+/// Why a semantic check could not be done, in the reader's language.
+String semanticProblemText(
+  AppLocalizations l10n,
+  SemanticProblem problem, {
+  String detail = '',
+  int statusCode = 0,
+}) => switch (problem) {
+  SemanticProblem.notSetUp => l10n.semanticProblemNotSetUp,
+  SemanticProblem.unreachable => l10n.semanticProblemUnreachable(detail),
+  SemanticProblem.httpStatus => l10n.semanticProblemHttpStatus(
+    statusCode,
+    detail,
+  ),
+  SemanticProblem.unexpectedAnswer => l10n.semanticProblemUnexpectedAnswer,
+  SemanticProblem.emptyAnswer => l10n.semanticProblemEmptyAnswer,
+};
+
+extension SemanticExceptionText on SemanticException {
+  /// What went wrong, in the reader's language; [message] is the English for logs.
+  String describe(AppLocalizations l10n) => semanticProblemText(
+    l10n,
+    problem,
+    detail: detail,
+    statusCode: statusCode,
+  );
+}
+
 /// The last failure of a semantic check, as shown on the rules screen.
 final class AiFailure {
-  const AiFailure(this.message, this.at);
+  const AiFailure(
+    this.message,
+    this.at, {
+    this.problem,
+    this.detail = '',
+    this.statusCode = 0,
+  });
+
+  /// In English; what a failure recorded without a [problem] shows.
   final String message;
   final DateTime at;
+  final SemanticProblem? problem;
+  final String detail;
+  final int statusCode;
+
+  /// The failure in the reader's language.
+  String describe(AppLocalizations l10n) {
+    final p = problem;
+    return p == null
+        ? message
+        : semanticProblemText(l10n, p, detail: detail, statusCode: statusCode);
+  }
+
+  String encode() => jsonEncode({
+    'message': message,
+    'at': at.millisecondsSinceEpoch,
+    if (problem != null) 'problem': problem!.name,
+    if (detail.isNotEmpty) 'detail': detail,
+    if (statusCode != 0) 'status': statusCode,
+  });
 
   static AiFailure? decode(String? json) {
     if (json == null || json.isEmpty) return null;
@@ -67,6 +123,9 @@ final class AiFailure {
       return AiFailure(
         m['message'] as String,
         DateTime.fromMillisecondsSinceEpoch(m['at'] as int),
+        problem: SemanticProblem.values.asNameMap()[m['problem']],
+        detail: m['detail'] as String? ?? '',
+        statusCode: m['status'] as int? ?? 0,
       );
     } catch (_) {
       return null;
@@ -120,10 +179,13 @@ final class SemanticGate {
       _failing = true;
       await db.setSetting(
         AiKeys.lastError,
-        jsonEncode({
-          'message': e.message,
-          'at': _clock().millisecondsSinceEpoch,
-        }),
+        AiFailure(
+          e.message,
+          _clock(),
+          problem: e.problem,
+          detail: e.detail,
+          statusCode: e.statusCode,
+        ).encode(),
       );
     }
     return match.withSemanticVerdicts(confirmed);

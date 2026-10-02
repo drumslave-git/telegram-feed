@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:app_db/app_db.dart';
-import 'package:core/core.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -85,7 +84,7 @@ final class FakeAuth implements DriveAuth {
 
   @override
   Future<String> signIn() async {
-    if (cancel) throw const SyncException('Sign-in was cancelled.');
+    if (cancel) throw const DriveException(DriveFailure.cancelled);
     return account = 'me@example.com';
   }
 
@@ -142,18 +141,26 @@ void main() {
         await expectLater(
           locked.read(),
           throwsA(
-            isA<SyncException>().having(
-              (e) => e.message,
-              'message',
-              allOf(contains('401'), contains('Invalid Credentials')),
-            ),
+            isA<DriveException>()
+                .having((e) => e.failure, 'failure', DriveFailure.refused)
+                .having((e) => e.status, 'status', 401)
+                .having((e) => e.detail, 'detail', 'Invalid Credentials'),
           ),
         );
         final signedOut = DriveSyncStore(
           ({fresh = false}) async => null,
           client: drive.client,
         );
-        await expectLater(signedOut.read(), throwsA(isA<SyncException>()));
+        await expectLater(
+          signedOut.read(),
+          throwsA(
+            isA<DriveException>().having(
+              (e) => e.failure,
+              'failure',
+              DriveFailure.notSignedIn,
+            ),
+          ),
+        );
       },
     );
   });
@@ -192,7 +199,7 @@ void main() {
         await c.turnOn();
         expect(c.status.value.account, 'me@example.com');
         expect(c.status.value.lastSyncedAt, now);
-        expect(c.status.value.error, isNull);
+        expect(c.status.value.failure, isNull);
         expect(drive.files.values.single, contains('News'));
         expect(await db.setting(SyncKeys.enabled), 'true');
 
@@ -250,7 +257,7 @@ void main() {
       final lost = controller();
       await lost.start();
       expect(lost.status.value.isOn, isFalse);
-      expect(lost.status.value.error, contains('Sign in again'));
+      expect(lost.status.value.failure, isA<SyncSignedOut>());
       await lost.dispose();
     });
 
@@ -258,19 +265,29 @@ void main() {
       final c = controller();
       auth.cancel = true;
       await c.turnOn();
-      expect(c.status.value.error, 'Sign-in was cancelled.');
+      expect(
+        c.status.value.failure,
+        isA<SyncDriveFailed>().having(
+          (p) => p.error.failure,
+          'failure',
+          DriveFailure.cancelled,
+        ),
+      );
       expect(c.status.value.isOn, isFalse);
 
       auth.cancel = false;
       await c.turnOn();
-      expect(c.status.value.error, isNull);
+      expect(c.status.value.failure, isNull);
 
       drive.validToken = 'rotated';
       await c.syncNow();
-      expect(c.status.value.error, contains('401'));
+      expect(
+        c.status.value.failure,
+        isA<SyncDriveFailed>().having((p) => p.error.status, 'status', 401),
+      );
       auth.freshToken = 'rotated';
       await c.syncNow();
-      expect(c.status.value.error, isNull);
+      expect(c.status.value.failure, isNull);
 
       await c.turnOff();
       expect(c.status.value.isOn, isFalse);

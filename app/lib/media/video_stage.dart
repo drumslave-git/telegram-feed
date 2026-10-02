@@ -8,6 +8,7 @@ import '../feeds/open_links.dart';
 import 'package:video_player/video_player.dart';
 
 import '../feeds/media_view.dart' show formatDuration;
+import '../l10n/l10n.dart';
 import 'video_sessions.dart';
 import 'zoom.dart';
 
@@ -303,14 +304,17 @@ class _VideoStageState extends State<VideoStage> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
-                  'Cannot play this video: $message',
+                  context.l10n.videoCannotPlay(message),
                   textAlign: TextAlign.center,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: Colors.white70),
                 ),
               ),
-              TextButton(onPressed: _s.retry, child: const Text('Try again')),
+              TextButton(
+                onPressed: _s.retry,
+                child: Text(context.l10n.commonTryAgain),
+              ),
             ],
           ),
         ),
@@ -320,6 +324,7 @@ class _VideoStageState extends State<VideoStage> {
   );
 
   Widget _overlay(VideoPlayerController c) {
+    final l10n = context.l10n;
     final v = c.value;
     final total = v.duration.inMilliseconds.toDouble();
     final position = (_scrub ?? v.position.inMilliseconds.toDouble()).clamp(
@@ -337,7 +342,7 @@ class _VideoStageState extends State<VideoStage> {
           Center(
             child: IconButton(
               iconSize: 56,
-              tooltip: v.isPlaying ? 'Pause' : 'Play',
+              tooltip: v.isPlaying ? l10n.playerPause : l10n.playerPlay,
               icon: Icon(
                 ended
                     ? Icons.replay_circle_filled
@@ -395,7 +400,7 @@ class _VideoStageState extends State<VideoStage> {
                 Theme(
                   data: ThemeData.dark(),
                   child: PopupMenuButton<double>(
-                    tooltip: 'Speed',
+                    tooltip: l10n.playerSpeed,
                     icon: const Icon(Icons.speed, color: Colors.white),
                     initialValue: v.playbackSpeed,
                     onSelected: c.setPlaybackSpeed,
@@ -408,7 +413,7 @@ class _VideoStageState extends State<VideoStage> {
                   ),
                 ),
                 IconButton(
-                  tooltip: _s.muted ? 'Sound on' : 'Sound off',
+                  tooltip: _s.muted ? l10n.videoSoundOn : l10n.videoSoundOff,
                   icon: Icon(_s.muted ? Icons.volume_off : Icons.volume_up),
                   onPressed: () => _s.setMuted(!_s.muted),
                 ),
@@ -522,7 +527,7 @@ class ViewerMenu extends StatelessWidget {
   Widget build(BuildContext context) => Theme(
     data: ThemeData.dark(),
     child: PopupMenuButton<VoidCallback>(
-      tooltip: 'More',
+      tooltip: context.l10n.commonMore,
       icon: const Icon(Icons.more_vert, color: Colors.white),
       onSelected: (selected) => selected(),
       itemBuilder: (context) => [
@@ -602,7 +607,7 @@ class _SeekHint extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            '${_seekStep.inSeconds} s',
+            context.l10n.videoSeekSeconds(_seekStep.inSeconds),
             style: const TextStyle(color: Colors.white),
           ),
         ],

@@ -78,6 +78,7 @@ final class Channel {
     this.lastReadMessageId = 0,
     this.unreadCount = 0,
     this.lastMessageText = '',
+    this.lastMessageMedia,
     this.lastMessageDate = 0,
   });
   final int chatId;
@@ -89,8 +90,10 @@ final class Channel {
   /// Telegram's own unread counter for the channel.
   final int unreadCount;
 
-  /// Text (or a media label) and unix time of the newest post, for channel lists.
+  /// Text, media and unix time of the newest post, for channel lists. The app names the
+  /// media in its own language when there is no text.
   final String lastMessageText;
+  final Media? lastMessageMedia;
   final int lastMessageDate;
 
   /// Id of the newest post TDLib knows about (0 if none); cheap unread upper bound.
@@ -102,6 +105,22 @@ final class Channel {
 
   /// False once the account has left the channel (history may still be readable).
   final bool isMember;
+
+  /// The same channel under another name: Saved Messages in the reader's language.
+  Channel withTitle(String title) => Channel(
+    chatId: chatId,
+    title: title,
+    username: username,
+    memberCount: memberCount,
+    photo: photo,
+    isMember: isMember,
+    lastMessageId: lastMessageId,
+    lastReadMessageId: lastReadMessageId,
+    unreadCount: unreadCount,
+    lastMessageText: lastMessageText,
+    lastMessageMedia: lastMessageMedia,
+    lastMessageDate: lastMessageDate,
+  );
 
   @override
   String toString() => 'Channel($chatId, $title)';
@@ -368,6 +387,7 @@ final class ReplyTarget {
     required this.messageId,
     this.title = '',
     this.text = '',
+    this.media,
     this.manualQuote = false,
     this.photo,
   });
@@ -380,9 +400,12 @@ final class ReplyTarget {
   /// name is the answer.
   final String title;
 
-  /// The quote, or the beginning of what the answered post said (a media label when it had
-  /// no words). Plain text: the block is one tap target.
+  /// The quote, or the beginning of what the answered post said. Plain text: the block is
+  /// one tap target.
   final String text;
+
+  /// What the answered post carried, which the app names when it had no words.
+  final Media? media;
 
   /// The author picked these words out of the post instead of answering all of it.
   final bool manualQuote;
@@ -395,18 +418,21 @@ final class ReplyTarget {
     messageId: messageId,
     title: title,
     text: text,
+    media: media,
     manualQuote: manualQuote,
     photo: photo,
   );
 
-  ReplyTarget withText(String text, {PhotoMedia? photo}) => ReplyTarget(
-    chatId: chatId,
-    messageId: messageId,
-    title: title,
-    text: text,
-    manualQuote: manualQuote,
-    photo: photo ?? this.photo,
-  );
+  ReplyTarget withText(String text, {Media? media, PhotoMedia? photo}) =>
+      ReplyTarget(
+        chatId: chatId,
+        messageId: messageId,
+        title: title,
+        text: text,
+        media: media ?? this.media,
+        manualQuote: manualQuote,
+        photo: photo ?? this.photo,
+      );
 
   @override
   String toString() => 'ReplyTarget($chatId/$messageId, "$text")';

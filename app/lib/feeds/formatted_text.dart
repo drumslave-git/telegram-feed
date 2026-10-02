@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../l10n/l10n.dart';
 import 'sticker_view.dart';
 
 /// A post's text with Telegram's formatting: bold, italic, underline, strikethrough,
@@ -198,7 +199,7 @@ class _FormattedTextState extends State<FormattedText> {
             text: text.substring(from, to),
             style: style,
             recognizer: recognizer,
-            semanticsLabel: hidden ? 'spoiler' : null,
+            semanticsLabel: hidden ? context.l10n.timelineSpoiler : null,
           ),
         );
       }
@@ -230,8 +231,9 @@ class _CopyBlock extends StatelessWidget {
       onTap: () async {
         await Clipboard.setData(ClipboardData(text: text));
         if (!context.mounted) return;
-        ScaffoldMessenger.maybeOf(context)
-            ?.showSnackBar(const SnackBar(content: Text('Code copied')));
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(content: Text(context.l10n.timelineCodeCopied)),
+        );
       },
       borderRadius: BorderRadius.circular(4),
       child: Padding(
@@ -240,7 +242,7 @@ class _CopyBlock extends StatelessWidget {
           Icons.content_copy,
           size: 15,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
-          semanticLabel: 'Copy code',
+          semanticLabel: context.l10n.timelineCopyCode,
         ),
       ),
     ),

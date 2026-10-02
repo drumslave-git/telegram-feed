@@ -26,11 +26,34 @@ final class AiConfig {
   }
 }
 
+/// Why a semantic check could not be done, for a message in the reader's language.
+enum SemanticProblem {
+  notSetUp,
+
+  /// [SemanticException.detail] is the network error.
+  unreachable,
+
+  /// [SemanticException.statusCode] and the endpoint's own error text in
+  /// [SemanticException.detail].
+  httpStatus,
+  unexpectedAnswer,
+  emptyAnswer,
+}
+
 /// The semantic check could not be done (no endpoint, network, bad key, odd answer).
 /// Callers treat the semantic rules of that post as not matching (ARCHITECTURE 6.4).
+/// [message] says it in English, for logs.
 final class SemanticException implements Exception {
-  const SemanticException(this.message);
+  const SemanticException(
+    this.message, {
+    this.problem = SemanticProblem.unexpectedAnswer,
+    this.detail = '',
+    this.statusCode = 0,
+  });
   final String message;
+  final SemanticProblem problem;
+  final String detail;
+  final int statusCode;
 
   @override
   String toString() => 'SemanticException: $message';
@@ -78,6 +101,7 @@ final class SemanticClient {
     if (!config.isComplete) {
       throw const SemanticException(
         'The AI endpoint is not set up in Settings.',
+        problem: SemanticProblem.notSetUp,
       );
     }
     final http.Response res;
@@ -103,11 +127,19 @@ final class SemanticClient {
           )
           .timeout(timeout);
     } on Exception catch (e) {
-      throw SemanticException('Could not reach the AI endpoint: $e');
+      throw SemanticException(
+        'Could not reach the AI endpoint: $e',
+        problem: SemanticProblem.unreachable,
+        detail: '$e',
+      );
     }
     if (res.statusCode != 200) {
+      final error = _errorText(res.body);
       throw SemanticException(
-        'The AI endpoint answered ${res.statusCode}: ${_errorText(res.body)}',
+        'The AI endpoint answered ${res.statusCode}: $error',
+        problem: SemanticProblem.httpStatus,
+        statusCode: res.statusCode,
+        detail: error,
       );
     }
     final String answer;
@@ -121,11 +153,15 @@ final class SemanticClient {
     } catch (_) {
       throw const SemanticException(
         'The AI endpoint sent an unexpected answer.',
+        problem: SemanticProblem.unexpectedAnswer,
       );
     }
     if (answer.trim().isEmpty) {
       // Not the same as NONE: the model never got to its answer (cut off while reasoning).
-      throw const SemanticException('The model returned an empty answer.');
+      throw const SemanticException(
+        'The model returned an empty answer.',
+        problem: SemanticProblem.emptyAnswer,
+      );
     }
     return parseAnswer(answer, criteria.length);
   }

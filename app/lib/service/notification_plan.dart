@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:core/core.dart';
 
+import '../l10n/l10n.dart';
+
 /// Notification channels (ARCHITECTURE.md section 6.3), one per rule priority.
 const channelSilent = 'posts_silent';
 const channelNormal = 'posts_normal';
@@ -120,10 +122,15 @@ final class NotificationPlan {
   factory NotificationPlan.forMatch(
     MatchEvent m, {
     required String channelTitle,
+    AppLocalizations? strings,
   }) {
+    final s = strings ?? AppLanguage.englishStrings;
     // A rule with no condition also notifies about posts without text; those show what
     // they carry ("Photo", "Video", the file's name).
-    final text = postLabel(m.post).replaceAll(RegExp(r'\s+'), ' ').trim();
+    final text = postLabel(
+      m.post,
+      s.mediaWords,
+    ).replaceAll(RegExp(r'\s+'), ' ').trim();
     final body = text.length > 240 ? '${text.substring(0, 240)}…' : text;
     // The rules that matched, so the shade says why this post is here.
     final rule = m.ruleNames.join(', ');
@@ -131,7 +138,7 @@ final class NotificationPlan {
     return NotificationPlan(
       id: idFor(m.post.chatId, m.post.messageId),
       channelId: channelFor(m.priority),
-      title: channelTitle.isEmpty ? 'New post' : channelTitle,
+      title: channelTitle.isEmpty ? s.notifyNewPost : channelTitle,
       body: body,
       rule: rule,
       when: when,

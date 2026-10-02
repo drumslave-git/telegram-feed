@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import '../widgets/destructive_button.dart';
 
 /// Asks before a logout and runs it on a yes: the official app's Log Out in the Settings
@@ -11,19 +12,16 @@ Future<void> confirmLogOut(
   final ok = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Log out?'),
-      content: const Text(
-        'Your feeds, rules, settings and the AI key on this device are deleted, and '
-        'Google Drive sync is turned off. A copy stays in your Drive if sync was on.',
-      ),
+      title: Text(context.l10n.logOutTitle),
+      content: Text(context.l10n.logOutMessage),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.commonCancel),
         ),
         DestructiveButton(
           onPressed: () => Navigator.pop(context, true),
-          label: 'Log out',
+          label: context.l10n.logOutAction,
         ),
       ],
     ),

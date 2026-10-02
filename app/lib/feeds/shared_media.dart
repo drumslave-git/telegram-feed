@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../l10n/l10n.dart';
 import '../media/media_viewer.dart';
 import '../widgets/error_state.dart';
 import 'media_view.dart';
@@ -39,23 +40,25 @@ class SharedMediaTabs extends StatelessWidget {
 
   /// The tabs, in the order of the official app. The feed editor puts its own "Channels"
   /// tab in front of them and builds the pages itself.
-  static const kinds = <(String, HistoryFilter)>[
-    ('Media', HistoryFilter.photoAndVideo),
-    ('Files', HistoryFilter.document),
-    ('Links', HistoryFilter.url),
-    ('Music', HistoryFilter.audio),
-    ('Voice', HistoryFilter.voice),
+  static List<(String, HistoryFilter)> kindsOf(AppLocalizations l10n) => [
+    (l10n.tabMedia, HistoryFilter.photoAndVideo),
+    (l10n.tabFiles, HistoryFilter.document),
+    (l10n.tabLinks, HistoryFilter.url),
+    (l10n.tabMusic, HistoryFilter.audio),
+    (l10n.tabVoice, HistoryFilter.voice),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final kinds = kindsOf(l10n);
     if (chatIds.isEmpty) {
       final empty = Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: const [Text('No channels yet.')],
+            children: [Text(l10n.sharedMediaNoChannels)],
           ),
         ),
       );
@@ -70,9 +73,9 @@ class SharedMediaTabs extends StatelessWidget {
     );
     final views = TabBarView(
       children: [
-        for (final (label, kind) in kinds)
+        for (final (_, kind) in kinds)
           SharedMediaTab(
-            key: ValueKey('$label:${chatIds.join(",")}'),
+            key: ValueKey('${kind.name}:${chatIds.join(",")}'),
             gateway: gateway,
             chatIds: chatIds,
             kind: kind,
@@ -234,7 +237,7 @@ class _SharedMediaTabState extends State<SharedMediaTab>
       }
       if (_error != null) {
         return ErrorState(
-          what: 'Could not load this media.',
+          what: context.l10n.sharedMediaLoadFailed,
           message: _error,
           onRetry: () {
             setState(() {
@@ -245,10 +248,13 @@ class _SharedMediaTabState extends State<SharedMediaTab>
           },
         );
       }
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text('Nothing here yet.', textAlign: TextAlign.center),
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            context.l10n.sharedMediaEmpty,
+            textAlign: TextAlign.center,
+          ),
         ),
       );
     }
@@ -369,17 +375,19 @@ class MediaTile extends StatelessWidget {
       default:
         picture = empty;
     }
+    final l10n = context.l10n;
+    final day = formatDay(
+      DateTime.fromMillisecondsSinceEpoch(post.date * 1000),
+      l10n: l10n,
+    );
     return Semantics(
       label: switch (media) {
         VideoMedia(:final isAnimation, :final durationSeconds) =>
           isAnimation
-              ? 'GIF, ${formatDay(DateTime.fromMillisecondsSinceEpoch(post.date * 1000))}'
-              : 'Video ${formatDuration(durationSeconds)}, '
-                    '${formatDay(DateTime.fromMillisecondsSinceEpoch(post.date * 1000))}',
-        PhotoMedia() =>
-          'Photo, ${formatDay(DateTime.fromMillisecondsSinceEpoch(post.date * 1000))}',
-        _ =>
-          'Post of ${formatDay(DateTime.fromMillisecondsSinceEpoch(post.date * 1000))}',
+              ? l10n.sharedMediaGifTile(day)
+              : l10n.sharedMediaVideoTile(formatDuration(durationSeconds), day),
+        PhotoMedia() => l10n.sharedMediaPhotoTile(day),
+        _ => l10n.sharedMediaPostTile(day),
       },
       button: true,
       child: GestureDetector(
@@ -394,7 +402,7 @@ class MediaTile extends StatelessWidget {
                 bottom: 4,
                 child: MediaBadge(
                   media.isAnimation
-                      ? 'GIF'
+                      ? l10n.mediaGif
                       : formatDuration(media.durationSeconds),
                 ),
               ),
@@ -445,7 +453,7 @@ class FileRow extends StatelessWidget {
         context,
         day: day,
         trailing: IconButton(
-          tooltip: 'Open with…',
+          tooltip: context.l10n.postOpenWith,
           icon: const Icon(Icons.open_in_new),
           onPressed: () => unawaited(
             SharePlus.instance.share(
@@ -467,7 +475,10 @@ class FileRow extends StatelessWidget {
       onTap: onTap,
       leading: const Icon(Icons.insert_drive_file_outlined, size: 32),
       title: Text(media.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text('${formatBytes(media.file.size)} · ${formatDay(day)}'),
+      subtitle: Text(
+        '${formatBytes(media.file.size)} · '
+        '${formatDay(day, l10n: context.l10n)}',
+      ),
       trailing: trailing,
     );
   }
@@ -492,7 +503,7 @@ class MediaRow extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              formatDay(day),
+              formatDay(day, l10n: context.l10n),
               style: Theme.of(context).textTheme.labelSmall,
             ),
           ),
@@ -525,7 +536,10 @@ class LinkRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final link = linkOf(post);
-    final day = DateTime.fromMillisecondsSinceEpoch(post.date * 1000);
+    final day = formatDay(
+      DateTime.fromMillisecondsSinceEpoch(post.date * 1000),
+      l10n: context.l10n,
+    );
     final text = post.text.replaceAll(RegExp(r'\s+'), ' ').trim();
     return ListTile(
       leading: const Icon(Icons.link),
@@ -536,7 +550,7 @@ class LinkRow extends StatelessWidget {
         style: TextStyle(color: theme.colorScheme.primary),
       ),
       subtitle: Text(
-        text.isEmpty ? formatDay(day) : '$text · ${formatDay(day)}',
+        text.isEmpty ? day : '$text · $day',
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ),
@@ -544,10 +558,9 @@ class LinkRow extends StatelessWidget {
           ? null
           : () async {
               final messenger = ScaffoldMessenger.of(context);
+              final failed = context.l10n.sharedMediaNoAppCanOpen(link);
               if (await launchFirst([Uri.tryParse(link)])) return;
-              messenger.showSnackBar(
-                SnackBar(content: Text('No app can open $link')),
-              );
+              messenger.showSnackBar(SnackBar(content: Text(failed)));
             },
     );
   }

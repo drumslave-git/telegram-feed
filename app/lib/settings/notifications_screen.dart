@@ -4,6 +4,7 @@ import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/l10n.dart';
 import '../rules/rules_screen.dart' show BatteryBanner;
 import 'settings_tiles.dart';
 
@@ -87,22 +88,27 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (restart == null || !mounted) return;
     final now = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Restart the app?'),
-        content: Text(
-          on ? 'Watching in the background starts when the app starts again.' : 'The permanent notification goes away when the app starts again.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Later'),
+      builder: (context) {
+        final l10n = context.l10n;
+        return AlertDialog(
+          title: Text(l10n.notificationSettingsRestartTitle),
+          content: Text(
+            on
+                ? l10n.notificationSettingsRestartStartsWatching
+                : l10n.notificationSettingsRestartStopsWatching,
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Restart now'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.commonLater),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(l10n.notificationSettingsRestartNow),
+            ),
+          ],
+        );
+      },
     );
     if (now ?? false) {
       await restart();
@@ -117,104 +123,99 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _restartDue = false;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Notifications and sounds')),
-    body: ListView(
-      children: [
-        if (!_enabled)
-          MaterialBanner(
-            leading: Icon(
-              Icons.notifications_off_outlined,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            content: const Text(
-              'Android blocks this app\'s notifications, so no rule can notify you.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => unawaited(
-                  SystemNotificationSettingsRow.openSettings(widget.channel),
-                ),
-                child: const Text('Turn them on'),
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.notificationSettingsTitle)),
+      body: ListView(
+        children: [
+          if (!_enabled)
+            MaterialBanner(
+              leading: Icon(
+                Icons.notifications_off_outlined,
+                color: Theme.of(context).colorScheme.error,
               ),
-            ],
-          ),
-        // The same warning the rules screens carry: battery optimisation stops the
-        // watching this screen turns on.
-        if (widget.batteryExempt != null)
-          BatteryBanner(
-            exempt: widget.batteryExempt!,
-            onRequest: widget.onRequestBatteryExemption,
-          ),
-        const SettingsHeader('Rule notifications'),
-        NotificationSoundSettings(db: db, channel: widget.channel),
-        const Divider(),
-        const SettingsHeader('Badge counter'),
-        StreamBuilder<String?>(
-          stream: db.watchSetting(SettingKeys.countUnreadPosts),
-          builder: (context, snap) => SwitchListTile(
-            title: const Text('Count unread posts'),
-            value: snap.data != 'false',
-            onChanged: (v) => db.setSetting(SettingKeys.countUnreadPosts, '$v'),
-          ),
-        ),
-        const SettingsFooter(
-          'The badges of the feeds and of the folder tabs count the unread posts. Off, '
-          'they count the channels that have unread posts.',
-        ),
-        const Divider(),
-        const SettingsHeader('Background'),
-        StreamBuilder<String?>(
-          stream: db.watchSetting(SettingKeys.backgroundWatching),
-          builder: (context, snap) {
-            final on = snap.data != 'false';
-            // Either the reader answered "Later", or the core simply runs in the
-            // other mode: the switch would otherwise say one thing while the app
-            // does another.
-            final due =
-                _restartDue ||
-                (widget.runningInService != null &&
-                    widget.runningInService!() != on);
-            return Column(
-              children: [
-                SwitchListTile(
-                  title: const Text('Watch channels in the background'),
-                  subtitle: const Text(
-                    'Rules keep running while the app is closed. Off removes the '
-                    'permanent notification, and rules then only notify while the '
-                    'app is open. The app restarts to apply it.',
+              content: Text(l10n.notificationSettingsBlocked),
+              actions: [
+                TextButton(
+                  onPressed: () => unawaited(
+                    SystemNotificationSettingsRow.openSettings(widget.channel),
                   ),
-                  value: on,
-                  onChanged: (v) => unawaited(_setBackground(v)),
+                  child: Text(l10n.notificationSettingsTurnOn),
                 ),
-                if (due)
-                  MaterialBanner(
-                    leading: const Icon(Icons.restart_alt),
-                    content: Text(
-                      on
-                          ? 'Watching in the background starts when the app starts '
-                                'again.'
-                          : 'The permanent notification goes when the app starts '
-                                'again.',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: widget.onRestart == null
-                            ? null
-                            : () => unawaited(widget.onRestart!()),
-                        child: const Text('Restart now'),
-                      ),
-                    ],
-                  ),
               ],
-            );
-          },
-        ),
-        const Divider(),
-        SystemNotificationSettingsRow(channel: widget.channel),
-      ],
-    ),
-  );
+            ),
+          // The same warning the rules screens carry: battery optimisation stops the
+          // watching this screen turns on.
+          if (widget.batteryExempt != null)
+            BatteryBanner(
+              exempt: widget.batteryExempt!,
+              onRequest: widget.onRequestBatteryExemption,
+            ),
+          SettingsHeader(l10n.notificationSettingsRuleNotifications),
+          NotificationSoundSettings(db: db, channel: widget.channel),
+          const Divider(),
+          SettingsHeader(l10n.notificationSettingsBadgeCounter),
+          StreamBuilder<String?>(
+            stream: db.watchSetting(SettingKeys.countUnreadPosts),
+            builder: (context, snap) => SwitchListTile(
+              title: Text(l10n.notificationSettingsCountUnreadPosts),
+              value: snap.data != 'false',
+              onChanged: (v) =>
+                  db.setSetting(SettingKeys.countUnreadPosts, '$v'),
+            ),
+          ),
+          SettingsFooter(l10n.notificationSettingsCountFooter),
+          const Divider(),
+          SettingsHeader(l10n.notificationSettingsBackground),
+          StreamBuilder<String?>(
+            stream: db.watchSetting(SettingKeys.backgroundWatching),
+            builder: (context, snap) {
+              final on = snap.data != 'false';
+              // Either the reader answered "Later", or the core simply runs in the
+              // other mode: the switch would otherwise say one thing while the app
+              // does another.
+              final due =
+                  _restartDue ||
+                  (widget.runningInService != null &&
+                      widget.runningInService!() != on);
+              return Column(
+                children: [
+                  SwitchListTile(
+                    title: Text(l10n.notificationSettingsWatchInBackground),
+                    subtitle: Text(
+                      l10n.notificationSettingsWatchInBackgroundSubtitle,
+                    ),
+                    value: on,
+                    onChanged: (v) => unawaited(_setBackground(v)),
+                  ),
+                  if (due)
+                    MaterialBanner(
+                      leading: const Icon(Icons.restart_alt),
+                      content: Text(
+                        on
+                            ? l10n.notificationSettingsRestartStartsWatching
+                            : l10n.notificationSettingsRestartDueStopsWatching,
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: widget.onRestart == null
+                              ? null
+                              : () => unawaited(widget.onRestart!()),
+                          child: Text(l10n.notificationSettingsRestartNow),
+                        ),
+                      ],
+                    ),
+                ],
+              );
+            },
+          ),
+          const Divider(),
+          SystemNotificationSettingsRow(channel: widget.channel),
+        ],
+      ),
+    );
+  }
 }
 
 /// Opens Android's settings page of the app's notifications, where each kind of them, the
@@ -241,7 +242,7 @@ class SystemNotificationSettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
     leading: const Icon(Icons.settings_outlined),
-    title: const Text('System notification settings'),
+    title: Text(context.l10n.notificationSettingsSystemSettings),
     onTap: () => unawaited(openSettings(channel)),
   );
 }
@@ -262,6 +263,7 @@ class NotificationSoundSettings extends StatelessWidget {
 
   Future<void> _pick(BuildContext context, String key) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     try {
       final picked = await channel.invokeMethod<String>('pickSound', {
         'current': await db.setting(key) ?? '',
@@ -269,17 +271,21 @@ class NotificationSoundSettings extends StatelessWidget {
       if (picked != null) await db.setSetting(key, picked);
     } on PlatformException catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('No sound picker: ${e.message}')),
+        SnackBar(
+          content: Text(l10n.notificationSettingsNoSoundPicker('${e.message}')),
+        ),
       );
     } on MissingPluginException {
       messenger.showSnackBar(
-        const SnackBar(content: Text('No sound picker on this device.')),
+        SnackBar(content: Text(l10n.notificationSettingsNoSoundPickerOnDevice)),
       );
     }
   }
 
-  Widget _rows({
-    required String title,
+  Widget _rows(
+    AppLocalizations l10n, {
+    required String soundTitle,
+    required String vibrateTitle,
     required String soundKey,
     required String vibrateKey,
   }) => Column(
@@ -291,18 +297,19 @@ class NotificationSoundSettings extends StatelessWidget {
           final sound = snap.data ?? '';
           return ListTile(
             leading: const Icon(Icons.notifications_active_outlined),
-            title: Text('$title: sound'),
+            title: Text(soundTitle),
             subtitle: sound.isEmpty
-                ? const Text('The system default')
+                ? Text(l10n.notificationSettingsSystemDefaultSound)
                 : FutureBuilder<String?>(
                     future: _soundTitle(sound),
-                    builder: (context, title) =>
-                        Text(title.data ?? 'A chosen sound'),
+                    builder: (context, title) => Text(
+                      title.data ?? l10n.notificationSettingsChosenSound,
+                    ),
                   ),
             trailing: sound.isEmpty
                 ? null
                 : IconButton(
-                    tooltip: 'Use the default',
+                    tooltip: l10n.notificationSettingsUseDefaultSound,
                     icon: const Icon(Icons.restart_alt),
                     onPressed: () => db.setSetting(soundKey, ''),
                   ),
@@ -314,7 +321,7 @@ class NotificationSoundSettings extends StatelessWidget {
         stream: db.watchSetting(vibrateKey),
         builder: (context, snap) => SwitchListTile(
           value: snap.data != 'false',
-          title: Text('$title: vibrate'),
+          title: Text(vibrateTitle),
           onChanged: (v) => db.setSetting(vibrateKey, '$v'),
         ),
       ),
@@ -333,20 +340,27 @@ class NotificationSoundSettings extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      _rows(
-        title: 'Normal rules',
-        soundKey: SettingKeys.normalSound,
-        vibrateKey: SettingKeys.normalVibrate,
-      ),
-      _rows(
-        title: 'Urgent rules',
-        soundKey: SettingKeys.urgentSound,
-        vibrateKey: SettingKeys.urgentVibrate,
-      ),
-      const SettingsFooter('Silent rules stay silent.'),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _rows(
+          l10n,
+          soundTitle: l10n.notificationSettingsNormalSound,
+          vibrateTitle: l10n.notificationSettingsNormalVibrate,
+          soundKey: SettingKeys.normalSound,
+          vibrateKey: SettingKeys.normalVibrate,
+        ),
+        _rows(
+          l10n,
+          soundTitle: l10n.notificationSettingsUrgentSound,
+          vibrateTitle: l10n.notificationSettingsUrgentVibrate,
+          soundKey: SettingKeys.urgentSound,
+          vibrateKey: SettingKeys.urgentVibrate,
+        ),
+        SettingsFooter(l10n.notificationSettingsSilentRulesFooter),
+      ],
+    );
+  }
 }

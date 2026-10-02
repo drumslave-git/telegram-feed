@@ -82,7 +82,7 @@ final class TdlibGateway implements TelegramGateway {
   final _customEmoji = <String, StickerMedia>{};
 
   /// Words and thumbnail of posts that other posts answer, by "chat/message".
-  final _replied = <String, ({String text, PhotoMedia? photo})>{};
+  final _replied = <String, ({String text, Media? media, PhotoMedia? photo})>{};
 
   @override
   Stream<AuthState> get authState async* {
@@ -587,20 +587,31 @@ final class TdlibGateway implements TelegramGateway {
     if (origin != null) {
       target = target.withTitle((await _named(origin)).title);
     }
-    if (target.text.isNotEmpty || target.messageId == 0) return target;
+    if (target.text.isNotEmpty ||
+        target.media != null ||
+        target.messageId == 0) {
+      return target;
+    }
     final key = '${target.chatId}/${target.messageId}';
     final known = _replied[key];
-    if (known != null) return target.withText(known.text, photo: known.photo);
+    if (known != null) {
+      return target.withText(
+        known.text,
+        media: known.media,
+        photo: known.photo,
+      );
+    }
     try {
       final answered = await _client.call(
         td.GetMessage(chatId: target.chatId, messageId: target.messageId),
       );
       final words = map.preview(answered.content);
+      final media = map.previewMedia(answered.content);
       final photo = map.replyPhoto(answered.content);
       // A session reads a bounded number of posts, but not an unbounded number of them.
       if (_replied.length > 500) _replied.clear();
-      _replied[key] = (text: words, photo: photo);
-      return target.withText(words, photo: photo);
+      _replied[key] = (text: words, media: media, photo: photo);
+      return target.withText(words, media: media, photo: photo);
     } on TelegramException {
       return target; // the answered post is gone or out of reach
     }
@@ -803,6 +814,7 @@ final class TdlibGateway implements TelegramGateway {
       lastReadMessageId: chat.lastReadInboxMessageId,
       unreadCount: chat.unreadCount,
       lastMessageText: map.preview(chat.lastMessage?.content),
+      lastMessageMedia: map.previewMedia(chat.lastMessage?.content),
       lastMessageDate: chat.lastMessage?.date ?? 0,
     );
   }

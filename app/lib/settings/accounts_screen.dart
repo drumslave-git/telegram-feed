@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../host/accounts.dart';
+import '../l10n/l10n.dart';
 import '../service/core_service.dart' show appPaths;
 import '../widgets/destructive_button.dart';
 
@@ -42,8 +43,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
   }
 
   /// The profile the account was last seen with, or its number on this device.
-  static String _name(AccountInfo a) =>
-      a.label.isEmpty ? 'Account ${a.id}' : a.label;
+  static String _name(AccountInfo a, AppLocalizations l10n) =>
+      a.label.isEmpty ? l10n.accountsNumbered(a.id) : a.label;
 
   Future<void> Function()? get _switched =>
       widget.onSwitched ?? AccountSwitch.of(context)?.onSwitched;
@@ -63,12 +64,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
   Future<void> _add() async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     final added = await widget.store.add();
     if (added == null) {
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Four accounts is as many as the app holds.'),
-        ),
+        SnackBar(content: Text(l10n.accountsLimitReached)),
       );
       return;
     }
@@ -81,22 +81,20 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
   Future<void> _remove(AccountInfo account) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Remove ${_name(account)}?'),
-        content: const Text(
-          'Its session, feeds, rules and cached posts are deleted from this device. '
-          'The Telegram account itself stays as it is.',
-        ),
+        title: Text(l10n.accountsRemoveTitle(_name(account, l10n))),
+        content: Text(l10n.accountsRemoveText),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           DestructiveButton(
             onPressed: () => Navigator.pop(context, true),
-            label: 'Remove',
+            label: l10n.commonRemove,
           ),
         ],
       ),
@@ -110,9 +108,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
     );
     if (!removed) {
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('The last account cannot be removed; log out instead.'),
-        ),
+        SnackBar(content: Text(l10n.accountsLastCannotBeRemoved)),
       );
       return;
     }
@@ -125,53 +121,57 @@ class _AccountsScreenState extends State<AccountsScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Accounts')),
-    body: ListView(
-      children: [
-        const Padding(
-          padding: EdgeInsets.all(16),
-          child: Text(
-            'Each account has its own session, feeds and rules on this device. Switching '
-            'takes the watcher down and brings it up again on the other account.',
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.accountsTitle)),
+      body: ListView(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(l10n.accountsIntro),
           ),
-        ),
-        for (final account in _accounts)
+          for (final account in _accounts)
+            ListTile(
+              leading: Icon(
+                account.id == _active
+                    ? Icons.check_circle
+                    : Icons.account_circle_outlined,
+                color: account.id == _active
+                    ? Theme.of(context).colorScheme.primary
+                    : null,
+              ),
+              title: Text(_name(account, l10n)),
+              subtitle: Text(
+                account.id == _active
+                    ? l10n.accountsInUse
+                    : l10n.accountsTapToSwitch,
+              ),
+              onTap: _busy ? null : () => unawaited(_use(account.id)),
+              trailing: _accounts.length <= 1
+                  ? null
+                  : IconButton(
+                      tooltip: l10n.accountsRemoveTooltip,
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: _busy
+                          ? null
+                          : () => unawaited(_remove(account)),
+                    ),
+            ),
+          const Divider(),
           ListTile(
-            leading: Icon(
-              account.id == _active
-                  ? Icons.check_circle
-                  : Icons.account_circle_outlined,
-              color: account.id == _active
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
-            ),
-            title: Text(_name(account)),
+            leading: const Icon(Icons.person_add_alt),
+            title: Text(l10n.accountsAdd),
             subtitle: Text(
-              account.id == _active ? 'In use' : 'Tap to switch to it',
+              _accounts.length >= AccountStore.maxAccounts
+                  ? l10n.accountsAddLimit
+                  : l10n.accountsAddSubtitle,
             ),
-            onTap: _busy ? null : () => unawaited(_use(account.id)),
-            trailing: _accounts.length <= 1
-                ? null
-                : IconButton(
-                    tooltip: 'Remove from this device',
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: _busy ? null : () => unawaited(_remove(account)),
-                  ),
+            enabled: !_busy && _accounts.length < AccountStore.maxAccounts,
+            onTap: () => unawaited(_add()),
           ),
-        const Divider(),
-        ListTile(
-          leading: const Icon(Icons.person_add_alt),
-          title: const Text('Add an account'),
-          subtitle: Text(
-            _accounts.length >= AccountStore.maxAccounts
-                ? 'Four is as many as the app holds'
-                : 'Logs in as another account and switches to it',
-          ),
-          enabled: !_busy && _accounts.length < AccountStore.maxAccounts,
-          onTap: () => unawaited(_add()),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }

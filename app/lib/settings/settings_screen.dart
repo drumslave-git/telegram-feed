@@ -10,6 +10,7 @@ import '../feeds/timeline_screen.dart';
 import '../home/channel_list.dart' show ChannelAvatar;
 import '../home/log_out.dart';
 import '../host/accounts.dart';
+import '../l10n/l10n.dart';
 import '../service/core_service.dart' show appPaths;
 import '../sync/sync_controller.dart';
 import '../sync/sync_settings_screen.dart';
@@ -17,6 +18,7 @@ import 'accounts_screen.dart';
 import 'ai_settings_screen.dart';
 import 'chat_settings_screen.dart';
 import 'data_storage_screen.dart';
+import 'language_screen.dart';
 import 'notifications_screen.dart';
 import 'privacy_screen.dart';
 import 'read_aloud_screen.dart';
@@ -100,8 +102,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _openSaved() async {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+    final l10n = context.l10n;
     try {
-      final channel = await widget.gateway.savedMessages();
+      // Telegram names it in English; the timeline names it in the reader's language.
+      final channel = (await widget.gateway.savedMessages()).withTitle(
+        l10n.settingsSavedMessages,
+      );
       await navigator.push(
         MaterialPageRoute<void>(
           builder: (_) => TimelineScreen(
@@ -121,23 +127,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final db = widget.db;
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(l10n.commonSettings),
         actions: [
           PopupMenuButton<String>(
-            tooltip: 'More',
+            tooltip: l10n.commonMore,
             onSelected: (v) {
               if (v == 'logout') {
                 unawaited(confirmLogOut(context, widget.onLogOut));
               }
             },
-            itemBuilder: (context) => const [
+            itemBuilder: (context) => [
               PopupMenuItem(
                 value: 'logout',
                 child: ListTile(
-                  leading: Icon(Icons.logout),
-                  title: Text('Log out'),
+                  leading: const Icon(Icons.logout),
+                  title: Text(l10n.settingsLogOut),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -160,29 +167,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           SettingsLink(
             icon: Icons.switch_account_outlined,
-            title: 'Accounts',
+            title: l10n.accountsTitle,
             onTap: () => unawaited(_openAccounts()),
           ),
           SettingsLink(
             icon: Icons.bookmark_outline,
-            title: 'Saved Messages',
+            title: l10n.settingsSavedMessages,
             onTap: () => unawaited(_openSaved()),
           ),
           const Divider(),
-          const SettingsHeader('Settings'),
+          SettingsHeader(l10n.commonSettings),
           SettingsLink(
             icon: Icons.chat_bubble_outline,
-            title: 'Chat settings',
+            title: l10n.chatSettingsTitle,
             onTap: () => _open(ChatSettingsScreen(db: db)),
           ),
           SettingsLink(
             icon: Icons.lock_outline,
-            title: 'Privacy and security',
+            title: l10n.settingsPrivacyAndSecurity,
             onTap: () => _open(PrivacyScreen(db: db)),
           ),
           SettingsLink(
             icon: Icons.notifications_none,
-            title: 'Notifications and sounds',
+            title: l10n.settingsNotificationsAndSounds,
             onTap: () => _open(
               NotificationsScreen(
                 db: db,
@@ -195,22 +202,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           SettingsLink(
             icon: Icons.data_usage,
-            title: 'Data and storage',
+            title: l10n.dataStorageTitle,
             onTap: () =>
                 _open(DataStorageScreen(db: db, gateway: widget.gateway)),
+          ),
+          SettingsLink(
+            icon: Icons.language,
+            title: l10n.languageTitle,
+            // The language in use, under its own name, as the official app's row.
+            value: AppLanguage.nameOf(
+              Localizations.localeOf(context).languageCode,
+            ),
+            onTap: () => _open(LanguageScreen(db: db)),
           ),
           const Divider(),
           SettingsLink(
             icon: Icons.record_voice_over_outlined,
-            title: 'Read aloud',
+            title: l10n.settingsReadAloud,
             onTap: () => _open(ReadAloudScreen(db: db)),
           ),
           StreamBuilder<String?>(
             stream: db.watchSetting(AiKeys.baseUrl),
             builder: (context, snap) => SettingsLink(
               icon: Icons.auto_awesome_outlined,
-              title: 'AI rules',
-              value: (snap.data ?? '').isEmpty ? 'Off' : 'On',
+              title: l10n.aiSettingsTitle,
+              value: (snap.data ?? '').isEmpty ? l10n.commonOff : l10n.commonOn,
               onTap: () =>
                   _open(AiSettingsScreen(db: db, secrets: widget.secrets)),
             ),
@@ -220,28 +236,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
               valueListenable: sync.status,
               builder: (context, status, _) => SettingsLink(
                 icon: Icons.cloud_sync_outlined,
-                title: 'Google Drive sync',
+                title: l10n.syncTitle,
                 // Sync still on for this device, but Google wants a new sign-in.
                 value: !status.available
-                    ? 'Off'
+                    ? l10n.commonOff
                     : status.isOn
-                    ? 'On'
-                    : status.error != null
-                    ? 'Signed out'
-                    : 'Off',
+                    ? l10n.commonOn
+                    : status.failure != null
+                    ? l10n.settingsSyncSignedOut
+                    : l10n.commonOff,
                 onTap: () => _open(SyncSettingsScreen(controller: sync)),
               ),
             ),
           const Divider(),
-          const SettingsHeader('About'),
+          SettingsHeader(l10n.settingsAbout),
           SettingsLink(
             icon: Icons.info_outline,
-            title: 'About $appName',
+            title: l10n.settingsAboutApp(appName),
             onTap: () => unawaited(_about(context)),
           ),
           SettingsLink(
             icon: Icons.description_outlined,
-            title: 'Open-source licenses',
+            title: l10n.settingsLicenses,
             onTap: () => showLicensePage(
               context: context,
               applicationName: appName,
@@ -254,8 +270,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               child: Text(
                 snap.data == null
-                    ? '$appName for Android'
-                    : '$appName for Android ${snap.data}',
+                    ? l10n.settingsAppForAndroid(appName)
+                    : l10n.settingsAppVersion(appName, snap.data!),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -272,15 +288,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     context: context,
     builder: (context) => AlertDialog(
       title: const Text(appName),
-      content: const Text(
-        'Free software under the GNU GPL v3. Reads your joined channels; nothing leaves the '
-        'device except Telegram traffic and, if you create AI rules, the posts those rules '
-        'check, sent to the endpoint you chose.',
-      ),
+      content: Text(context.l10n.settingsAboutText),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('OK'),
+          child: Text(context.l10n.commonOk),
         ),
       ],
     ),
@@ -304,14 +316,17 @@ class AccountHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final u = user;
     if (u == null) {
       return ListTile(
         leading: const Icon(Icons.person_outline),
-        title: Text(failed ? 'Account unavailable' : 'Loading…'),
+        title: Text(
+          failed ? l10n.settingsAccountUnavailable : l10n.commonLoading,
+        ),
         trailing: failed
             ? IconButton(
-                tooltip: 'Reload the profile',
+                tooltip: l10n.settingsReloadProfile,
                 icon: const Icon(Icons.refresh),
                 onPressed: onRefresh,
               )
@@ -376,7 +391,7 @@ class AccountHeader extends StatelessWidget {
           ),
           IconButton(
             // What it refreshes: the bare arrow beside a profile could be anything.
-            tooltip: 'Reload the profile',
+            tooltip: l10n.settingsReloadProfile,
             icon: const Icon(Icons.refresh),
             onPressed: onRefresh,
           ),

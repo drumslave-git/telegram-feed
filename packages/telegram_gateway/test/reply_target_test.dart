@@ -60,6 +60,61 @@ void main() {
     expect(reply.manualQuote, isFalse);
   });
 
+  test('a reply to a post without words carries its media, not a label', () {
+    final post = map.post(
+      td.Message.fromJson(
+        _replying({
+          '@type': 'messageReplyToMessage',
+          'chat_id': -1002,
+          'message_id': 88,
+          'content': {
+            '@type': 'messageVoiceNote',
+            'voice_note': {
+              '@type': 'voiceNote',
+              'duration': 3,
+              'waveform': '',
+              'mime_type': 'audio/ogg',
+              'voice': {
+                '@type': 'file',
+                'id': 5,
+                'size': 100,
+                'expected_size': 100,
+                'remote': {'@type': 'remoteFile', 'id': 'r5'},
+              },
+            },
+            'caption': {'@type': 'formattedText', 'text': ''},
+          },
+        }),
+      ),
+    );
+    final reply = post.replyTo!;
+    // The app names it in the reader's language.
+    expect(reply.text, isEmpty);
+    expect(reply.media, isA<AudioMedia>());
+    final back = decodePost(encodePost(post)).replyTo!;
+    expect((back.media! as AudioMedia).isVoice, isTrue);
+  });
+
+  test('a channel whose newest post has no words names its media', () {
+    const channel = Channel(
+      chatId: -1,
+      title: 'News',
+      lastMessageMedia: PhotoMedia(
+        sizes: [
+          FileRef(id: 1, remoteId: 'r1', size: 10, width: 90, height: 90),
+        ],
+      ),
+    );
+    final back = decodeChannel(encodeChannel(channel));
+    expect(back.lastMessageText, isEmpty);
+    expect(back.lastMessageMedia, isA<PhotoMedia>());
+    expect(
+      decodeChannel(encodeChannel(const Channel(chatId: -1, title: 'x')))
+          .lastMessageMedia,
+      isNull,
+    );
+  });
+
   test('a post that answers nothing has no block', () {
     expect(
       map.post(td.Message.fromJson(messageJson(-1001, 30))).replyTo,

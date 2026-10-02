@@ -1,63 +1,69 @@
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../l10n/l10n.dart';
+
 /// The sentence for a code Telegram's API returns, or null when the app has none.
-String? _known(String message) {
+String? _known(String message, AppLocalizations l10n) {
   if (message.startsWith('Too Many Requests') ||
       message.startsWith('FLOOD_WAIT')) {
-    return 'Telegram is rate-limiting this account. Wait a minute and try again.';
+    return l10n.errorRateLimited;
   }
   return switch (message) {
-    'PHONE_NUMBER_INVALID' => 'That phone number is not valid.',
-    'PHONE_NUMBER_BANNED' => 'Telegram has banned that phone number.',
-    'PHONE_NUMBER_FLOOD' =>
-      'That number has asked for too many codes today. Try again tomorrow.',
-    'PHONE_NUMBER_OCCUPIED' =>
-      'That number already belongs to another account.',
-    'PHONE_CODE_INVALID' || 'PHONE_CODE_EMPTY' => 'Wrong code.',
-    'PHONE_CODE_EXPIRED' => 'The code expired. Ask for a new one.',
-    'PASSWORD_HASH_INVALID' => 'Wrong password.',
-    'PASSWORD_RECOVERY_NA' => 'This account has no recovery email, so the password cannot be reset here.',
-    'API_ID_INVALID' =>
-      'This build has no valid Telegram api_id/api_hash (see README).',
+    'PHONE_NUMBER_INVALID' => l10n.errorPhoneNumberInvalid,
+    'PHONE_NUMBER_BANNED' => l10n.errorPhoneNumberBanned,
+    'PHONE_NUMBER_FLOOD' => l10n.errorPhoneNumberFlood,
+    'PHONE_NUMBER_OCCUPIED' => l10n.errorPhoneNumberOccupied,
+    'PHONE_CODE_INVALID' || 'PHONE_CODE_EMPTY' => l10n.errorCodeInvalid,
+    'PHONE_CODE_EXPIRED' => l10n.errorCodeExpired,
+    'PASSWORD_HASH_INVALID' => l10n.errorPasswordInvalid,
+    'PASSWORD_RECOVERY_NA' => l10n.errorPasswordRecoveryUnavailable,
+    'API_ID_INVALID' => l10n.errorApiIdInvalid,
     'CHAT_ID_INVALID' ||
     'CHANNEL_INVALID' ||
-    'PEER_ID_INVALID' => 'Telegram does not know that channel any more.',
-    'CHANNEL_PRIVATE' =>
-      'That channel is private now, or the account has left it.',
-    'MESSAGE_ID_INVALID' || 'MSG_ID_INVALID' => 'That post no longer exists.',
+    'PEER_ID_INVALID' => l10n.errorChannelUnknown,
+    'CHANNEL_PRIVATE' => l10n.errorChannelPrivate,
+    'MESSAGE_ID_INVALID' || 'MSG_ID_INVALID' => l10n.errorPostGone,
     'CHAT_WRITE_FORBIDDEN' ||
     'CHAT_SEND_PLAIN_FORBIDDEN' ||
-    'CHAT_ADMIN_REQUIRED' =>
-      'This channel does not let the account write here.',
-    'USER_BANNED_IN_CHANNEL' => 'The account is banned in that channel.',
-    'REACTION_INVALID' => 'This channel does not allow that reaction.',
-    'client closed' ||
-    'Request aborted' => 'The connection to Telegram closed. Try again.',
+    'CHAT_ADMIN_REQUIRED' => l10n.errorWriteForbidden,
+    'USER_BANNED_IN_CHANNEL' => l10n.errorBannedInChannel,
+    'REACTION_INVALID' => l10n.errorReactionInvalid,
+    'client closed' || 'Request aborted' => l10n.errorConnectionClosed,
     _ => null,
   };
 }
 
 /// One line for a snackbar: the sentence for a code the app knows, otherwise what the
-/// app was doing with the code in brackets, so nothing is lost when reporting it.
-String telegramErrorLine(Object error, {required String what}) {
+/// app was doing with the code in brackets, so nothing is lost when reporting it. The
+/// sentences are in the language of [l10n], English without one.
+String telegramErrorLine(
+  Object error, {
+  required String what,
+  AppLocalizations? l10n,
+}) {
   final message = error is TelegramException ? error.message : '$error';
-  return _known(message) ?? '$what ($message)';
+  return _known(message, l10n ?? lookupAppLocalizations(const Locale('en'))) ??
+      '$what ($message)';
 }
 
-/// Shows [telegramErrorLine] on [messenger], with an optional Retry action.
+/// Shows [telegramErrorLine] on [messenger], with an optional Retry action, in the
+/// language of the messenger's own context.
 void showTelegramError(
   ScaffoldMessengerState messenger,
   Object error, {
   required String what,
   VoidCallback? onRetry,
 }) {
+  final l10n = messenger.mounted
+      ? messenger.context.l10n
+      : lookupAppLocalizations(const Locale('en'));
   messenger.showSnackBar(
     SnackBar(
-      content: Text(telegramErrorLine(error, what: what)),
+      content: Text(telegramErrorLine(error, what: what, l10n: l10n)),
       action: onRetry == null
           ? null
-          : SnackBarAction(label: 'Retry', onPressed: onRetry),
+          : SnackBarAction(label: l10n.commonRetry, onPressed: onRetry),
     ),
   );
 }
@@ -87,7 +93,8 @@ class ErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final raw = message;
-    final known = raw == null ? null : _known(raw);
+    final l10n = context.l10n;
+    final known = raw == null ? null : _known(raw, l10n);
     if (compact) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -100,7 +107,7 @@ class ErrorState extends StatelessWidget {
             ),
           ),
           if (onRetry != null)
-            TextButton(onPressed: onRetry, child: const Text('Retry')),
+            TextButton(onPressed: onRetry, child: Text(l10n.commonRetry)),
         ],
       );
     }
@@ -136,7 +143,7 @@ class ErrorState extends StatelessWidget {
               FilledButton.tonalIcon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: Text(l10n.commonRetry),
               ),
             ],
           ],

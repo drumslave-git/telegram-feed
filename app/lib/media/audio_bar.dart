@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../feeds/media_view.dart' show formatDuration;
+import '../l10n/l10n.dart';
 import 'audio_session.dart';
 import 'media_viewer.dart' show MediaViewerScreen;
 
@@ -55,6 +56,7 @@ class AudioBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     return Material(
       color: scheme.surfaceContainerHigh,
@@ -67,7 +69,7 @@ class AudioBar extends StatelessWidget {
               ValueListenableBuilder<bool>(
                 valueListenable: sessions.playing,
                 builder: (context, playing, _) => IconButton(
-                  tooltip: playing ? 'Pause' : 'Play',
+                  tooltip: playing ? l10n.playerPause : l10n.playerPlay,
                   icon: Icon(playing ? Icons.pause : Icons.play_arrow),
                   onPressed: () => unawaited(sessions.toggle()),
                 ),
@@ -78,7 +80,7 @@ class AudioBar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      track.label.isEmpty ? 'Audio' : track.label,
+                      track.label.isEmpty ? l10n.mediaAudio : track.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w600),
@@ -107,7 +109,7 @@ class AudioBar extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Stop',
+                tooltip: l10n.audioStop,
                 icon: const Icon(Icons.close),
                 onPressed: () => unawaited(sessions.stop()),
               ),

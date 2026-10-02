@@ -119,6 +119,10 @@ final class FeedWithSources {
 abstract final class SettingKeys {
   static const themeMode = 'themeMode'; // 'system' | 'light' | 'dark'
 
+  /// The interface language: 'system' (the phone's, the default), 'en' or 'uk'. Kept on
+  /// this device.
+  static const language = 'interface.language';
+
   /// How much bigger or smaller the text of posts and comments is drawn, as a factor
   /// between 0.8 and 1.6 ('1.0' by default).
   static const postTextScale = 'appearance.postTextScale';

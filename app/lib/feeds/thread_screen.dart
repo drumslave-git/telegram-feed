@@ -4,6 +4,7 @@ import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../l10n/l10n.dart';
 import '../widgets/error_state.dart';
 import 'bubble_text.dart';
 import 'formatted_text.dart';
@@ -88,6 +89,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
       return;
     }
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     setState(() => _searching = true);
     try {
       final found = await widget.gateway.searchThread(thread, query: query);
@@ -99,7 +101,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
         showTelegramError(
           messenger,
           e,
-          what: 'Could not search the comments.',
+          what: l10n.threadSearchFailed,
           onRetry: () => unawaited(_search(value)),
         );
       }
@@ -221,7 +223,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
         showTelegramError(
           ScaffoldMessenger.of(context),
           e,
-          what: 'Could not post the comment.',
+          what: context.l10n.threadPostFailed,
         );
       }
     } finally {
@@ -231,8 +233,11 @@ class _ThreadScreenState extends State<ThreadScreen> {
 
   Future<void> _openLink(String url) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     if (await launchFirst([Uri.tryParse(url)])) return;
-    messenger.showSnackBar(SnackBar(content: Text('No app can open $url')));
+    messenger.showSnackBar(
+      SnackBar(content: Text(l10n.timelineNoAppForLink(url))),
+    );
   }
 
   /// True while the newest comment is (nearly) on screen.
@@ -274,6 +279,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = ChatColors.of(context);
+    final l10n = context.l10n;
     final found = _found;
     return PopScope(
       canPop: !_searchOpen,
@@ -289,8 +295,8 @@ class _ThreadScreenState extends State<ThreadScreen> {
                   controller: _queryCtl,
                   autofocus: true,
                   textInputAction: TextInputAction.search,
-                  decoration: const InputDecoration(
-                    hintText: 'Search comments',
+                  decoration: InputDecoration(
+                    hintText: l10n.threadSearchComments,
                     border: InputBorder.none,
                   ),
                   onChanged: _onQuery,
@@ -298,7 +304,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
                 actions: [
                   if (_queryCtl.text.isNotEmpty)
                     IconButton(
-                      tooltip: 'Clear',
+                      tooltip: l10n.commonClear,
                       icon: const Icon(Icons.close),
                       onPressed: () {
                         _queryCtl.clear();
@@ -310,13 +316,13 @@ class _ThreadScreenState extends State<ThreadScreen> {
             : AppBar(
                 title: Text(
                   widget.channelTitle.isEmpty
-                      ? 'Comments'
-                      : 'Comments · ${widget.channelTitle}',
+                      ? l10n.commonComments
+                      : l10n.threadTitleWithChannel(widget.channelTitle),
                 ),
                 actions: [
                   if (!_noThread)
                     IconButton(
-                      tooltip: 'Search comments',
+                      tooltip: l10n.threadSearchComments,
                       icon: const Icon(Icons.search),
                       onPressed: _openSearch,
                     ),
@@ -331,18 +337,18 @@ class _ThreadScreenState extends State<ThreadScreen> {
               children: [
                 Expanded(
                   child: _noThread
-                      ? const Center(
+                      ? Center(
                           child: Padding(
-                            padding: EdgeInsets.all(32),
+                            padding: const EdgeInsets.all(32),
                             child: Text(
-                              'This channel has no discussion group, so posts cannot be commented on.',
+                              l10n.threadNoDiscussion,
                               textAlign: TextAlign.center,
                             ),
                           ),
                         )
                       : _error != null && _comments.isEmpty
                       ? ErrorState(
-                          what: 'Could not load the comments.',
+                          what: l10n.threadLoadFailed,
                           message: _error,
                           onRetry: () {
                             setState(() {
@@ -360,8 +366,10 @@ class _ThreadScreenState extends State<ThreadScreen> {
                                   padding: const EdgeInsets.all(32),
                                   child: Text(
                                     _searching
-                                        ? 'Searching…'
-                                        : 'Nothing found for "${_queryCtl.text}".',
+                                        ? l10n.threadSearching
+                                        : l10n.searchNothingFound(
+                                            _queryCtl.text,
+                                          ),
                                     textAlign: TextAlign.center,
                                   ),
                                 ),
@@ -387,10 +395,10 @@ class _ThreadScreenState extends State<ThreadScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           itemCount: _comments.length + 2,
                           itemBuilder: (context, i) {
-                            if (i == 0) return _header();
+                            if (i == 0) return _header(l10n);
                             if (i == _comments.length + 1) {
                               return _comments.isEmpty && !_loading
-                                  ? const ChatPill('No comments yet.')
+                                  ? ChatPill(l10n.threadNoComments)
                                   : const SizedBox(height: 8);
                             }
                             final comment = _comments[i - 1];
@@ -423,15 +431,15 @@ class _ThreadScreenState extends State<ThreadScreen> {
                                 controller: _composer,
                                 minLines: 1,
                                 maxLines: 4,
-                                decoration: const InputDecoration(
-                                  hintText: 'Write a comment',
+                                decoration: InputDecoration(
+                                  hintText: l10n.threadWriteComment,
                                   isDense: true,
                                 ),
                                 onSubmitted: (_) => _send(),
                               ),
                             ),
                             IconButton(
-                              tooltip: 'Send',
+                              tooltip: l10n.threadSend,
                               icon: const Icon(Icons.send),
                               onPressed: _sending ? null : _send,
                             ),
@@ -450,7 +458,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
 
   /// The post the comments belong to, as it looks in the timeline, as the official app
   /// shows it on top of its comments.
-  Widget _header() => Column(
+  Widget _header(AppLocalizations l10n) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       PostCard(
@@ -464,11 +472,11 @@ class _ThreadScreenState extends State<ThreadScreen> {
         Center(
           child: TextButton(
             onPressed: _loading ? null : _loadOlder,
-            child: Text(_loading ? 'Loading…' : 'Load older comments'),
+            child: Text(_loading ? l10n.commonLoading : l10n.threadLoadOlder),
           ),
         )
       else if (_comments.isNotEmpty)
-        const ChatPill('Discussion started'),
+        ChatPill(l10n.threadDiscussionStarted),
     ],
   );
 }

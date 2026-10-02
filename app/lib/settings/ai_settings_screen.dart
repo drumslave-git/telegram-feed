@@ -3,6 +3,7 @@ import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 
 import '../ai/semantic_gate.dart';
+import '../l10n/l10n.dart';
 
 /// Endpoint for AI semantic rules: any OpenAI-compatible chat completions API. The key is
 /// kept in the platform keystore, never in the database.
@@ -68,6 +69,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
 
   /// Saves, then asks the model a question with a known answer.
   Future<void> _test() async {
+    final l10n = context.l10n;
     setState(() {
       _testing = true;
       _testResult = null;
@@ -82,11 +84,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       );
       _testOk = hits.length == 1 && hits.contains(1);
       _testResult = _testOk
-          ? 'Works: the model answered correctly.'
-          : 'The endpoint answered, but not as expected. Try a stronger model.';
+          ? l10n.aiSettingsTestOk
+          : l10n.aiSettingsTestUnexpected;
     } on SemanticException catch (e) {
       _testOk = false;
-      _testResult = e.message;
+      _testResult = e.describe(l10n);
     } finally {
       if (widget.client == null) client.close();
       if (mounted) setState(() => _testing = false);
@@ -96,13 +98,14 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI rules'),
+        title: Text(l10n.aiSettingsTitle),
         actions: [
           TextButton(
             onPressed: _loaded ? _saveAndClose : null,
-            child: const Text('Save'),
+            child: Text(l10n.commonSave),
           ),
         ],
       ),
@@ -112,22 +115,17 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Text(
-                  'AI rules describe in your own words what a post should be about. To check them, '
-                  'the app sends the text of candidate posts to the endpoint below. Nothing is sent '
-                  'unless you create such a rule.',
-                  style: theme.textTheme.bodyMedium,
-                ),
+                Text(l10n.aiSettingsIntro, style: theme.textTheme.bodyMedium),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _baseUrl,
                   keyboardType: TextInputType.url,
                   autocorrect: false,
                   onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    labelText: 'Endpoint',
+                  decoration: InputDecoration(
+                    labelText: l10n.aiSettingsEndpoint,
                     hintText: 'https://api.openai.com/v1',
-                    helperText: 'Any OpenAI-compatible API: OpenAI, OpenRouter, a local Ollama (…/v1), …',
+                    helperText: l10n.aiSettingsEndpointHelper,
                     helperMaxLines: 2,
                   ),
                 ),
@@ -135,7 +133,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      'http:// is not encrypted: posts and the key travel in the clear. Use it only for an endpoint on your own network.',
+                      l10n.aiSettingsHttpWarning,
                       style: TextStyle(color: theme.colorScheme.error),
                     ),
                   ),
@@ -143,8 +141,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 TextField(
                   controller: _model,
                   autocorrect: false,
-                  decoration: const InputDecoration(
-                    labelText: 'Model',
+                  decoration: InputDecoration(
+                    labelText: l10n.aiSettingsModel,
                     hintText: 'gpt-4o-mini',
                   ),
                 ),
@@ -155,10 +153,12 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                   autocorrect: false,
                   enableSuggestions: false,
                   decoration: InputDecoration(
-                    labelText: 'API key',
-                    helperText: 'Stored in the Android keystore. Leave empty for local endpoints.',
+                    labelText: l10n.aiSettingsApiKey,
+                    helperText: l10n.aiSettingsApiKeyHelper,
                     suffixIcon: IconButton(
-                      tooltip: _showKey ? 'Hide key' : 'Show key',
+                      tooltip: _showKey
+                          ? l10n.aiSettingsHideKey
+                          : l10n.aiSettingsShowKey,
                       icon: Icon(
                         _showKey ? Icons.visibility_off : Icons.visibility,
                       ),
@@ -178,7 +178,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.network_check),
-                    label: const Text('Save and test'),
+                    label: Text(l10n.aiSettingsSaveAndTest),
                   ),
                 ),
                 if (_testResult != null)

@@ -130,6 +130,40 @@ void main() {
   );
 
   test(
+    "the words around a post are in its voice's language, else the interface's",
+    () async {
+      sp.detected = 'uk';
+      tts.enqueue(
+        const TtsItem(
+          text: 'Деталі на https://example.com',
+          channelTitle: 'Новини',
+          key: 1,
+        ),
+      );
+      await tick();
+      expect(
+        sp.spoken.last,
+        'Новий допис у каналі Новини. Деталі на посилання',
+      );
+      sp.finish();
+      await tick();
+      // No Russian words in the app: the interface language says them.
+      await db.setSetting(SettingKeys.language, 'uk');
+      sp.detected = 'ru';
+      tts.enqueue(const TtsItem(text: 'Привет', channelTitle: 'Канал', key: 2));
+      await tick();
+      expect(sp.spoken.last, 'Новий допис у каналі Канал. Привет');
+      sp.finish();
+      await tick();
+      sp.detected = 'en';
+      tts.enqueue(const TtsItem(text: 'Hello', channelTitle: 'News', key: 3));
+      await tick();
+      expect(sp.spoken.last, 'New post in News. Hello');
+      sp.finish();
+    },
+  );
+
+  test(
     'interruption stops, requeues the current item and resumes after',
     () async {
       tts.enqueue(const TtsItem(text: 'one', key: 1));

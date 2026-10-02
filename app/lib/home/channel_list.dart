@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../feeds/media_view.dart' show Downloaded;
 import '../feeds/post_card.dart' show formatTime, peerColor;
+import '../l10n/l10n.dart';
 import '../widgets/error_state.dart';
 import '../widgets/skeleton_list.dart';
 import 'unread_badge.dart';
@@ -22,7 +24,7 @@ class ChannelList extends StatefulWidget {
     this.header,
     this.searchable = false,
     this.onRefresh,
-    this.emptyText = 'No channels here.',
+    this.emptyText,
     this.feedsByChat = const {},
     this.loading = false,
     this.error,
@@ -38,7 +40,9 @@ class ChannelList extends StatefulWidget {
   final Widget? header;
   final bool searchable;
   final Future<void> Function()? onRefresh;
-  final String emptyText;
+
+  /// What an empty list says; "No channels here." when not given.
+  final String? emptyText;
 
   /// True while the channels are still coming: a spinner instead of [emptyText].
   final bool loading;
@@ -78,7 +82,7 @@ class _ChannelListState extends State<ChannelList>
     // instead of hiding the code in the "no channels" line.
     if (widget.channels.isEmpty && widget.error != null) {
       return ErrorState(
-        what: 'Could not load the channels.',
+        what: context.l10n.channelsLoadFailed,
         message: widget.error,
         onRetry: widget.onRefresh == null
             ? null
@@ -92,8 +96,8 @@ class _ChannelListState extends State<ChannelList>
                 padding: const EdgeInsets.all(32),
                 child: Text(
                   q.isEmpty
-                      ? widget.emptyText
-                      : 'No channel matches "$_query".',
+                      ? widget.emptyText ?? context.l10n.channelsEmpty
+                      : context.l10n.channelsNoMatch(_query),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -125,14 +129,18 @@ class _ChannelListState extends State<ChannelList>
         ? null
         : MaterialBanner(
             content: Text(
-              telegramErrorLine(error, what: 'Could not refresh the channels.'),
+              telegramErrorLine(
+                error,
+                what: context.l10n.channelsRefreshFailed,
+                l10n: context.l10n,
+              ),
             ),
             actions: [
               TextButton(
                 onPressed: widget.onRefresh == null
                     ? null
                     : () => unawaited(widget.onRefresh!()),
-                child: const Text('Retry'),
+                child: Text(context.l10n.commonRetry),
               ),
             ],
           );
@@ -152,9 +160,9 @@ class _ChannelListState extends State<ChannelList>
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: TextField(
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'Search channels',
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search),
+              hintText: context.l10n.channelsSearchHint,
               isDense: true,
             ),
             onChanged: (v) => setState(() => _query = v),
@@ -204,7 +212,10 @@ class ChannelTile extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              c.lastMessageText,
+              // A post without words is named by what it carries.
+              c.lastMessageText.isNotEmpty
+                  ? c.lastMessageText
+                  : context.l10n.mediaPreview(c.lastMessageMedia),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -350,7 +361,8 @@ class ChannelAvatar extends StatelessWidget {
 }
 
 /// Time today, weekday within a week, else the date, as the official app's chat list
-/// writes them. With a [context] the clock and the date follow the phone's own settings.
+/// writes them. With a [context] the clock and the date follow the phone's own settings,
+/// and the weekday the interface language.
 String formatListDate(DateTime d, {DateTime? now, BuildContext? context}) {
   final n = now ?? DateTime.now();
   String two(int x) => x.toString().padLeft(2, '0');
@@ -358,11 +370,16 @@ String formatListDate(DateTime d, {DateTime? now, BuildContext? context}) {
     return formatTime(d, context);
   }
   if (n.difference(d).inDays < 6 && !d.isAfter(n)) {
-    return const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d.weekday -
-        1];
+    // Where the app's strings are not loaded, neither is intl's date data of their
+    // language: intl's default locale (en_US) needs none.
+    final strings = context == null
+        ? null
+        : Localizations.of<AppLocalizations>(context, AppLocalizations);
+    return DateFormat.E(strings?.localeName).format(d);
   }
-  final l10n = context == null
+  final material = context == null
       ? null
       : Localizations.of<MaterialLocalizations>(context, MaterialLocalizations);
-  return l10n?.formatShortDate(d) ?? '${d.year}-${two(d.month)}-${two(d.day)}';
+  return material?.formatShortDate(d) ??
+      '${d.year}-${two(d.month)}-${two(d.day)}';
 }

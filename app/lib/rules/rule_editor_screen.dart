@@ -11,6 +11,7 @@ import '../notifications/notification_policy.dart';
 import '../ai/semantic_gate.dart';
 import '../feeds/post_card.dart' show formatDay;
 import '../home/channel_list.dart' show ChannelAvatar;
+import '../l10n/l10n.dart';
 import 'condition_editor.dart';
 import '../widgets/destructive_button.dart';
 
@@ -196,16 +197,16 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     final leave = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Discard changes?'),
-        content: const Text('The changes to this rule are not saved.'),
+        title: Text(context.l10n.ruleDiscardTitle),
+        content: Text(context.l10n.ruleDiscardMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Keep editing'),
+            child: Text(context.l10n.commonKeepEditing),
           ),
           DestructiveButton(
             onPressed: () => Navigator.pop(context, true),
-            label: 'Discard',
+            label: context.l10n.commonDiscard,
           ),
         ],
       ),
@@ -229,13 +230,12 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     final feedId = _feedId;
     // On the fields themselves: a snackbar can stand behind the keyboard, and the field
     // it is about is at the top of a scrolled form.
+    final l10n = context.l10n;
     setState(() {
-      _nameError = name.isEmpty ? 'Give the rule a name.' : null;
-      _feedError = feedId == null
-          ? 'A rule belongs to a feed: create one first.'
-          : null;
+      _nameError = name.isEmpty ? l10n.ruleErrorNoName : null;
+      _feedError = feedId == null ? l10n.ruleErrorNoFeed : null;
       _scheduleError = _scheduled && _weekdays.isEmpty
-          ? 'Pick at least one day, or the rule never notifies.'
+          ? l10n.scheduleErrorNoDays
           : null;
     });
     if (_nameError != null ||
@@ -295,19 +295,16 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     final ask = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Let the app notify you?'),
-        content: const Text(
-          'This rule notifies you about the posts it matches, which Android has to '
-          'allow. Without it the rule still runs, but stays silent.',
-        ),
+        title: Text(context.l10n.ruleNotifyAskTitle),
+        content: Text(context.l10n.ruleNotifyAskMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Not now'),
+            child: Text(context.l10n.commonNotNow),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Allow'),
+            child: Text(context.l10n.commonAllow),
           ),
         ],
       ),
@@ -322,19 +319,16 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     final open = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Show urgent posts in Do Not Disturb?'),
-        content: const Text(
-          'Urgent rules can break through Do Not Disturb, but Android must allow this '
-          'app to do so. Open the setting now? The rule works either way.',
-        ),
+        title: Text(context.l10n.ruleDndAskTitle),
+        content: Text(context.l10n.ruleDndAskMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Later'),
+            child: Text(context.l10n.commonLater),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Open settings'),
+            child: Text(context.l10n.commonOpenSettings),
           ),
         ],
       ),
@@ -348,15 +342,15 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Delete "${r.name}"?'),
+        title: Text(context.l10n.ruleDeleteTitle(r.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.commonCancel),
           ),
           DestructiveButton(
             onPressed: () => Navigator.pop(context, true),
-            label: 'Delete',
+            label: context.l10n.commonDelete,
           ),
         ],
       ),
@@ -416,12 +410,14 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
         failed++;
       }
     }
+    if (!mounted) return;
+    final l10n = context.l10n;
     final read = chats.length - failed;
     final scope = [
-      'from $read channel${read == 1 ? '' : 's'}',
+      l10n.ruleDryRunScopeChannels(read),
       if (all.length > chats.length)
-        'of ${all.length} (the first $_dryRunChannels are checked)',
-      if (failed > 0) '($failed could not be read)',
+        l10n.ruleDryRunScopeOfTotal(all.length, _dryRunChannels),
+      if (failed > 0) l10n.ruleDryRunScopeFailed(failed),
     ].join(' ');
     // AI rule: the newest few posts that pass the keywords go to the model, like live.
     String? headline;
@@ -437,11 +433,10 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
           }
         }
         headline = confirmed.isEmpty
-            ? 'The AI matched none of the ${sample.length} newest posts it checked '
-                  '(${hits.length} of the last $scanned passed the keywords).'
-            : 'The AI matched ${confirmed.length} of the ${sample.length} newest posts it checked:';
+            ? l10n.ruleDryRunAiNone(sample.length, hits.length, scanned)
+            : l10n.ruleDryRunAiMatched(confirmed.length, sample.length);
       } on SemanticException catch (e) {
-        headline = 'The AI check failed: ${e.message}';
+        headline = l10n.ruleDryRunAiFailed(e.describe(l10n));
         confirmed.clear();
       }
       hits
@@ -459,14 +454,14 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
           Text(
             headline ??
                 (hits.isEmpty
-                    ? 'No match in the last $scanned posts.'
-                    : '${hits.length} of the last $scanned posts match:'),
+                    ? context.l10n.ruleDryRunNoMatch(scanned)
+                    : context.l10n.ruleDryRunMatches(hits.length, scanned)),
             style: Theme.of(context).textTheme.titleMedium,
           ),
           Padding(
             padding: const EdgeInsets.only(top: 4, bottom: 8),
             child: Text(
-              'Checked the latest posts $scope.',
+              context.l10n.ruleDryRunChecked(scope),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -484,6 +479,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                   Text(
                     formatDay(
                       DateTime.fromMillisecondsSinceEpoch(p.date * 1000),
+                      l10n: context.l10n,
                     ),
                     style: Theme.of(context).textTheme.labelSmall,
                   ),
@@ -491,7 +487,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
               ),
               subtitle: Text(
                 // A post without text is one a rule with no condition matches too.
-                postLabel(p),
+                postLabel(p, context.l10n.mediaWords),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -520,6 +516,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     return PopScope(
       canPop: !_dirty,
       onPopInvokedWithResult: (didPop, _) {
@@ -527,17 +524,17 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.rule == null ? 'New rule' : 'Edit rule'),
+          title: Text(widget.rule == null ? l10n.ruleNew : l10n.ruleEditTitle),
           actions: [
             if (widget.rule != null)
               IconButton(
-                tooltip: 'Delete',
+                tooltip: l10n.commonDelete,
                 icon: const Icon(Icons.delete_outline),
                 onPressed: _delete,
               ),
             TextButton(
               onPressed: _saving ? null : _save,
-              child: const Text('Save'),
+              child: Text(l10n.commonSave),
             ),
           ],
         ),
@@ -547,7 +544,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
             TextField(
               controller: _name,
               decoration: InputDecoration(
-                labelText: 'Name',
+                labelText: l10n.ruleNameLabel,
                 errorText: _nameError,
               ),
               textInputAction: TextInputAction.next,
@@ -557,8 +554,8 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
             // At the top, where the state of the rule belongs, not under everything.
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Enabled'),
-              subtitle: const Text('Off keeps the rule but stops it notifying'),
+              title: Text(l10n.ruleEnabledTitle),
+              subtitle: Text(l10n.ruleEnabledSubtitle),
               value: _enabled,
               onChanged: (v) => setState(() => _enabled = v),
             ),
@@ -568,11 +565,9 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
               initialValue: _feedId,
               isExpanded: true,
               decoration: InputDecoration(
-                labelText: 'Feed',
+                labelText: l10n.ruleFeedLabel,
                 errorText: _feedError,
-                helperText: _feeds.isEmpty
-                    ? 'A rule belongs to a feed: create one first.'
-                    : null,
+                helperText: _feeds.isEmpty ? l10n.ruleErrorNoFeed : null,
               ),
               items: [
                 for (final f in _feeds)
@@ -591,11 +586,11 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                   : null,
               // The items are rows with an avatar; they need the width of the field.
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Channels'),
+              decoration: InputDecoration(labelText: l10n.ruleChannelsLabel),
               items: [
-                const DropdownMenuItem<int?>(
+                DropdownMenuItem<int?>(
                   value: null,
-                  child: Text('Every channel of the feed'),
+                  child: Text(l10n.ruleEveryChannelOfFeed),
                 ),
                 for (final c in _channels)
                   DropdownMenuItem<int?>(
@@ -621,17 +616,20 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
             const SizedBox(height: 16),
             ConditionEditor(
               controller: _cond,
-              title: Text('Condition', style: theme.textTheme.titleMedium),
+              title: Text(
+                l10n.ruleConditionTitle,
+                style: theme.textTheme.titleMedium,
+              ),
               note: !_keywordsBlank && !_isSemantic
                   ? null
                   : Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
                         !_isSemantic
-                            ? 'No condition: every new post from this rule\'s channels notifies. Add terms to notify only about some of them.'
+                            ? l10n.ruleNoConditionNote
                             : _keywordsBlank
-                            ? 'No keywords: every new post from this rule\'s channels goes to the AI. Add terms to send only posts that contain them.'
-                            : 'The AI checks only the posts that pass these keywords.',
+                            ? l10n.semanticNoKeywordsNote
+                            : l10n.semanticAfterKeywordsNote,
                         style: TextStyle(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -650,74 +648,67 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                       )
                     : const Icon(Icons.science_outlined),
                 label: Text(
-                  _testing ? 'Testing\u2026' : 'Test on recent posts',
+                  _testing ? l10n.ruleDryRunTesting : l10n.ruleDryRunButton,
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            Text('Notification', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(
-                  value: 'silent',
-                  label: Text('Silent'),
-                  icon: Icon(Icons.notifications_off_outlined),
-                ),
-                ButtonSegment(
-                  value: 'normal',
-                  label: Text('Normal'),
-                  icon: Icon(Icons.notifications_outlined),
-                ),
-                ButtonSegment(
-                  value: 'urgent',
-                  label: Text('Urgent'),
-                  icon: Icon(Icons.priority_high),
-                ),
-              ],
-              selected: {_priority},
-              onSelectionChanged: (s) {
-                setState(() => _priority = s.first);
-                // Asked here, where the choice is made, instead of at save time.
-                if (s.first == 'urgent') unawaited(_askForDoNotDisturb());
-              },
+            Text(
+              l10n.ruleNotificationTitle,
+              style: theme.textTheme.titleMedium,
             ),
-            Padding(
-              padding: const EdgeInsets.only(top: 6, bottom: 4),
-              // The tallest text sets the height, so nothing below moves when the
-              // priority changes.
-              child: IndexedStack(
-                index: switch (_priority) {
-                  'silent' => 0,
-                  'urgent' => 2,
-                  _ => 1,
-                },
+            const SizedBox(height: 8),
+            // One row per priority with what it does, as the official app lists such
+            // choices; every language's words fit.
+            RadioGroup<String>(
+              groupValue: _priority,
+              onChanged: (v) {
+                if (v == null || v == _priority) return;
+                setState(() => _priority = v);
+                // Asked here, where the choice is made, instead of at save time.
+                if (v == 'urgent') unawaited(_askForDoNotDisturb());
+              },
+              child: Column(
                 children: [
-                  for (final text in const [
-                    'In the tray only, with no sound and no vibration.',
-                    'Pops up, with the sound and vibration set in '
-                        'Notifications and sounds.',
-                    'Pops up, and breaks through Do Not Disturb where Android '
-                        'allows it.',
+                  for (final (value, title, info, icon) in [
+                    (
+                      'silent',
+                      l10n.rulePrioritySilent,
+                      l10n.rulePrioritySilentInfo,
+                      Icons.notifications_off_outlined,
+                    ),
+                    (
+                      'normal',
+                      l10n.rulePriorityNormal,
+                      l10n.rulePriorityNormalInfo,
+                      Icons.notifications_outlined,
+                    ),
+                    (
+                      'urgent',
+                      l10n.rulePriorityUrgent,
+                      l10n.rulePriorityUrgentInfo,
+                      Icons.priority_high,
+                    ),
                   ])
-                    Text(
-                      text,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                    RadioListTile<String>(
+                      value: value,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(title),
+                      subtitle: Text(info),
+                      secondary: Icon(icon),
                     ),
                 ],
               ),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Read the post aloud'),
+              title: Text(l10n.ruleReadAloud),
               value: _readAloud,
               onChanged: (v) => setState(() => _readAloud = v),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Only at certain times'),
+              title: Text(l10n.scheduleSwitch),
               value: _scheduled,
               onChanged: (v) => setState(() => _scheduled = v),
             ),
@@ -728,14 +719,14 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                   for (var d = 1; d <= 7; d++)
                     FilterChip(
                       label: Text(
-                        const [
-                          'Mon',
-                          'Tue',
-                          'Wed',
-                          'Thu',
-                          'Fri',
-                          'Sat',
-                          'Sun',
+                        [
+                          l10n.scheduleMon,
+                          l10n.scheduleTue,
+                          l10n.scheduleWed,
+                          l10n.scheduleThu,
+                          l10n.scheduleFri,
+                          l10n.scheduleSat,
+                          l10n.scheduleSun,
                         ][d - 1],
                       ),
                       selected: _weekdays.contains(d),
@@ -758,23 +749,24 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                 children: [
                   TextButton(
                     onPressed: () => _pickTime(true),
-                    child: Text('From ${Schedule.formatTime(_from)}'),
+                    child: Text(l10n.scheduleFrom(Schedule.formatTime(_from))),
                   ),
                   TextButton(
                     onPressed: () => _pickTime(false),
-                    child: Text('To ${Schedule.formatTime(_to)}'),
+                    child: Text(l10n.scheduleTo(Schedule.formatTime(_to))),
                   ),
                   if (_to < _from)
-                    Text('(next day)', style: theme.textTheme.bodySmall),
+                    Text(
+                      l10n.scheduleNextDay,
+                      style: theme.textTheme.bodySmall,
+                    ),
                 ],
               ),
             ],
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Also ask the AI'),
-              subtitle: const Text(
-                'A model you set up in Settings decides whether a post is about what you describe.',
-              ),
+              title: Text(l10n.semanticAlsoAsk),
+              subtitle: Text(l10n.semanticAlsoAskSubtitle),
               value: _useAi,
               onChanged: (v) => setState(() => _useAi = v),
             ),
@@ -784,9 +776,9 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                 minLines: 1,
                 maxLines: 4,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  labelText: 'What the post should be about',
-                  hintText: 'Central bank interest rate decisions',
+                decoration: InputDecoration(
+                  labelText: l10n.semanticPromptLabel,
+                  hintText: l10n.semanticPromptHint,
                 ),
                 onChanged: (_) => setState(() {}),
               ),
@@ -794,7 +786,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    'The AI endpoint is not set up yet (Settings, AI rules). Until then this rule is skipped.',
+                    l10n.semanticNotConfigured,
                     style: TextStyle(color: theme.colorScheme.error),
                   ),
                 ),

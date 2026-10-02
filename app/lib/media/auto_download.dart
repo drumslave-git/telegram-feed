@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../feeds/media_view.dart' show formatBytes;
+import '../l10n/l10n.dart';
 
 /// What the phone is connected to. Metered Wi-Fi counts as [mobile]: the reader who limits
 /// mobile data means the bill, not the radio. [roaming] is mobile data on a network abroad.
@@ -37,20 +38,37 @@ class NetworkWatcher {
   }
 }
 
+/// The English strings, for the labels asked for without a language.
+AppLocalizations get _english => lookupAppLocalizations(const Locale('en'));
+
 /// The three kinds of connection the official app keeps automatic downloads for.
 enum Connection {
-  mobile(
-    SettingKeys.downloadMobile,
-    'When using mobile data',
-    'Using mobile data',
-  ),
-  wifi(SettingKeys.downloadWifi, 'When connected on Wi-Fi', 'Using Wi-Fi'),
-  roaming(SettingKeys.downloadRoaming, 'When roaming', 'Roaming');
+  mobile(SettingKeys.downloadMobile),
+  wifi(SettingKeys.downloadWifi),
+  roaming(SettingKeys.downloadRoaming);
 
-  const Connection(this.settingKey, this.rowTitle, this.screenTitle);
+  const Connection(this.settingKey);
   final String settingKey;
-  final String rowTitle;
-  final String screenTitle;
+
+  /// The connection's row in Data and storage: "When using mobile data".
+  String rowTitleIn(AppLocalizations l10n) => switch (this) {
+    Connection.mobile => l10n.autoDownloadRowMobile,
+    Connection.wifi => l10n.autoDownloadRowWifi,
+    Connection.roaming => l10n.autoDownloadRowRoaming,
+  };
+
+  /// The title of the connection's own screen: "Using mobile data".
+  String screenTitleIn(AppLocalizations l10n) => switch (this) {
+    Connection.mobile => l10n.autoDownloadTitleMobile,
+    Connection.wifi => l10n.autoDownloadTitleWifi,
+    Connection.roaming => l10n.autoDownloadTitleRoaming,
+  };
+
+  /// [rowTitleIn] in English.
+  String get rowTitle => rowTitleIn(_english);
+
+  /// [screenTitleIn] in English.
+  String get screenTitle => screenTitleIn(_english);
 
   /// Telegram's own choice for a fresh install: medium on mobile data, high on Wi-Fi, low
   /// while roaming.
@@ -100,7 +118,16 @@ final class DownloadPreset {
     fileMaxBytes: 3 * _mb,
   );
   static const presets = [low, medium, high];
-  static const presetNames = ['Low', 'Medium', 'High'];
+
+  /// The names of [presets], in the same order.
+  static List<String> presetNamesIn(AppLocalizations l10n) => [
+    l10n.autoDownloadPresetLow,
+    l10n.autoDownloadPresetMedium,
+    l10n.autoDownloadPresetHigh,
+  ];
+
+  /// [presetNamesIn] in English.
+  static List<String> get presetNames => presetNamesIn(_english);
 
   /// The switch of the whole connection; off, nothing loads by itself.
   final bool enabled;
@@ -155,15 +182,18 @@ final class DownloadPreset {
       (files ? fileMaxBytes : 0);
 
   /// The line under the connection's row: "Photos, Videos (10 MB), Files (1 MB)".
-  String get summary {
-    if (!enabled) return 'Disabled';
+  String summaryIn(AppLocalizations l10n) {
+    if (!enabled) return l10n.autoDownloadSummaryDisabled;
     final kinds = [
-      if (photos) 'Photos',
-      if (videos) 'Videos (${formatLimit(videoMaxBytes)})',
-      if (files) 'Files (${formatLimit(fileMaxBytes)})',
+      if (photos) l10n.autoDownloadSummaryPhotos,
+      if (videos) l10n.autoDownloadSummaryVideos(formatLimit(videoMaxBytes)),
+      if (files) l10n.autoDownloadSummaryFiles(formatLimit(fileMaxBytes)),
     ];
-    return kinds.isEmpty ? 'Nothing' : kinds.join(', ');
+    return kinds.isEmpty ? l10n.autoDownloadSummaryNothing : kinds.join(', ');
   }
+
+  /// [summaryIn] in English.
+  String get summary => summaryIn(_english);
 
   Map<String, Object?> toJson() => {
     'enabled': enabled,

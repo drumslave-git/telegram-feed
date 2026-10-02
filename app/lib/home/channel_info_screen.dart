@@ -8,6 +8,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import '../feeds/open_links.dart';
 import '../feeds/post_card.dart' show formatCount;
 import '../feeds/shared_media.dart';
+import '../l10n/l10n.dart';
 import '../media/media_viewer.dart';
 import '../widgets/error_state.dart';
 import 'channel_list.dart' show ChannelAvatar;
@@ -63,8 +64,9 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
 
   Future<void> _copyLink(String link) async {
     final messenger = ScaffoldMessenger.of(context);
+    final copied = context.l10n.channelInfoLinkCopied;
     await Clipboard.setData(ClipboardData(text: link));
-    messenger.showSnackBar(const SnackBar(content: Text('Link copied')));
+    messenger.showSnackBar(SnackBar(content: Text(copied)));
   }
 
   /// The channel's own picture on the whole screen. Without a photo the tap does nothing,
@@ -119,7 +121,7 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(context.l10n.commonClose),
           ),
         ],
       ),
@@ -132,13 +134,14 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
     final info = _info;
     final members = info?.memberCount ?? channel.memberCount;
     final link = _link;
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Channel info'),
+        title: Text(l10n.channelInfoTitle),
         actions: [
           if (link != null)
             IconButton(
-              tooltip: 'QR code',
+              tooltip: l10n.channelInfoQrCode,
               icon: const Icon(Icons.qr_code),
               onPressed: () => _showQr(link),
             ),
@@ -177,8 +180,11 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
                         ),
                         Text(
                           members > 0
-                              ? '${formatCount(members)} subscriber${members == 1 ? '' : 's'}'
-                              : 'Channel',
+                              ? l10n.channelInfoSubscribers(
+                                  members,
+                                  formatCount(members),
+                                )
+                              : l10n.channelInfoChannel,
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: Theme.of(context)
@@ -196,7 +202,7 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: ErrorState(
-                  what: 'Could not load the channel details.',
+                  what: l10n.channelInfoLoadFailed,
                   message: _error,
                   compact: true,
                   onRetry: () {
@@ -229,7 +235,7 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
                 subtitle: Text(link),
                 onTap: () => unawaited(launchFirst([Uri.tryParse(link)])),
                 trailing: IconButton(
-                  tooltip: 'Copy link',
+                  tooltip: l10n.commonCopyLink,
                   icon: const Icon(Icons.copy),
                   onPressed: () => unawaited(_copyLink(link)),
                 ),
@@ -238,7 +244,7 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
                 child: Text(
-                  'Similar channels',
+                  l10n.channelInfoSimilarChannels,
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
               ),

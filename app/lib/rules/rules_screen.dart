@@ -7,6 +7,7 @@ import 'package:rules/rules.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../ai/semantic_gate.dart';
+import '../l10n/l10n.dart';
 import '../widgets/empty_state.dart';
 import 'rule_editor_screen.dart';
 
@@ -57,7 +58,7 @@ class RulesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Rules')),
+      appBar: AppBar(title: Text(context.l10n.commonRules)),
       // With no feeds the editor would open on an empty feed dropdown and refuse to
       // save, so the button says what is missing instead.
       floatingActionButton: StreamBuilder<List<Feed>>(
@@ -73,7 +74,7 @@ class RulesScreen extends StatelessWidget {
                     gateway: gateway,
                     semanticCheck: semanticCheck,
                   ),
-            tooltip: 'New rule',
+            tooltip: context.l10n.ruleNew,
             child: const Icon(Icons.add),
           );
         },
@@ -92,22 +93,19 @@ class RulesScreen extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (dialog) => AlertDialog(
-        title: const Text('No feeds yet'),
-        content: const Text(
-          'Every rule belongs to a feed and watches its channels. Make a feed first, '
-          'then give it rules.',
-        ),
+        title: Text(dialog.l10n.rulesNoFeedsTitle),
+        content: Text(dialog.l10n.rulesNoFeedsMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialog),
-            child: const Text('Cancel'),
+            child: Text(dialog.l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () {
               Navigator.pop(dialog);
               Navigator.of(context).maybePop();
             },
-            child: const Text('Go to feeds'),
+            child: Text(dialog.l10n.rulesGoToFeeds),
           ),
         ],
       ),
@@ -156,8 +154,13 @@ class RuleList extends StatelessWidget {
                 Icons.info_outline,
                 color: Theme.of(context).colorScheme.error,
               ),
-              title: const Text('AI rules are being skipped'),
-              subtitle: Text('${failure.message} (last tried $t)'),
+              title: Text(context.l10n.semanticSkippedTitle),
+              subtitle: Text(
+                context.l10n.semanticSkippedSubtitle(
+                  failure.describe(context.l10n),
+                  t,
+                ),
+              ),
             );
           },
         ),
@@ -198,7 +201,7 @@ class RuleList extends StatelessWidget {
                                       // A chat id would say nothing; this says what
                                       // happened to the channel.
                                       : titles[r.scopeChatId] ??
-                                            'A channel that left the feed',
+                                            context.l10n.ruleScopeChannelLeft,
                                   onChanged: (v) => db.setRuleEnabled(r.id, v),
                                   onTap: () => openRuleEditor(
                                     context,
@@ -222,27 +225,22 @@ class RuleList extends StatelessWidget {
   }
 
   Widget _empty(BuildContext context, List<Feed> feeds) {
+    final l10n = context.l10n;
     if (feeds.isEmpty) {
       return EmptyState(
         icon: Icons.notifications_none,
-        title: 'No rules yet',
-        message:
-            'Rules belong to feeds. Make a feed first, then give it rules.',
-        actionLabel: 'Go to feeds',
+        title: l10n.rulesEmptyTitle,
+        message: l10n.rulesEmptyNoFeeds,
+        actionLabel: l10n.rulesGoToFeeds,
         actionIcon: Icons.arrow_back,
         onAction: () => Navigator.of(context).maybePop(),
       );
     }
     return EmptyState(
       icon: Icons.notifications_none,
-      title: 'No rules yet',
-      message: feedId != null
-          ? 'A rule watches this feed\'s channels, or one of them, and notifies you, '
-                'optionally reading the post aloud: give it words to look for, or leave '
-                'the condition empty to be notified about every post the feed shows.'
-          : 'Every feed has its own rules: a rule watches the feed\'s channels, or one '
-                'of them, and notifies you, optionally reading the post aloud.',
-      actionLabel: 'New rule',
+      title: l10n.rulesEmptyTitle,
+      message: feedId != null ? l10n.rulesEmptyFeed : l10n.rulesEmptyAll,
+      actionLabel: l10n.ruleNew,
       onAction: () => openRuleEditor(
         context,
         db: db,
@@ -287,20 +285,21 @@ class _RuleTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = rule;
-    final scope = channelTitle ?? 'Every channel';
+    final l10n = context.l10n;
+    final scope = channelTitle ?? l10n.ruleScopeEveryChannel;
     // In words as well as in the glyph: the icon alone says nothing to a screen reader
     // and little to a reader who has not learned it.
     final priority = switch (r.priority) {
-      'urgent' => 'urgent',
-      'silent' => 'silent',
+      'urgent' => l10n.ruleTileUrgent,
+      'silent' => l10n.ruleTileSilent,
       _ => null,
     };
     return ListTile(
       leading: Semantics(
         label: switch (r.priority) {
-          'urgent' => 'Urgent rule',
-          'silent' => 'Silent rule',
-          _ => 'Normal rule',
+          'urgent' => l10n.ruleSemanticsUrgent,
+          'silent' => l10n.ruleSemanticsSilent,
+          _ => l10n.ruleSemanticsNormal,
         },
         child: Icon(switch (r.priority) {
           'urgent' => Icons.priority_high,
@@ -312,9 +311,9 @@ class _RuleTile extends StatelessWidget {
       subtitle: Text(
         [
           scope,
-          _preview(r),
+          _preview(r, l10n),
           ?priority,
-          if (r.readAloud) 'read aloud',
+          if (r.readAloud) l10n.ruleTileReadAloud,
         ].join(' · '),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
@@ -326,18 +325,23 @@ class _RuleTile extends StatelessWidget {
 
   /// Keyword condition, and for AI rules the description they check. A rule with no
   /// condition at all matches every post of its channels.
-  static String _preview(Rule r) {
+  static String _preview(Rule r, AppLocalizations l10n) {
     final prompt = r.semanticPrompt?.trim() ?? '';
-    final keywords = _conditionPreview(r);
-    if (prompt.isEmpty) return keywords.isEmpty ? 'every post' : keywords;
-    return keywords.isEmpty ? 'AI: $prompt' : 'AI: $prompt · only if $keywords';
+    final keywords = _conditionPreview(r, l10n);
+    if (prompt.isEmpty) {
+      return keywords.isEmpty ? l10n.ruleTileEveryPost : keywords;
+    }
+    return keywords.isEmpty
+        ? l10n.semanticPreview(prompt)
+        : l10n.semanticPreviewWithKeywords(prompt, keywords);
   }
 
-  static String _conditionPreview(Rule r) {
+  /// The condition in rule syntax, which reads the same in every language.
+  static String _conditionPreview(Rule r, AppLocalizations l10n) {
     try {
       return RuleParser.format(RuleSpec.fromRow(r).condition);
     } on FormatException {
-      return '(invalid condition)';
+      return l10n.ruleTileInvalidCondition;
     }
   }
 }
@@ -390,11 +394,10 @@ class _BatteryBannerState extends State<BatteryBanner>
     if (_exempt) return const SizedBox.shrink();
     return MaterialBanner(
       // "Watcher" is a word from inside the app; this says what the reader loses.
-      content: const Text(
-        'Android may stop background watching, and rules would then go quiet. Allow '
-        'the app to ignore battery optimisation so they keep working.',
-      ),
-      actions: [TextButton(onPressed: _request, child: const Text('Allow'))],
+      content: Text(context.l10n.ruleBatteryBanner),
+      actions: [
+        TextButton(onPressed: _request, child: Text(context.l10n.commonAllow)),
+      ],
     );
   }
 }

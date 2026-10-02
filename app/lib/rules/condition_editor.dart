@@ -3,7 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:rules/rules.dart';
 
+import '../l10n/l10n.dart';
 import 'rule_builder_model.dart';
+
+/// A message that is put into words once the reader's language is at hand.
+typedef _Message = String Function(AppLocalizations l10n);
 
 /// A condition on the words of a post, edited as the visual builder (groups of terms joined
 /// by OR, terms inside a group by AND) or as the text form `("bitcoin" OR btc) AND NOT
@@ -24,7 +28,7 @@ final class ConditionController extends ChangeNotifier {
   ConditionController.unreadable(String source) {
     _textMode = true;
     text.text = source;
-    _error = 'Stored condition could not be parsed; rewrite it.';
+    _error = (l) => l.conditionErrorStoredUnreadable;
   }
 
   /// The text form's field.
@@ -32,13 +36,13 @@ final class ConditionController extends ChangeNotifier {
 
   bool _textMode = false;
   BuilderModel _model = BuilderModel.empty;
-  String? _error;
+  _Message? _error;
 
   bool get textMode => _textMode;
   BuilderModel get model => _model;
 
   /// What is wrong with the text form, shown under it.
-  String? get error => _error;
+  String? errorText(AppLocalizations l10n) => _error?.call(l10n);
 
   /// No condition at all, `And([])`: every post matches it.
   static bool isMatchAll(Expr e) => e is And && e.items.isEmpty;
@@ -118,7 +122,7 @@ final class ConditionController extends ChangeNotifier {
     try {
       final m = BuilderModel.fromExpr(RuleParser.parse(text.text));
       if (m == null) {
-        _error = 'Too nested for the builder; keep editing as text.';
+        _error = (l) => l.conditionErrorTooNested;
         notifyListeners();
         return;
       }
@@ -131,13 +135,24 @@ final class ConditionController extends ChangeNotifier {
     }
   }
 
-  /// A parser error in words, without the parser's prefix and position; the cursor shows
-  /// the position instead.
-  static String _syntaxMessage(FormatException e) {
-    var m = e.message.replaceFirst('rule syntax: ', '');
-    m = m.replaceFirst(RegExp(r' at \d+$'), '');
-    if (m.isEmpty) return 'This condition cannot be read.';
-    return '${m[0].toUpperCase()}${m.substring(1)} where the cursor is.';
+  /// A parser error in words, without the position; the cursor shows the position
+  /// instead.
+  static _Message _syntaxMessage(FormatException e) {
+    if (e is! RuleSyntaxError) return (l) => l.conditionErrorUnreadable;
+    final detail = e.detail;
+    return switch (e.problem) {
+      RuleSyntaxProblem.unexpected => (l) => l.conditionErrorUnexpected(detail),
+      RuleSyntaxProblem.expectedTerm => (l) => l.conditionErrorExpectedTerm,
+      RuleSyntaxProblem.expectedClosingParen => (
+        l,
+      ) => l.conditionErrorExpectedBracket,
+      RuleSyntaxProblem.unterminatedQuote => (
+        l,
+      ) => l.conditionErrorUnterminatedQuote,
+      RuleSyntaxProblem.danglingEscape => (l) => l.conditionErrorDanglingEscape,
+      RuleSyntaxProblem.emptyTerm => (l) => l.conditionErrorEmptyTerm,
+      RuleSyntaxProblem.keyword => (l) => l.conditionErrorKeyword(detail),
+    };
   }
 
   void _showSyntaxError(FormatException e) {
@@ -183,9 +198,15 @@ class ConditionEditor extends StatelessWidget {
             title,
             const Spacer(),
             SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(value: false, label: Text('Builder')),
-                ButtonSegment(value: true, label: Text('Text')),
+              segments: [
+                ButtonSegment(
+                  value: false,
+                  label: Text(context.l10n.conditionModeBuilder),
+                ),
+                ButtonSegment(
+                  value: true,
+                  label: Text(context.l10n.conditionModeText),
+                ),
               ],
               selected: {controller.textMode},
               onSelectionChanged: (s) => controller.switchMode(s.first),
@@ -200,14 +221,14 @@ class ConditionEditor extends StatelessWidget {
             minLines: 2,
             maxLines: 5,
             decoration: InputDecoration(
+              // Rule syntax the parser reads: the same in every language.
               hintText: '("bitcoin" OR btc) AND NOT airdrop',
-              helperText:
-                  'Words or "phrases" joined by AND, OR, NOT, with brackets.',
+              helperText: context.l10n.conditionTextHelper,
               helperMaxLines: 2,
-              errorText: controller.error,
+              errorText: controller.errorText(context.l10n),
               errorMaxLines: 3,
               suffixIcon: IconButton(
-                tooltip: 'Syntax',
+                tooltip: context.l10n.conditionSyntaxTooltip,
                 icon: const Icon(Icons.help_outline),
                 onPressed: () => showConditionSyntax(context),
               ),
@@ -235,19 +256,20 @@ void showConditionSyntax(BuildContext context) => unawaited(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: [
           Text(
-            'Writing a condition',
+            context.l10n.conditionSyntaxTitle,
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          for (final (example, meaning) in const [
-            ('bitcoin', 'the word, wherever it stands'),
-            ('"interest rate"', 'those words next to each other'),
-            ('bitcoin AND etf', 'both have to be there'),
-            ('bitcoin OR btc', 'either one is enough'),
-            ('NOT airdrop', 'the post must not have it'),
-            ('(a OR b) AND c', 'brackets group the parts'),
-            ('~rate', 'also inside longer words, like "rates"'),
-            ('=Fed', 'exactly that spelling, capitals included'),
+          // The examples are rule syntax the parser reads: the same in every language.
+          for (final (example, meaning) in [
+            ('bitcoin', context.l10n.conditionSyntaxWord),
+            ('"interest rate"', context.l10n.conditionSyntaxPhrase),
+            ('bitcoin AND etf', context.l10n.conditionSyntaxAnd),
+            ('bitcoin OR btc', context.l10n.conditionSyntaxOr),
+            ('NOT airdrop', context.l10n.conditionSyntaxNot),
+            ('(a OR b) AND c', context.l10n.conditionSyntaxBrackets),
+            ('~rate', context.l10n.conditionSyntaxSubstring),
+            ('=Fed', context.l10n.conditionSyntaxCase),
           ])
             ListTile(
               dense: true,
@@ -313,17 +335,21 @@ class ConditionBuilder extends StatelessWidget {
         child: OutlinedButton.icon(
           onPressed: _addGroup,
           icon: const Icon(Icons.add),
-          label: const Text('Add a term'),
+          label: Text(context.l10n.conditionAddTerm),
         ),
       );
     }
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var g = 0; g < model.groups.length; g++) ...[
           if (g > 0)
-            const Center(
-              child: Padding(padding: EdgeInsets.all(4), child: Text('OR')),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Text(l10n.conditionOr),
+              ),
             ),
           Card(
             child: Padding(
@@ -331,7 +357,7 @@ class ConditionBuilder extends StatelessWidget {
               child: Column(
                 children: [
                   for (var t = 0; t < model.groups[g].length; t++) ...[
-                    if (t > 0) const Text('AND'),
+                    if (t > 0) Text(l10n.conditionAnd),
                     _TermRow(
                       term: model.groups[g][t],
                       onChanged: (term) => _update(g, t, term),
@@ -343,7 +369,7 @@ class ConditionBuilder extends StatelessWidget {
                     child: TextButton.icon(
                       onPressed: () => _addTerm(g),
                       icon: const Icon(Icons.add),
-                      label: const Text('AND another word'),
+                      label: Text(l10n.conditionAndAnotherWord),
                     ),
                   ),
                 ],
@@ -354,7 +380,7 @@ class ConditionBuilder extends StatelessWidget {
         TextButton.icon(
           onPressed: _addGroup,
           icon: const Icon(Icons.add),
-          label: const Text('OR alternative'),
+          label: Text(l10n.conditionOrAlternative),
         ),
       ],
     );
@@ -420,6 +446,7 @@ class _TermRowState extends State<_TermRow> {
   @override
   Widget build(BuildContext context) {
     final t = widget.term;
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -431,15 +458,15 @@ class _TermRowState extends State<_TermRow> {
                 focusNode: _focus,
                 decoration: InputDecoration(
                   hintText: t.negated
-                      ? 'word it must not have'
-                      : 'word or phrase',
+                      ? l10n.conditionTermHintNegated
+                      : l10n.conditionTermHint,
                   isDense: true,
                 ),
                 onChanged: (v) => widget.onChanged(t.copyWith(text: v)),
               ),
             ),
             IconButton(
-              tooltip: 'Remove',
+              tooltip: l10n.commonRemove,
               icon: const Icon(Icons.close),
               onPressed: widget.onRemove,
             ),
@@ -451,17 +478,17 @@ class _TermRowState extends State<_TermRow> {
           runSpacing: 4,
           children: [
             _option(
-              'Must not contain',
+              l10n.conditionMustNotContain,
               t.negated,
               () => t.copyWith(negated: !t.negated),
             ),
             _option(
-              'Whole word',
+              l10n.conditionWholeWord,
               t.wholeWord,
               () => t.copyWith(wholeWord: !t.wholeWord),
             ),
             _option(
-              'Match case',
+              l10n.conditionMatchCase,
               t.caseSensitive,
               () => t.copyWith(caseSensitive: !t.caseSensitive),
             ),

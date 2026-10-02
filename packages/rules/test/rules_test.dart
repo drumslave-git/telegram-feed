@@ -39,6 +39,30 @@ void main() {
       expect(() => RuleParser.parse('""'), throwsFormatException);
     });
 
+    test('an error says what is wrong and where, for the reader', () {
+      RuleSyntaxError error(String src) {
+        try {
+          RuleParser.parse(src);
+        } on RuleSyntaxError catch (e) {
+          return e;
+        }
+        fail('$src parsed');
+      }
+
+      expect(error('').problem, RuleSyntaxProblem.expectedTerm);
+      expect(error('(a OR b').problem, RuleSyntaxProblem.expectedClosingParen);
+      expect(error('a OR b)').problem, RuleSyntaxProblem.unexpected);
+      expect(error('a OR b)').detail, ')');
+      expect(error('a OR b)').position, 7);
+      expect(error('a OR and').problem, RuleSyntaxProblem.keyword);
+      expect(error('a OR and').detail, 'and');
+      expect(error('"open').problem, RuleSyntaxProblem.unterminatedQuote);
+      expect(error(r'"a\').problem, RuleSyntaxProblem.danglingEscape);
+      expect(error('""').problem, RuleSyntaxProblem.emptyTerm);
+      // The English stays in the message, for logs.
+      expect(error('a OR b)').message, 'rule syntax: unexpected ")" at 7');
+    });
+
     test('format round-trips', () {
       for (final src in [
         'a OR b AND NOT c',

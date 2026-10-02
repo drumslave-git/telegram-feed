@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../feeds/media_view.dart' show formatBytes;
+import '../l10n/l10n.dart';
 import 'video_sessions.dart';
 import 'video_stage.dart';
 
@@ -163,19 +164,25 @@ class VideoDownloadButton extends StatefulWidget {
   final bool compact;
 
   /// The same download as lines of the viewer's menu.
-  static List<ViewerAction> menuActions(FileRef file, TelegramGateway gateway) {
+  static List<ViewerAction> menuActions(
+    FileRef file,
+    TelegramGateway gateway,
+    AppLocalizations l10n,
+  ) {
     final downloads = VideoDownloads.of(gateway);
     return switch (downloads.phase(file)) {
       DownloadPhase.done => const [],
       DownloadPhase.downloading => [
         ViewerAction(
-          'Cancel download',
+          l10n.videoCancelDownload,
           () => unawaited(downloads.cancel(file.id)),
         ),
       ],
       DownloadPhase.idle => [
         ViewerAction(
-          file.size > 0 ? 'Download (${formatBytes(file.size)})' : 'Download',
+          file.size > 0
+              ? l10n.videoDownloadWithSize(formatBytes(file.size))
+              : l10n.videoDownload,
           () => unawaited(downloads.start(file)),
         ),
       ],
@@ -226,6 +233,7 @@ class _VideoDownloadButtonState extends State<VideoDownloadButton> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _downloads,
     builder: (context, _) {
+      final l10n = context.l10n;
       final file = widget.file;
       final phase = _downloads.phase(file);
       if (phase == DownloadPhase.done) return const SizedBox.shrink();
@@ -234,7 +242,7 @@ class _VideoDownloadButtonState extends State<VideoDownloadButton> {
         if (!downloading) return const SizedBox.shrink();
         final got = _downloads.downloaded(file.id);
         return IconButton(
-          tooltip: 'Cancel download',
+          tooltip: l10n.videoCancelDownload,
           color: Colors.white,
           onPressed: () => unawaited(_downloads.cancel(file.id)),
           icon: SizedBox.square(
@@ -255,14 +263,14 @@ class _VideoDownloadButtonState extends State<VideoDownloadButton> {
       }
       final got = _downloads.downloaded(file.id);
       final label = _downloads.error(file.id) != null
-          ? 'Failed, try again'
+          ? l10n.videoDownloadFailed
           : downloading && file.size > 0
           ? '${formatBytes(got)} / ${formatBytes(file.size)}'
           : file.size > 0
           ? formatBytes(file.size)
           : '';
       return Tooltip(
-        message: downloading ? 'Cancel download' : 'Download',
+        message: downloading ? l10n.videoCancelDownload : l10n.videoDownload,
         child: Material(
           color: Colors.black54,
           shape: const StadiumBorder(),

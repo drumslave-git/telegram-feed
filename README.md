@@ -12,6 +12,7 @@ A Telegram client for Android for reading channels, not chatting. Channels combi
 - TDLib through `dart:ffi`
 - Drift (SQLite) for app data
 - Device text-to-speech through `flutter_tts`
+- English and Ukrainian interface through Flutter's `gen_l10n`: the strings are in `app/lib/l10n/app_en.arb` and `app_uk.arb`, and `flutter pub get` generates the Dart code from them
 
 ## Repository layout
 

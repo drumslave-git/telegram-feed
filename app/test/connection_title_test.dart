@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/home/connection_title.dart';
 import 'package:telegram_feed/home/home_screen.dart';
+import 'package:telegram_feed/l10n/l10n.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'fixtures.dart';
@@ -37,21 +38,22 @@ void main() {
   }
 
   test('every state but ready has words of its own', () {
-    expect(ConnectionTitle.words(ConnectionStatus.ready), isNull);
+    final en = lookupAppLocalizations(const Locale('en'));
+    expect(ConnectionTitle.words(ConnectionStatus.ready, en), isNull);
     expect(
-      ConnectionTitle.words(ConnectionStatus.connecting),
+      ConnectionTitle.words(ConnectionStatus.connecting, en),
       contains('Connecting'),
     );
     expect(
-      ConnectionTitle.words(ConnectionStatus.waitingForNetwork),
+      ConnectionTitle.words(ConnectionStatus.waitingForNetwork, en),
       contains('network'),
     );
     expect(
-      ConnectionTitle.words(ConnectionStatus.updating),
+      ConnectionTitle.words(ConnectionStatus.updating, en),
       contains('Updating'),
     );
     expect(
-      ConnectionTitle.words(ConnectionStatus.connectingToProxy),
+      ConnectionTitle.words(ConnectionStatus.connectingToProxy, en),
       contains('proxy'),
     );
   });

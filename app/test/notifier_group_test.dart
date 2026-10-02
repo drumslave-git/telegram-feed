@@ -1,8 +1,10 @@
 import 'package:core/core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telegram_feed/l10n/l10n.dart';
 import 'package:telegram_feed/service/notifier.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -75,6 +77,17 @@ void main() {
   });
 
   String summaryBody() => shown.lastWhere((s) => s.id == summaryId).body;
+
+  test('the summary speaks the interface language', () async {
+    final notifier = Notifier();
+    await notifier.init(strings: lookupAppLocalizations(const Locale('uk')));
+    final first = planFor(5 << 20);
+    await notifier.show(first);
+    expect(summaryBody(), '1 новий допис');
+    live = [mine(first.id)];
+    await notifier.show(planFor(6 << 20));
+    expect(summaryBody(), '2 нові дописи');
+  });
 
   test('the summary counts the posts Android still holds', () async {
     final notifier = Notifier();

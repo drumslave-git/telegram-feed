@@ -12,6 +12,8 @@ import 'package:google_mlkit_language_id/google_mlkit_language_id.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../l10n/l10n.dart';
+
 /// Settings keys for read-aloud (P2-7 edits them).
 abstract final class TtsKeys {
   static const rate =
@@ -191,15 +193,23 @@ final class TtsService {
   Future<void> _speakOne(TtsItem item) async {
     final maxChars =
         int.tryParse(await db.setting(TtsKeys.maxChars) ?? '') ?? 600;
+    if (prepareForSpeech(item.text).isEmpty) return;
+    final detected = await speaker.detectLanguage(item.text);
+    final language =
+        detected ?? await db.setting(TtsKeys.defaultLanguage) ?? 'en';
+    // The words read aloud around the post are in the voice's language when the app has
+    // it, so one voice reads all of it; otherwise in the interface language.
+    final words =
+        AppLanguage.stringsOfLanguage(language) ??
+        AppLanguage.strings(await db.setting(SettingKeys.language));
     final text = prepareForSpeech(
       item.text,
       channelTitle: item.channelTitle,
       maxChars: maxChars,
+      linkWord: words.ttsLink,
+      moreSuffix: words.ttsMore,
+      intro: words.ttsIntro,
     );
-    if (text.isEmpty) return;
-    final detected = await speaker.detectLanguage(item.text);
-    final language =
-        detected ?? await db.setting(TtsKeys.defaultLanguage) ?? 'en';
     final voiceJson = await db.setting(TtsKeys.voiceFor(language));
     Map<String, String>? voice;
     if (voiceJson != null) {

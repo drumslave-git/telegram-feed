@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import '../media/media_viewer.dart' show MediaViewerScreen;
 import '../service/reading_now.dart';
 
@@ -85,28 +86,34 @@ class _StatusBannerHostState extends State<StatusBannerHost> {
     leading: const Icon(Icons.record_voice_over_outlined),
     content: ValueListenableBuilder<ReadingNow?>(
       valueListenable: widget.reading,
-      builder: (context, now, _) =>
-          Text(readingLine(now), maxLines: 2, overflow: TextOverflow.ellipsis),
+      builder: (context, now, _) => Text(
+        readingLine(now, context.l10n),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
     ),
     actions: [
       TextButton(
         onPressed: () => widget.onStop(clear: false),
-        child: const Text('Stop'),
+        child: Builder(builder: (context) => Text(context.l10n.bannerStop)),
       ),
       TextButton(
         onPressed: () => widget.onStop(clear: true),
-        child: const Text('Stop and clear queue'),
+        child: Builder(
+          builder: (context) => Text(context.l10n.bannerStopAndClearQueue),
+        ),
       ),
     ],
   );
 
   MaterialBanner _pausedBanner() => MaterialBanner(
     leading: const Icon(Icons.notifications_off_outlined),
-    content: const Text(
-      'Notifications are paused. Rules notify about nothing and read nothing aloud.',
-    ),
+    content: Builder(builder: (context) => Text(context.l10n.bannerPaused)),
     actions: [
-      TextButton(onPressed: widget.onResume, child: const Text('Resume')),
+      TextButton(
+        onPressed: widget.onResume,
+        child: Builder(builder: (context) => Text(context.l10n.bannerResume)),
+      ),
     ],
   );
 
@@ -115,15 +122,14 @@ class _StatusBannerHostState extends State<StatusBannerHost> {
 }
 
 /// The banner's words for [now]: the channel being read, and how many posts wait.
-String readingLine(ReadingNow? now) {
+String readingLine(ReadingNow? now, AppLocalizations l10n) {
   if (now == null) return '';
   final channel = now.channelTitle.isEmpty
-      ? 'Reading aloud'
-      : 'Reading aloud: ${now.channelTitle}';
+      ? l10n.bannerReadingAloud
+      : l10n.bannerReadingAloudChannel(now.channelTitle);
   return switch (now.waiting) {
     0 => channel,
-    1 => '$channel. 1 more post waits.',
-    final n => '$channel. $n more posts wait.',
+    final n => l10n.bannerReadingQueue(channel, n),
   };
 }
 
@@ -138,7 +144,9 @@ class PauseButton extends StatelessWidget {
   Widget build(BuildContext context) => ValueListenableBuilder<bool>(
     valueListenable: paused,
     builder: (context, on, _) => IconButton(
-      tooltip: on ? 'Resume notifications' : 'Pause notifications',
+      tooltip: on
+          ? context.l10n.bannerResumeNotifications
+          : context.l10n.bannerPauseNotifications,
       isSelected: on,
       icon: const Icon(Icons.notifications_off_outlined),
       selectedIcon: Icon(

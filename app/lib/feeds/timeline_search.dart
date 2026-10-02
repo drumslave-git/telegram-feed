@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../home/channel_list.dart' show ChannelAvatar;
+import '../l10n/l10n.dart';
 import '../widgets/error_state.dart';
 import 'post_card.dart' show formatDay, peerColor;
 
@@ -17,16 +18,24 @@ class SearchFilterChips extends StatelessWidget {
   final HistoryFilter filter;
   final ValueChanged<HistoryFilter> onChanged;
 
-  static const _labels = {
-    HistoryFilter.any: 'Everything',
-    HistoryFilter.photoAndVideo: 'Media',
-    HistoryFilter.url: 'Links',
-    HistoryFilter.document: 'Files',
-    HistoryFilter.audio: 'Music',
-    HistoryFilter.voice: 'Voice',
-  };
+  /// The kinds of post the chips offer, in their order.
+  static const _filters = [
+    HistoryFilter.any,
+    HistoryFilter.photoAndVideo,
+    HistoryFilter.url,
+    HistoryFilter.document,
+    HistoryFilter.audio,
+    HistoryFilter.voice,
+  ];
 
-  static String labelOf(HistoryFilter f) => _labels[f] ?? f.name;
+  static String labelOf(HistoryFilter f, AppLocalizations l10n) => switch (f) {
+    HistoryFilter.any => l10n.searchFilterEverything,
+    HistoryFilter.photoAndVideo => l10n.tabMedia,
+    HistoryFilter.url => l10n.tabLinks,
+    HistoryFilter.document => l10n.tabFiles,
+    HistoryFilter.audio => l10n.tabMusic,
+    HistoryFilter.voice => l10n.tabVoice,
+  };
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
@@ -34,13 +43,13 @@ class SearchFilterChips extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     child: Row(
       children: [
-        for (final entry in _labels.entries)
+        for (final f in _filters)
           Padding(
             padding: const EdgeInsets.only(right: 6),
             child: ChoiceChip(
-              label: Text(entry.value),
-              selected: filter == entry.key,
-              onSelected: (_) => onChanged(entry.key),
+              label: Text(labelOf(f, context.l10n)),
+              selected: filter == f,
+              onSelected: (_) => onChanged(f),
             ),
           ),
       ],
@@ -98,6 +107,7 @@ class SearchResults extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     // Nothing typed yet: the words searched for last, as the official app offers them.
     if (results.isEmpty &&
         query.trim().isEmpty &&
@@ -109,14 +119,14 @@ class SearchResults extends StatelessWidget {
           ListTile(
             dense: true,
             title: Text(
-              'Recent searches',
+              l10n.searchRecent,
               style: Theme.of(context).textTheme.labelMedium,
             ),
             trailing: onClearRecent == null
                 ? null
                 : TextButton(
                     onPressed: onClearRecent,
-                    child: const Text('Clear'),
+                    child: Text(l10n.commonClear),
                   ),
           ),
           for (final words in recent)
@@ -131,7 +141,7 @@ class SearchResults extends StatelessWidget {
     if (results.isEmpty) {
       if (error != null) {
         return ErrorState(
-          what: 'Could not search.',
+          what: l10n.searchFailed,
           message: error,
           onRetry: onLoadMore,
         );
@@ -149,8 +159,8 @@ class SearchResults extends StatelessWidget {
           padding: const EdgeInsets.all(32),
           child: Text(
             query.trim().isEmpty
-                ? 'Type to search the posts.'
-                : 'Nothing found for "$query".',
+                ? l10n.searchTypeToSearch
+                : l10n.searchNothingFound(query),
             textAlign: TextAlign.center,
           ),
         ),
@@ -166,7 +176,7 @@ class SearchResults extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Text(
-              '$found post${found == 1 ? '' : 's'} found',
+              l10n.searchPostsFound(found),
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -185,7 +195,7 @@ class SearchResults extends StatelessWidget {
                   ? const SizedBox.shrink()
                   : error != null
                   ? ErrorState(
-                      what: 'Could not load more results.',
+                      what: l10n.searchMoreFailed,
                       message: error,
                       compact: true,
                       onRetry: onLoadMore,
@@ -240,7 +250,7 @@ class SearchResultTile extends StatelessWidget {
     final theme = Theme.of(context);
     final date = DateTime.fromMillisecondsSinceEpoch(post.date * 1000);
     final text = post.text.trim().isEmpty
-        ? mediaLabel(post.media)
+        ? mediaLabel(post.media, context.l10n.mediaWords)
         : post.text.replaceAll(RegExp(r'\s+'), ' ');
     return ListTile(
       onTap: onTap,
@@ -267,7 +277,7 @@ class SearchResultTile extends StatelessWidget {
           Text(
             // The day, as the results of the official app name it: "Today" and
             // "September 12" instead of a mix of clock times, weekdays and 2026-09-04.
-            formatDay(date),
+            formatDay(date, l10n: context.l10n),
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -351,6 +361,7 @@ class SearchStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final shown = total < current + 1 ? current + 1 : total;
     return Material(
       color: theme.colorScheme.surfaceContainerHigh,
@@ -361,12 +372,12 @@ class SearchStepper extends StatelessWidget {
           child: Row(
             children: [
               IconButton(
-                tooltip: 'Older match',
+                tooltip: l10n.searchOlderMatch,
                 onPressed: onOlder,
                 icon: const Icon(Icons.keyboard_arrow_up),
               ),
               IconButton(
-                tooltip: 'Newer match',
+                tooltip: l10n.searchNewerMatch,
                 onPressed: onNewer,
                 icon: const Icon(Icons.keyboard_arrow_down),
               ),
@@ -383,7 +394,9 @@ class SearchStepper extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(right: 16),
                 child: Text(
-                  total <= 0 ? 'No matches' : '${current + 1} of $shown',
+                  total <= 0
+                      ? l10n.searchNoMatches
+                      : l10n.searchMatchOf(current + 1, shown),
                   style: theme.textTheme.labelLarge,
                 ),
               ),

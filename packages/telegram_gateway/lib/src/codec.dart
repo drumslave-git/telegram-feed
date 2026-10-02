@@ -76,6 +76,9 @@ Map<String, Object?> encodeChannel(Channel c) => {
   'lastReadMessageId': c.lastReadMessageId,
   'unreadCount': c.unreadCount,
   'lastMessageText': c.lastMessageText,
+  'lastMessageMedia': c.lastMessageMedia == null
+      ? null
+      : encodeMedia(c.lastMessageMedia!),
   'lastMessageDate': c.lastMessageDate,
 };
 
@@ -102,6 +105,9 @@ Channel decodeChannel(Map<Object?, Object?> m) => Channel(
   lastReadMessageId: (m['lastReadMessageId'] as int?) ?? 0,
   unreadCount: (m['unreadCount'] as int?) ?? 0,
   lastMessageText: (m['lastMessageText'] as String?) ?? '',
+  lastMessageMedia: m['lastMessageMedia'] == null
+      ? null
+      : decodeMedia(m['lastMessageMedia'] as Map<Object?, Object?>),
   lastMessageDate: (m['lastMessageDate'] as int?) ?? 0,
 );
 
@@ -278,6 +284,9 @@ Map<String, Object?> encodePost(Post p) => {
           'messageId': p.replyTo!.messageId,
           'title': p.replyTo!.title,
           'text': p.replyTo!.text,
+          'media': p.replyTo!.media == null
+              ? null
+              : encodeMedia(p.replyTo!.media!),
           'manualQuote': p.replyTo!.manualQuote,
           'photo': p.replyTo!.photo == null
               ? null
@@ -424,6 +433,9 @@ Post decodePost(Map<Object?, Object?> m) => Post(
       messageId: (r['messageId'] as int?) ?? 0,
       title: (r['title'] as String?) ?? '',
       text: (r['text'] as String?) ?? '',
+      media: r['media'] == null
+          ? null
+          : decodeMedia(r['media'] as Map<Object?, Object?>),
       manualQuote: (r['manualQuote'] as bool?) ?? false,
       photo: r['photo'] == null
           ? null

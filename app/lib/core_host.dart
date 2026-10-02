@@ -14,6 +14,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'ai/semantic_gate.dart';
 import 'host/app_host.dart';
+import 'l10n/l10n.dart';
 import 'service/core_service.dart';
 import 'service/notification_plan.dart';
 import 'service/reading_now.dart';
@@ -76,7 +77,8 @@ final class CoreHost implements AppHost {
       // "Don't allow" would silence every rule for good. The service runs without it
       // (its own notification is simply not shown), and the app asks for it where it
       // can say what it is for: when a rule is saved, and on Notifications and sounds.
-      if (await startCoreService()) {
+      final language = await db.setting(SettingKeys.language);
+      if (await startCoreService(AppLanguage.strings(language))) {
         port = await _waitForPort(const Duration(seconds: 15));
         _inService = port != null;
         if (port == null) {
@@ -180,10 +182,33 @@ final class CoreHost implements AppHost {
     _sendAppOpen(
       WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
     );
+    // The service's notifications speak the app's language.
+    _subs.add(
+      db.watchSetting(SettingKeys.language).listen((v) {
+        _languageSetting = v;
+        _sendLanguage();
+      }),
+    );
+    _phoneLanguage = _PhoneLanguage(_sendLanguage);
+    WidgetsBinding.instance.addObserver(_phoneLanguage!);
   }
 
   AppLifecycleListener? _lifecycle;
   bool? _appOpen;
+  String? _languageSetting;
+  String? _languageSent;
+  _PhoneLanguage? _phoneLanguage;
+
+  /// The language the app is shown in: the setting's, or the phone's while the setting
+  /// follows the phone, which can change while the service runs.
+  void _sendLanguage() {
+    final code =
+        (AppLanguage.localeOf(_languageSetting) ?? AppLanguage.ofPhone())
+            .languageCode;
+    if (code == _languageSent) return;
+    _languageSent = code;
+    FlutterForegroundTask.sendDataToTask({'language': code});
+  }
 
   /// Only a resumed app counts as open, so in picture-in-picture posts pop up as usual.
   void _sendAppOpen(AppLifecycleState state) {
@@ -258,6 +283,7 @@ final class CoreHost implements AppHost {
   Future<void> dispose() async {
     FlutterForegroundTask.removeTaskDataCallback(_onTaskData);
     _lifecycle?.dispose();
+    if (_phoneLanguage case final o?) WidgetsBinding.instance.removeObserver(o);
     for (final s in _subs) {
       await s.cancel();
     }
@@ -265,4 +291,13 @@ final class CoreHost implements AppHost {
     await _client.close();
     await db.close();
   }
+}
+
+/// Calls back when the phone's list of languages changes.
+final class _PhoneLanguage with WidgetsBindingObserver {
+  _PhoneLanguage(this.onChanged);
+  final VoidCallback onChanged;
+
+  @override
+  void didChangeLocales(List<Locale>? locales) => onChanged();
 }

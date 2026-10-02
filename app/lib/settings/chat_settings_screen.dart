@@ -4,6 +4,7 @@ import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
 
 import '../feeds/text_scale.dart';
+import '../l10n/l10n.dart';
 import 'settings_tiles.dart';
 
 /// How posts look: the text size of posts and the theme, the official app's Chat Settings.
@@ -12,87 +13,88 @@ class ChatSettingsScreen extends StatelessWidget {
   final AppDatabase db;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Chat settings')),
-    body: ListView(
-      children: [
-        const SettingsHeader('Text size in posts'),
-        StreamBuilder<String?>(
-          stream: db.watchSetting(SettingKeys.postTextScale),
-          builder: (context, snap) {
-            final factor = PostTextScale.parse(snap.data);
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _TextSizeSlider(db: db, factor: factor),
-                      ),
-                      SizedBox(
-                        width: 56,
-                        child: Text(
-                          '${(factor * 100).round()} %',
-                          textAlign: TextAlign.end,
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.chatSettingsTitle)),
+      body: ListView(
+        children: [
+          SettingsHeader(l10n.chatSettingsTextSize),
+          StreamBuilder<String?>(
+            stream: db.watchSetting(SettingKeys.postTextScale),
+            builder: (context, snap) {
+              final factor = PostTextScale.parse(snap.data);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _TextSizeSlider(db: db, factor: factor),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: MediaQuery(
-                    data: MediaQuery.of(context)
-                        .copyWith(textScaler: TextScaler.linear(factor)),
-                    child: Text(
-                      'A post is drawn at this size.',
-                      style: Theme.of(context).textTheme.bodyLarge,
+                        SizedBox(
+                          width: 56,
+                          child: Text(
+                            '${(factor * 100).round()} %',
+                            textAlign: TextAlign.end,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            );
-          },
-        ),
-        const Divider(),
-        const SettingsHeader('Theme'),
-        StreamBuilder<String?>(
-          stream: db.watchSetting(SettingKeys.themeMode),
-          builder: (context, snap) => Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(
-                  value: 'system',
-                  label: Text('System'),
-                  icon: Icon(Icons.brightness_auto),
-                ),
-                ButtonSegment(
-                  value: 'light',
-                  label: Text('Light'),
-                  icon: Icon(Icons.light_mode),
-                ),
-                ButtonSegment(
-                  value: 'dark',
-                  label: Text('Dark'),
-                  icon: Icon(Icons.dark_mode),
-                ),
-              ],
-              selected: {snap.data ?? 'system'},
-              onSelectionChanged: (s) =>
-                  db.setSetting(SettingKeys.themeMode, s.first),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: MediaQuery(
+                      data: MediaQuery.of(context)
+                          .copyWith(textScaler: TextScaler.linear(factor)),
+                      child: Text(
+                        l10n.chatSettingsTextSizePreview,
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          const Divider(),
+          SettingsHeader(l10n.chatSettingsTheme),
+          StreamBuilder<String?>(
+            stream: db.watchSetting(SettingKeys.themeMode),
+            builder: (context, snap) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SegmentedButton<String>(
+                segments: [
+                  ButtonSegment(
+                    value: 'system',
+                    label: Text(l10n.chatSettingsThemeSystem),
+                    icon: const Icon(Icons.brightness_auto),
+                  ),
+                  ButtonSegment(
+                    value: 'light',
+                    label: Text(l10n.chatSettingsThemeLight),
+                    icon: const Icon(Icons.light_mode),
+                  ),
+                  ButtonSegment(
+                    value: 'dark',
+                    label: Text(l10n.chatSettingsThemeDark),
+                    icon: const Icon(Icons.dark_mode),
+                  ),
+                ],
+                selected: {snap.data ?? 'system'},
+                onSelectionChanged: (s) =>
+                    db.setSetting(SettingKeys.themeMode, s.first),
+              ),
             ),
           ),
-        ),
-        const SettingsFooter(
-          'System follows the dark theme switch of the phone.',
-        ),
-      ],
-    ),
-  );
+          SettingsFooter(l10n.chatSettingsThemeFooter),
+        ],
+      ),
+    );
+  }
 }
 
 /// The text-size slider. It keeps the value it is being dragged to and writes it once the

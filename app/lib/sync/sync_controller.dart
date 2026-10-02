@@ -15,6 +15,28 @@ abstract final class SyncKeys {
       'sync.account'; // the Google account's email, on this device
 }
 
+/// Why sync is not running as it should. The sync screen puts it in words.
+sealed class SyncFailure {
+  const SyncFailure();
+}
+
+/// Google no longer has this device signed in; signing in again resumes sync.
+final class SyncSignedOut extends SyncFailure {
+  const SyncSignedOut();
+}
+
+/// Google sign-in or Drive failed.
+final class SyncDriveFailed extends SyncFailure {
+  const SyncDriveFailed(this.error);
+  final DriveException error;
+}
+
+/// Sync could not run, or the sync file is unusable.
+final class SyncFailed extends SyncFailure {
+  const SyncFailed(this.error);
+  final SyncException error;
+}
+
 /// What the sync settings screen shows.
 @immutable
 final class SyncStatus {
@@ -23,7 +45,7 @@ final class SyncStatus {
     this.account,
     this.syncing = false,
     this.lastSyncedAt,
-    this.error,
+    this.failure,
   });
 
   /// False when the build has no Google client id.
@@ -33,7 +55,7 @@ final class SyncStatus {
   final String? account;
   final bool syncing;
   final DateTime? lastSyncedAt;
-  final String? error;
+  final SyncFailure? failure;
 
   bool get isOn => account != null;
 
@@ -41,13 +63,13 @@ final class SyncStatus {
     String? Function()? account,
     bool? syncing,
     DateTime? lastSyncedAt,
-    String? Function()? error,
+    SyncFailure? Function()? failure,
   }) => SyncStatus(
     available: available,
     account: account == null ? this.account : account(),
     syncing: syncing ?? this.syncing,
     lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
-    error: error == null ? this.error : error(),
+    failure: failure == null ? this.failure : failure(),
   );
 }
 
@@ -103,7 +125,7 @@ final class SyncController {
     );
     if (account == null) {
       status.value = status.value.copyWith(
-        error: () => 'Signed out of Google. Sign in again to keep syncing.',
+        failure: () => const SyncSignedOut(),
       );
       return;
     }
@@ -115,7 +137,7 @@ final class SyncController {
 
   /// Interactive: sign in, remember that sync is on, run the first sync.
   Future<void> turnOn() async {
-    status.value = status.value.copyWith(error: () => null);
+    status.value = status.value.copyWith(failure: () => null);
     try {
       final account = await auth.signIn();
       await db.setSetting(SyncKeys.enabled, 'true');
@@ -123,8 +145,10 @@ final class SyncController {
       status.value = status.value.copyWith(account: () => account);
       _watch();
       await syncNow();
+    } on DriveException catch (e) {
+      status.value = status.value.copyWith(failure: () => SyncDriveFailed(e));
     } on SyncException catch (e) {
-      status.value = status.value.copyWith(error: () => e.message);
+      status.value = status.value.copyWith(failure: () => SyncFailed(e));
     }
   }
 
@@ -135,7 +159,7 @@ final class SyncController {
     await auth.signOut();
     status.value = status.value.copyWith(
       account: () => null,
-      error: () => null,
+      failure: () => null,
     );
   }
 
@@ -170,12 +194,19 @@ final class SyncController {
       status.value = status.value.copyWith(
         syncing: false,
         lastSyncedAt: now,
-        error: () => null,
+        failure: () => null,
       );
-    } on SyncException catch (e) {
+    } on DriveException catch (e) {
+      debugPrint('sync: $e');
       status.value = status.value.copyWith(
         syncing: false,
-        error: () => e.message,
+        failure: () => SyncDriveFailed(e),
+      );
+    } on SyncException catch (e) {
+      debugPrint('sync: $e');
+      status.value = status.value.copyWith(
+        syncing: false,
+        failure: () => SyncFailed(e),
       );
     }
   }
