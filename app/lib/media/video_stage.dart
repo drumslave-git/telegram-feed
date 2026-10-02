@@ -13,6 +13,9 @@ import 'video_sessions.dart';
 import 'zoom.dart';
 
 const _seekStep = Duration(seconds: 10);
+
+/// How long after a seek's last tap the next one still adds a step.
+const _streakWindow = Duration(milliseconds: 700);
 const _holdSpeed = 2.0;
 
 /// The height of the row with the scrubber, which the caption stays above.
@@ -90,8 +93,8 @@ class InlineVideo extends StatelessWidget {
 }
 
 /// The picture of a [VideoSession] with its controls, as the viewer shows it: tap shows or
-/// hides them, double tap on the left or right third seeks 10 seconds, double tap in the
-/// middle zooms in and out. Pinching zooms too, and a drag moves the zoomed picture. A finger
+/// hides them, double tap on the left or right third seeks 10 seconds and every further tap
+/// there 10 more, double tap in the middle zooms in and out. Pinching zooms too, and a drag moves the zoomed picture. A finger
 /// held down plays at 2× until it lifts. The stage has no background of its own: the viewer
 /// puts the black behind it and fades it while the stage is dragged away.
 class VideoStage extends StatefulWidget {
@@ -133,9 +136,11 @@ class _VideoStageState extends State<VideoStage> {
   /// Slider position while the user drags it; the player is asked once on release.
   double? _scrub;
 
-  /// -1 / +1 while the seek hint of that side is visible.
-  int _seekHint = 0;
-  Timer? _seekHintTimer;
+  /// The seek that double taps on one side add up to: every further tap on that side while
+  /// it lasts goes another step, so two taps go 10 s, three 20 s, four 30 s. Null when no
+  /// seek is going on.
+  _SeekStreak? _streak;
+  Timer? _streakEnd;
 
   TapDownDetails? _lastDoubleTap;
 
@@ -176,7 +181,7 @@ class _VideoStageState extends State<VideoStage> {
   void dispose() {
     _s.removeListener(_onSession);
     _hide?.cancel();
-    _seekHintTimer?.cancel();
+    _streakEnd?.cancel();
     _transform.dispose();
     final before = _speedBeforeHold;
     if (before != null) unawaited(_s.controller?.setPlaybackSpeed(before));
@@ -201,14 +206,35 @@ class _VideoStageState extends State<VideoStage> {
     if (_controls) _scheduleHide();
   }
 
+  /// -1 on the left third, +1 on the right third, 0 in the middle.
+  static int _sideOf(Offset at, double width) => at.dx < width / 3
+      ? -1
+      : at.dx > width * 2 / 3
+      ? 1
+      : 0;
+
   void _onDoubleTap(TapDownDetails d, double width) {
-    final x = d.localPosition.dx;
-    if (x < width / 3) {
-      _seek(-1);
-    } else if (x > width * 2 / 3) {
-      _seek(1);
-    } else {
+    final side = _sideOf(d.localPosition, width);
+    if (side == 0) {
       _transform.toggleZoom(d.localPosition);
+    } else {
+      _seek(side);
+    }
+  }
+
+  /// A tap while a seek is going on: on its side it goes one step further; on the other
+  /// side it is the first tap of a count that way, which seeks from the second tap on, as
+  /// a double tap does; in the middle it ends the seek and shows or hides the controls as
+  /// a tap does.
+  void _onStreakTap(TapUpDetails d, double width) {
+    final side = _sideOf(d.localPosition, width);
+    if (side == 0) {
+      _endStreak();
+      _toggleControls();
+    } else if (side == _streak?.direction) {
+      _seek(side);
+    } else {
+      _countFrom(side);
     }
   }
 
@@ -226,13 +252,39 @@ class _VideoStageState extends State<VideoStage> {
     unawaited(_s.controller?.setPlaybackSpeed(before));
   }
 
+  /// One more step towards [direction]. A seek counts from where it began, not from the
+  /// player's position, which lags behind while the player is still seeking.
   void _seek(int direction) {
-    unawaited(_s.seekBy(_seekStep * direction));
-    _seekHintTimer?.cancel();
-    setState(() => _seekHint = direction);
-    _seekHintTimer = Timer(const Duration(milliseconds: 600), () {
-      if (mounted) setState(() => _seekHint = 0);
-    });
+    final c = _s.controller;
+    if (c == null || !c.value.isInitialized) return;
+    final streak = _streak;
+    final next = streak != null && streak.direction == direction
+        ? streak.next()
+        : _SeekStreak(direction: direction, from: _start(c.value));
+    unawaited(c.seekTo(next.target(c.value.duration)));
+    _keep(next);
+  }
+
+  /// The first tap of a count towards [direction] while a seek the other way goes on.
+  void _countFrom(int direction) {
+    final c = _s.controller;
+    if (c == null || !c.value.isInitialized) return;
+    _keep(_SeekStreak(direction: direction, from: _start(c.value), steps: 0));
+  }
+
+  /// Where a new seek begins: where the running one is going, otherwise the position.
+  Duration _start(VideoPlayerValue v) =>
+      _streak?.target(v.duration) ?? v.position;
+
+  void _keep(_SeekStreak streak) {
+    _streakEnd?.cancel();
+    setState(() => _streak = streak);
+    _streakEnd = Timer(_streakWindow, _endStreak);
+  }
+
+  void _endStreak() {
+    _streakEnd?.cancel();
+    if (mounted && _streak != null) setState(() => _streak = null);
   }
 
   @override
@@ -267,6 +319,13 @@ class _VideoStageState extends State<VideoStage> {
                   : widget.poster ?? const SizedBox.expand(),
             ),
           ),
+          // While a seek goes on, every tap counts at once: under the double-tap detector
+          // the third tap would wait for a fourth and the two would make one step.
+          if (_streak != null)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapUp: (d) => _onStreakTap(d, box.maxWidth),
+            ),
           if (ready && _controls) const IgnorePointer(child: _Scrim()),
           if (!ready || c.value.isBuffering)
             const IgnorePointer(
@@ -274,8 +333,13 @@ class _VideoStageState extends State<VideoStage> {
                 child: CircularProgressIndicator(color: Colors.white70),
               ),
             ),
-          if (_seekHint != 0)
-            IgnorePointer(child: _SeekHint(direction: _seekHint)),
+          if (_streak case final streak? when streak.steps > 0)
+            IgnorePointer(
+              child: _SeekHint(
+                direction: streak.direction,
+                seconds: _seekStep.inSeconds * streak.steps,
+              ),
+            ),
           if (_speedBeforeHold != null) const IgnorePointer(child: _HoldHint()),
           // The words of the post go with the controls: a tap takes both off the picture.
           // They lie under the bar, so that the band behind them never covers its slider.
@@ -583,9 +647,34 @@ class _HoldHint extends StatelessWidget {
   );
 }
 
-class _SeekHint extends StatelessWidget {
-  const _SeekHint({required this.direction});
+/// Double taps on one side and the taps that follow them: where the seek began and how
+/// many steps it has gone; none yet after the first tap on the other side.
+class _SeekStreak {
+  const _SeekStreak({
+    required this.direction,
+    required this.from,
+    this.steps = 1,
+  });
   final int direction;
+  final Duration from;
+  final int steps;
+
+  _SeekStreak next() =>
+      _SeekStreak(direction: direction, from: from, steps: steps + 1);
+
+  /// Where the steps lead, within the video.
+  Duration target(Duration duration) {
+    final to = from + _seekStep * (steps * direction);
+    if (to < Duration.zero) return Duration.zero;
+    return to > duration ? duration : to;
+  }
+}
+
+/// The seconds a seek has gone so far.
+class _SeekHint extends StatelessWidget {
+  const _SeekHint({required this.direction, required this.seconds});
+  final int direction;
+  final int seconds;
 
   @override
   Widget build(BuildContext context) => Align(
@@ -607,7 +696,7 @@ class _SeekHint extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            context.l10n.videoSeekSeconds(_seekStep.inSeconds),
+            context.l10n.videoSeekSeconds(seconds),
             style: const TextStyle(color: Colors.white),
           ),
         ],

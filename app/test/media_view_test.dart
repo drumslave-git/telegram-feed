@@ -304,6 +304,61 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('further taps on the same side add up', (tester) async {
+    final platform = FakeVideoPlatform.install();
+    await tester.pumpWidget(host(video));
+    await tester.tap(find.byIcon(Icons.play_arrow));
+    await startUp(tester);
+    await tester.pumpAndSettle();
+    final box = tester.getRect(find.byType(VideoStage));
+    final right = box.centerRight - const Offset(20, 0);
+    final left = box.centerLeft + const Offset(20, 0);
+    List<String> seeks() =>
+        platform.log.where((l) => l.startsWith('seek 1 ')).toList();
+
+    // Two taps 10 s, three 20 s, four 30 s, each counted at once.
+    await tester.tapAt(right);
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.tapAt(right);
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.tapAt(right);
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(seeks(), ['seek 1 10', 'seek 1 20']);
+    expect(find.text('20 s'), findsOneWidget);
+    await tester.tapAt(right);
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(seeks().last, 'seek 1 30');
+    expect(find.text('30 s'), findsOneWidget);
+
+    // On the other side the count starts again: its first tap is the first of two.
+    await tester.tapAt(left);
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(seeks(), hasLength(3));
+    expect(find.text('30 s'), findsNothing);
+    await tester.tapAt(left);
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(seeks().last, 'seek 1 20');
+    expect(find.text('10 s'), findsOneWidget);
+
+    // A tap in the middle ends it and shows or hides the controls as ever.
+    final controls = find.byIcon(Icons.pause_circle_filled).evaluate().length;
+    await tester.tapAt(box.center - const Offset(0, 120));
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(find.text('10 s'), findsNothing);
+    expect(
+      find.byIcon(Icons.pause_circle_filled).evaluate().length,
+      isNot(controls),
+    );
+
+    // Once the seek is over a lone tap on the side seeks nothing.
+    await tester.pump(const Duration(seconds: 1));
+    await tester.tapAt(right);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(seeks(), hasLength(4));
+    await tester.pump(const Duration(seconds: 1));
+    await unmount(tester);
+  });
+
   testWidgets('a tap on the bar seeks while the post has a caption', (
     tester,
   ) async {
