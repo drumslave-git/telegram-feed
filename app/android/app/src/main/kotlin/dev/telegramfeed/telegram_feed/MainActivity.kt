@@ -36,8 +36,14 @@ class MainActivity : FlutterActivity() {
     private var pipArmed = false
     private var pipAspect = Rational(16, 9)
 
+    /** Read-aloud runs in this engine while background watching is off (rule_alerts.dart). */
+    private var readAloudKeys: ReadAloudKeys? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        readAloudKeys?.dispose()
+        readAloudKeys =
+            ReadAloudKeys(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         // Do-not-disturb bypass for the urgent channel needs notification policy access, which
         // only a Settings screen can grant; flutter_local_notifications has no API for that.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "tf/notifications")
@@ -259,6 +265,12 @@ class MainActivity : FlutterActivity() {
             .map { it.activityInfo.packageName }
         val chosen = Settings.Secure.getString(contentResolver, "tts_default_synth")
         return if (chosen in engines) chosen else engines.firstOrNull()
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        readAloudKeys?.dispose()
+        readAloudKeys = null
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

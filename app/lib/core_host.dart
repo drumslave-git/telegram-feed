@@ -18,6 +18,7 @@ import 'l10n/l10n.dart';
 import 'service/core_service.dart';
 import 'service/notification_plan.dart';
 import 'service/reading_now.dart';
+import 'service/rule_alerts.dart';
 import 'sync/drive_auth.dart';
 import 'sync/sync_controller.dart';
 
@@ -25,8 +26,9 @@ import 'sync/sync_controller.dart';
 ///
 /// The core runs in the foreground service (ARCHITECTURE section 8): the host starts the
 /// service, waits for the core's port in `IsolateNameServer` and connects. If the service
-/// cannot start (notification permission denied, not Android), the core is spawned in-process
-/// so the app still works while it is open.
+/// cannot start (not Android) or background watching is off, the core is spawned in-process
+/// and the app raises the rule notifications and reads aloud itself ([RuleAlerts]), so the
+/// rules work while it is open.
 final class CoreHost implements AppHost {
   CoreHost._(this.db, this._paths);
 
@@ -161,7 +163,14 @@ final class CoreHost implements AppHost {
   @override
   void stopReading({bool clear = false}) {
     final now = _reading.value;
-    if (!_inService) return;
+    if (!_inService) {
+      if (clear) {
+        unawaited(_alerts?.stopAll());
+      } else if (now != null) {
+        unawaited(_alerts?.stop(now.chatId, now.messageId));
+      }
+      return;
+    }
     if (clear) {
       FlutterForegroundTask.sendDataToTask(clearReading);
     } else if (now != null) {
@@ -169,20 +178,34 @@ final class CoreHost implements AppHost {
     }
   }
 
-  /// Read-aloud lives in the service, which says what it reads after every change; the
-  /// pause is the core's.
+  /// The alerts of a core that runs in this process; the service has its own.
+  RuleAlerts? _alerts;
+
+  /// Read-aloud lives beside the core: in the service, which says what it reads after
+  /// every change, or here. The pause is the core's.
   Future<void> _followReadingAndPause() async {
     _paused.value = await _client.isPaused();
     _subs.add(_client.pausedChanges.listen((p) => _paused.value = p));
-    if (!_inService) return;
-    FlutterForegroundTask.addTaskDataCallback(_onTaskData);
-    FlutterForegroundTask.sendDataToTask(askReading);
+    if (_inService) {
+      FlutterForegroundTask.addTaskDataCallback(_onTaskData);
+      FlutterForegroundTask.sendDataToTask(askReading);
+    } else {
+      final alerts = RuleAlerts.of(
+        _client,
+        db: db,
+        onReading: (now) => _reading.value = now,
+        log: (s) => debugPrint('alerts: $s'),
+      );
+      _alerts = alerts;
+      _languageSetting = await db.setting(SettingKeys.language);
+      await alerts.start(AppLanguage.strings(_languageSetting));
+    }
     // Posts that match while the app is on screen do not pop up over it.
     _lifecycle = AppLifecycleListener(onStateChange: _sendAppOpen);
     _sendAppOpen(
       WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
     );
-    // The service's notifications speak the app's language.
+    // The rule notifications speak the app's language.
     _subs.add(
       db.watchSetting(SettingKeys.language).listen((v) {
         _languageSetting = v;
@@ -207,7 +230,11 @@ final class CoreHost implements AppHost {
             .languageCode;
     if (code == _languageSent) return;
     _languageSent = code;
-    FlutterForegroundTask.sendDataToTask({'language': code});
+    if (_inService) {
+      FlutterForegroundTask.sendDataToTask({'language': code});
+    } else if (AppLanguage.stringsOfLanguage(code) case final strings?) {
+      unawaited(_alerts?.setStrings(strings));
+    }
   }
 
   /// Only a resumed app counts as open, so in picture-in-picture posts pop up as usual.
@@ -215,7 +242,11 @@ final class CoreHost implements AppHost {
     final open = state == AppLifecycleState.resumed;
     if (open == _appOpen) return;
     _appOpen = open;
-    FlutterForegroundTask.sendDataToTask(appOpenMessage(open));
+    if (_inService) {
+      FlutterForegroundTask.sendDataToTask(appOpenMessage(open));
+    } else {
+      _alerts?.appOpen = open;
+    }
   }
 
   void _onTaskData(Object data) {
@@ -229,6 +260,7 @@ final class CoreHost implements AppHost {
     void refresh() {
       unawaited(_client.refresh());
       if (_inService) FlutterForegroundTask.sendDataToTask('refresh');
+      unawaited(_alerts?.reloadTitles());
     }
 
     _subs.add(db.watchRules().listen((_) => refresh()));
@@ -242,6 +274,7 @@ final class CoreHost implements AppHost {
       _subs.add(
         db.watchSetting(key).skip(1).listen((_) {
           if (_inService) FlutterForegroundTask.sendDataToTask('sounds');
+          unawaited(_alerts?.reloadSounds());
         }),
       );
     }
@@ -282,6 +315,7 @@ final class CoreHost implements AppHost {
   @override
   Future<void> dispose() async {
     FlutterForegroundTask.removeTaskDataCallback(_onTaskData);
+    await _alerts?.dispose();
     _lifecycle?.dispose();
     if (_phoneLanguage case final o?) WidgetsBinding.instance.removeObserver(o);
     for (final s in _subs) {

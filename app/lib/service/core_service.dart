@@ -10,17 +10,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:telegram_gateway/telegram_gateway.dart';
 
-import '../ai/semantic_gate.dart';
 import '../credentials.dart';
 import '../host/accounts.dart';
 import '../host/fake_media.dart';
 import '../l10n/l10n.dart';
-import 'notifier.dart';
-import 'read_aloud_keys.dart';
-import 'reading_now.dart';
-import 'tts_service.dart';
+import 'rule_alerts.dart';
 import '../app_name.dart';
 
 /// Paths shared by the UI host and the service host. Each account has its own TDLib
@@ -135,26 +130,21 @@ void coreServiceCallback() {
 
 /// Runs in the service engine's root isolate: spawns the core isolate, registers its port,
 /// keeps the notification current, and owns the plugins that need platform callbacks
-/// (notifications and TTS from P2-4/P2-5 on).
+/// (notifications and read-aloud, in [RuleAlerts]).
 class CoreServiceHandler extends TaskHandler {
   Isolate? _core;
   CoreClient? _client;
   AppDatabase? _db;
   StreamSubscription<bool>? _pausedSub;
   bool _paused = false;
-  final _notifier = Notifier();
-  final _actions = ReceivePort();
-  Map<int, String> _titles = const {};
-  TtsService? _tts;
-  ReadAloudKeys? _keys;
-  SemanticGate? _gate;
+  RuleAlerts? _alerts;
+
+  /// Whether the app is on screen; it may say so before the alerts are up.
+  bool _appOpen = false;
 
   /// The interface language: the Language setting, or the phone's. The app tells the
   /// service when it changes ('language').
   AppLocalizations _strings = AppLanguage.strings(null);
-
-  /// Recent matched posts so the Listen action can find their text.
-  final _recentTexts = <(int, int), String>{};
 
   static void _log(String s) => debugPrint('service: $s');
 
@@ -188,180 +178,30 @@ class CoreServiceHandler extends TaskHandler {
     _paused = await _client!.isPaused();
     _pausedSub = _client!.pausedChanges.listen((p) {
       _paused = p;
-      // The pause is a kill switch: what is being read, and what waits, goes too.
-      if (p) unawaited(_tts?.stopAll());
       unawaited(_updateNotification());
     });
-    await _notifier.init(sounds: await _sounds(), strings: _strings);
-    final tts = TtsService(db: _db!, speaker: FlutterTtsSpeaker());
-    try {
-      await tts.init();
-      _tts = tts;
-      _keys = ReadAloudKeys(
-        onStop: () {
-          _log('read-aloud stopped by a key');
-          unawaited(tts.stopAll());
-        },
-      );
-      tts.readingChanges.listen(_onReadingChanged);
-    } catch (e) {
-      _log('tts unavailable: $e');
-    }
-    IsolateNameServer.removePortNameMapping(notifierPortName);
-    IsolateNameServer.registerPortWithName(_actions.sendPort, notifierPortName);
-    _actions.listen(_onNotificationAction);
-    _client!.matches.listen(_onMatch);
-    _client!.postEvents.listen((e) {
-      if (e is PostsDeleted) {
-        unawaited(_notifier.cancel(e.chatId, e.messageIds));
-      }
-    });
+    final alerts = RuleAlerts.of(
+      _client!,
+      db: _db!,
+      // The app may not be open, and then nobody listens.
+      onReading: (now) =>
+          FlutterForegroundTask.sendDataToMain({'reading': now?.encode()}),
+      // Android counts a tap on a notification as the app being used, so the service's
+      // notification is posted again within it: a service that Android started after a
+      // reboot or an update then may take the audio focus, and read aloud, from now on.
+      onAction: _updateNotification,
+      log: _log,
+    );
+    alerts.appOpen = _appOpen;
+    _alerts = alerts;
+    await alerts.start(_strings);
     await _updateNotification();
     _log('core up, port registered');
   }
 
-  Future<void> _onMatch(MatchEvent candidate) async {
-    // AI semantic rules: the model decides before anything is shown. A check that cannot
-    // be done skips those rules for this post; keyword rules on it still fire.
-    final gate = _gate ??= SemanticGate(
-      db: _db!,
-      secrets: const SecureSecretStore(),
-    );
-    final m = await gate.resolve(candidate);
-    if (m == null) {
-      _log(
-        'no rule left for ${candidate.post.chatId}/${candidate.post.messageId}',
-      );
-      return;
-    }
-    _log('match ${m.ruleNames} on ${m.post.chatId}/${m.post.messageId}');
-    if (!_titles.containsKey(m.post.chatId)) await _reloadTitles();
-    final plan = NotificationPlan.forMatch(
-      m,
-      channelTitle: _titles[m.post.chatId] ?? '',
-      strings: _strings,
-    );
-    _remember(m.post.chatId, m.post.messageId, m.post.text);
-    // Queued first, so the notification offers Stop from the start.
-    if (m.readAloud) unawaited(_speakPost(m.post.chatId, m.post.messageId));
-    await _notifier.show(plan);
-  }
-
-  void _remember(int chatId, int messageId, String text) {
-    _recentTexts[(chatId, messageId)] = text;
-    if (_recentTexts.length > 200) _recentTexts.remove(_recentTexts.keys.first);
-  }
-
-  /// The "Listen" action and auto-read share this path (ARCHITECTURE 7). A post shown
-  /// before the service last started is asked of the core; a remembered one is queued at
-  /// once.
-  Future<void> _speakPost(
-    int chatId,
-    int messageId, {
-    bool next = false,
-  }) async {
-    final tts = _tts;
-    if (tts == null) return;
-    var text = _recentTexts[(chatId, messageId)];
-    if (text == null) {
-      text = await _fetchText(chatId, messageId);
-      if (text == null) {
-        _log('no text for $chatId/$messageId');
-        return;
-      }
-      _remember(chatId, messageId, text);
-    }
-    tts.enqueue(
-      TtsItem(
-        text: text,
-        channelTitle: _titles[chatId],
-        key: (chatId, messageId),
-      ),
-      next: next,
-    );
-  }
-
-  Future<String?> _fetchText(int chatId, int messageId) async {
-    try {
-      final posts = await _client!.history(
-        chatId,
-        fromMessageId: messageId + 1,
-        limit: 1,
-      );
-      return posts.firstOrNull?.messageId == messageId
-          ? posts.first.text
-          : null;
-    } on Object catch (e) {
-      _log('post $chatId/$messageId unavailable: $e');
-      return null;
-    }
-  }
-
-  /// A post's notification offers Stop while the post is read or waits to be, the app's
-  /// banner names the post being read, and volume down stops it all.
-  void _onReadingChanged(Set<Object> keys) {
-    unawaited(_keys?.watch(keys.isNotEmpty));
-    unawaited(
-      _notifier.setReading({
-        for (final k in keys)
-          if (k case (final int chatId, final int messageId))
-            NotificationPlan.idFor(chatId, messageId),
-      }),
-    );
-    _publishReading();
-  }
-
-  /// Tells the app what is being read; it may not be open, and then nobody listens.
-  void _publishReading() {
-    final tts = _tts;
-    final now = switch (tts?.current) {
-      (final int chatId, final int messageId) => ReadingNow(
-        chatId: chatId,
-        messageId: messageId,
-        channelTitle: _titles[chatId] ?? '',
-        waiting: tts!.reading.length - 1,
-      ),
-      _ => null,
-    };
-    FlutterForegroundTask.sendDataToMain({'reading': now?.encode()});
-  }
-
-  Future<void> _reloadTitles() async {
-    final watched = await _db?.allWatched() ?? const <WatchedChannel>[];
-    _titles = {for (final w in watched) w.chatId: w.title};
-  }
-
-  Future<void> _onNotificationAction(Object? msg) async {
-    final m = msg as Map<Object?, Object?>;
-    final ref = PostRef.decode(m['payload'] as String?);
-    final dismissed =
-        m['type'] == NotificationResponseType.notificationDismissed.name;
-    _log(
-      'notification ${dismissed ? 'dismissed' : 'action ${m['actionId']}'} '
-      'on ${ref?.chatId}/${ref?.messageId}',
-    );
-    if (ref == null) return;
-    // A post swiped away is not read any more, as with its Stop.
-    if (dismissed) {
-      unawaited(_tts?.stop((ref.chatId, ref.messageId)));
-      return;
-    }
-    // Android counts a tap on a notification as the app being used, so the service's
-    // notification is posted again within it: a service that Android started after a
-    // reboot or an update then may take the audio focus, and read aloud, from now on.
-    await _updateNotification();
-    if (m['actionId'] == actionListen) {
-      unawaited(_speakPost(ref.chatId, ref.messageId, next: true));
-    }
-    if (m['actionId'] == actionStop) {
-      unawaited(_tts?.stop((ref.chatId, ref.messageId)));
-    }
-    // Taps and \"Open in Telegram\" are handled by the app (notification_launch.dart).
-  }
-
   Future<void> _updateNotification() async {
-    await _reloadTitles();
-    final n = _titles.length;
+    final n =
+        await _alerts?.reloadTitles() ?? (await _db?.allWatched())?.length ?? 0;
     await FlutterForegroundTask.updateService(
       notificationTitle: appName,
       notificationText: _paused
@@ -411,17 +251,9 @@ class CoreServiceHandler extends TaskHandler {
             enableVibration: false,
           ),
         );
-    await _notifier.setStrings(strings);
+    await _alerts?.setStrings(strings);
     await _updateNotification();
   }
-
-  /// The rule sounds and vibrations as the settings say.
-  Future<NotificationSounds> _sounds() async => NotificationSounds(
-    normalSound: await _db!.setting(SettingKeys.normalSound),
-    urgentSound: await _db!.setting(SettingKeys.urgentSound),
-    normalVibrate: (await _db!.setting(SettingKeys.normalVibrate)) != 'false',
-    urgentVibrate: (await _db!.setting(SettingKeys.urgentVibrate)) != 'false',
-  );
 
   @override
   void onReceiveData(Object data) {
@@ -431,27 +263,26 @@ class CoreServiceHandler extends TaskHandler {
       unawaited(_client?.refresh());
       unawaited(_updateNotification());
     }
-    if (data == 'sounds' && _db != null) {
-      unawaited(_sounds().then(_notifier.setSounds));
-    }
+    if (data == 'sounds') unawaited(_alerts?.reloadSounds());
     if (data is Map && data['language'] is String) {
       unawaited(_setLanguage(data['language'] as String));
     }
     // Posts that match while the app is on screen do not pop up (appOpenMessage).
     if (data is Map && data['appOpen'] is bool) {
-      _notifier.appOpen = data['appOpen'] as bool;
+      _appOpen = data['appOpen'] as bool;
+      _alerts?.appOpen = _appOpen;
     }
     // The read-aloud banner asks what is read, and stops it (reading_now.dart).
     if (data is Map) {
       switch (data['tts']) {
         case 'state':
-          _publishReading();
+          _alerts?.publishReading();
         case 'stop':
           unawaited(
-            _tts?.stop((data['chatId'] as int, data['messageId'] as int)),
+            _alerts?.stop(data['chatId'] as int, data['messageId'] as int),
           );
         case 'clear':
-          unawaited(_tts?.stopAll());
+          unawaited(_alerts?.stopAll());
       }
     }
   }
@@ -474,7 +305,7 @@ class CoreServiceHandler extends TaskHandler {
       _log('start unfinished at destroy: $e');
     }
     await _pausedSub?.cancel();
-    await _tts?.dispose();
+    await _alerts?.dispose();
     // Give TDLib back before the isolate goes: its client has to drop the database lock
     // and its receive pump has to stop, or the app's own core aborts the process.
     try {
@@ -483,8 +314,6 @@ class CoreServiceHandler extends TaskHandler {
       _log('core shutdown: $e');
     }
     await _client?.close();
-    IsolateNameServer.removePortNameMapping(notifierPortName);
-    _actions.close();
     IsolateNameServer.removePortNameMapping(corePortName);
     _core?.kill(priority: Isolate.immediate);
     await _db?.close();
