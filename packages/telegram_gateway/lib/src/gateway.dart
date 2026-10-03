@@ -116,7 +116,7 @@ abstract interface class TelegramGateway {
   Future<Channel> savedMessages();
 
   /// Searches the comments of one thread, newest first. [fromMessageId] pages older ones.
-  Future<List<Comment>> searchThread(
+  Future<CommentPage> searchThread(
     Thread thread, {
     required String query,
     int fromMessageId = 0,
@@ -215,6 +215,16 @@ abstract interface class TelegramGateway {
     Thread thread, {
     int fromMessageId = 0,
     int limit = 30,
+  });
+
+  /// The comments around [messageId], newest first: up to [newer] that came after it, the
+  /// comment itself and up to [older] before it. This is how the thread lands on a comment
+  /// that is far from what it has loaded, and how it pages towards the newest from there.
+  Future<List<Comment>> threadAround(
+    Thread thread,
+    int messageId, {
+    int newer = 15,
+    int older = 15,
   });
 
   Future<void> reply(Thread thread, String text, {int replyToId = 0});

@@ -361,11 +361,20 @@ final class CoreServer {
       case 'savedMessages':
         return encodeChannel(await gateway.savedMessages());
       case 'searchThread':
-        return (await gateway.searchThread(
+        return encodeCommentPage(
+          await gateway.searchThread(
+            decodeThread(a['thread'] as Map<Object?, Object?>),
+            query: a['query'] as String,
+            fromMessageId: a['fromMessageId'] as int,
+            limit: a['limit'] as int,
+          ),
+        );
+      case 'threadAround':
+        return (await gateway.threadAround(
           decodeThread(a['thread'] as Map<Object?, Object?>),
-          query: a['query'] as String,
-          fromMessageId: a['fromMessageId'] as int,
-          limit: a['limit'] as int,
+          a['messageId'] as int,
+          newer: a['newer'] as int,
+          older: a['older'] as int,
         )).map(encodeComment).toList();
       case 'searchAllChannels':
         final page = await gateway.searchAllChannels(

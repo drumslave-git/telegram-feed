@@ -133,6 +133,7 @@
   "threadNoComments": "Коментарів ще немає.",
   "threadWriteComment": "Напишіть коментар",
   "threadSend": "Надіслати",
+  "threadCommentsFound": "{count, plural, one{Знайдено {count} коментар} few{Знайдено {count} коментарі} many{Знайдено {count} коментарів} other{Знайдено {count} коментаря}}",
   "threadReply": "Відповісти",
   "threadCopy": "Копіювати",
   "threadEdit": "Змінити",

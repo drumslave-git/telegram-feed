@@ -19,6 +19,7 @@ import 'post_card.dart';
 import 'post_menu.dart';
 import 'sticker_view.dart';
 import 'text_scale.dart';
+import 'timeline_search.dart' show SearchStepper;
 
 /// Comments on a post from the channel's discussion group, with a reply composer.
 class ThreadScreen extends StatefulWidget {
@@ -101,12 +102,25 @@ class _ThreadScreenState extends State<ThreadScreen> {
   /// Reactions set here that Telegram has not confirmed yet, by comment.
   final _reacting = <int>{};
 
-  /// Search inside the thread (H-27): open, the words, what was found (newest first).
+  /// Search inside the thread: open, the words, and the running search with what it
+  /// found (newest first).
   bool _searchOpen = false;
   final _queryCtl = TextEditingController();
+  final _queryFocus = FocusNode();
   Timer? _debounce;
-  List<Comment>? _found;
-  bool _searching = false;
+  _ThreadSearch? _session;
+
+  /// True while the results cover the thread; false once one of them was opened.
+  bool _listOpen = false;
+
+  /// The result the thread stands on, -1 before one was opened.
+  int _current = -1;
+  bool _jumping = false;
+
+  /// False while the loaded comments end before the newest one: after landing on a
+  /// comment far up, the newer ones are fetched page by page on the way down.
+  bool _atNewest = true;
+  bool _loadingNewer = false;
 
   @override
   void initState() {
@@ -133,6 +147,11 @@ class _ThreadScreenState extends State<ThreadScreen> {
           return;
         }
       }
+    }
+    // The lower end of a thread that stands in the middle of its discussion is near: time
+    // to fetch what came after.
+    if (!_atNewest && !_landing && positions.any((p) => p.index <= 3)) {
+      unawaited(_loadNewer());
     }
     var newest = _seenUpTo;
     for (final p in positions) {
@@ -173,14 +192,19 @@ class _ThreadScreenState extends State<ThreadScreen> {
     }
   }
 
-  void _openSearch() => setState(() => _searchOpen = true);
+  void _openSearch() => setState(() {
+    _searchOpen = true;
+    _listOpen = true;
+  });
 
   void _closeSearch() {
     _debounce?.cancel();
     _queryCtl.clear();
     setState(() {
       _searchOpen = false;
-      _found = null;
+      _listOpen = false;
+      _session = null;
+      _current = -1;
     });
   }
 
@@ -188,40 +212,133 @@ class _ThreadScreenState extends State<ThreadScreen> {
     _debounce?.cancel();
     _debounce = Timer(
       const Duration(milliseconds: 300),
-      () => unawaited(_search(value)),
+      () => unawaited(_startSearch(value)),
     );
+    setState(() {
+      _listOpen = true;
+      _current = -1;
+    });
   }
 
   /// Telegram searches the thread itself, so a comment far above is found without loading
-  /// everything in between.
-  Future<void> _search(String value) async {
+  /// everything in between. A new query is a new search; answers to the old one are
+  /// dropped with it.
+  Future<void> _startSearch(String value) async {
     final thread = _thread;
     final query = value.trim();
     if (thread == null) return;
     if (query.isEmpty) {
-      setState(() => _found = null);
+      setState(() => _session = null);
       return;
     }
-    final messenger = ScaffoldMessenger.of(context);
-    final l10n = context.l10n;
-    setState(() => _searching = true);
+    final session = _ThreadSearch(widget.gateway, thread, query);
+    setState(() {
+      _session = session;
+      _current = -1;
+    });
+    await session.loadMore();
+    if (mounted && identical(_session, session)) setState(() {});
+  }
+
+  Future<void> _loadMoreResults() async {
+    final session = _session;
+    if (session == null) return;
+    final changed = await session.loadMore();
+    if (changed && mounted && identical(_session, session)) setState(() {});
+  }
+
+  /// Opens the result at [index]: the list makes way and the thread shows that comment,
+  /// as the timeline's search opens a post. The arrows of the bar below step from there,
+  /// loading further pages of results as they are reached.
+  Future<void> _openResult(int index) async {
+    final session = _session;
+    if (session == null || _jumping || index < 0) return;
+    setState(() => _jumping = true);
     try {
-      final found = await widget.gateway.searchThread(thread, query: query);
-      if (mounted) setState(() => _found = found);
-    } on TelegramException catch (e) {
-      // A snackbar, not [_error]: the comments stay on screen, so a message hidden
-      // behind them would never be read.
-      if (mounted) {
-        showTelegramError(
-          messenger,
-          e,
-          what: l10n.threadSearchFailed,
-          onRetry: () => unawaited(_search(value)),
+      if (!await session.ensure(index)) return;
+      if (!mounted || !identical(_session, session)) return;
+      _queryFocus.unfocus();
+      setState(() {
+        _current = index;
+        _listOpen = false;
+      });
+      await _jumpToComment(session.results[index].messageId);
+    } finally {
+      if (mounted) setState(() => _jumping = false);
+    }
+  }
+
+  /// The row nearest the newest end that is wholly above the lower edge, and where it
+  /// stands: what a change at that end of the list puts back in its place.
+  ({int index, double alignment})? get _heldRow {
+    ItemPosition? held;
+    for (final p in _positions.itemPositions.value) {
+      if (p.itemLeadingEdge < 0) continue;
+      if (held == null || p.index < held.index) held = p;
+    }
+    return held == null
+        ? null
+        : (index: held.index, alignment: held.itemLeadingEdge.clamp(0.0, 1.0));
+  }
+
+  /// The comments that came after the newest loaded one, when the thread stands in the
+  /// middle of a long discussion. They join at the lower end; what is on the screen
+  /// stays where it is.
+  Future<void> _loadNewer() async {
+    final t = _thread;
+    if (t == null ||
+        _atNewest ||
+        _loadingNewer ||
+        _landing ||
+        _comments.isEmpty) {
+      return;
+    }
+    _loadingNewer = true;
+    try {
+      final newest = _comments.last.messageId;
+      final page = await widget.gateway.threadAround(
+        t,
+        newest,
+        newer: 30,
+        older: 0,
+      );
+      if (!mounted || _atNewest) return;
+      final fresh = [
+        for (final c in page.reversed)
+          if (c.messageId > newest &&
+              !_comments.any((x) => x.messageId == c.messageId))
+            c,
+      ];
+      final held = _heldRow;
+      setState(() {
+        // Nothing newer: this is the end, and what arrives from now on is shown.
+        if (fresh.isEmpty) _atNewest = true;
+        _comments.addAll(fresh);
+      });
+      if (fresh.isNotEmpty && held != null && _scroll.isAttached) {
+        _scroll.jumpTo(
+          index: held.index + fresh.length,
+          alignment: held.alignment,
         );
       }
+    } on TelegramException {
+      // Asked again when the lower end is built the next time.
     } finally {
-      if (mounted) setState(() => _searching = false);
+      _loadingNewer = false;
     }
+  }
+
+  /// Back to the newest comments from the middle of the discussion: they are loaded anew,
+  /// as when the thread opens.
+  Future<void> _showNewest() async {
+    if (_atNewest) return;
+    setState(() {
+      _comments.clear();
+      _exhausted = false;
+      _atNewest = true;
+    });
+    await _loadOlder();
+    if (mounted && _scroll.isAttached) _scroll.jumpTo(index: 0, alignment: 0);
   }
 
   Future<void> _open() async {
@@ -263,13 +380,16 @@ class _ThreadScreenState extends State<ThreadScreen> {
           setState(() => _comments[known] = c);
           return;
         }
+        // In the middle of a long discussion the newest end is not loaded: the comment
+        // is counted, and shown when the reader gets there.
+        if (!_atNewest) {
+          setState(() => _arrived++);
+          return;
+        }
         final atEnd = _nearEnd;
         // The row closest to the newest end: with a comment added below it every row
         // moves up by one, and a reader who is further up is put back where they were.
-        ItemPosition? held;
-        for (final p in _positions.itemPositions.value) {
-          if (held == null || p.index < held.index) held = p;
-        }
+        final held = _heldRow;
         setState(() {
           _comments.add(c);
           _arrived++;
@@ -277,10 +397,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
         if (atEnd) {
           _scrollToEnd();
         } else if (held != null && _scroll.isAttached) {
-          _scroll.jumpTo(
-            index: held.index + 1,
-            alignment: held.itemLeadingEdge,
-          );
+          _scroll.jumpTo(index: held.index + 1, alignment: held.alignment);
         }
       });
       await _loadOlder(opening: true);
@@ -365,17 +482,6 @@ class _ThreadScreenState extends State<ThreadScreen> {
     }
   }
 
-  /// Leaves the search and shows that comment among the others, loading older ones
-  /// until it is there.
-  Future<void> _openFound(Comment target) async {
-    setState(() {
-      _found = null;
-      _queryCtl.clear();
-      _searchOpen = false;
-    });
-    await _jumpToComment(target.messageId);
-  }
-
   /// "N comments", as the official app titles a discussion: what Telegram counted and
   /// what has arrived since; "Comments" while the number is not known or there are none.
   String _title(AppLocalizations l10n) {
@@ -412,6 +518,8 @@ class _ThreadScreenState extends State<ThreadScreen> {
           replyToId: _replyTo?.messageId ?? 0,
         );
         _startSlowMode(t.slowModeDelay);
+        // A comment goes to the end of the discussion, and the reader with it.
+        if (mounted) await _showNewest();
       }
       _composer.clear();
       if (mounted) {
@@ -649,26 +757,71 @@ class _ThreadScreenState extends State<ThreadScreen> {
   /// Shows the comment [messageId] among the others, loading older ones until it is
   /// there, and tints it for a moment.
   Future<void> _jumpToComment(int messageId) async {
-    var guard = 0;
-    while (!_comments.any((c) => c.messageId == messageId) &&
-        !_exhausted &&
-        guard++ < 20) {
-      await _loadOlder();
+    final t = _thread;
+    if (t == null) return;
+    if (!_comments.any((c) => c.messageId == messageId)) {
+      // Not among what is loaded: Telegram gives the comments around it. Where they
+      // touch the loaded ones the two are joined; otherwise the thread is rebuilt around
+      // the comment, and pages on in both directions from there.
+      final messenger = ScaffoldMessenger.of(context);
+      final l10n = context.l10n;
+      final List<Comment> around;
+      try {
+        around = await widget.gateway.threadAround(t, messageId);
+      } on TelegramException catch (e) {
+        showTelegramError(messenger, e, what: l10n.threadLoadFailed);
+        return;
+      }
+      if (!mounted) return;
+      // It was deleted since: there is nothing to go to.
+      if (!around.any((c) => c.messageId == messageId)) return;
+      _landing = true;
+      final touches = around.any(
+        (c) => _comments.any((x) => x.messageId == c.messageId),
+      );
+      setState(() {
+        if (touches) {
+          _comments
+            ..addAll(
+              around.where(
+                (c) => !_comments.any((x) => x.messageId == c.messageId),
+              ),
+            )
+            ..sort((a, b) => a.messageId.compareTo(b.messageId));
+        } else {
+          _comments
+            ..clear()
+            ..addAll(around.reversed);
+          _exhausted = false;
+          _atNewest = false;
+          _error = null;
+        }
+      });
     }
-    if (!mounted) return;
     final index = _comments.indexWhere((c) => c.messageId == messageId);
     if (index < 0) return;
+    // Until the list stands on the comment, its lower end is not where the reader is:
+    // nothing is fetched for it meanwhile.
+    _landing = true;
     setState(() => _highlight = messageId);
     _highlightEnd?.cancel();
     _highlightEnd = Timer(const Duration(seconds: 1), () {
       if (mounted) setState(() => _highlight = null);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scroll.isAttached) return;
+      if (!mounted || !_scroll.isAttached) {
+        _landing = false;
+        return;
+      }
       // The comment itself, a third of the way up the list; the tint says which one.
       _scroll.jumpTo(index: _rowOf(index), alignment: 0.3);
+      // Over once this frame is drawn; where the list stands then is told right after,
+      // and a comment close to the lower end has the newer ones fetched from there.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _landing = false);
     });
   }
+
+  bool _landing = false;
 
   Timer? _highlightEnd;
 
@@ -712,6 +865,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
   void dispose() {
     _debounce?.cancel();
     _queryCtl.dispose();
+    _queryFocus.dispose();
     _live?.cancel();
     _gone?.cancel();
     _slowTick?.cancel();
@@ -731,7 +885,9 @@ class _ThreadScreenState extends State<ThreadScreen> {
   Widget build(BuildContext context) {
     final colors = ChatColors.of(context);
     final l10n = context.l10n;
-    final found = _found;
+    final session = _session;
+    // What was found covers the thread until one of the results is opened.
+    final covered = _searchOpen && _listOpen && session != null;
     return PopScope(
       canPop: !_searchOpen,
       onPopInvokedWithResult: (didPop, _) {
@@ -744,7 +900,9 @@ class _ThreadScreenState extends State<ThreadScreen> {
                 titleSpacing: 0,
                 title: TextField(
                   controller: _queryCtl,
+                  focusNode: _queryFocus,
                   autofocus: true,
+                  onTap: () => setState(() => _listOpen = true),
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
                     hintText: l10n.threadSearchComments,
@@ -805,94 +963,184 @@ class _ThreadScreenState extends State<ThreadScreen> {
                             unawaited(_open());
                           },
                         )
-                      // While searching, what was found takes the place of the thread.
-                      : found != null
-                      ? (found.isEmpty
-                            ? Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(32),
-                                  child: Text(
-                                    _searching
-                                        ? l10n.threadSearching
-                                        : l10n.searchNothingFound(
-                                            _queryCtl.text,
-                                          ),
-                                    textAlign: TextAlign.center,
-                                  ),
+                      : _opening
+                      ? const Center(child: CircularProgressIndicator())
+                      : Stack(
+                          // The thread gives the stack no size while it is off stage.
+                          fit: StackFit.expand,
+                          children: [
+                            // Kept under the results, so that it is there to land in.
+                            Offstage(
+                              offstage: covered,
+                              child: ScrollablePositionedList.builder(
+                                reverse: true,
+                                itemScrollController: _scroll,
+                                itemPositionsListener: _positions,
+                                initialScrollIndex: _initialIndex.clamp(
+                                  0,
+                                  _comments.length,
                                 ),
-                              )
-                            : ListView.builder(
+                                initialAlignment: _initialAlignment,
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 8,
                                 ),
-                                itemCount: found.length,
-                                itemBuilder: (context, i) => InkWell(
-                                  onTap: () => _openFound(found[i]),
-                                  child: CommentBubble(
-                                    comment: found[i],
-                                    gateway: widget.gateway,
-                                    onOpenLink: _openLink,
-                                  ),
-                                ),
-                              ))
-                      : _opening
-                      ? const Center(child: CircularProgressIndicator())
-                      : ScrollablePositionedList.builder(
-                          reverse: true,
-                          itemScrollController: _scroll,
-                          itemPositionsListener: _positions,
-                          initialScrollIndex: _initialIndex.clamp(
-                            0,
-                            _comments.length,
-                          ),
-                          initialAlignment: _initialAlignment,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          itemCount: _comments.length + 1,
-                          itemBuilder: (context, i) {
-                            // The post, on top of everything that is loaded.
-                            if (i == _comments.length) return _header(l10n);
-                            final comment = _comments[_rowOf(i)];
-                            final bubble = AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              color: comment.messageId == _highlight
-                                  ? Theme.of(context).colorScheme.primary
-                                        .withValues(alpha: 0.12)
-                                  : Colors.transparent,
-                              child: CommentBubble(
-                                comment: comment,
-                                gateway: widget.gateway,
-                                onOpenLink: _openLink,
-                                onMenu: (at) => unawaited(_menu(comment, at)),
-                                onReact: (emoji, remove) =>
-                                    unawaited(_react(comment, emoji, remove)),
-                                onOpenReply: comment.replyTo == null
-                                    ? null
-                                    : () => unawaited(
-                                        _jumpToComment(
-                                          comment.replyTo!.messageId,
-                                        ),
-                                      ),
+                                itemCount: _comments.length + 1,
+                                itemBuilder: (context, i) => _row(l10n, i),
                               ),
-                            );
-                            if (comment.messageId != _firstUnread) {
-                              return bubble;
-                            }
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                UnreadDivider(label: l10n.threadUnreadDivider),
-                                bubble,
-                              ],
-                            );
-                          },
+                            ),
+                            if (covered)
+                              Positioned.fill(
+                                child: ColoredBox(
+                                  color: colors.background,
+                                  child: _results(l10n, session),
+                                ),
+                              ),
+                          ],
                         ),
                 ),
-                if (_thread != null) _writing(context, _thread!),
+                // While the search is open the field makes way, as in the official app:
+                // once a result is open the bar with the arrows stands there.
+                if (_searchOpen && !_listOpen && session != null)
+                  SearchStepper(
+                    current: _current,
+                    total: session.total,
+                    loading: _jumping,
+                    onOlder:
+                        _jumping ||
+                            (session.exhausted &&
+                                _current + 1 >= session.results.length)
+                        ? null
+                        : () => unawaited(_openResult(_current + 1)),
+                    onNewer: _jumping || _current <= 0
+                        ? null
+                        : () => unawaited(_openResult(_current - 1)),
+                  )
+                else if (_thread != null && !_searchOpen)
+                  _writing(context, _thread!),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// Row [i] of the turned list: a comment, or the post above the oldest one.
+  Widget _row(AppLocalizations l10n, int i) {
+    // The post, on top of everything that is loaded.
+    if (i == _comments.length) return _header(l10n);
+    final comment = _comments[_rowOf(i)];
+    final bubble = AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      color: comment.messageId == _highlight
+          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
+          : Colors.transparent,
+      child: CommentBubble(
+        comment: comment,
+        gateway: widget.gateway,
+        onOpenLink: _openLink,
+        onMenu: (at) => unawaited(_menu(comment, at)),
+        onReact: (emoji, remove) => unawaited(_react(comment, emoji, remove)),
+        onOpenReply: comment.replyTo == null
+            ? null
+            : () => unawaited(_jumpToComment(comment.replyTo!.messageId)),
+      ),
+    );
+    if (comment.messageId != _firstUnread) {
+      return bubble;
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        UnreadDivider(label: l10n.threadUnreadDivider),
+        bubble,
+      ],
+    );
+  }
+
+  /// What the search found, newest first: how many there are, the comments as they look
+  /// in the thread, and at the end the next page, fetched when that row is built.
+  Widget _results(AppLocalizations l10n, _ThreadSearch session) {
+    final results = session.results;
+    if (results.isEmpty) {
+      if (session.error != null) {
+        return ErrorState(
+          what: l10n.threadSearchFailed,
+          message: session.error,
+          onRetry: () => unawaited(_loadMoreResults()),
+        );
+      }
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            session.loading || !session.exhausted
+                ? l10n.threadSearching
+                : l10n.searchNothingFound(_queryCtl.text),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    final scheme = Theme.of(context).colorScheme;
+    return ListView.builder(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: results.length + 2,
+      itemBuilder: (context, row) {
+        if (row == 0) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+            child: Text(
+              l10n.threadCommentsFound(session.total),
+              style: Theme.of(context).textTheme.labelMedium
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          );
+        }
+        final i = row - 1;
+        if (i == results.length) {
+          if (!session.exhausted && session.error == null) {
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => unawaited(_loadMoreResults()),
+            );
+          }
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Center(
+              child: session.exhausted
+                  ? const SizedBox.shrink()
+                  : session.error != null
+                  ? ErrorState(
+                      what: l10n.searchMoreFailed,
+                      message: session.error,
+                      compact: true,
+                      onRetry: () => unawaited(_loadMoreResults()),
+                    )
+                  : const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+            ),
+          );
+        }
+        return InkWell(
+          onTap: () => unawaited(_openResult(i)),
+          // The result the thread stands on is marked, as in the timeline's list.
+          child: ColoredBox(
+            color: i == _current
+                ? scheme.primary.withValues(alpha: 0.12)
+                : Colors.transparent,
+            // The row is one target: its picture and links do not answer here.
+            child: IgnorePointer(
+              child: CommentBubble(
+                comment: results[i],
+                gateway: widget.gateway,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1375,5 +1623,60 @@ class _AnsweredComment extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// A search in a thread for one query: the pages Telegram found so far, newest first, its
+/// count of all the matches, and whether there are more.
+final class _ThreadSearch {
+  _ThreadSearch(this.gateway, this.thread, this.query);
+  final TelegramGateway gateway;
+  final Thread thread;
+  final String query;
+
+  final results = <Comment>[];
+  int _next = 0;
+  int _total = -1;
+  bool exhausted = false;
+  bool loading = false;
+  String? error;
+
+  /// Telegram's count while more can come or it gave one, the number found otherwise.
+  int get total => exhausted || _total < 0 ? results.length : _total;
+
+  /// Loads the next page. True when the screen should rebuild.
+  Future<bool> loadMore() async {
+    if (loading || exhausted) return false;
+    loading = true;
+    try {
+      final page = await gateway.searchThread(
+        thread,
+        query: query,
+        fromMessageId: _next,
+      );
+      error = null;
+      results.addAll(
+        page.comments.where(
+          (c) => !results.any((x) => x.messageId == c.messageId),
+        ),
+      );
+      if (page.totalCount >= 0) _total = page.totalCount;
+      _next = page.nextFromMessageId;
+      if (page.isLast || page.comments.isEmpty) exhausted = true;
+      return true;
+    } on TelegramException catch (e) {
+      error = e.message;
+      return true;
+    } finally {
+      loading = false;
+    }
+  }
+
+  /// Loads until the result at [index] exists or the search runs out.
+  Future<bool> ensure(int index) async {
+    while (results.length <= index && !exhausted && error == null) {
+      await loadMore();
+    }
+    return index >= 0 && index < results.length;
   }
 }

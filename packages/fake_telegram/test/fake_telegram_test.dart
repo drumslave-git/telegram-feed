@@ -193,6 +193,30 @@ void main() {
     expect(thread.write, ThreadWrite.joinNeeded);
   });
 
+  test('a thread is searched page by page and read around a comment', () async {
+    final thread = (await tg.discussion(FakeChats.harbourTimes, 11))!;
+    final first = await tg.searchThread(thread, query: 'stall', limit: 1);
+    expect(first.totalCount, 2);
+    expect(first.comments.single.author, 'Mara');
+    expect(first.isLast, isFalse);
+    final second = await tg.searchThread(
+      thread,
+      query: 'stall',
+      fromMessageId: first.nextFromMessageId,
+      limit: 1,
+    );
+    expect(second.comments.single.author, 'Tomas');
+    expect(second.isLast, isTrue);
+
+    // Around the older comment: the newer one, itself, and nothing before it.
+    final around = await tg.threadAround(thread, 1);
+    expect(around.map((c) => c.messageId), [2, 1]);
+    expect(
+      (await tg.threadAround(thread, 1, newer: 0)).map((c) => c.messageId),
+      [1],
+    );
+  });
+
   test('a post arrives on the wire', () async {
     final added = tg.postEvents.first;
     tg.arriveOnWire();

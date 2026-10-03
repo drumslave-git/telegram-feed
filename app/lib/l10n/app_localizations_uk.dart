@@ -525,6 +525,19 @@ class AppLocalizationsUk extends AppLocalizations {
   String get threadSend => 'Надіслати';
 
   @override
+  String threadCommentsFound(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Знайдено $count коментаря',
+      many: 'Знайдено $count коментарів',
+      few: 'Знайдено $count коментарі',
+      one: 'Знайдено $count коментар',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get threadReply => 'Відповісти';
 
   @override

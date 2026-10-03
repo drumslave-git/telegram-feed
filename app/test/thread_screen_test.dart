@@ -60,7 +60,7 @@ class ThreadGateway extends ChannelsGateway {
   final searched = <String>[];
 
   @override
-  Future<List<Comment>> searchThread(
+  Future<CommentPage> searchThread(
     Thread t, {
     required String query,
     int fromMessageId = 0,
@@ -68,10 +68,11 @@ class ThreadGateway extends ChannelsGateway {
   }) async {
     searched.add(query);
     final all = await threadHistory(t);
-    return [
+    final found = [
       for (final c in all)
         if (c.text.toLowerCase().contains(query.toLowerCase())) c,
     ];
+    return CommentPage(comments: found, totalCount: found.length);
   }
 
   @override

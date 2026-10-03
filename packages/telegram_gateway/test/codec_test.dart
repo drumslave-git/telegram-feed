@@ -76,6 +76,34 @@ void main() {
     expect(back.slowModeDelay, 30);
   });
 
+  test(
+    'a page of found comments keeps its count and where the next begins',
+    () {
+      final back = decodeCommentPage(
+        encodeCommentPage(
+          const CommentPage(
+            comments: [
+              Comment(
+                chatId: -2,
+                messageId: 7,
+                threadId: 5,
+                date: 100,
+                text: 'yes',
+                author: 'Ann',
+              ),
+            ],
+            totalCount: 41,
+            nextFromMessageId: 7,
+          ),
+        ),
+      );
+      expect(back.comments.single.text, 'yes');
+      expect(back.totalCount, 41);
+      expect(back.nextFromMessageId, 7);
+      expect(back.isLast, isFalse);
+    },
+  );
+
   test('comments that are gone cross the core boundary', () {
     // What a core hands on after decoding a request: a view, not a list.
     final ids = <Object?>[7, 8].cast<int>();

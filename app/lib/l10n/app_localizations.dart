@@ -896,6 +896,12 @@ abstract class AppLocalizations {
   /// **'Send'**
   String get threadSend;
 
+  /// Head of the list of comments a search in a thread found.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} comment found} other{{count} comments found}}'**
+  String threadCommentsFound(int count);
+
   /// No description provided for @threadReply.
   ///
   /// In en, this message translates to:

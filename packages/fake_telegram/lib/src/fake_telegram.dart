@@ -1239,15 +1239,28 @@ final class FakeTelegram extends TimelineGateway {
   ].take(limit).toList();
 
   @override
-  Future<List<Comment>> searchThread(
+  Future<CommentPage> searchThread(
     Thread thread, {
     required String query,
     int fromMessageId = 0,
     int limit = 30,
-  }) async => [
-    for (final c in _threadOf(thread))
-      if (c.text.toLowerCase().contains(query.toLowerCase())) c,
-  ];
+  }) async {
+    final found = [
+      for (final c in _threadOf(thread))
+        if (c.text.toLowerCase().contains(query.toLowerCase())) c,
+    ];
+    final page = [
+      for (final c in found)
+        if (fromMessageId == 0 || c.messageId < fromMessageId) c,
+    ].take(limit).toList();
+    return CommentPage(
+      comments: page,
+      totalCount: found.length,
+      nextFromMessageId: page.isEmpty || identical(page.last, found.last)
+          ? 0
+          : page.last.messageId,
+    );
+  }
 
   /// Every reply sent, for assertions.
   final replies = <String>[];

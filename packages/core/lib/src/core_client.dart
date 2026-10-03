@@ -366,17 +366,32 @@ final class CoreClient implements TelegramGateway {
       decodeChannel((await _call('savedMessages')) as Map<Object?, Object?>);
 
   @override
-  Future<List<Comment>> searchThread(
+  Future<CommentPage> searchThread(
     Thread thread, {
     required String query,
     int fromMessageId = 0,
     int limit = 30,
-  }) async => [
-    for (final c in (await _call('searchThread', {
+  }) async => decodeCommentPage(
+    (await _call('searchThread', {
       'thread': encodeThread(thread),
       'query': query,
       'fromMessageId': fromMessageId,
       'limit': limit,
+    })) as Map<Object?, Object?>,
+  );
+
+  @override
+  Future<List<Comment>> threadAround(
+    Thread thread,
+    int messageId, {
+    int newer = 15,
+    int older = 15,
+  }) async => [
+    for (final c in (await _call('threadAround', {
+      'thread': encodeThread(thread),
+      'messageId': messageId,
+      'newer': newer,
+      'older': older,
     })) as List)
       decodeComment(c as Map<Object?, Object?>),
   ];

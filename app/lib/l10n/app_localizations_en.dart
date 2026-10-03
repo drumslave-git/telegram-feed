@@ -505,6 +505,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get threadSend => 'Send';
 
   @override
+  String threadCommentsFound(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count comments found',
+      one: '$count comment found',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get threadReply => 'Reply';
 
   @override

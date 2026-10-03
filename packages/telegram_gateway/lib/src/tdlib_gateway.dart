@@ -1080,7 +1080,7 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
-  Future<List<Comment>> searchThread(
+  Future<CommentPage> searchThread(
     Thread thread, {
     required String query,
     int fromMessageId = 0,
@@ -1094,6 +1094,36 @@ final class TdlibGateway implements TelegramGateway {
         fromMessageId: fromMessageId,
         offset: 0,
         limit: limit,
+      ),
+    );
+    final out = <Comment>[];
+    for (final m in r.messages) {
+      if (m.id == thread.threadId) continue; // the forwarded post itself
+      out.add(await _comment(m));
+    }
+    return CommentPage(
+      comments: out,
+      totalCount: r.totalCount,
+      nextFromMessageId: r.nextFromMessageId,
+    );
+  }
+
+  @override
+  Future<List<Comment>> threadAround(
+    Thread thread,
+    int messageId, {
+    int newer = 15,
+    int older = 15,
+  }) async {
+    // TDLib takes an offset of -99 at most, and a limit that reaches past it.
+    final ahead = newer.clamp(0, 99);
+    final r = await _client.call(
+      td.GetMessageThreadHistory(
+        chatId: thread.postChatId,
+        messageId: thread.postMessageId,
+        fromMessageId: messageId,
+        offset: -ahead,
+        limit: (ahead + older + 1).clamp(1, 100),
       ),
     );
     final out = <Comment>[];

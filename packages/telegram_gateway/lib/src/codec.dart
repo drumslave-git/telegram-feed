@@ -562,6 +562,21 @@ Map<String, Object?> encodeComment(Comment c) => {
   if (c.edited) 'edited': true,
 };
 
+Map<String, Object?> encodeCommentPage(CommentPage p) => {
+  'comments': p.comments.map(encodeComment).toList(),
+  'totalCount': p.totalCount,
+  'nextFromMessageId': p.nextFromMessageId,
+};
+
+CommentPage decodeCommentPage(Map<Object?, Object?> m) => CommentPage(
+  comments: [
+    for (final c in m['comments'] as List)
+      decodeComment(c as Map<Object?, Object?>),
+  ],
+  totalCount: m['totalCount'] as int,
+  nextFromMessageId: m['nextFromMessageId'] as int,
+);
+
 Map<String, Object?> encodeCommentsGone(CommentsGone g) => {
   'chatId': g.chatId,
   // A list of its own: the ids may be a view that does not cross isolates.

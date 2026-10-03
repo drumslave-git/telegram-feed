@@ -351,6 +351,15 @@
     "description": "Hint of the comment composer."
   },
   "threadSend": "Send",
+  "threadCommentsFound": "{count, plural, =1{{count} comment found} other{{count} comments found}}",
+  "@threadCommentsFound": {
+    "description": "Head of the list of comments a search in a thread found.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "threadReply": "Reply",
   "threadCopy": "Copy",
   "threadEdit": "Edit",

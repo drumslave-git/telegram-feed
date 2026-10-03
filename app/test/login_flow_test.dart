@@ -159,11 +159,18 @@ final class ScriptedGateway implements TelegramGateway {
   Future<Channel> savedMessages() async =>
       const Channel(chatId: 42, title: 'Saved Messages');
   @override
-  Future<List<Comment>> searchThread(
+  Future<CommentPage> searchThread(
     Thread thread, {
     required String query,
     int fromMessageId = 0,
     int limit = 30,
+  }) async => const CommentPage();
+  @override
+  Future<List<Comment>> threadAround(
+    Thread thread,
+    int messageId, {
+    int newer = 15,
+    int older = 15,
   }) async => const [];
   @override
   Future<GlobalSearchPage> searchAllChannels({

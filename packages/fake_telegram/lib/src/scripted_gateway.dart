@@ -224,12 +224,33 @@ class ChannelsGateway implements TelegramGateway {
   Future<Channel> savedMessages() async =>
       const Channel(chatId: savedChatId, title: 'Saved Messages');
   @override
-  Future<List<Comment>> searchThread(
+  Future<CommentPage> searchThread(
     Thread thread, {
     required String query,
     int fromMessageId = 0,
     int limit = 30,
-  }) async => const [];
+  }) async => const CommentPage();
+
+  @override
+  Future<List<Comment>> threadAround(
+    Thread thread,
+    int messageId, {
+    int newer = 15,
+    int older = 15,
+  }) async {
+    final all = await threadHistory(thread, limit: 1 << 30); // newest first
+    final after = [
+      for (final c in all)
+        if (c.messageId > messageId) c,
+    ];
+    return [
+      ...after.skip(after.length > newer ? after.length - newer : 0),
+      for (final c in all)
+        if (c.messageId == messageId) c,
+      ...all.where((c) => c.messageId < messageId).take(older),
+    ];
+  }
+
   @override
   Future<GlobalSearchPage> searchAllChannels({
     required String query,

@@ -826,6 +826,24 @@ final class Thread {
   final int replyCount;
 }
 
+/// One page of the comments a search in a thread found, newest first.
+final class CommentPage {
+  const CommentPage({
+    this.comments = const [],
+    this.totalCount = -1,
+    this.nextFromMessageId = 0,
+  });
+  final List<Comment> comments;
+
+  /// Telegram's count of all the matches; -1 when it does not know.
+  final int totalCount;
+
+  /// Where the next page starts; 0 when the end is reached.
+  final int nextFromMessageId;
+
+  bool get isLast => nextFromMessageId == 0;
+}
+
 /// Whether the account may write in a discussion.
 enum ThreadWrite {
   allowed,

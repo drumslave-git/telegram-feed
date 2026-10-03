@@ -4,7 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-43.
+**Current phase:** Parity with the official app. **Next task:** Q-44.
 
 ## Differences from the official app
 
@@ -12,7 +12,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Reactions, menu and comments
 
-- [ ] Q-43 The search in comments has the arrows, the "N of M" counter and paging of the timeline's search, and lands on the comment itself.
 
 ### Search
 
