@@ -13,6 +13,9 @@ import android.net.NetworkCapabilities
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Environment
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.provider.MediaStore
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
@@ -128,6 +131,32 @@ class MainActivity : FlutterActivity() {
                             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                         }
                         result.success(null)
+                    }
+                    // A vibration longer than any haptic constant (haptics.dart).
+                    "buzz" -> {
+                        val ms = (call.arguments as? Number)?.toLong() ?: 200L
+                        val vibrator = if (Build.VERSION.SDK_INT >= 31) {
+                            getSystemService(VibratorManager::class.java)?.defaultVibrator
+                        } else {
+                            @Suppress("DEPRECATION")
+                            getSystemService(VIBRATOR_SERVICE) as? Vibrator
+                        }
+                        if (vibrator == null || !vibrator.hasVibrator()) {
+                            result.error("no_vibrator", null, null)
+                        } else {
+                            if (Build.VERSION.SDK_INT >= 26) {
+                                vibrator.vibrate(
+                                    VibrationEffect.createOneShot(
+                                        ms,
+                                        VibrationEffect.DEFAULT_AMPLITUDE,
+                                    ),
+                                )
+                            } else {
+                                @Suppress("DEPRECATION")
+                                vibrator.vibrate(ms)
+                            }
+                            result.success(null)
+                        }
                     }
                     "restart" -> {
                         result.success(null)

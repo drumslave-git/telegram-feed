@@ -4,6 +4,7 @@ import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../host/haptics.dart';
 import '../feeds/feed_editor_screen.dart';
 import '../feeds/feeds_screen.dart' show FeedsController;
 import '../feeds/mark_read.dart';
@@ -1019,8 +1020,10 @@ class _HomeScreenState extends State<HomeScreen>
                     for (final f in _folders)
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onLongPressStart: (d) =>
-                            _folderMenu(f, d.globalPosition),
+                        onLongPressStart: (d) {
+                          Haptics.longPress();
+                          _folderMenu(f, d.globalPosition);
+                        },
                         child: Tab(
                           // The switch of the Badge counter lives in the feeds' controller.
                           child: ListenableBuilder(

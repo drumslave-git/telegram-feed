@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../host/haptics.dart';
 import '../l10n/l10n.dart';
 import 'post_menu.dart';
 import 'sticker_view.dart';
@@ -409,7 +410,10 @@ class TapOrHoldRecognizer extends TapGestureRecognizer {
     required void Function(Offset at) onHold,
   }) {
     this.onTap = onTap;
-    _hold.onLongPressStart = (d) => onHold(d.globalPosition);
+    _hold.onLongPressStart = (d) {
+      Haptics.longPress();
+      onHold(d.globalPosition);
+    };
   }
   final _hold = LongPressGestureRecognizer();
 

@@ -138,6 +138,7 @@ void main() {
   );
 
   testWidgets('a selection holds a hundred posts and no more', (tester) async {
+    final felt = recordHaptics(tester);
     await open(tester);
     final view = tester.state<TimelineViewState>(find.byType(TimelineView));
     TimelineItem row(int id) =>
@@ -147,13 +148,26 @@ void main() {
     }
     await tester.pump();
     expect(find.text('100 selected'), findsOneWidget);
+    expect(felt, isEmpty);
     view.toggleSelected(row(101));
     await tester.pump();
     expect(find.text('100 selected'), findsOneWidget);
+    // Refused with the long buzz of the official app.
+    expect(felt, ['buzz 200']);
     // One that is picked can still be let go.
     view.toggleSelected(row(1));
     await tester.pump();
     expect(find.text('99 selected'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('the long press that starts a selection is felt', (tester) async {
+    final felt = recordHaptics(tester);
+    await open(tester);
+    await tester.longPress(find.text('second'));
+    await tester.pump();
+    expect(find.text('1 selected'), findsOneWidget);
+    expect(felt, ['vibrate']);
     await unmount(tester);
   });
 

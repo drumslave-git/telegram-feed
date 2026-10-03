@@ -4,6 +4,7 @@ library;
 
 import 'package:app_db/app_db.dart';
 import 'package:fake_telegram/fake_telegram.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -62,4 +63,28 @@ Future<void> settleJump(WidgetTester tester) async {
     );
     await tester.pump(const Duration(milliseconds: 50));
   }
+}
+
+/// Records the vibrations the app asks for until the test ends: Flutter's haptic feedback
+/// by its kind ('vibrate' is Android's long-press feedback) and the activity's own buzz as
+/// 'buzz' with its milliseconds.
+List<String> recordHaptics(WidgetTester tester) {
+  final felt = <String>[];
+  final messenger = tester.binding.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+    if (call.method == 'HapticFeedback.vibrate') {
+      felt.add((call.arguments as String?)?.split('.').last ?? 'vibrate');
+    }
+    return null;
+  });
+  const app = MethodChannel('tf/app');
+  messenger.setMockMethodCallHandler(app, (call) async {
+    if (call.method == 'buzz') felt.add('buzz ${call.arguments}');
+    return null;
+  });
+  addTearDown(() {
+    messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+    messenger.setMockMethodCallHandler(app, null);
+  });
+  return felt;
 }

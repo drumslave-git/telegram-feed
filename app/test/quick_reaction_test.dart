@@ -98,10 +98,13 @@ void main() {
   testWidgets('a double tap sends the thumbs up, and takes it back', (
     tester,
   ) async {
+    final felt = recordHaptics(tester);
     await open(tester);
     final post = find.text('react to me');
     await doubleTap(tester, post);
     expect(gw.reactions, ['-1/3 +$defaultQuickReaction']);
+    // A reaction is felt, as a key of the keyboard is.
+    expect(felt, ['mediumImpact']);
 
     // Telegram reports it as chosen; the next double tap removes it.
     gw.histories[-1] = [

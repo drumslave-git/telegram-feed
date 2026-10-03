@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../host/haptics.dart';
 import '../feeds/media_view.dart' show Downloaded;
 import '../feeds/post_card.dart' show formatTime, peerColor;
 import '../l10n/l10n.dart';
@@ -256,7 +257,10 @@ class ChannelTile extends StatelessWidget {
     if (onMenu == null) return tile;
     // The menu opens under the finger, which a ListTile's own long press cannot report.
     return GestureDetector(
-      onLongPressStart: (d) => onMenu!(d.globalPosition),
+      onLongPressStart: (d) {
+        Haptics.longPress();
+        onMenu!(d.globalPosition);
+      },
       child: tile,
     );
   }

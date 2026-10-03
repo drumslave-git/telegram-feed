@@ -12,6 +12,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../host/haptics.dart';
 import '../home/channel_info_screen.dart';
 import '../home/connection_title.dart';
 import '../l10n/l10n.dart';
@@ -2264,6 +2265,7 @@ class TimelineViewState extends State<TimelineView>
     final key = (item.chatId, post.messageId);
     // A second tap before Telegram answered would undo the first.
     if (_reacting.contains(key)) return;
+    Haptics.reaction();
     _reacting.add(key);
     final shown = _reactionsOf(item) ?? post.reactions;
     setState(
@@ -2358,7 +2360,7 @@ class TimelineViewState extends State<TimelineView>
   void toggleSelected(TimelineItem item) {
     final id = (item.chatId, item.rowId);
     if (!_selected.contains(id) && _selected.length >= maxSelected) {
-      unawaited(HapticFeedback.vibrate());
+      Haptics.refused();
       return;
     }
     setState(() {
@@ -2376,10 +2378,10 @@ class TimelineViewState extends State<TimelineView>
   void startSelection(TimelineItem item) {
     final id = (item.chatId, item.rowId);
     if (!_selected.contains(id) && _selected.length >= maxSelected) {
-      unawaited(HapticFeedback.vibrate());
+      Haptics.refused();
       return;
     }
-    unawaited(HapticFeedback.selectionClick());
+    Haptics.longPress();
     _dragBase = {..._selected};
     _dragAnchor = id;
     setState(() => _selected.add(id));
@@ -2421,7 +2423,7 @@ class TimelineViewState extends State<TimelineView>
     if (picked.length == _selected.length && picked.containsAll(_selected)) {
       return;
     }
-    if (refused) unawaited(HapticFeedback.vibrate());
+    if (refused) Haptics.refused();
     setState(() {
       _selected
         ..clear()

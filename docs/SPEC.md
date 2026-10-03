@@ -75,6 +75,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - A double tap on a post sends my quick reaction; a single tap opens the menu a moment later, once no second tap has come. A reaction shows on the post at once, before Telegram confirms it.
 - I copy a post's text from its menu, and a block of code with the button at its end.
 - A long press on a post starts a selection, and the same finger dragged on picks the posts it passes; taps pick more or let them go. I copy, share or save up to 100 selected posts together.
+- The phone answers my touch as in the official app: a long press that takes hold (a selection, a menu, a link) and a reaction are felt, and a selection that is full refuses one more post with a longer buzz.
 - I open the original post in the official Telegram app.
 - The day of the topmost post floats over the list while I scroll.
 - I set the text size of posts, on top of the phone's own text size; it changes the words of a post, not its counters and buttons. Times and dates follow the phone's own clock and locale.
