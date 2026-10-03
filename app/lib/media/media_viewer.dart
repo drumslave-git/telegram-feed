@@ -10,6 +10,7 @@ import '../feeds/media_view.dart' show Downloaded, pickPhotoSize;
 import '../feeds/post_card.dart' show formatDay;
 import '../l10n/l10n.dart';
 import 'audio_session.dart';
+import '../host/secure_window.dart';
 import 'gallery.dart';
 import 'mini_player.dart';
 import 'swipe_to_close.dart';
@@ -32,8 +33,13 @@ class ViewerDetail {
     required this.date,
     this.caption = '',
     this.postKey = '',
+    this.protected = false,
   });
   final String channel;
+
+  /// The channel protects its content: the picture is not shared or saved, and no
+  /// screenshot is taken of it.
+  final bool protected;
 
   /// Unix seconds of the post.
   final int date;
@@ -223,6 +229,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
   @override
   void dispose() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    unawaited(SecureWindow.release(this));
     MediaViewerScreen.showing.value--;
     _pages.dispose();
     super.dispose();
@@ -436,21 +443,30 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     );
     // Only sharing stands in the bar beside the video's own buttons; the rest is behind
     // the three dots, so that the channel and the day keep their room on a phone.
+    final protected = detail?.protected ?? false;
+    unawaited(SecureWindow.set(this, secure: protected));
+    // A channel that protects its content has neither: only the video's own entries stay
+    // behind the dots.
     List<ViewerAction> menu() => [
-      if (widget.onSave != null)
+      if (widget.onSave != null && !protected)
         ViewerAction(
           l10n.viewerSaveToSavedMessages,
           () => widget.onSave!(_index),
         ),
-      ViewerAction(l10n.viewerSaveToGallery, () => unawaited(_saveToGallery())),
+      if (!protected)
+        ViewerAction(
+          l10n.viewerSaveToGallery,
+          () => unawaited(_saveToGallery()),
+        ),
     ];
     final actions = [
-      IconButton(
-        tooltip: l10n.commonShare,
-        color: Colors.white,
-        icon: const Icon(Icons.share),
-        onPressed: () => unawaited(_share()),
-      ),
+      if (!protected)
+        IconButton(
+          tooltip: l10n.commonShare,
+          color: Colors.white,
+          icon: const Icon(Icons.share),
+          onPressed: () => unawaited(_share()),
+        ),
       ViewerMenu(actions: menu),
     ];
     return Scaffold(

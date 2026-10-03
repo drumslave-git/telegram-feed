@@ -588,18 +588,21 @@ class ViewerMenu extends StatelessWidget {
   final List<ViewerAction> Function() actions;
 
   @override
-  Widget build(BuildContext context) => Theme(
-    data: ThemeData.dark(),
-    child: PopupMenuButton<VoidCallback>(
-      tooltip: context.l10n.commonMore,
-      icon: const Icon(Icons.more_vert, color: Colors.white),
-      onSelected: (selected) => selected(),
-      itemBuilder: (context) => [
-        for (final a in actions())
-          PopupMenuItem(value: a.onSelected, child: Text(a.label)),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) => actions().isEmpty
+      // Nothing to offer: a picture of a channel that protects its content.
+      ? const SizedBox.shrink()
+      : Theme(
+          data: ThemeData.dark(),
+          child: PopupMenuButton<VoidCallback>(
+            tooltip: context.l10n.commonMore,
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onSelected: (selected) => selected(),
+            itemBuilder: (context) => [
+              for (final a in actions())
+                PopupMenuItem(value: a.onSelected, child: Text(a.label)),
+            ],
+          ),
+        );
 }
 
 /// Darkens the top and bottom so the white controls stay readable on bright video.

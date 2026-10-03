@@ -335,6 +335,7 @@
     }
   },
   "postCopyText": "Copy text",
+  "postProtected": "Copying and forwarding is not allowed in this channel.",
   "postSaveToSavedMessages": "Save to Saved Messages",
   "@postSaveToSavedMessages": {
     "description": "Post menu: forwards the post into the account's Saved Messages."

@@ -801,9 +801,14 @@ final class Post {
     this.linkPreview,
     this.forwardedFrom,
     this.replyTo,
+    this.canBeSaved = true,
   });
   final int chatId;
   final int messageId;
+
+  /// False for a post of a channel that protects its content: it may not be copied,
+  /// forwarded, shared or saved, as Telegram says of it.
+  final bool canBeSaved;
 
   /// Unix seconds.
   final int date;

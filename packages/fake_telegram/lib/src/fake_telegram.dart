@@ -225,8 +225,16 @@ final class FakeTelegram extends TimelineGateway {
       ),
       _post(wire.chatId, 1, hoursAgo: 3, text: 'Wire: the bridge is closed.'),
     ];
+    // The archived channel protects its content: nothing of it is copied or saved.
     histories[FakeChats.oldLedger] = [
-      _post(FakeChats.oldLedger, 1, hoursAgo: 900, text: 'The ledger closes.'),
+      _post(
+        FakeChats.oldLedger,
+        1,
+        hoursAgo: 900,
+        text: 'The ledger closes.',
+        media: PhotoMedia(sizes: [_file('photo3.png', 640, 640)]),
+        canBeSaved: false,
+      ),
     ];
     histories[FakeChats.savedMessages] = [
       _post(
@@ -503,7 +511,9 @@ final class FakeTelegram extends TimelineGateway {
     LinkPreview? linkPreview,
     ForwardOrigin? forwardedFrom,
     ReplyTarget? replyTo,
+    bool canBeSaved = true,
   }) => Post(
+    canBeSaved: canBeSaved,
     chatId: chatId,
     messageId: messageId,
     date:

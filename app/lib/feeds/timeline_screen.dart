@@ -24,6 +24,7 @@ import '../widgets/error_state.dart';
 import 'feed_editor_screen.dart';
 import 'open_links.dart';
 import 'post_card.dart';
+import '../host/secure_window.dart';
 import 'read_marker.dart';
 import 'recent_searches.dart';
 import 'saved_position.dart';
@@ -249,21 +250,25 @@ class _TimelineScreenState extends State<TimelineScreen> {
     ),
     title: Text(l10n.timelineSelectedCount(_selected)),
     actions: [
-      IconButton(
-        tooltip: l10n.timelineCopyText,
-        icon: const Icon(Icons.content_copy),
-        onPressed: () => unawaited(_copySelected()),
-      ),
-      IconButton(
-        tooltip: l10n.commonShare,
-        icon: const Icon(Icons.share),
-        onPressed: () => unawaited(_shareSelected()),
-      ),
-      IconButton(
-        tooltip: l10n.timelineSaveToSavedMessages,
-        icon: const Icon(Icons.bookmark_add_outlined),
-        onPressed: () => unawaited(_saveSelected()),
-      ),
+      // A post of a channel that protects its content is not copied, shared or saved, so
+      // a selection that holds one offers none of the three.
+      if (!_picked.any((i) => i.isProtected)) ...[
+        IconButton(
+          tooltip: l10n.timelineCopyText,
+          icon: const Icon(Icons.content_copy),
+          onPressed: () => unawaited(_copySelected()),
+        ),
+        IconButton(
+          tooltip: l10n.commonShare,
+          icon: const Icon(Icons.share),
+          onPressed: () => unawaited(_shareSelected()),
+        ),
+        IconButton(
+          tooltip: l10n.timelineSaveToSavedMessages,
+          icon: const Icon(Icons.bookmark_add_outlined),
+          onPressed: () => unawaited(_saveSelected()),
+        ),
+      ],
       if (widget.savedMessages)
         IconButton(
           tooltip: l10n.commonDelete,
@@ -1824,6 +1829,7 @@ class TimelineViewState extends State<TimelineView>
         // The pictures of one post count among themselves ("2 of 3"), not among the
         // hundreds the feed holds.
         postKey: '${item.chatId}:${item.head.messageId}',
+        protected: item.isProtected,
       ),
   ];
 
@@ -1927,6 +1933,7 @@ class TimelineViewState extends State<TimelineView>
     WidgetsBinding.instance.removeObserver(this);
     _positions.itemPositions.removeListener(_onPositions);
     _stickyHide?.cancel();
+    unawaited(SecureWindow.release(this));
     _stickyDay.dispose();
     _stickyShown.dispose();
     _corner.dispose();
@@ -2036,6 +2043,11 @@ class TimelineViewState extends State<TimelineView>
     List<TimelineItem> items,
   ) {
     final l10n = context.l10n;
+    // A channel that protects its content is not to be captured: while a post of one is
+    // loaded here, no screenshot is taken of the timeline, as in the official app.
+    unawaited(
+      SecureWindow.set(this, secure: items.any((item) => item.isProtected)),
+    );
     return t == null || _opening
         ? const Center(child: CircularProgressIndicator())
         : items.isEmpty && t.chatIds.isEmpty

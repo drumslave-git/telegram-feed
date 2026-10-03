@@ -500,6 +500,10 @@ class AppLocalizationsUk extends AppLocalizations {
   String get postCopyText => 'Копіювати текст';
 
   @override
+  String get postProtected =>
+      'Копіювати та пересилати вміст каналу не дозволено.';
+
+  @override
   String get postSaveToSavedMessages => 'Зберегти до Збереженого';
 
   @override

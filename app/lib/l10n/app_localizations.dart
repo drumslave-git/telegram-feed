@@ -872,6 +872,12 @@ abstract class AppLocalizations {
   /// **'Copy text'**
   String get postCopyText;
 
+  /// No description provided for @postProtected.
+  ///
+  /// In en, this message translates to:
+  /// **'Copying and forwarding is not allowed in this channel.'**
+  String get postProtected;
+
   /// Post menu: forwards the post into the account's Saved Messages.
   ///
   /// In en, this message translates to:

@@ -38,6 +38,9 @@ final class TimelineItem {
   String get text => textPost.text;
 
   List<Post> get allPosts => [head, ...parts];
+
+  /// The channel protects its content: the row may not be copied, shared or saved.
+  bool get isProtected => !head.canBeSaved || parts.any((p) => !p.canBeSaved);
 }
 
 class _Source {

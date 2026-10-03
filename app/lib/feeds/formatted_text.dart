@@ -21,10 +21,15 @@ class FormattedText extends StatefulWidget {
     required this.style,
     this.onOpenLink,
     this.gateway,
+    this.canCopy = true,
   });
   final String text;
   final List<TextEntity> entities;
   final TextStyle style;
+
+  /// False for a post of a channel that protects its content: a block of code then has
+  /// no copy button.
+  final bool canCopy;
 
   /// Links are plain coloured text without it.
   final void Function(String url)? onOpenLink;
@@ -205,7 +210,9 @@ class _FormattedTextState extends State<FormattedText> {
       }
       // The end of a monospace block: its own copy button, as in the official app.
       for (final e in entities) {
-        if (e.kind != TextEntityKind.pre || e.end != to) continue;
+        if (e.kind != TextEntityKind.pre || e.end != to || !widget.canCopy) {
+          continue;
+        }
         spans.add(
           WidgetSpan(
             alignment: PlaceholderAlignment.middle,

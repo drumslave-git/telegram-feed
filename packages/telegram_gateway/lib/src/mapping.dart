@@ -146,6 +146,7 @@ Post post(td.Message m, {ForwardOrigin? forwardedFrom, ReplyTarget? replyTo}) {
     linkPreview: linkPreview(m.content),
     forwardedFrom: forwardedFrom ?? forwardOrigin(m),
     replyTo: replyTo ?? replyTarget(m),
+    canBeSaved: m.canBeSaved,
   );
 }
 

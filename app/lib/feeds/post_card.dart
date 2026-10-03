@@ -253,6 +253,7 @@ class PostCard extends StatelessWidget {
 
   Future<void> _menu(BuildContext context) async {
     final l10n = context.l10n;
+    final protected = item.isProtected;
     final action = await showModalBottomSheet<VoidCallback>(
       context: context,
       showDragHandle: true,
@@ -279,7 +280,7 @@ class PostCard extends StatelessWidget {
                   title: Text(l10n.commonComments),
                   onTap: () => Navigator.pop(context, onOpenThread),
                 ),
-              if (onCopyText != null && item.text.isNotEmpty)
+              if (onCopyText != null && item.text.isNotEmpty && !protected)
                 ListTile(
                   leading: const Icon(Icons.content_copy),
                   title: Text(l10n.postCopyText),
@@ -291,13 +292,13 @@ class PostCard extends StatelessWidget {
                   title: Text(l10n.commonCopyLink),
                   onTap: () => Navigator.pop(context, onCopyLink),
                 ),
-              if (onShare != null)
+              if (onShare != null && !protected)
                 ListTile(
                   leading: const Icon(Icons.share_outlined),
                   title: Text(l10n.commonShare),
                   onTap: () => Navigator.pop(context, onShare),
                 ),
-              if (onSave != null)
+              if (onSave != null && !protected)
                 ListTile(
                   leading: const Icon(Icons.bookmark_add_outlined),
                   title: Text(l10n.postSaveToSavedMessages),
@@ -336,6 +337,13 @@ class PostCard extends StatelessWidget {
                     ),
                   ),
                   onTap: () => Navigator.pop(context, onDelete),
+                ),
+              // Why Copy, Share and Save are missing, in the official app's words.
+              if (protected)
+                ListTile(
+                  leading: const Icon(Icons.lock_outline),
+                  title: Text(l10n.postProtected),
+                  enabled: false,
                 ),
               // Last, behind a line: it leaves the app, and it is the rarest of them.
               if (onOpenInTelegram != null) ...[
@@ -996,6 +1004,7 @@ class _Bubble extends StatelessWidget {
       entities: item.textPost.entities,
       onOpenLink: onOpenLink,
       gateway: gateway,
+      canCopy: !item.isProtected,
       style: TextStyle(
         fontSize: 16,
         height: 1.3,

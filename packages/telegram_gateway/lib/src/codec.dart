@@ -289,6 +289,7 @@ Map<String, Object?> encodePost(Post p) => {
   ],
   'replyCount': p.replyCount,
   'canComment': p.canComment,
+  if (!p.canBeSaved) 'protected': true,
   'entities': _encodeEntities(p.entities),
   'linkPreview': p.linkPreview == null
       ? null
@@ -421,6 +422,7 @@ Comment decodeComment(Map<Object?, Object?> m) => Comment(
 );
 
 Post decodePost(Map<Object?, Object?> m) => Post(
+  canBeSaved: m['protected'] != true,
   chatId: m['chatId'] as int,
   messageId: m['messageId'] as int,
   date: m['date'] as int,

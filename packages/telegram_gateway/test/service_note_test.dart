@@ -74,6 +74,27 @@ void main() {
     }
   });
 
+  test('a post Telegram does not let be saved is protected, and stays so '
+      'across the isolate boundary', () {
+    Post of(bool canBeSaved) => map.post(
+      td.Message.fromJson({
+        '@type': 'message',
+        'id': 7,
+        'chat_id': -1001,
+        'date': 1700000000,
+        'can_be_saved': canBeSaved,
+        'content': {
+          '@type': 'messageText',
+          'text': {'@type': 'formattedText', 'text': 'hello'},
+        },
+      }),
+    );
+    expect(of(true).canBeSaved, isTrue);
+    expect(of(false).canBeSaved, isFalse);
+    expect(decodePost(encodePost(of(false))).canBeSaved, isFalse);
+    expect(decodePost(encodePost(of(true))).canBeSaved, isTrue);
+  });
+
   test('a service note crosses the isolate boundary', () {
     const note = ServiceNote(ServiceKind.pinned, messageId: 42);
     expect(decodeMedia(encodeMedia(note)), note);

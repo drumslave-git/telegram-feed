@@ -10,6 +10,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../app_name.dart';
+import '../host/secure_window.dart';
 import '../l10n/l10n.dart';
 import '../widgets/destructive_button.dart';
 
@@ -176,16 +177,12 @@ class AppLock {
 
   /// While the lock is set the window is secure: the task switcher shows a blank card and
   /// no screenshot can be taken, unless the reader allowed that ([showContent]).
-  Future<void> applyToWindow() async {
-    try {
-      await const MethodChannel('tf/app')
-          .invokeMethod<void>('secure', await enabled && !await showContent);
-    } on MissingPluginException {
-      // No window to tell: a test, or an engine without the app's channels.
-    } on PlatformException catch (e) {
-      debugPrint('lock: window flag: $e');
-    }
-  }
+  Future<void> applyToWindow() async => SecureWindow.set(
+    _windowHolder,
+    secure: await enabled && !await showContent,
+  );
+
+  static const _windowHolder = 'app lock';
 
   static String _salt() {
     final random = Random.secure();

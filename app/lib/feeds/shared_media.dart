@@ -206,6 +206,7 @@ class _SharedMediaTabState extends State<SharedMediaTab>
             date: p.date,
             caption: p.text,
             postKey: '${p.chatId}:${p.messageId}',
+            protected: !p.canBeSaved,
           ),
         ),
       );

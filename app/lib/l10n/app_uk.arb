@@ -129,6 +129,7 @@
   "postDayYearPattern": "d MMMM y",
   "postDayJumpToDate": "{day}. Перейти до дати",
   "postCopyText": "Копіювати текст",
+  "postProtected": "Копіювати та пересилати вміст каналу не дозволено.",
   "postSaveToSavedMessages": "Зберегти до Збереженого",
   "postMinimize": "Згорнути",
   "postAutoplaySettings": "Налаштування автовідтворення та завантаження",

@@ -482,6 +482,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get postCopyText => 'Copy text';
 
   @override
+  String get postProtected =>
+      'Copying and forwarding is not allowed in this channel.';
+
+  @override
   String get postSaveToSavedMessages => 'Save to Saved Messages';
 
   @override
