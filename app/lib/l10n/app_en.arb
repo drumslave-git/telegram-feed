@@ -1907,6 +1907,12 @@
   "@chatSettingsTextSizePreview": {
     "description": "Sample line drawn at the chosen text size."
   },
+  "chatSettingsQuickReaction": "Quick reaction",
+  "chatSettingsQuickReactionInfo": "A double tap on a post sends it.",
+  "postReactionsAll": "All reactions",
+  "@postReactionsAll": {
+    "description": "Screen-reader label of the arrow at the end of the reactions in the post menu, which opens the full list."
+  },
   "chatSettingsTheme": "Theme",
   "chatSettingsThemeSystem": "System",
   "@chatSettingsThemeSystem": {

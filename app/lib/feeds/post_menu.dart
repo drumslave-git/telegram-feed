@@ -112,7 +112,8 @@ class _PostMenu extends StatelessWidget {
             Material(
               color: scheme.surfaceContainerHigh,
               elevation: 6,
-              shape: const StadiumBorder(),
+              // A pill while it is one row, a rounded panel once it has opened.
+              borderRadius: const BorderRadius.all(Radius.circular(26)),
               clipBehavior: Clip.antiAlias,
               child: strip!(close),
             ),

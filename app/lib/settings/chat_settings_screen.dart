@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
 
+import '../feeds/post_card.dart' show defaultQuickReaction, standardReactions;
 import '../feeds/text_scale.dart';
 import '../l10n/l10n.dart';
 import 'settings_tiles.dart';
@@ -57,6 +58,62 @@ class ChatSettingsScreen extends StatelessWidget {
                     ),
                   ),
                 ],
+              );
+            },
+          ),
+          const Divider(),
+          StreamBuilder<String?>(
+            stream: db.watchSetting(SettingKeys.quickReaction),
+            builder: (context, snap) {
+              final quick = (snap.data ?? '').isEmpty
+                  ? defaultQuickReaction
+                  : snap.data!;
+              return ListTile(
+                title: Text(l10n.chatSettingsQuickReaction),
+                subtitle: Text(l10n.chatSettingsQuickReactionInfo),
+                trailing: Text(quick, style: const TextStyle(fontSize: 24)),
+                onTap: () async {
+                  final picked = await showDialog<String>(
+                    context: context,
+                    builder: (context) => SimpleDialog(
+                      title: Text(l10n.chatSettingsQuickReaction),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Wrap(
+                            children: [
+                              for (final e in standardReactions)
+                                InkResponse(
+                                  onTap: () => Navigator.pop(context, e),
+                                  radius: 22,
+                                  child: Container(
+                                    width: 44,
+                                    height: 44,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: e == quick
+                                          ? Theme.of(context)
+                                                .colorScheme
+                                                .primaryContainer
+                                          : null,
+                                    ),
+                                    child: Text(
+                                      e,
+                                      style: const TextStyle(fontSize: 24),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (picked != null) {
+                    await db.setSetting(SettingKeys.quickReaction, picked);
+                  }
+                },
               );
             },
           ),

@@ -193,7 +193,10 @@ void main() {
       () => Future<void>.delayed(const Duration(milliseconds: 30)),
     );
     await tester.pump();
-    await db.close();
+    await tester.pump(const Duration(milliseconds: 1));
+    // After the test: the timeline watches a setting, and the database closes its
+    // streams on the real event loop.
+    addTearDown(db.close);
   });
   testWidgets('the feed editor shows the media of all its channels, filtered', (
     tester,

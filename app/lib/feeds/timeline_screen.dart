@@ -797,6 +797,7 @@ class TimelineViewState extends State<TimelineView>
   /// Read once when the timeline opens and kept up to date by reacting here: watching the
   /// setting would tie every channel timeline to a database stream it otherwise never needs.
   String _quick = defaultQuickReaction;
+  StreamSubscription<String?>? _quickSub;
 
   /// Telegram's read position of every channel (ARCHITECTURE.md 5.4): everything up to it
   /// is read. It moves as the reader reads here, and when the official app or another device
@@ -892,7 +893,17 @@ class TimelineViewState extends State<TimelineView>
     _positions.itemPositions.addListener(_onPositions);
     WidgetsBinding.instance.addObserver(this);
     _readStates = widget.gateway.readUpdates.listen(_onReadState);
-    unawaited(_loadQuickReaction());
+    // The quick reaction is chosen in Chat settings, and may be chosen anew while this
+    // timeline is up underneath.
+    _quickSub = widget.db.watchSetting(SettingKeys.quickReaction).listen((
+      emoji,
+    ) {
+      if (!mounted) return;
+      final next = emoji == null || emoji.isEmpty
+          ? defaultQuickReaction
+          : emoji;
+      if (next != _quick) setState(() => _quick = next);
+    });
     if (widget.channel != null) _pinsLoaded = _loadPinned();
     final feed = widget.feed;
     if (feed == null) {
@@ -2386,12 +2397,20 @@ class TimelineViewState extends State<TimelineView>
     Haptics.reaction();
     _reacting.add(key);
     final shown = _reactionsOf(item) ?? post.reactions;
-    setState(
-      () => _optimistic[key] = (
+    setState(() {
+      _optimistic[key] = (
         post.reactions,
         _toggled(shown, emoji, remove: remove),
-      ),
-    );
+      );
+      // The pill of a reaction that was just set pops, as the official app animates it.
+      if (!remove) _justReacted = (item.chatId, item.rowId, emoji);
+    });
+    if (!remove) {
+      _popEnd?.cancel();
+      _popEnd = Timer(const Duration(milliseconds: 600), () {
+        if (mounted) setState(() => _justReacted = null);
+      });
+    }
     try {
       await widget.gateway.react(
         item.chatId,
@@ -2399,11 +2418,6 @@ class TimelineViewState extends State<TimelineView>
         emoji,
         remove: remove,
       );
-      // The one reacted with last is the one a double tap sends, as in the official app.
-      if (!remove) {
-        if (mounted) setState(() => _quick = emoji);
-        await widget.db.setSetting(SettingKeys.quickReaction, emoji);
-      }
     } on TelegramException catch (e) {
       if (mounted) setState(() => _optimistic.remove(key));
       showTelegramError(messenger, e, what: l10n.timelineReactionFailed);
@@ -2413,6 +2427,13 @@ class TimelineViewState extends State<TimelineView>
   }
 
   final _reacting = <(int, int)>{};
+
+  /// The reaction the reader has just set, for the moment its pill pops: chat, row, emoji.
+  (int, int, String)? _justReacted;
+  Timer? _popEnd;
+
+  /// What each channel lets the account react with, asked once per visit.
+  final _allowedReactions = <int, Future<List<String>>>{};
 
   /// The post each picture in the viewer came from, in the same order as the media.
   List<TimelineItem> _viewerOwners = const [];
@@ -2598,20 +2619,26 @@ class TimelineViewState extends State<TimelineView>
     }
   }
 
-  Future<void> _loadQuickReaction() async {
-    final emoji = await widget.db.setting(SettingKeys.quickReaction);
-    if (mounted && emoji != null && emoji.isNotEmpty) {
-      setState(() => _quick = emoji);
-    }
-  }
-
-  /// Double tap on a post: the quick reaction, added or taken back again. A channel that
-  /// does not allow that emoji says so through Telegram's own answer.
+  /// Double tap on a post: the quick reaction, added or taken back again. In a channel
+  /// that does not allow that emoji it does nothing.
   Future<void> _quickReact(TimelineItem item) async {
     final emoji = _quick;
     final chosen = (_reactionsOf(item) ?? item.reactionPost.reactions).any(
       (r) => r.emoji == emoji && r.chosen,
     );
+    if (!chosen) {
+      // A channel that does not allow this reaction (or any): the double tap does
+      // nothing, as in the official app.
+      final List<String> allowed;
+      try {
+        allowed = await (_allowedReactions[item.chatId] ??= widget.gateway
+            .availableReactions(item.chatId, item.reactionPost.messageId));
+      } on TelegramException {
+        unawaited(_allowedReactions.remove(item.chatId));
+        return;
+      }
+      if (!mounted || !allowed.contains(emoji)) return;
+    }
     await _react(item, emoji, chosen);
   }
 
@@ -2632,6 +2659,8 @@ class TimelineViewState extends State<TimelineView>
     WidgetsBinding.instance.removeObserver(this);
     _positions.itemPositions.removeListener(_onPositions);
     _stickyHide?.cancel();
+    _popEnd?.cancel();
+    unawaited(_quickSub?.cancel());
     unawaited(SecureWindow.release(this));
     _stickyDay.dispose();
     _stickyShown.dispose();
@@ -2866,6 +2895,10 @@ class TimelineViewState extends State<TimelineView>
                 tint: tint,
                 newDay: newDay,
                 firstUnread: id == _firstUnread,
+                pop:
+                    _justReacted != null &&
+                    _justReacted!.$1 == item.chatId &&
+                    _justReacted!.$2 == item.rowId,
               );
               if (!identical(_rowsOf, t)) {
                 _rows.clear();
@@ -2947,6 +2980,12 @@ class TimelineViewState extends State<TimelineView>
                       onOpenChannel: _channelInfoOf(item.chatId),
                       reactions: _reactionsOf(item),
                       onQuickReact: () => unawaited(_quickReact(item)),
+                      justReacted:
+                          _justReacted != null &&
+                              _justReacted!.$1 == item.chatId &&
+                              _justReacted!.$2 == item.rowId
+                          ? _justReacted!.$3
+                          : null,
                       onViewerMedia: _viewerMedia,
                       onMoreViewerMedia: _moreViewerMedia,
                       onViewerDetails: _viewerDetails,
@@ -3029,10 +3068,14 @@ final class _RowInputs {
     required this.tint,
     required this.newDay,
     required this.firstUnread,
+    this.pop = false,
   }) : head = item.head,
        parts = List.of(item.parts),
        minimized = item.minimized;
   final TimelineItem item;
+
+  /// A reaction of this row was just set and its pill is popping.
+  final bool pop;
   final Post head;
   final List<Post> parts;
 
@@ -3066,6 +3109,7 @@ final class _RowInputs {
         photo == o.photo &&
         identical(channel, o.channel) &&
         identical(reactions, o.reactions) &&
+        pop == o.pop &&
         selecting == o.selecting &&
         selected == o.selected &&
         tint == o.tint &&

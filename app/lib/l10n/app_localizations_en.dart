@@ -2455,6 +2455,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatSettingsTextSizePreview => 'A post is drawn at this size.';
 
   @override
+  String get chatSettingsQuickReaction => 'Quick reaction';
+
+  @override
+  String get chatSettingsQuickReactionInfo =>
+      'A double tap on a post sends it.';
+
+  @override
+  String get postReactionsAll => 'All reactions';
+
+  @override
   String get chatSettingsTheme => 'Theme';
 
   @override

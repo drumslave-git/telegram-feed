@@ -4,7 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-39.
+**Current phase:** Parity with the official app. **Next task:** Q-40.
 
 ## Differences from the official app
 
@@ -12,7 +12,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Reactions, menu and comments
 
-- [ ] Q-39 The reaction picker opens to the full list with an arrow, and a reaction animates. The quick reaction is chosen in Settings and stays as chosen; a double tap anywhere on the post sends it, and does nothing when the channel does not allow it.
 - [ ] Q-40 The post menu offers Save to gallery, Save to downloads and Save to music by the post's media, and Report.
 - [ ] Q-41 A comment thread opens at the first unread comment under a divider, marks comments read, loads older comments on scroll, and is titled "N comments".
 - [ ] Q-42 Comments are replied to one by one and show reply quotes, reactions and a menu (Reply, Copy, edit and delete of my own); a comment that failed to send offers Retry and Delete; a discussion that needs joining, restricts me or runs slow mode says so in place of the field.

@@ -3926,6 +3926,24 @@ abstract class AppLocalizations {
   /// **'A post is drawn at this size.'**
   String get chatSettingsTextSizePreview;
 
+  /// No description provided for @chatSettingsQuickReaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick reaction'**
+  String get chatSettingsQuickReaction;
+
+  /// No description provided for @chatSettingsQuickReactionInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'A double tap on a post sends it.'**
+  String get chatSettingsQuickReactionInfo;
+
+  /// Screen-reader label of the arrow at the end of the reactions in the post menu, which opens the full list.
+  ///
+  /// In en, this message translates to:
+  /// **'All reactions'**
+  String get postReactionsAll;
+
   /// No description provided for @chatSettingsTheme.
   ///
   /// In en, this message translates to:

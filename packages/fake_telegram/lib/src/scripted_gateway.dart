@@ -252,7 +252,10 @@ class ChannelsGateway implements TelegramGateway {
       const {};
   @override
   Future<List<String>> availableReactions(int chatId, int messageId) async =>
-      const ['👍', '🔥'];
+      allowedReactions;
+
+  /// What the channels let the account react with; a test may narrow it.
+  List<String> allowedReactions = const ['👍', '🔥'];
   @override
   Future<void> react(
     int chatId,

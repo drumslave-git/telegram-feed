@@ -127,7 +127,7 @@ abstract final class SettingKeys {
   /// between 0.8 and 1.6 ('1.0' by default).
   static const postTextScale = 'appearance.postTextScale';
 
-  /// Emoji a double tap on a post sends; the last one reacted with, a thumbs up at first.
+  /// Emoji a double tap on a post sends, chosen in Chat settings; a thumbs up at first.
   static const quickReaction = 'reactions.quick';
 
   /// The app asks for a PIN when it has rested; 'true' | 'false', default false. The PIN

@@ -173,6 +173,29 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('chat settings: the quick reaction is picked from the list', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app(ChatSettingsScreen(db: db)));
+    await settle(tester);
+    // A thumbs up until another is chosen.
+    expect(find.text('Quick reaction'), findsOneWidget);
+    expect(find.text('👍'), findsOneWidget);
+
+    await tester.tap(find.text('Quick reaction'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('🔥'));
+    await tester.pumpAndSettle();
+    await settle(tester);
+    await tester.runAsync(
+      () async => expect(await db.setting(SettingKeys.quickReaction), '🔥'),
+    );
+    // The row shows the new one.
+    expect(find.text('🔥'), findsOneWidget);
+    expect(find.text('👍'), findsNothing);
+    await unmount(tester);
+  });
+
   testWidgets('chat settings: the theme and the text size of posts', (
     tester,
   ) async {

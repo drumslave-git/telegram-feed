@@ -131,7 +131,7 @@ class ChatPill extends StatelessWidget {
   }
 }
 
-/// What a double tap sends until the reader has reacted with something else.
+/// What a double tap sends until the reader picks another quick reaction in Chat settings.
 const defaultQuickReaction = '\u{1F44D}';
 
 /// One timeline row, looking like a post in the official app, except that the bubble has
@@ -162,6 +162,7 @@ class PostCard extends StatelessWidget {
     this.onOpenReply,
     this.onOpenChannel,
     this.onQuickReact,
+    this.justReacted,
     this.reactions,
     this.onSelect,
     this.onSelectStart,
@@ -209,6 +210,9 @@ class PostCard extends StatelessWidget {
 
   /// Tap on the "Forwarded from" line: opens the original post where the app can.
   final VoidCallback? onOpenForward;
+
+  /// The emoji the reader has just reacted with: its pill pops once.
+  final String? justReacted;
 
   /// Tap on the quote block: jumps to the post this one answers.
   final VoidCallback? onOpenReply;
@@ -375,6 +379,7 @@ class PostCard extends StatelessWidget {
       onOpenReply: onOpenReply,
       onOpenChannel: selecting ? null : onOpenChannel,
       reactions: reactions ?? item.reactionPost.reactions,
+      justReacted: justReacted,
       onQuickReact: onQuickReact,
       onViewerMedia: onViewerMedia,
       onMoreViewerMedia: onMoreViewerMedia,
@@ -938,6 +943,7 @@ class _Bubble extends StatelessWidget {
     required this.onOpenChannel,
     required this.reactions,
     required this.onQuickReact,
+    this.justReacted,
     required this.onViewerMedia,
     required this.onMoreViewerMedia,
     required this.onViewerDetails,
@@ -957,6 +963,7 @@ class _Bubble extends StatelessWidget {
   final VoidCallback? onOpenChannel;
   final List<Reaction> reactions;
   final VoidCallback? onQuickReact;
+  final String? justReacted;
   final List<Media> Function()? onViewerMedia;
   final Future<List<Media>> Function()? onMoreViewerMedia;
   final List<ViewerDetail> Function()? onViewerDetails;
@@ -1148,6 +1155,7 @@ class _Bubble extends StatelessWidget {
                       ReactionPill(
                         reaction: r,
                         gateway: gateway,
+                        pop: r.emoji == justReacted,
                         // The paid reaction costs Stars: it is shown, not sent.
                         onTap: onReact == null || r.emoji == paidReaction
                             ? null
@@ -1296,9 +1304,13 @@ class ReactionPill extends StatelessWidget {
     required this.reaction,
     this.onTap,
     this.gateway,
+    this.pop = false,
   });
   final Reaction reaction;
   final VoidCallback? onTap;
+
+  /// The reader has just set this reaction: the pill swells and settles, once.
+  final bool pop;
 
   /// Loads the sticker of a custom-emoji reaction.
   final TelegramGateway? gateway;
@@ -1355,12 +1367,13 @@ class ReactionPill extends StatelessWidget {
     );
     final tap = onTap;
     if (tap == null) return pill;
+    final shown = pop ? ReactionPop(child: pill) : pill;
     return Semantics(
       button: true,
       child: GestureDetector(
         onTap: tap,
         behavior: HitTestBehavior.opaque,
-        child: pill,
+        child: shown,
       ),
     );
   }
@@ -1514,6 +1527,14 @@ class _ReactionStrip extends StatefulWidget {
 class _ReactionStripState extends State<_ReactionStrip> {
   late final Future<List<String>> _emoji = widget.load();
 
+  /// The arrow was tapped: the strip has become the panel of all reactions.
+  bool _all = false;
+
+  static const _cell = 38.0;
+
+  /// How many cells fit in the strip, the arrow among them.
+  static const _shown = 6;
+
   @override
   Widget build(BuildContext context) => FutureBuilder<List<String>>(
     future: _emoji,
@@ -1542,42 +1563,194 @@ class _ReactionStripState extends State<_ReactionStrip> {
           ),
         );
       }
+      Widget cell(String e) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 6),
+        child: Material(
+          color: widget.chosen.contains(e)
+              ? scheme.primaryContainer
+              : Colors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => widget.onPick(e, widget.chosen.contains(e)),
+            child: SizedBox.square(
+              dimension: _cell,
+              child: Center(
+                child: ReactionGlyph(e, size: 26, gateway: widget.gateway),
+              ),
+            ),
+          ),
+        ),
+      );
+      if (_all) {
+        // Every reaction the channel allows, in rows; more than five rows scroll.
+        return ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 5 * (_cell + 12) + 8),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Wrap(children: [for (final e in emoji) cell(e)]),
+          ),
+        );
+      }
+      // The first few, and the arrow that opens the rest, as in the official app.
+      final few = emoji.length > _shown ? emoji.take(_shown - 1) : emoji;
       return SizedBox(
         height: 56,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          children: [
-            for (final e in emoji)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-                child: Material(
-                  color: widget.chosen.contains(e)
-                      ? scheme.primaryContainer
-                      : Colors.transparent,
-                  shape: const CircleBorder(),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: () => widget.onPick(e, widget.chosen.contains(e)),
-                    child: SizedBox.square(
-                      dimension: 44,
-                      child: Center(
-                        child: ReactionGlyph(
-                          e,
-                          size: 26,
-                          gateway: widget.gateway,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            children: [
+              for (final e in few) cell(e),
+              if (emoji.length > few.length)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 1,
+                    vertical: 6,
+                  ),
+                  child: Material(
+                    color: scheme.surfaceContainerHighest,
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () => setState(() => _all = true),
+                      child: SizedBox.square(
+                        dimension: _cell,
+                        child: Icon(
+                          Icons.expand_more,
+                          semanticLabel: context.l10n.postReactionsAll,
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       );
     },
   );
 }
+
+/// Lets a reaction pill swell and settle once, when the reader has just set it.
+class ReactionPop extends StatefulWidget {
+  const ReactionPop({super.key, required this.child});
+  final Widget child;
+
+  @override
+  State<ReactionPop> createState() => _ReactionPopState();
+}
+
+class _ReactionPopState extends State<ReactionPop>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pop = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 320),
+  )..forward();
+  late final Animation<double> _scale = TweenSequence<double>([
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 1.0,
+        end: 1.3,
+      ).chain(CurveTween(curve: Curves.easeOut)),
+      weight: 40,
+    ),
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 1.3,
+        end: 1.0,
+      ).chain(CurveTween(curve: Curves.easeIn)),
+      weight: 60,
+    ),
+  ]).animate(_pop);
+
+  @override
+  void dispose() {
+    _pop.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      ScaleTransition(scale: _scale, child: widget.child);
+}
+
+/// The reactions Telegram offers everywhere, in its own order: what the quick reaction is
+/// chosen from.
+const standardReactions = [
+  '👍',
+  '👎',
+  '❤',
+  '🔥',
+  '🥰',
+  '👏',
+  '😁',
+  '🤔',
+  '🤯',
+  '😱',
+  '🤬',
+  '😢',
+  '🎉',
+  '🤩',
+  '🤮',
+  '💩',
+  '🙏',
+  '👌',
+  '🕊',
+  '🤡',
+  '🥱',
+  '🥴',
+  '😍',
+  '🐳',
+  '❤‍🔥',
+  '🌚',
+  '🌭',
+  '💯',
+  '🤣',
+  '⚡',
+  '🍌',
+  '🏆',
+  '💔',
+  '🤨',
+  '😐',
+  '🍓',
+  '🍾',
+  '💋',
+  '🖕',
+  '😈',
+  '😴',
+  '😭',
+  '🤓',
+  '👻',
+  '👨‍💻',
+  '👀',
+  '🎃',
+  '🙈',
+  '😇',
+  '😨',
+  '🤝',
+  '✍',
+  '🤗',
+  '🫡',
+  '🎅',
+  '🎄',
+  '☃',
+  '💅',
+  '🤪',
+  '🗿',
+  '🆒',
+  '💘',
+  '🙉',
+  '🦄',
+  '😘',
+  '💊',
+  '🙊',
+  '😎',
+  '👾',
+  '🤷‍♂',
+  '🤷',
+  '🤷‍♀',
+  '😡',
+];
 
 /// The photos and videos of an album in Telegram's mosaic ([layoutAlbum]).
 class AlbumMosaic extends StatelessWidget {

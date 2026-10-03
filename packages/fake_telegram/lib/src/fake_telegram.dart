@@ -1002,6 +1002,14 @@ final class FakeTelegram extends TimelineGateway {
     '❤',
     '🤔',
     if (chatId == FakeChats.harbourTimes) customReaction(_harbourEmoji),
+    // The Gazette allows only the four; the others enough for the arrow to the full list.
+    if (chatId != FakeChats.northfieldGazette) ...[
+      '👏',
+      '😁',
+      '🎉',
+      '😢',
+      '🙏',
+    ],
   ];
 
   @override

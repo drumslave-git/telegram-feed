@@ -2557,6 +2557,16 @@ class AppLocalizationsUk extends AppLocalizations {
       'Текст дописів матиме такий розмір.';
 
   @override
+  String get chatSettingsQuickReaction => 'Швидка реакція';
+
+  @override
+  String get chatSettingsQuickReactionInfo =>
+      'Подвійний дотик залишає її на дописі.';
+
+  @override
+  String get postReactionsAll => 'Усі реакції';
+
+  @override
   String get chatSettingsTheme => 'Тема';
 
   @override

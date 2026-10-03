@@ -139,15 +139,13 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('reacting from the menu makes that emoji the quick one', (
-    tester,
-  ) async {
+  testWidgets('reacting from the menu leaves the quick reaction as it was '
+      'chosen', (tester) async {
     await open(tester);
     await tester.tap(find.text('react to me'));
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
-    // The scripted channel allows a thumbs up and a flame.
-    const flame = 'fire';
+    // The scripted channel allows a thumbs up and a flame; the flame is the other one.
     await tester.tap(
       find
           .byWidgetPredicate(
@@ -162,17 +160,77 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(gw.reactions.length, 1);
-    final chosen = gw.reactions.single.split('+').last;
+    expect(gw.reactions.single, isNot(contains(defaultQuickReaction)));
     expect(
       await tester.runAsync(() => db.setting(SettingKeys.quickReaction)),
-      chosen,
+      isNull,
     );
-    expect(flame, 'fire'); // keeps the intent readable
 
-    // A double tap now uses the same emoji; it shows as the reader's already, so the
-    // double tap takes it back, as in the official app.
+    // A double tap still sends the thumbs up.
     await doubleTap(tester, find.text('react to me'));
-    expect(gw.reactions.last, '-1/3 -$chosen');
+    expect(gw.reactions.last, '-1/3 +$defaultQuickReaction');
+    await unmount(tester);
+  });
+
+  testWidgets('the quick reaction is the one chosen in Chat settings', (
+    tester,
+  ) async {
+    await tester.runAsync(() => db.setSetting(SettingKeys.quickReaction, '🔥'));
+    await open(tester);
+    await doubleTap(tester, find.text('react to me'));
+    expect(gw.reactions, ['-1/3 +🔥']);
+    await unmount(tester);
+  });
+
+  testWidgets('a double tap does nothing where the channel does not allow the '
+      'reaction', (tester) async {
+    gw.allowedReactions = const ['🔥'];
+    await open(tester);
+    await doubleTap(tester, find.text('react to me'));
+    await settle(tester);
+    expect(gw.reactions, isEmpty);
+    expect(find.textContaining(defaultQuickReaction), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('the menu shows the first reactions and an arrow that opens '
+      'them all', (tester) async {
+    gw.allowedReactions = const [
+      '👍', '🔥', '❤', '👏', '😁', '🤔', '🎉', '😢', //
+    ];
+    await open(tester);
+    await tester.tap(find.text('react to me'));
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    // Five and the arrow: the rest waits behind it.
+    expect(find.text('😁'), findsOneWidget);
+    expect(find.text('🤔'), findsNothing);
+    expect(find.byIcon(Icons.expand_more), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.expand_more));
+    await tester.pumpAndSettle();
+    expect(find.text('🤔'), findsOneWidget);
+    expect(find.text('😢'), findsOneWidget);
+    expect(find.byIcon(Icons.expand_more), findsNothing);
+
+    await tester.tap(find.text('😢'));
+    await tester.pumpAndSettle();
+    expect(gw.reactions, ['-1/3 +😢']);
+    await unmount(tester);
+  });
+
+  testWidgets('the pill of a reaction that was just set pops', (tester) async {
+    await open(tester);
+    await doubleTap(tester, find.text('react to me'));
+    // doubleTap settles: the pop has run its course, and is gone a moment later.
+    expect(find.textContaining(defaultQuickReaction), findsOneWidget);
+    await tester.tap(find.text('X 2'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byType(ReactionPop), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump();
+    expect(find.byType(ReactionPop), findsNothing);
     await unmount(tester);
   });
 }
