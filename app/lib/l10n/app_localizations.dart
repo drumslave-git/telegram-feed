@@ -932,6 +932,36 @@ abstract class AppLocalizations {
   /// **'MMMM d, y'**
   String get postDayYearPattern;
 
+  /// Screen-reader label of a photo or video hidden under a spoiler.
+  ///
+  /// In en, this message translates to:
+  /// **'Spoiler. Tap to show'**
+  String get mediaCoverSpoiler;
+
+  /// No description provided for @mediaCoverSensitive.
+  ///
+  /// In en, this message translates to:
+  /// **'18+ content. Tap to show'**
+  String get mediaCoverSensitive;
+
+  /// Label on a covered photo or video with content for adults, and the title of the question asked before it is shown.
+  ///
+  /// In en, this message translates to:
+  /// **'18+'**
+  String get mediaSensitiveLabel;
+
+  /// No description provided for @mediaSensitiveQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'This media may contain sensitive content suitable only for adults. Do you still want to view it?'**
+  String get mediaSensitiveQuestion;
+
+  /// No description provided for @mediaSensitiveView.
+  ///
+  /// In en, this message translates to:
+  /// **'View anyway'**
+  String get mediaSensitiveView;
+
   /// Screen-reader label of the arrow in a quote that shows only its first lines.
   ///
   /// In en, this message translates to:

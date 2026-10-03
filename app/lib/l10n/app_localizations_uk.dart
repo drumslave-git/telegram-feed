@@ -543,6 +543,22 @@ class AppLocalizationsUk extends AppLocalizations {
   String get postDayYearPattern => 'd MMMM y';
 
   @override
+  String get mediaCoverSpoiler => 'Спойлер. Торкніться, щоб показати';
+
+  @override
+  String get mediaCoverSensitive => 'Вміст 18+. Торкніться, щоб показати';
+
+  @override
+  String get mediaSensitiveLabel => '18+';
+
+  @override
+  String get mediaSensitiveQuestion =>
+      'Це медіа може містити матеріали делікатного характеру, призначені лише для дорослих. Ви все ще хочете його переглянути?';
+
+  @override
+  String get mediaSensitiveView => 'Переглянути';
+
+  @override
   String get quoteExpand => 'Показати всю цитату';
 
   @override

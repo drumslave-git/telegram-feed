@@ -4,7 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-32.
+**Current phase:** Parity with the official app. **Next task:** Q-33.
 
 ## Differences from the official app
 
@@ -15,7 +15,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Posts
 
-- [ ] Q-32 Media under a spoiler is blurred until tapped, and sensitive media is covered.
 - [ ] Q-33 A photo or video shows its blurred miniature while it loads, with the loaded size and a cancel.
 - [ ] Q-34 The author's signature stands before the time, a pinned post has the pin icon in its footer, and posts with only emoji are drawn large.
 - [ ] Q-35 The comments bar shows the photos of up to three recent commenters, the exact count and a dot for unread comments.

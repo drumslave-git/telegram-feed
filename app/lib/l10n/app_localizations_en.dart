@@ -523,6 +523,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get postDayYearPattern => 'MMMM d, y';
 
   @override
+  String get mediaCoverSpoiler => 'Spoiler. Tap to show';
+
+  @override
+  String get mediaCoverSensitive => '18+ content. Tap to show';
+
+  @override
+  String get mediaSensitiveLabel => '18+';
+
+  @override
+  String get mediaSensitiveQuestion =>
+      'This media may contain sensitive content suitable only for adults. Do you still want to view it?';
+
+  @override
+  String get mediaSensitiveView => 'View anyway';
+
+  @override
   String get quoteExpand => 'Show the whole quote';
 
   @override

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telegram_feed/feeds/media_cover.dart';
 import 'package:telegram_feed/feeds/media_view.dart';
 import 'package:telegram_feed/media/media_viewer.dart';
 import 'package:telegram_feed/media/video_stage.dart';
@@ -180,6 +181,70 @@ void main() {
     await tester.pump();
     expect(find.byType(Image), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  group('covered media', () {
+    setUp(CoveredMedia.coverAll);
+
+    PhotoMedia photo(MediaCover cover) => PhotoMedia(
+      cover: cover,
+      sizes: [
+        FileRef(
+          id: 30,
+          remoteId: 'c',
+          size: 5,
+          width: 100,
+          height: 100,
+          localPath: pngPath,
+        ),
+      ],
+    );
+
+    testWidgets('a picture under a spoiler is covered where it stands until '
+        'it is tapped', (tester) async {
+      await tester.pumpWidget(host(photo(MediaCover.none)));
+      await tester.pump();
+      final open = tester.getRect(find.byType(PhotoView));
+
+      await tester.pumpWidget(host(photo(MediaCover.spoiler)));
+      await tester.pump();
+      expect(find.byType(CoveredMedia), findsOneWidget);
+      expect(find.byType(BackdropFilter), findsOneWidget);
+      // The picture is there under the cover, in the same place, but not on offer.
+      expect(tester.getRect(find.byType(PhotoView)), open);
+      expect(find.bySemanticsLabel('Spoiler. Tap to show'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('^Photo')), findsNothing);
+
+      await tester.tap(find.byType(CoveredMedia));
+      await tester.pump();
+      expect(find.byType(BackdropFilter), findsNothing);
+      expect(tester.getRect(find.byType(PhotoView)), open);
+
+      // It stays uncovered when the row is built again.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(host(photo(MediaCover.spoiler)));
+      await tester.pump();
+      expect(find.byType(BackdropFilter), findsNothing);
+    });
+
+    testWidgets('content for adults asks before it shows', (tester) async {
+      await tester.pumpWidget(host(photo(MediaCover.sensitive)));
+      await tester.pump();
+      expect(find.text('18+'), findsOneWidget);
+
+      await tester.tap(find.byType(CoveredMedia));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('suitable only for adults'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BackdropFilter), findsOneWidget);
+
+      await tester.tap(find.byType(CoveredMedia));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('View anyway'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BackdropFilter), findsNothing);
+    });
   });
 
   testWidgets('already downloaded photo renders immediately', (tester) async {

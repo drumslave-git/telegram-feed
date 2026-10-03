@@ -128,7 +128,15 @@ Media? previewMedia(td.MessageContent? c) {
 }
 
 Post post(td.Message m, {ForwardOrigin? forwardedFrom, ReplyTarget? replyTo}) {
-  final (text, media) = content(m.content);
+  var (text, media) = content(m.content);
+  // Content for adults is covered whatever else it is, as the official app covers it.
+  if (m.restrictionInfo?.hasSensitiveContent ?? false) {
+    media = switch (media) {
+      final PhotoMedia photo => photo.covered(MediaCover.sensitive),
+      final VideoMedia video => video.covered(MediaCover.sensitive),
+      _ => media,
+    };
+  }
   return Post(
     chatId: m.chatId,
     messageId: m.id,
@@ -489,10 +497,13 @@ List<String> availableEmoji(td.AvailableReactions a) => {
       ?reactionName(r.type),
 }.toList();
 
+MediaCover _spoiler(bool hasSpoiler) =>
+    hasSpoiler ? MediaCover.spoiler : MediaCover.none;
+
 /// Plain text plus media for a message content. Only text and captions are exposed, per SPEC.
 (String, Media?) content(td.MessageContent? c) => switch (c) {
   td.MessageText(:final text) => (text?.text ?? '', null),
-  td.MessagePhoto(:final photo, :final caption) => (
+  td.MessagePhoto(:final photo, :final caption, :final hasSpoiler) => (
     caption?.text ?? '',
     PhotoMedia(
       sizes: [
@@ -501,17 +512,21 @@ List<String> availableEmoji(td.AvailableReactions a) => {
         ))
           fileRef(s.photo!, width: s.width, height: s.height),
       ]..sort((a, b) => a.width.compareTo(b.width)),
+      cover: _spoiler(hasSpoiler),
     ),
   ),
-  td.MessageVideo(:final video, :final caption) when video?.video != null => (
-    caption?.text ?? '',
-    VideoMedia(
-      file: fileRef(video!.video!, width: video.width, height: video.height),
-      durationSeconds: video.duration,
-      thumbnail: thumbRef(video.thumbnail),
+  td.MessageVideo(:final video, :final caption, :final hasSpoiler)
+      when video?.video != null =>
+    (
+      caption?.text ?? '',
+      VideoMedia(
+        file: fileRef(video!.video!, width: video.width, height: video.height),
+        durationSeconds: video.duration,
+        thumbnail: thumbRef(video.thumbnail),
+        cover: _spoiler(hasSpoiler),
+      ),
     ),
-  ),
-  td.MessageAnimation(:final animation, :final caption)
+  td.MessageAnimation(:final animation, :final caption, :final hasSpoiler)
       when animation?.animation != null =>
     (
       caption?.text ?? '',
@@ -524,6 +539,7 @@ List<String> availableEmoji(td.AvailableReactions a) => {
         durationSeconds: animation.duration,
         thumbnail: thumbRef(animation.thumbnail),
         isAnimation: true,
+        cover: _spoiler(hasSpoiler),
       ),
     ),
   td.MessageAudio(:final audio, :final caption) when audio?.audio != null => (

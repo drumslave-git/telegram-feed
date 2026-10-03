@@ -13,6 +13,7 @@ import '../media/media_viewer.dart';
 import '../media/video_downloads.dart';
 import '../media/video_sessions.dart';
 import '../media/video_stage.dart';
+import 'media_cover.dart';
 import 'players.dart';
 import 'sticker_view.dart';
 
@@ -108,6 +109,34 @@ class MediaView extends StatelessWidget {
   Widget build(BuildContext context) {
     final policy = AutoDownloadScope.of(context);
     final l10n = context.l10n;
+    final media = this.media;
+    final view = _view(context, policy, l10n);
+    // A round video message is left as it is: the cover is a rectangle.
+    return switch (media) {
+      PhotoMedia(:final sizes, :final cover) when cover != MediaCover.none =>
+        CoveredMedia(
+          fileId: sizes.isEmpty ? 0 : sizes.last.id,
+          cover: cover,
+          radius: radius,
+          child: view,
+        ),
+      VideoMedia(:final file, :final cover, :final isVideoNote)
+          when cover != MediaCover.none && !isVideoNote =>
+        CoveredMedia(
+          fileId: file.id,
+          cover: cover,
+          radius: radius,
+          child: view,
+        ),
+      _ => view,
+    };
+  }
+
+  Widget _view(
+    BuildContext context,
+    AutoDownloadPolicy policy,
+    AppLocalizations l10n,
+  ) {
     return switch (media) {
       PhotoMedia(:final sizes) => PhotoView(
         file: pickPhotoSize(

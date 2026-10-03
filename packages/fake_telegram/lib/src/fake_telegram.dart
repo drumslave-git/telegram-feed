@@ -460,6 +460,23 @@ final class FakeTelegram extends TimelineGateway {
             ],
             views: 700 + n,
           )
+        else if (n == 12 || n == 11)
+          // A picture under a spoiler, and one that Telegram covers as content for adults.
+          _post(
+            chat,
+            n,
+            hoursAgo: 6 + (16 - n) * 5,
+            text: 'Issue $n: ${_circuitTopics[n % _circuitTopics.length]}',
+            media: PhotoMedia(
+              sizes: [
+                n == 12
+                    ? _file('photo2.png', 480, 640)
+                    : _file('photo3.png', 640, 640),
+              ],
+              cover: n == 12 ? MediaCover.spoiler : MediaCover.sensitive,
+            ),
+            views: 700 + n,
+          )
         else if (n == 15)
           _post(
             chat,

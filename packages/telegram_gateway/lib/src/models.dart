@@ -339,12 +339,20 @@ sealed class Media {
   const Media();
 }
 
+/// Why a picture or a video is covered until the reader taps it: its author put it under
+/// a spoiler, or Telegram marks the post as content for adults.
+enum MediaCover { none, spoiler, sensitive }
+
 final class PhotoMedia extends Media {
-  const PhotoMedia({required this.sizes});
+  const PhotoMedia({required this.sizes, this.cover = MediaCover.none});
 
   /// Ascending by width; pick by target width.
   final List<FileRef> sizes;
+  final MediaCover cover;
   FileRef get largest => sizes.last;
+
+  PhotoMedia covered(MediaCover cover) =>
+      PhotoMedia(sizes: sizes, cover: cover);
 }
 
 final class VideoMedia extends Media {
@@ -354,10 +362,21 @@ final class VideoMedia extends Media {
     this.thumbnail,
     this.isAnimation = false,
     this.isVideoNote = false,
+    this.cover = MediaCover.none,
   });
   final FileRef file;
   final int durationSeconds;
   final FileRef? thumbnail;
+  final MediaCover cover;
+
+  VideoMedia covered(MediaCover cover) => VideoMedia(
+    file: file,
+    durationSeconds: durationSeconds,
+    thumbnail: thumbnail,
+    isAnimation: isAnimation,
+    isVideoNote: isVideoNote,
+    cover: cover,
+  );
 
   /// GIF-like animation (`messageAnimation`).
   final bool isAnimation;

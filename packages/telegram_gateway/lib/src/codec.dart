@@ -154,10 +154,14 @@ SearchPage decodeSearchPage(Map<Object?, Object?> m) => SearchPage(
   nextFromMessageId: m['nextFromMessageId'] as int,
 );
 
+MediaCover _decodeCover(Object? name) =>
+    name == null ? MediaCover.none : MediaCover.values.byName(name as String);
+
 Map<String, Object?> encodeMedia(Media m) => switch (m) {
-  PhotoMedia(:final sizes) => {
+  PhotoMedia(:final sizes, :final cover) => {
     'kind': 'photo',
     'sizes': sizes.map(encodeFileRef).toList(),
+    if (cover != MediaCover.none) 'cover': cover.name,
   },
   VideoMedia(
     :final file,
@@ -165,6 +169,7 @@ Map<String, Object?> encodeMedia(Media m) => switch (m) {
     :final thumbnail,
     :final isAnimation,
     :final isVideoNote,
+    :final cover,
   ) =>
     {
       'kind': 'video',
@@ -173,6 +178,7 @@ Map<String, Object?> encodeMedia(Media m) => switch (m) {
       'thumbnail': _fileOrNull(thumbnail),
       'isAnimation': isAnimation,
       'isVideoNote': isVideoNote,
+      if (cover != MediaCover.none) 'cover': cover.name,
     },
   AudioMedia(
     :final file,
@@ -234,6 +240,7 @@ Media decodeMedia(Map<Object?, Object?> m) => switch (m['kind']) {
     sizes: (m['sizes'] as List)
         .map((e) => decodeFileRef(e as Map<Object?, Object?>))
         .toList(),
+    cover: _decodeCover(m['cover']),
   ),
   'video' => VideoMedia(
     file: decodeFileRef(m['file'] as Map<Object?, Object?>),
@@ -241,6 +248,7 @@ Media decodeMedia(Map<Object?, Object?> m) => switch (m['kind']) {
     thumbnail: _decodeFileOrNull(m['thumbnail']),
     isAnimation: m['isAnimation'] as bool,
     isVideoNote: (m['isVideoNote'] as bool?) ?? false,
+    cover: _decodeCover(m['cover']),
   ),
   'sticker' => StickerMedia(
     file: decodeFileRef(m['file'] as Map<Object?, Object?>),
