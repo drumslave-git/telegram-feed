@@ -49,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   late final _feeds = FeedsController(db: widget.db, gateway: widget.gateway);
   StreamSubscription<PostEvent>? _posts;
+  StreamSubscription<ReadState>? _reads;
   Timer? _reload;
   List<Channel> _channels = const [];
 
@@ -82,6 +83,9 @@ class _HomeScreenState extends State<HomeScreen>
       _reload?.cancel();
       _reload = Timer(const Duration(seconds: 3), _loadChannels);
     });
+    // Reading, here or in the official app, moves the counters of the rows and of the
+    // folder tabs at once.
+    _reads = widget.gateway.readUpdates.listen(_onRead);
     // The tags say which feeds a channel is in: they change with the feeds and with their
     // sources, which the feeds screen and the editor write.
     _tabCtl.addListener(_onTabChanged);
@@ -97,6 +101,7 @@ class _HomeScreenState extends State<HomeScreen>
     _queryCtl.dispose();
     _reload?.cancel();
     _posts?.cancel();
+    _reads?.cancel();
     _tagSources?.cancel();
     _tagFeeds?.cancel();
     _feeds.dispose();
@@ -199,6 +204,17 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       ),
     );
+  }
+
+  void _onRead(ReadState r) {
+    final i = _channels.indexWhere((c) => c.chatId == r.chatId);
+    if (i < 0 || !mounted) return;
+    final c = _channels[i];
+    if (c.unreadCount == r.unreadCount &&
+        c.lastReadMessageId == r.lastReadMessageId) {
+      return;
+    }
+    setState(() => _channels = [..._channels]..[i] = c.withRead(r));
   }
 
   /// The floating button belongs to the Feeds tab, so a change of tab rebuilds it.
@@ -865,13 +881,17 @@ class _HomeScreenState extends State<HomeScreen>
       MaterialPageRoute<void>(
         builder: (context) => Scaffold(
           appBar: AppBar(title: Text(context.l10n.channelsArchive)),
-          body: ChannelList(
+          body: _LiveChannels(
             channels: archived,
-            feedsByChat: _feedTags,
-            gateway: widget.gateway,
-            onOpen: _openChannel,
-            onMenu: _channelMenu,
-            emptyText: context.l10n.channelsArchiveEmpty,
+            reads: widget.gateway.readUpdates,
+            builder: (context, channels) => ChannelList(
+              channels: channels,
+              feedsByChat: _feedTags,
+              gateway: widget.gateway,
+              onOpen: _openChannel,
+              onMenu: _channelMenu,
+              emptyText: context.l10n.channelsArchiveEmpty,
+            ),
           ),
         ),
       ),
@@ -1102,4 +1122,43 @@ class RulesHint extends StatelessWidget {
       },
     );
   }
+}
+
+/// A list of channels whose counters follow the read state while it is on screen.
+class _LiveChannels extends StatefulWidget {
+  const _LiveChannels({
+    required this.channels,
+    required this.reads,
+    required this.builder,
+  });
+  final List<Channel> channels;
+  final Stream<ReadState> reads;
+  final Widget Function(BuildContext, List<Channel>) builder;
+
+  @override
+  State<_LiveChannels> createState() => _LiveChannelsState();
+}
+
+class _LiveChannelsState extends State<_LiveChannels> {
+  late List<Channel> _channels = widget.channels;
+  late final StreamSubscription<ReadState> _sub = widget.reads.listen((r) {
+    final i = _channels.indexWhere((c) => c.chatId == r.chatId);
+    if (i < 0) return;
+    setState(() => _channels = [..._channels]..[i] = _channels[i].withRead(r));
+  });
+
+  @override
+  void initState() {
+    super.initState();
+    _sub; // starts listening
+  }
+
+  @override
+  void dispose() {
+    unawaited(_sub.cancel());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _channels);
 }

@@ -122,6 +122,22 @@ final class Channel {
     lastMessageDate: lastMessageDate,
   );
 
+  /// The same channel after its read state changed.
+  Channel withRead(ReadState r) => Channel(
+    chatId: chatId,
+    title: title,
+    username: username,
+    memberCount: memberCount,
+    photo: photo,
+    isMember: isMember,
+    lastMessageId: r.lastMessageId == 0 ? lastMessageId : r.lastMessageId,
+    lastReadMessageId: r.lastReadMessageId,
+    unreadCount: r.unreadCount,
+    lastMessageText: lastMessageText,
+    lastMessageMedia: lastMessageMedia,
+    lastMessageDate: lastMessageDate,
+  );
+
   @override
   String toString() => 'Channel($chatId, $title)';
 }

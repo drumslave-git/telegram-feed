@@ -401,6 +401,33 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a channel read elsewhere loses its counter at once, on its row '
+      'and on its folder tab', (tester) async {
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.tap(find.text('Work'));
+    await tester.pumpAndSettle();
+    final onFolder = find.descendant(
+      of: find.ancestor(of: find.text('Work'), matching: find.byType(Tab)),
+      matching: find.byType(Badge),
+    );
+    final onRow = find.descendant(
+      of: find.byType(ChannelList),
+      matching: find.text('7'),
+    );
+    expect(onFolder, findsOneWidget);
+    expect(onRow, findsOneWidget);
+
+    gw.readCtl.add(
+      const ReadState(chatId: -2, lastReadMessageId: 200, unreadCount: 0),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(onRow, findsNothing);
+    expect(onFolder, findsNothing);
+    await unmount(tester);
+  });
+
   testWidgets('a folder tab counts the unread posts, or the channels with '
       'unread posts when the switch is off', (tester) async {
     await tester.pumpWidget(app());
