@@ -55,15 +55,17 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// Opens the post's menu and scrolls it to [entry], which sits low in the sheet.
-  Future<void> menuTo(WidgetTester tester, String post, String entry) async {
+  /// Opens the post's menu with a tap, which waits a moment for a second one.
+  Future<void> menu(WidgetTester tester, String post) async {
+    await tester.tap(find.text(post));
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+  }
+
+  /// Starts selecting with a long press on the post.
+  Future<void> select(WidgetTester tester, String post) async {
     await tester.longPress(find.text(post));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text(entry),
-      120,
-      scrollable: find.byType(Scrollable).last,
-    );
   }
 
   Finder inDialog(String text) =>
@@ -75,7 +77,7 @@ void main() {
     await open(tester);
 
     // Cancel keeps it.
-    await menuTo(tester, 'second', 'Delete');
+    await menu(tester, 'second');
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
     expect(inDialog('Delete post'), findsOneWidget);
@@ -88,7 +90,7 @@ void main() {
     expect(gw.deletedSaved, isEmpty);
     expect(find.text('second'), findsOneWidget);
 
-    await menuTo(tester, 'second', 'Delete');
+    await menu(tester, 'second');
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
     await tester.tap(inDialog('Delete'));
@@ -104,9 +106,7 @@ void main() {
     tester,
   ) async {
     await open(tester);
-    await menuTo(tester, 'second', 'Select');
-    await tester.tap(find.text('Select'));
-    await tester.pumpAndSettle();
+    await select(tester, 'second');
     await tester.tap(find.text('first'));
     await tester.pumpAndSettle();
     expect(find.text('2 selected'), findsOneWidget);
@@ -132,13 +132,14 @@ void main() {
   testWidgets('Saved Messages offers no Share, Copy link or Save: a post there '
       'has no link and is saved already', (tester) async {
     await open(tester);
-    await menuTo(tester, 'second', 'Select');
+    await menu(tester, 'second');
     expect(find.text('Copy text'), findsOneWidget);
     expect(find.text('Share'), findsNothing);
     expect(find.text('Copy link'), findsNothing);
     expect(find.text('Save to Saved Messages'), findsNothing);
-    await tester.tap(find.text('Select'));
+    await tester.tapAt(const Offset(10, 10)); // the barrier closes the menu
     await tester.pumpAndSettle();
+    await select(tester, 'second');
     expect(find.byTooltip('Copy text'), findsOneWidget);
     expect(find.byTooltip('Share'), findsNothing);
     expect(find.byTooltip('Save to Saved Messages'), findsNothing);
@@ -162,10 +163,11 @@ void main() {
 
   testWidgets('a channel offers no Delete', (tester) async {
     await open(tester, savedMessages: false);
-    await menuTo(tester, 'second', 'Select');
+    await menu(tester, 'second');
     expect(find.text('Delete'), findsNothing);
-    await tester.tap(find.text('Select'));
+    await tester.tapAt(const Offset(10, 10)); // the barrier closes the menu
     await tester.pumpAndSettle();
+    await select(tester, 'second');
     expect(find.byTooltip('Delete'), findsNothing);
     await unmount(tester);
   });

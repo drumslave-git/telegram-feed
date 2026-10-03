@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +13,7 @@ import 'bubble_text.dart';
 import 'formatted_text.dart';
 import 'link_preview.dart';
 import 'media_view.dart';
+import 'post_menu.dart';
 import 'reaction_glyph.dart';
 import 'text_scale.dart';
 
@@ -160,6 +163,8 @@ class PostCard extends StatelessWidget {
     this.onQuickReact,
     this.reactions,
     this.onSelect,
+    this.onSelectStart,
+    this.onSelectDrag,
     this.onMinimize,
     this.selecting = false,
     this.selected = false,
@@ -215,8 +220,15 @@ class PostCard extends StatelessWidget {
   /// Double tap on the bubble: sends the quick reaction, as the official app does.
   final VoidCallback? onQuickReact;
 
-  /// "Select" in the menu, and every tap while the timeline is selecting.
+  /// Every tap while the timeline is selecting: picks the row, or lets it go.
   final VoidCallback? onSelect;
+
+  /// A long press: the timeline starts selecting with this row, as in the official app.
+  final VoidCallback? onSelectStart;
+
+  /// The finger of that long press moved, to this point of the screen: the rows it passes
+  /// are picked too.
+  final void Function(Offset at)? onSelectDrag;
 
   /// "Minimize" in the menu of a post the feed's filter leaves out, opened from its line:
   /// folds it into that line again.
@@ -245,119 +257,94 @@ class PostCard extends StatelessWidget {
       onShare != null ||
       onCopyLink != null ||
       onCopyText != null ||
-      onSelect != null ||
       onMinimize != null ||
       onSave != null ||
       onDelete != null ||
       availableReactions != null;
 
-  Future<void> _menu(BuildContext context) async {
+  /// The menu, where the post was touched: the reactions in a strip of their own, the
+  /// lines under it.
+  Future<void> _menu(BuildContext context, Offset at) async {
     final l10n = context.l10n;
     final protected = item.isProtected;
-    final action = await showModalBottomSheet<VoidCallback>(
-      context: context,
-      showDragHandle: true,
-      // Scrollable: with the reactions on top the entries do not all fit on a short screen.
-      builder: (context) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (availableReactions != null && onReact != null)
-                _ReactionStrip(
-                  load: availableReactions!,
-                  gateway: gateway,
-                  chosen: {
-                    for (final r in reactions ?? item.reactionPost.reactions)
-                      if (r.chosen) r.emoji,
-                  },
-                  onPick: (emoji, remove) =>
-                      Navigator.pop(context, () => onReact!(emoji, remove)),
-                ),
-              if (onOpenThread != null)
-                ListTile(
-                  leading: const Icon(Icons.forum_outlined),
-                  title: Text(l10n.commonComments),
-                  onTap: () => Navigator.pop(context, onOpenThread),
-                ),
-              if (onCopyText != null && item.text.isNotEmpty && !protected)
-                ListTile(
-                  leading: const Icon(Icons.content_copy),
-                  title: Text(l10n.postCopyText),
-                  onTap: () => Navigator.pop(context, onCopyText),
-                ),
-              if (onCopyLink != null)
-                ListTile(
-                  leading: const Icon(Icons.link),
-                  title: Text(l10n.commonCopyLink),
-                  onTap: () => Navigator.pop(context, onCopyLink),
-                ),
-              if (onShare != null && !protected)
-                ListTile(
-                  leading: const Icon(Icons.share_outlined),
-                  title: Text(l10n.commonShare),
-                  onTap: () => Navigator.pop(context, onShare),
-                ),
-              if (onSave != null && !protected)
-                ListTile(
-                  leading: const Icon(Icons.bookmark_add_outlined),
-                  title: Text(l10n.postSaveToSavedMessages),
-                  onTap: () => Navigator.pop(context, onSave),
-                ),
-              if (onSelect != null)
-                ListTile(
-                  leading: const Icon(Icons.checklist),
-                  title: Text(l10n.commonSelect),
-                  onTap: () => Navigator.pop(context, onSelect),
-                ),
-              if (onMinimize != null)
-                ListTile(
-                  leading: const Icon(Icons.unfold_less),
-                  title: Text(l10n.postMinimize),
-                  onTap: () => Navigator.pop(context, onMinimize),
-                ),
-              if (onAutoplaySettings != null &&
-                  item.allPosts.any((p) => p.media is VideoMedia))
-                ListTile(
-                  leading: const Icon(Icons.play_circle_outline),
-                  title: Text(l10n.postAutoplaySettings),
-                  onTap: () => Navigator.pop(context, onAutoplaySettings),
-                ),
-              // In the error colour, as the official app draws Delete.
-              if (onDelete != null)
-                ListTile(
-                  leading: Icon(
-                    Icons.delete_outline,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                  title: Text(
-                    l10n.commonDelete,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                  onTap: () => Navigator.pop(context, onDelete),
-                ),
-              // Why Copy, Share and Save are missing, in the official app's words.
-              if (protected)
-                ListTile(
-                  leading: const Icon(Icons.lock_outline),
-                  title: Text(l10n.postProtected),
-                  enabled: false,
-                ),
-              // Last, behind a line: it leaves the app, and it is the rarest of them.
-              if (onOpenInTelegram != null) ...[
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.open_in_new),
-                  title: Text(l10n.commonOpenInTelegram),
-                  onTap: () => Navigator.pop(context, onOpenInTelegram),
-                ),
-              ],
-            ],
+    final action = await showPostMenu(
+      context,
+      at: at,
+      strip: availableReactions == null || onReact == null
+          ? null
+          : (close) => _ReactionStrip(
+              load: availableReactions!,
+              gateway: gateway,
+              chosen: {
+                for (final r in reactions ?? item.reactionPost.reactions)
+                  if (r.chosen) r.emoji,
+              },
+              onPick: (emoji, remove) => close(() => onReact!(emoji, remove)),
+            ),
+      entries: [
+        if (onOpenThread != null)
+          PostMenuEntry(
+            icon: Icons.forum_outlined,
+            label: l10n.commonComments,
+            onSelected: onOpenThread,
           ),
-        ),
-      ),
+        if (onCopyText != null && item.text.isNotEmpty && !protected)
+          PostMenuEntry(
+            icon: Icons.content_copy,
+            label: l10n.postCopyText,
+            onSelected: onCopyText,
+          ),
+        if (onCopyLink != null)
+          PostMenuEntry(
+            icon: Icons.link,
+            label: l10n.commonCopyLink,
+            onSelected: onCopyLink,
+          ),
+        if (onShare != null && !protected)
+          PostMenuEntry(
+            icon: Icons.share_outlined,
+            label: l10n.commonShare,
+            onSelected: onShare,
+          ),
+        if (onSave != null && !protected)
+          PostMenuEntry(
+            icon: Icons.bookmark_add_outlined,
+            label: l10n.postSaveToSavedMessages,
+            onSelected: onSave,
+          ),
+        if (onMinimize != null)
+          PostMenuEntry(
+            icon: Icons.unfold_less,
+            label: l10n.postMinimize,
+            onSelected: onMinimize,
+          ),
+        if (onAutoplaySettings != null &&
+            item.allPosts.any((p) => p.media is VideoMedia))
+          PostMenuEntry(
+            icon: Icons.play_circle_outline,
+            label: l10n.postAutoplaySettings,
+            onSelected: onAutoplaySettings,
+          ),
+        // In the error colour, as the official app draws Delete.
+        if (onDelete != null)
+          PostMenuEntry(
+            icon: Icons.delete_outline,
+            label: l10n.commonDelete,
+            onSelected: onDelete,
+            destructive: true,
+          ),
+        // Why Copy, Share and Save are missing, in the official app's words.
+        if (protected)
+          PostMenuEntry(icon: Icons.lock_outline, label: l10n.postProtected),
+        // Last, behind a line: it leaves the app, and it is the rarest of them.
+        if (onOpenInTelegram != null)
+          PostMenuEntry(
+            icon: Icons.open_in_new,
+            label: l10n.commonOpenInTelegram,
+            onSelected: onOpenInTelegram,
+            dividerAbove: true,
+          ),
+      ],
     );
     action?.call();
   }
@@ -402,47 +389,129 @@ class PostCard extends StatelessWidget {
             borderRadius: BorderRadius.all(Radius.circular(14)),
           ),
           clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            // A long press opens the menu. The official app opens it on a tap; here a
-            // plain tap cannot do that and leave room for the double tap that sends the
-            // quick reaction, because the menu would swallow the second tap.
-            onLongPress: _hasMenu ? () => _menu(context) : null,
+          // A tap opens the menu where it landed, as in the official app; two taps in
+          // a row send the quick reaction instead, so the menu waits a moment for the
+          // second one.
+          child: _BubbleTaps(
+            onMenu: _hasMenu && !selecting ? (at) => _menu(context, at) : null,
+            onDoubleTap: selecting ? null : onQuickReact,
             // Every bubble takes the whole row, whatever it holds, so the posts line up.
             child: SizedBox(width: double.infinity, child: bubble),
           ),
         ),
       ),
     );
-    if (!selecting) return card;
-    // While the timeline selects, the row answers nothing but the tap that picks it. The
-    // check sits in a gutter on the left, as the official app does, so it never lies on
-    // the words or the picture it belongs to.
+    final scheme = Theme.of(context).colorScheme;
+    // One detector for both states of the row, so that the long press that starts the
+    // selection is still the one being followed when the row has become a selectable one:
+    // its drag picks the rows the finger passes.
     return Semantics(
-      selected: selected,
+      selected: selecting ? selected : null,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: onSelect,
-        child: ColoredBox(
-          color: selected
-              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
-              : Colors.transparent,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: Icon(
-                  selected ? Icons.check_circle : Icons.radio_button_unchecked,
-                  color: Theme.of(context).colorScheme.primary,
+        // While the timeline selects, the row answers nothing but the tap that picks it.
+        onTap: selecting ? onSelect : null,
+        onLongPressStart: onSelectStart == null
+            ? null
+            : (_) => onSelectStart!(),
+        onLongPressMoveUpdate: onSelectDrag == null
+            ? null
+            : (d) => onSelectDrag!(d.globalPosition),
+        child: !selecting
+            ? card
+            // The check sits in a gutter on the left, as the official app does, so it
+            // never lies on the words or the picture it belongs to.
+            : ColoredBox(
+                color: selected
+                    ? scheme.primary.withValues(alpha: 0.12)
+                    : Colors.transparent,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Icon(
+                        selected
+                            ? Icons.check_circle
+                            : Icons.radio_button_unchecked,
+                        color: scheme.primary,
+                      ),
+                    ),
+                    Expanded(child: IgnorePointer(child: card)),
+                  ],
                 ),
               ),
-              Expanded(child: IgnorePointer(child: card)),
-            ],
-          ),
-        ),
       ),
     );
   }
+}
+
+/// The taps on a bubble: one opens the menu at the point it landed, two in a row send the
+/// quick reaction. The menu waits for the time a second tap may take, as the official app
+/// does when a quick reaction is set; links, pictures, pills and the comments bar inside
+/// the bubble answer their own taps at once and never come here.
+class _BubbleTaps extends StatefulWidget {
+  const _BubbleTaps({
+    required this.onMenu,
+    required this.onDoubleTap,
+    required this.child,
+  });
+  final void Function(Offset at)? onMenu;
+  final VoidCallback? onDoubleTap;
+  final Widget child;
+
+  @override
+  State<_BubbleTaps> createState() => _BubbleTapsState();
+}
+
+class _BubbleTapsState extends State<_BubbleTaps> {
+  /// How long a second tap may take, Android's double-tap timeout.
+  static const _window = Duration(milliseconds: 300);
+  static const _slop = 48.0;
+  Offset _at = Offset.zero;
+  Offset? _first;
+  Timer? _pending;
+
+  @override
+  void dispose() {
+    _pending?.cancel();
+    super.dispose();
+  }
+
+  void _onTap() {
+    final at = _at;
+    final menu = widget.onMenu;
+    final twice = widget.onDoubleTap;
+    if (twice == null) {
+      menu?.call(at);
+      return;
+    }
+    final first = _first;
+    if (_pending != null && first != null && (at - first).distance < _slop) {
+      _pending!.cancel();
+      _pending = null;
+      _first = null;
+      twice();
+      return;
+    }
+    _pending?.cancel();
+    _first = at;
+    _pending = Timer(_window, () {
+      _pending = null;
+      _first = null;
+      if (mounted) menu?.call(at);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      widget.onMenu == null && widget.onDoubleTap == null
+      ? widget.child
+      : InkWell(
+          onTapUp: (d) => _at = d.globalPosition,
+          onTap: _onTap,
+          child: widget.child,
+        );
 }
 
 /// A post the feed's filter leaves out, in a feed that shows such posts minimized: a slim
@@ -868,21 +937,14 @@ class _Bubble extends StatelessWidget {
     final footerUnderCard =
         card != null && !preview!.aboveText && reactions.isEmpty;
 
-    /// The quick reaction is sent by a double tap on the words, and on the pictures of a
-    /// post that has none. A recognizer over the whole bubble would hold the gesture arena
-    /// for 300 ms and make every tap inside it — a reaction pill, the comments bar, a
-    /// picture — answer late.
-    ///
-    /// Over words the second tap is counted by hand ([QuickReactionArea]), because a
-    /// recognizer there would hold every link tap for the same 300 ms. Over pictures the
-    /// recognizer stays: a picture has no links, and without it the first tap would open
-    /// the viewer before the second one could arrive.
+    /// The quick reaction is sent by a double tap. On the words and the rest of the bubble
+    /// the taps are counted by `_BubbleTaps`, which also opens the menu. The pictures of a
+    /// post without words take a recognizer of their own: a picture answers its own tap,
+    /// and without the recognizer the first tap would open the viewer before the second
+    /// one could arrive.
     Widget quickReactable(Widget child) => onQuickReact == null
         ? child
         : GestureDetector(onDoubleTap: onQuickReact, child: child);
-    Widget quickReactableText(Widget child) => onQuickReact == null
-        ? child
-        : QuickReactionArea(onDoubleTap: onQuickReact!, child: child);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -943,11 +1005,9 @@ class _Bubble extends StatelessWidget {
         if (text.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(_side, 6, _side, 6),
-            child: quickReactableText(
-              reactions.isEmpty && !footerUnderCard
-                  ? BubbleText(text: _text(context, text), footer: footer)
-                  : _text(context, text),
-            ),
+            child: reactions.isEmpty && !footerUnderCard
+                ? BubbleText(text: _text(context, text), footer: footer)
+                : _text(context, text),
           ),
         if (card != null && !preview!.aboveText) card,
         if (reactions.isNotEmpty)
@@ -1359,44 +1419,3 @@ String formatDay(DateTime d, {DateTime? now, AppLocalizations? l10n}) {
 }
 
 final AppLocalizations _english = lookupAppLocalizations(const Locale('en'));
-
-/// Counts a double tap without taking the gesture arena, so the links and mentions under
-/// it answer the first tap at once instead of waiting out the double-tap window.
-class QuickReactionArea extends StatefulWidget {
-  const QuickReactionArea({
-    super.key,
-    required this.onDoubleTap,
-    required this.child,
-  });
-  final VoidCallback onDoubleTap;
-  final Widget child;
-
-  @override
-  State<QuickReactionArea> createState() => _QuickReactionAreaState();
-}
-
-class _QuickReactionAreaState extends State<QuickReactionArea> {
-  static const _window = Duration(milliseconds: 320);
-  static const _slop = 40.0;
-  Offset? _lastDown;
-  DateTime? _lastAt;
-
-  void _onDown(PointerDownEvent e) {
-    final now = DateTime.now();
-    final at = _lastAt;
-    if (at != null &&
-        now.difference(at) < _window &&
-        (e.position - _lastDown!).distance < _slop) {
-      _lastAt = null;
-      _lastDown = null;
-      widget.onDoubleTap();
-      return;
-    }
-    _lastAt = now;
-    _lastDown = e.position;
-  }
-
-  @override
-  Widget build(BuildContext context) =>
-      Listener(onPointerDown: _onDown, child: widget.child);
-}

@@ -1857,14 +1857,87 @@ class TimelineViewState extends State<TimelineView>
   @visibleForTesting
   Future<List<Media>> moreViewerMediaForTest() => _moreViewerMedia();
 
+  /// As many posts as one selection holds, as in the official app.
+  static const maxSelected = 100;
+
   /// Picks a row, or lets it go; the screen above follows the count and shows its own bar.
+  /// A row beyond [maxSelected] is refused with a buzz.
   void toggleSelected(TimelineItem item) {
     final id = (item.chatId, item.rowId);
+    if (!_selected.contains(id) && _selected.length >= maxSelected) {
+      unawaited(HapticFeedback.vibrate());
+      return;
+    }
     setState(() {
       if (!_selected.remove(id)) _selected.add(id);
     });
     widget.onSelectionChanged?.call(_selected.length);
   }
+
+  /// The row a long press began on, while its finger is still down, and what was picked
+  /// before it: the drag picks every row between that one and the finger.
+  (int, int)? _dragAnchor;
+  Set<(int, int)> _dragBase = const {};
+
+  /// A long press on a row: the selection starts with it, or takes it in.
+  void startSelection(TimelineItem item) {
+    final id = (item.chatId, item.rowId);
+    if (!_selected.contains(id) && _selected.length >= maxSelected) {
+      unawaited(HapticFeedback.vibrate());
+      return;
+    }
+    unawaited(HapticFeedback.selectionClick());
+    _dragBase = {..._selected};
+    _dragAnchor = id;
+    setState(() => _selected.add(id));
+    widget.onSelectionChanged?.call(_selected.length);
+  }
+
+  /// The finger of that long press is at [at] on the screen: every row from the one it
+  /// began on to the one under it is picked, and going back lets the rows go again.
+  void dragSelection(Offset at) {
+    final anchor = _dragAnchor;
+    final items = _timeline?.items;
+    final box = _listKey.currentContext?.findRenderObject();
+    if (anchor == null || items == null || box is! RenderBox) return;
+    // A row's edges are fractions of the viewport, measured from its bottom.
+    final fromBottom = 1 - box.globalToLocal(at).dy / box.size.height;
+    int? under;
+    for (final p in _positions.itemPositions.value) {
+      if (p.index < items.length &&
+          p.itemLeadingEdge <= fromBottom &&
+          fromBottom <= p.itemTrailingEdge) {
+        under = p.index;
+      }
+    }
+    final from = items.indexWhere((i) => (i.chatId, i.rowId) == anchor);
+    if (under == null || from < 0) return;
+    final picked = {..._dragBase};
+    var refused = false;
+    final step = under >= from ? 1 : -1;
+    for (var i = from; i != under + step; i += step) {
+      final item = items[i];
+      // Lines that are no posts cannot be picked.
+      if (item.head.media is ServiceNote) continue;
+      if (picked.length >= maxSelected) {
+        refused = true;
+        break;
+      }
+      picked.add((item.chatId, item.rowId));
+    }
+    if (picked.length == _selected.length && picked.containsAll(_selected)) {
+      return;
+    }
+    if (refused) unawaited(HapticFeedback.vibrate());
+    setState(() {
+      _selected
+        ..clear()
+        ..addAll(picked);
+    });
+    widget.onSelectionChanged?.call(_selected.length);
+  }
+
+  final _listKey = GlobalKey();
 
   /// In a feed, a post's channel name opens that channel's info, as a name does in the
   /// official app. A channel the account no longer follows has none to show.
@@ -2080,6 +2153,7 @@ class TimelineViewState extends State<TimelineView>
           )
         // Oldest at the top, newest at the bottom, like a chat in Telegram.
         : ScrollablePositionedList.builder(
+            key: _listKey,
             reverse: true,
             // Room under the newest post: index 0 sits at the bottom edge of the screen,
             // where the bubble would otherwise touch the edge (and the gesture bar).
@@ -2231,6 +2305,8 @@ class TimelineViewState extends State<TimelineView>
                       onViewerDetails: _viewerDetails,
                       onViewerSave: widget.savedMessages ? null : _viewerSave,
                       onSelect: () => toggleSelected(item),
+                      onSelectStart: () => startSelection(item),
+                      onSelectDrag: dragSelection,
                       onMinimize: !item.minimized
                           ? null
                           : () => setState(() => _opened.remove(id)),

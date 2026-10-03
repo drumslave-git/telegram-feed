@@ -69,7 +69,8 @@ void main() {
         ),
       ),
     );
-    await tester.longPress(find.text('for members only'));
+    await tester.tap(find.text('for members only'));
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
     expect(find.text('Copy text'), findsNothing);
     expect(find.text('Share'), findsNothing);
@@ -93,7 +94,8 @@ void main() {
         ),
       ),
     );
-    await tester.longPress(find.text('for everyone'));
+    await tester.tap(find.text('for everyone'));
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
     expect(find.text('Copy text'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);

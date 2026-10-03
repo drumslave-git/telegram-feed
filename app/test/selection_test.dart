@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:app_db/app_db.dart';
+import 'package:core/core.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -78,17 +79,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// Enters selection through the menu, as the official app does.
+  /// Enters selection with a long press, as the official app does.
   Future<void> select(WidgetTester tester, String post) async {
     await tester.longPress(find.text(post));
-    await tester.pumpAndSettle();
-    // The sheet scrolls on a short screen, and Select sits under the copy actions.
-    await tester.scrollUntilVisible(
-      find.text('Select'),
-      120,
-      scrollable: find.byType(Scrollable).last,
-    );
-    await tester.tap(find.text('Select'));
     await tester.pumpAndSettle();
   }
 
@@ -112,6 +105,67 @@ void main() {
     await tester.tap(find.byTooltip('Cancel'));
     await tester.pumpAndSettle();
     expect(find.textContaining('selected'), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets(
+    'the finger of the long press picks the posts it is dragged over, '
+    'and lets them go on its way back',
+    (tester) async {
+      await open(tester);
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('first')),
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pumpAndSettle();
+      expect(find.text('1 selected'), findsOneWidget);
+
+      await gesture.moveTo(tester.getCenter(find.text('second')));
+      await tester.pumpAndSettle();
+      expect(find.text('2 selected'), findsOneWidget);
+      await gesture.moveTo(tester.getCenter(find.text('third')));
+      await tester.pumpAndSettle();
+      expect(find.text('3 selected'), findsOneWidget);
+
+      await gesture.moveTo(tester.getCenter(find.text('second')));
+      await tester.pumpAndSettle();
+      expect(find.text('2 selected'), findsOneWidget);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(find.text('2 selected'), findsOneWidget);
+      await unmount(tester);
+    },
+  );
+
+  testWidgets('a selection holds a hundred posts and no more', (tester) async {
+    await open(tester);
+    final view = tester.state<TimelineViewState>(find.byType(TimelineView));
+    TimelineItem row(int id) =>
+        TimelineItem(Post(chatId: -1, messageId: id, date: id, text: 'p$id'));
+    for (var id = 1; id <= TimelineViewState.maxSelected; id++) {
+      view.toggleSelected(row(id));
+    }
+    await tester.pump();
+    expect(find.text('100 selected'), findsOneWidget);
+    view.toggleSelected(row(101));
+    await tester.pump();
+    expect(find.text('100 selected'), findsOneWidget);
+    // One that is picked can still be let go.
+    view.toggleSelected(row(1));
+    await tester.pump();
+    expect(find.text('99 selected'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('the menu has no Select: a long press is how posts are picked', (
+    tester,
+  ) async {
+    await open(tester);
+    await tester.tap(find.text('first'));
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(find.text('Copy text'), findsOneWidget);
+    expect(find.text('Select'), findsNothing);
     await unmount(tester);
   });
 
@@ -235,7 +289,7 @@ void main() {
     await settle(tester);
     // The pictures never arrive, so their spinners never settle.
     await tester.pump(const Duration(milliseconds: 400));
-    await tester.longPress(find.text('three views of the quay'));
+    await tester.tap(find.text('three views of the quay'));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.text('Share'));

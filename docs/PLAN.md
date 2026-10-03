@@ -4,10 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-20.
-
-## Defects
-
+**Current phase:** Parity with the official app. **Next task:** Q-21.
 
 ## Differences from the official app
 
@@ -15,7 +12,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Timeline
 
-- [ ] Q-20 A tap on a post opens the menu as a popup at the touch point, with the reactions strip above it; a long press starts selection and a drag extends it; selection stops at 100 posts.
 - [ ] Q-21 A swipe to the right from anywhere on the screen goes back.
 - [ ] Q-22 Links: a link hidden behind text asks "Do you want to open …?" first; a long press on a link offers Open and Copy link; a hashtag opens a search for it; a phone number offers call and copy; a tap on inline code copies it.
 - [ ] Q-23 The button to the newest posts appears after 100 dp of scrolling towards the newest posts and hides after 100 dp the other way, animated; it is always shown after opening at unread posts, after a jump and when a post arrives.

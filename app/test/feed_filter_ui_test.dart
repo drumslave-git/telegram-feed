@@ -278,7 +278,8 @@ void main() {
       expect(find.text('text-5'), findsOneWidget);
       expect(find.byType(MinimizedPost), findsNWidgets(3));
 
-      await tester.longPress(find.text('text-5'));
+      await tester.tap(find.text('text-5'));
+      await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Minimize'));
       await tester.pumpAndSettle();

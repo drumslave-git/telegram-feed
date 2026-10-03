@@ -140,7 +140,8 @@ void main() {
     tester,
   ) async {
     await open(tester);
-    await tester.longPress(find.text('react to me'));
+    await tester.tap(find.text('react to me'));
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
     // The scripted channel allows a thumbs up and a flame.
     const flame = 'fire';

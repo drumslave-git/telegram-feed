@@ -39,7 +39,10 @@ appId: dev.telegramfeed.telegram_feed
 - waitForAnimationToEnd
 - assertNotVisible: 'Minimized post of Harbour Times: The new lighthouse lamp.*'
 - assertVisible: '(?s).*The new lighthouse lamp is lit tonight.*'
-- longPressOn: '(?s).*The new lighthouse lamp is lit tonight.*'
+# A tap on the words, under the picture, opens the menu.
+- tapOn:
+    text: '(?s).*The new lighthouse lamp is lit tonight.*'
+    point: '50%,84%'
 - tapOn: 'Minimize'
 - waitForAnimationToEnd
 - assertVisible: 'Minimized post of Harbour Times: The new lighthouse lamp.*'

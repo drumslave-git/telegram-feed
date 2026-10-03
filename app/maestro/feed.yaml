@@ -46,7 +46,10 @@ appId: dev.telegramfeed.telegram_feed
     direction: DOWN
     timeout: 30000
     centerElement: true
-- longPressOn: '(?s).*Weekend market.*'
+# A tap on the words opens the menu (a moment later: it waits for a second tap).
+- tapOn:
+    text: '(?s).*Weekend market.*'
+    point: '50%,40%'
 - assertVisible: 'Copy text'
 - assertVisible: 'Copy link'
 - assertVisible: 'Share'
@@ -59,7 +62,10 @@ appId: dev.telegramfeed.telegram_feed
 - assertVisible: '(?s).*Is the fish stall back.*'
 - tapOn: 'Back'
 - waitForAnimationToEnd
-- longPressOn: '(?s).*Weekend market.*'
+# A tap on the words opens the menu (a moment later: it waits for a second tap).
+- tapOn:
+    text: '(?s).*Weekend market.*'
+    point: '50%,40%'
 - tapOn: 'Copy text'
 # The snackbar that confirms the copy lives four seconds, less than a slow emulator's
 # hierarchy dump; the menu closing is what is checked.
