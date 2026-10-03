@@ -119,4 +119,26 @@ void main() {
     expect(state.openLinkForTest('https://t.me/someone-else/1'), isFalse);
     await unmount(tester);
   });
+
+  testWidgets('the timeline of one channel opens such links here too', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, channel: channels.first),
+      ),
+    );
+    await settle(tester);
+    await tester.pumpAndSettle();
+    final state = tester.state<TimelineViewState>(find.byType(TimelineView));
+
+    expect(state.openLinkForTest('https://t.me/c/1446168251/5'), isTrue);
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('the private post'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(state.openLinkForTest('https://t.me/someone-else/1'), isFalse);
+    await unmount(tester);
+  });
 }

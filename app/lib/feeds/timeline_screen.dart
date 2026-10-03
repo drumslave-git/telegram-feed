@@ -749,6 +749,7 @@ class TimelineViewState extends State<TimelineView>
       _photos = {c.chatId: c.photo};
       _marks = {c.chatId: c.lastReadMessageId};
       _setSources([(chatId: c.chatId, title: c.title, username: c.username)]);
+      unawaited(_loadKnown());
       return;
     }
     _sources = widget.db
@@ -774,6 +775,17 @@ class TimelineViewState extends State<TimelineView>
   /// The database keeps titles only; the photos come from Telegram's chat list. Rows show
   /// initials until they are here. The channels themselves stay for the forwarded-from line,
   /// which opens the origin when the account follows it.
+  /// The channels the account follows, for a single channel's timeline: links, the
+  /// forwarded-from line and reply quotes lead to them.
+  Future<void> _loadKnown() async {
+    try {
+      final channels = await widget.gateway.myChannels();
+      if (mounted) _known = {for (final c in channels) c.chatId: c};
+    } on TelegramException {
+      // Links then go to the app that handles them.
+    }
+  }
+
   Future<void> _loadPhotos() async {
     try {
       final channels = await widget.gateway.myChannels();
