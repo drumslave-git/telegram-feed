@@ -936,11 +936,16 @@ class TimelineViewState extends State<TimelineView>
 
   /// Telegram's read position of every source, as it is now. A position only moves
   /// forward, so one the reader has passed here already stays.
+  /// Telegram's own count of the unread posts of each source, as its read state says.
+  final _telegramUnread = <int, int>{};
+
   Future<Map<int, int>> _loadMarks() async {
     final ids = [for (final s in _sourceRows) s.chatId];
     Future<int> of(int chatId) async {
       try {
-        return (await widget.gateway.readState(chatId)).lastReadMessageId;
+        final state = await widget.gateway.readState(chatId);
+        _telegramUnread[chatId] = state.unreadCount;
+        return state.lastReadMessageId;
       } on TelegramException {
         return 0;
       }
@@ -956,6 +961,7 @@ class TimelineViewState extends State<TimelineView>
   /// Telegram moved a read position: the official app, another device, or this reading.
   void _onReadState(ReadState r) {
     if (!mounted || !_titles.containsKey(r.chatId)) return;
+    _telegramUnread[r.chatId] = r.unreadCount;
     if (r.lastReadMessageId <= (_marks[r.chatId] ?? 0)) return;
     setState(() => _marks = {..._marks, r.chatId: r.lastReadMessageId});
   }
@@ -1426,6 +1432,62 @@ class TimelineViewState extends State<TimelineView>
     _dividerSeen = false;
   }
 
+  /// The timeline was rebuilt around its oldest unread post ([_reopenAtOldestUnread]).
+  bool _atOldestUnread = false;
+
+  /// The oldest unread post of the sources: per source the post after its read mark, and
+  /// of those the earliest. A source Telegram has no read mark for is left out.
+  Future<Post?> _oldestUnread() async {
+    Post? oldest;
+    await Future.wait([
+      for (final s in _sourceRows)
+        if ((_marks[s.chatId] ?? 0) > 0 && (_telegramUnread[s.chatId] ?? 0) > 0)
+          widget.gateway
+              .historyAfter(
+                s.chatId,
+                afterMessageId: _marks[s.chatId]!,
+                limit: 1,
+              )
+              .then((after) {
+                if (after.isEmpty) return;
+                final post = after.last;
+                final o = oldest;
+                if (o == null ||
+                    post.date < o.date ||
+                    (post.date == o.date && post.chatId < o.chatId)) {
+                  oldest = post;
+                }
+              }),
+    ]);
+    return oldest;
+  }
+
+  /// Builds the timeline anew around its oldest unread post: that post anchors its own
+  /// channel and the others start at their newest post up to that moment, as for a jump
+  /// to a post. False when no such post is known, and the timeline [t] goes on opening.
+  Future<bool> _reopenAtOldestUnread(FeedTimeline t) async {
+    final first = await _oldestUnread();
+    if (first == null || !mounted || !identical(t, _timeline)) return false;
+    final others = [
+      for (final s in _sourceRows)
+        if (s.chatId != first.chatId) s.chatId,
+    ];
+    final anchors = {
+      if (others.isNotEmpty)
+        ...await anchorsForDate(widget.gateway, others, first.date),
+      first.chatId: first.messageId,
+    };
+    if (!mounted || !identical(t, _timeline)) return false;
+    _focusChat = null;
+    _focusMessage = null;
+    _focusDay = null;
+    _anchors = anchors;
+    _atOldestUnread = true;
+    _timeline = null;
+    _setSources(_sourceRows);
+    return true;
+  }
+
   /// Loads the first rows and decides where the list opens, as the official app opens a
   /// chat: the post a notification asked for; else where the reader left the timeline
   /// scrolled up; else the first unread post under the divider; else the newest post.
@@ -1521,17 +1583,51 @@ class TimelineViewState extends State<TimelineView>
         if (index >= 0 && entering) _markFirstUnread(t);
       }
       if (index < 0) {
-        while (!t.reachedMarks(_marks) &&
-            !t.exhausted &&
-            t.items.length < _openCap) {
-          await t.loadMore();
+        var again = atUnread;
+        if (t.anchored && _atOldestUnread) {
+          // Opened around the oldest unread post: the unread ones are the newer rows, and
+          // a filter may leave the first pages of them out.
+          _atOldestUnread = false;
+          again = true;
+          for (
+            var page = 0;
+            page < 10 &&
+                !t.exhaustedNewer &&
+                (page == 0 || t.firstUnreadIndex(_marks) < 0);
+            page++
+          ) {
+            await t.loadNewer();
+          }
+        } else {
+          // More unread posts than an opening loads: the rows down to the first of them
+          // are not all fetched, the timeline opens around that post, as the official
+          // app loads a chat around its first unread message. A filter shows fewer rows
+          // than Telegram counts posts, so with one the rows are loaded and counted.
+          final far =
+              !t.anchored &&
+              _filter.isEmpty &&
+              t.chatIds.fold(0, (n, id) => n + (_telegramUnread[id] ?? 0)) >
+                  _openCap;
+          Future<void> loadToMarks() async {
+            while (!t.reachedMarks(_marks) &&
+                !t.exhausted &&
+                t.items.length < _openCap) {
+              await t.loadMore();
+            }
+          }
+
+          if (!far) await loadToMarks();
+          if (!t.anchored && (far || !t.reachedMarks(_marks) && !t.exhausted)) {
+            if (await _reopenAtOldestUnread(t)) return;
+          }
+          if (far) await loadToMarks();
         }
         final unread = t.firstUnreadIndex(_marks);
         if (unread < 0) {
           index = 0;
           _initialAlignment = 0;
         } else {
-          _markFirstUnread(t, again: atUnread);
+          _markFirstUnread(t, again: again);
           // The divider sits on top of the first unread row. The list can only be aligned
           // by a row's bottom edge, so the row above it (older, or the footer) is put
           // just below the top of the screen.
@@ -2586,7 +2682,15 @@ class TimelineViewState extends State<TimelineView>
   Widget _cornerButton(BuildContext context) {
     final t = _timeline;
     // Unread posts as Telegram counts them, and the ones that arrived meanwhile.
-    final unread = t == null ? 0 : t.unreadPosts(_marks) + t.pendingNew;
+    var unread = t == null ? 0 : t.unreadPosts(_marks) + t.pendingNew;
+    if (t != null && t.anchored && !t.exhaustedNewer && _filter.isEmpty) {
+      // The rows up to the newest post are not all loaded: Telegram knows how many
+      // there are.
+      unread = math.max(
+        unread,
+        t.chatIds.fold(0, (n, id) => n + (_telegramUnread[id] ?? 0)),
+      );
+    }
     // No `_opening` here: the button would blink away and back every time the feed
     // is rebuilt (a changed filter, another channel).
     final away = t == null || (t.atTop && !t.anchored);

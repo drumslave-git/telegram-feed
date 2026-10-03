@@ -173,6 +173,63 @@ void main() {
     await unmountFixtures(tester);
   });
 
+  testWidgets('more unread posts than an opening loads: the feed opens around '
+      'the first of them without loading all the rest', (tester) async {
+    gw.histories[-1] = fixtureHistory(-1, to: 400, label: 'a', step: 200);
+    final feed = await feedOf(
+      tester,
+      'Far',
+      channels: {-1: 'Alpha'},
+      marks: {-1: 20},
+    );
+    final before = gw.historyCalls;
+    await open(tester, app(feed));
+
+    expect(find.text('Unread posts'), findsOneWidget);
+    expect(divider(tester), lessThan(200));
+    expect(divider(tester), lessThan(top(tester, 'a-21')));
+    expect(top(tester, 'a-20'), lessThan(divider(tester)));
+    expect(find.text('a-400'), findsNothing);
+    // Three hundred and eighty rows would be thirteen pages.
+    expect(gw.historyCalls - before, lessThan(5));
+
+    // The button counts what Telegram counts, not the page that happens to be loaded.
+    final badge = tester.widget<Badge>(find.byType(Badge));
+    final counted = int.parse((badge.label! as Text).data!);
+    expect(counted, greaterThan(350));
+    expect(counted, lessThanOrEqualTo(380));
+
+    // The divider has been seen, so the button goes to the newest post.
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
+    await settleFixtures(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('a-400'), findsOneWidget);
+    await unmountFixtures(tester);
+  });
+
+  testWidgets('two channels with more unread posts than an opening loads open '
+      'at the older of their first unread posts', (tester) async {
+    gw.histories[-1] = fixtureHistory(-1, to: 300, label: 'a', step: 200);
+    gw.histories[-2] = fixtureHistory(
+      -2,
+      to: 300,
+      label: 'b',
+      step: 200,
+      dateOffset: 100,
+    );
+    // Alpha is read further than Beta: Beta's first unread post is the older one.
+    final feed = await feedOf(tester, 'Far two', marks: {-1: 120, -2: 60});
+    await open(tester, app(feed));
+
+    expect(divider(tester), lessThan(200));
+    expect(divider(tester), lessThan(top(tester, 'b-61')));
+    // Alpha's posts of that time are read, and stand among Beta's unread ones.
+    expect(find.text('a-61'), findsOneWidget);
+    expect(top(tester, 'a-61'), lessThan(divider(tester)));
+    expect(find.text('a-62'), findsOneWidget);
+    await unmountFixtures(tester);
+  });
+
   testWidgets('a feed read to its end opens at the newest post', (
     tester,
   ) async {

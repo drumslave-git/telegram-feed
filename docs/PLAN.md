@@ -4,7 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-29.
+**Current phase:** Parity with the official app. **Next task:** Q-74.
 
 ## Differences from the official app
 
@@ -12,7 +12,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Timeline
 
-- [ ] Q-29 A timeline with more than 300 unread rows opens at the first unread post.
 - [ ] Q-74 A channel with a pinned bar opens with its "Unread posts" divider below the bar, not under it.
 
 ### Posts
