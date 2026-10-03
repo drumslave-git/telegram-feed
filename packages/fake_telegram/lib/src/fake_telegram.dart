@@ -445,6 +445,27 @@ final class FakeTelegram extends TimelineGateway {
             hoursAgo: 6 + (16 - n) * 5,
             text: 'Issue $n: ${_circuitTopics[n % _circuitTopics.length]}',
             views: 700 + n,
+            // The newest issue carries link buttons: one alone, then two in a row.
+            buttons: n != 16
+                ? const []
+                : const [
+                    [
+                      UrlButton(
+                        text: 'Read issue 16',
+                        url: 'https://example.org/issues/16',
+                      ),
+                    ],
+                    [
+                      UrlButton(
+                        text: 'Subscribe',
+                        url: 'https://example.org/subscribe',
+                      ),
+                      UrlButton(
+                        text: 'Harbour Times',
+                        url: 'https://t.me/harbourtimes',
+                      ),
+                    ],
+                  ],
           ),
     ];
   }
@@ -534,8 +555,10 @@ final class FakeTelegram extends TimelineGateway {
     ForwardOrigin? forwardedFrom,
     ReplyTarget? replyTo,
     bool canBeSaved = true,
+    List<List<UrlButton>> buttons = const [],
   }) => Post(
     canBeSaved: canBeSaved,
+    buttons: buttons,
     chatId: chatId,
     messageId: messageId,
     date:
@@ -836,6 +859,8 @@ final class FakeTelegram extends TimelineGateway {
       linkPreview: p.linkPreview,
       forwardedFrom: p.forwardedFrom,
       replyTo: p.replyTo,
+
+      buttons: p.buttons,
     );
     history[i] = edited;
     posts.add(PostEdited(edited));

@@ -10,6 +10,30 @@ import '../l10n/l10n.dart';
 import 'post_menu.dart';
 import 'sticker_view.dart';
 
+/// Asks "Do you want to open …?" before a link that does not show where it leads, as the
+/// official app does; true when the reader says yes.
+Future<bool> confirmOpenLink(BuildContext context, String url) async {
+  final l10n = context.l10n;
+  final yes = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(l10n.linkOpenTitle),
+      content: Text(l10n.linkOpenQuestion(url)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n.commonCancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(l10n.commonOpen),
+        ),
+      ],
+    ),
+  );
+  return yes ?? false;
+}
+
 /// A post's text with Telegram's formatting: bold, italic, underline, strikethrough,
 /// monospace, quotes, spoilers (hidden until tapped), links and mentions that open,
 /// hashtags that search and phone numbers that call. Entities may nest and overlap; the
@@ -153,25 +177,7 @@ class FormattedTextState extends State<FormattedText> {
     final open = widget.onOpenLink;
     if (open == null) return;
     if (!hidesTarget(url, shown)) return open(url);
-    final l10n = context.l10n;
-    final yes = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.linkOpenTitle),
-        content: Text(l10n.linkOpenQuestion(url)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(l10n.commonCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(l10n.commonOpen),
-          ),
-        ],
-      ),
-    );
-    if (yes ?? false) open(url);
+    if (await confirmOpenLink(context, url)) open(url);
   }
 
   Future<void> _copy(String text, String said) async {
@@ -404,6 +410,7 @@ class _CopyBlock extends StatelessWidget {
 /// A recognizer for a piece of text that answers a tap and a long press. A span takes one
 /// recognizer only, and its paragraph knows a tap recognizer when it meets one (for the
 /// screen reader's "activate"), so this is a tap recognizer that brings a long press along.
+
 class TapOrHoldRecognizer extends TapGestureRecognizer {
   TapOrHoldRecognizer({
     required VoidCallback onTap,

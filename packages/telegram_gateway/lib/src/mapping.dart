@@ -147,7 +147,22 @@ Post post(td.Message m, {ForwardOrigin? forwardedFrom, ReplyTarget? replyTo}) {
     forwardedFrom: forwardedFrom ?? forwardOrigin(m),
     replyTo: replyTo ?? replyTarget(m),
     canBeSaved: m.canBeSaved,
+    buttons: urlButtons(m.replyMarkup),
   );
+}
+
+/// The link buttons of an inline keyboard, in their rows; a row left with none is dropped.
+List<List<UrlButton>> urlButtons(td.ReplyMarkup? markup) {
+  if (markup is! td.ReplyMarkupInlineKeyboard) return const [];
+  return [
+    for (final row in markup.rows)
+      if (row.any((b) => b.type is td.InlineKeyboardButtonTypeUrl))
+        [
+          for (final b in row)
+            if (b.type case td.InlineKeyboardButtonTypeUrl(:final url))
+              UrlButton(text: b.text, url: url),
+        ],
+  ];
 }
 
 /// A sticker on its own (custom emoji), null when TDLib sent no file with it.

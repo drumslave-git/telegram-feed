@@ -290,6 +290,13 @@ Map<String, Object?> encodePost(Post p) => {
   'replyCount': p.replyCount,
   'canComment': p.canComment,
   if (!p.canBeSaved) 'protected': true,
+  if (p.buttons.isNotEmpty)
+    'buttons': [
+      for (final row in p.buttons)
+        [
+          for (final b in row) {'text': b.text, 'url': b.url},
+        ],
+    ],
   'entities': _encodeEntities(p.entities),
   'linkPreview': p.linkPreview == null
       ? null
@@ -423,6 +430,16 @@ Comment decodeComment(Map<Object?, Object?> m) => Comment(
 
 Post decodePost(Map<Object?, Object?> m) => Post(
   canBeSaved: m['protected'] != true,
+  buttons: [
+    for (final row in (m['buttons'] as List?) ?? const [])
+      [
+        for (final b in row as List)
+          UrlButton(
+            text: (b as Map)['text'] as String,
+            url: b['url'] as String,
+          ),
+      ],
+  ],
   chatId: m['chatId'] as int,
   messageId: m['messageId'] as int,
   date: m['date'] as int,

@@ -383,27 +383,37 @@ class PostCard extends StatelessWidget {
     );
     // The bubble has the row to itself: the channel's photo sits in its title line and
     // sharing is in the menu, so nothing beside it takes width from text and pictures.
+    final buttons = item.allPosts
+        .map((p) => p.buttons)
+        .firstWhere((b) => b.isNotEmpty, orElse: () => const []);
     final card = Padding(
       padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Material(
-          color: colors.bubble,
-          elevation: 0.5,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(14)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: colors.bubble,
+            elevation: 0.5,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(14)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            // A tap opens the menu where it landed, as in the official app; two taps in
+            // a row send the quick reaction instead, so the menu waits a moment for the
+            // second one.
+            child: _BubbleTaps(
+              onMenu: _hasMenu && !selecting
+                  ? (at) => _menu(context, at)
+                  : null,
+              onDoubleTap: selecting ? null : onQuickReact,
+              // Every bubble takes the whole row, whatever it holds, so the posts line up.
+              child: SizedBox(width: double.infinity, child: bubble),
+            ),
           ),
-          clipBehavior: Clip.antiAlias,
-          // A tap opens the menu where it landed, as in the official app; two taps in
-          // a row send the quick reaction instead, so the menu waits a moment for the
-          // second one.
-          child: _BubbleTaps(
-            onMenu: _hasMenu && !selecting ? (at) => _menu(context, at) : null,
-            onDoubleTap: selecting ? null : onQuickReact,
-            // Every bubble takes the whole row, whatever it holds, so the posts line up.
-            child: SizedBox(width: double.infinity, child: bubble),
-          ),
-        ),
+          if (buttons.isNotEmpty)
+            PostButtons(rows: buttons, onOpenLink: onOpenLink),
+        ],
       ),
     );
     final scheme = Theme.of(context).colorScheme;
@@ -447,6 +457,96 @@ class PostCard extends StatelessWidget {
                 ),
               ),
       ),
+    );
+  }
+}
+
+/// The link buttons a channel puts under a post, as the official app draws them: rows of
+/// see-through dark buttons as wide as the bubble, each with the arrow of a link in its
+/// corner. A tap asks before it opens the link, since the button does not show where it
+/// leads; a link into Telegram opens at once.
+class PostButtons extends StatelessWidget {
+  const PostButtons({super.key, required this.rows, required this.onOpenLink});
+  final List<List<UrlButton>> rows;
+  final void Function(String url)? onOpenLink;
+
+  Future<void> _open(BuildContext context, UrlButton button) async {
+    final open = onOpenLink;
+    if (open == null) return;
+    if (!FormattedTextState.hidesTarget(button.url, button.text)) {
+      return open(button.url);
+    }
+    if (await confirmOpenLink(context, button.url)) open(button.url);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = ChatColors.of(context);
+    return Column(
+      children: [
+        for (final row in rows)
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (i, button) in row.indexed) ...[
+                    if (i > 0) const SizedBox(width: 3),
+                    Expanded(
+                      child: Semantics(
+                        button: true,
+                        link: true,
+                        child: Material(
+                          color: colors.pill,
+                          borderRadius: BorderRadius.circular(8),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: onOpenLink == null
+                                ? null
+                                : () => unawaited(_open(context, button)),
+                            child: Stack(
+                              children: [
+                                Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 11,
+                                    ),
+                                    child: Text(
+                                      button.text,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: colors.onPill,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: Icon(
+                                    Icons.north_east,
+                                    size: 11,
+                                    color: colors.onPill,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

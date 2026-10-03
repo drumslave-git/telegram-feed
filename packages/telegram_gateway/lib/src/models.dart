@@ -789,6 +789,23 @@ final class TextEntity {
 }
 
 /// One channel post.
+/// A button under a post that opens [url].
+final class UrlButton {
+  const UrlButton({required this.text, required this.url});
+  final String text;
+  final String url;
+
+  @override
+  bool operator ==(Object other) =>
+      other is UrlButton && other.text == text && other.url == url;
+
+  @override
+  int get hashCode => Object.hash(text, url);
+
+  @override
+  String toString() => 'UrlButton($text, $url)';
+}
+
 final class Post {
   const Post({
     required this.chatId,
@@ -808,9 +825,14 @@ final class Post {
     this.forwardedFrom,
     this.replyTo,
     this.canBeSaved = true,
+    this.buttons = const [],
   });
   final int chatId;
   final int messageId;
+
+  /// The buttons under the post that open a link, row by row as the channel laid them
+  /// out. Buttons of other kinds talk to a bot and are left out.
+  final List<List<UrlButton>> buttons;
 
   /// False for a post of a channel that protects its content: it may not be copied,
   /// forwarded, shared or saved, as Telegram says of it.
