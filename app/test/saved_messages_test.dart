@@ -129,6 +129,37 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('Saved Messages offers no Share, Copy link or Save: a post there '
+      'has no link and is saved already', (tester) async {
+    await open(tester);
+    await menuTo(tester, 'second', 'Select');
+    expect(find.text('Copy text'), findsOneWidget);
+    expect(find.text('Share'), findsNothing);
+    expect(find.text('Copy link'), findsNothing);
+    expect(find.text('Save to Saved Messages'), findsNothing);
+    await tester.tap(find.text('Select'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Copy text'), findsOneWidget);
+    expect(find.byTooltip('Share'), findsNothing);
+    expect(find.byTooltip('Save to Saved Messages'), findsNothing);
+    expect(find.byTooltip('Delete'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('a post saved meanwhile appears without reopening the screen', (
+    tester,
+  ) async {
+    await open(tester);
+    expect(find.text('fourth'), findsNothing);
+    gw.arrive(
+      const Post(chatId: saved, messageId: 4, date: 400, text: 'fourth'),
+    );
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('fourth'), findsOneWidget);
+    await unmount(tester);
+  });
+
   testWidgets('a channel offers no Delete', (tester) async {
     await open(tester, savedMessages: false);
     await menuTo(tester, 'second', 'Select');

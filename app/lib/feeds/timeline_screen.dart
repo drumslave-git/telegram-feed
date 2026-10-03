@@ -258,16 +258,18 @@ class _TimelineScreenState extends State<TimelineScreen> {
           icon: const Icon(Icons.content_copy),
           onPressed: () => unawaited(_copySelected()),
         ),
-        IconButton(
-          tooltip: l10n.commonShare,
-          icon: const Icon(Icons.share),
-          onPressed: () => unawaited(_shareSelected()),
-        ),
-        IconButton(
-          tooltip: l10n.timelineSaveToSavedMessages,
-          icon: const Icon(Icons.bookmark_add_outlined),
-          onPressed: () => unawaited(_saveSelected()),
-        ),
+        if (!widget.savedMessages) ...[
+          IconButton(
+            tooltip: l10n.commonShare,
+            icon: const Icon(Icons.share),
+            onPressed: () => unawaited(_shareSelected()),
+          ),
+          IconButton(
+            tooltip: l10n.timelineSaveToSavedMessages,
+            icon: const Icon(Icons.bookmark_add_outlined),
+            onPressed: () => unawaited(_saveSelected()),
+          ),
+        ],
       ],
       if (widget.savedMessages)
         IconButton(
@@ -2189,12 +2191,16 @@ class TimelineViewState extends State<TimelineView>
                       channelPhoto: _photos[item.chatId],
                       gateway: widget.gateway,
                       onOpenInTelegram: () => _openInTelegram(item),
-                      onShare: () => _share(item),
-                      onCopyLink: () => _copyLink(item),
+                      // A post in Saved Messages has no link of its own and is
+                      // saved already, so neither is offered there.
+                      onShare: widget.savedMessages ? null : () => _share(item),
+                      onCopyLink: widget.savedMessages
+                          ? null
+                          : () => _copyLink(item),
                       onCopyText: item.text.isEmpty
                           ? null
                           : () => _copyText(item),
-                      onSave: () => _save(item),
+                      onSave: widget.savedMessages ? null : () => _save(item),
                       onDelete: widget.savedMessages
                           ? () => unawaited(deletePosts([item]))
                           : null,
@@ -2220,7 +2226,7 @@ class TimelineViewState extends State<TimelineView>
                       onViewerMedia: _viewerMedia,
                       onMoreViewerMedia: _moreViewerMedia,
                       onViewerDetails: _viewerDetails,
-                      onViewerSave: _viewerSave,
+                      onViewerSave: widget.savedMessages ? null : _viewerSave,
                       onSelect: () => toggleSelected(item),
                       onMinimize: !item.minimized
                           ? null

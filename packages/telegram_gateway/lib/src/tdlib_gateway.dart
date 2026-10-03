@@ -112,7 +112,15 @@ final class TdlibGateway implements TelegramGateway {
         if (message == null) return;
         if (_openThreads.contains((message.chatId, map.threadIdOf(message)))) {
           _commentCtl.add(map.comment(message, await _sender(message)));
-        } else if (_isChannelChat(message.chatId)) {
+        } else if (_isChannelChat(message.chatId) ||
+            // Saved Messages too, once Telegram has the post: one still being sent
+            // changes its id when it arrives.
+            (message.chatId == _myId && message.sendingState == null)) {
+          _postCtl.add(PostAdded(await _post(message)));
+        }
+      case td.UpdateMessageSendSucceeded(:final message):
+        // A post saved to Saved Messages has arrived there: its timeline shows it.
+        if (message != null && message.chatId == _myId) {
           _postCtl.add(PostAdded(await _post(message)));
         }
       case td.UpdateMessageContent(:final chatId, :final messageId):

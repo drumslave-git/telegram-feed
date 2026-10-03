@@ -790,6 +790,56 @@ void main() {
     },
   );
 
+  test('a post saved to Saved Messages reaches its timeline once Telegram has '
+      'it', () async {
+    t.handlers['getMe'] = (_) => {
+      '@type': 'user',
+      'id': 42,
+      'first_name': 'Ann',
+    };
+    t.handlers['createPrivateChat'] = (r) =>
+        chatJson(r['user_id'] as int, 'Saved Messages');
+    await g.savedMessages();
+    t.update({
+      '@type': 'updateNewChat',
+      'chat': chatJson(-1001, 'News', supergroupId: 1),
+    });
+    t.update({'@type': 'updateNewChat', 'chat': chatJson(42, 'Me')});
+    t.update({'@type': 'updateNewChat', 'chat': chatJson(7, 'Bob')});
+
+    final events = <PostEvent>[];
+    final sub = g.postEvents.listen(events.add);
+    // Still on its way: the id is a temporary one.
+    t.update({
+      '@type': 'updateNewMessage',
+      'message': {
+        ...messageJson(42, 900, text: 'saved'),
+        'sending_state': {'@type': 'messageSendingStatePending'},
+      },
+    });
+    // Another private chat is none of the app's business.
+    t.update({'@type': 'updateNewMessage', 'message': messageJson(7, 5)});
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(events, isEmpty);
+
+    t.update({
+      '@type': 'updateMessageSendSucceeded',
+      'message': messageJson(42, 901, text: 'saved'),
+      'old_message_id': 900,
+    });
+    // Saved on another device: it arrives as a message of its own.
+    t.update({
+      '@type': 'updateNewMessage',
+      'message': messageJson(42, 902, text: 'from the phone'),
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await sub.cancel();
+    expect(
+      [for (final e in events) (e as PostAdded).post.messageId],
+      [901, 902],
+    );
+  });
+
   test('deleteFromSavedMessages deletes in the chat with self, and the update '
       'reaches its timeline', () async {
     t.handlers['getMe'] = (_) => {

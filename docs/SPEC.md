@@ -144,7 +144,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - I open the comments of a post and reply, when the channel has a discussion group. A comment shows its photo, video, sticker, voice message or file.
 - I share a post or copy its link.
 - A channel that protects its content keeps it: its posts offer no Copy text, Share, Save to Saved Messages or Save to gallery, the menu says that copying and forwarding is not allowed, and no screenshot can be taken of a timeline or a viewer that shows them. The link to such a post can still be copied.
-- I save a post, with its whole album, to my Saved Messages, and read Saved Messages in the app from Settings. There I delete posts, one from its menu or several selected, after confirming, as in the official app.
+- I save a post, with its whole album, to my Saved Messages, and read Saved Messages in the app from Settings. There I delete posts, one from its menu or several selected, after confirming, as in the official app; a post there is not shared, linked to or saved again, and one saved while the screen is open appears in it.
 
 ### Accounts and security
 
