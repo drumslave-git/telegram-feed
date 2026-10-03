@@ -352,6 +352,10 @@
   },
   "threadSend": "Send",
   "threadLoadOlder": "Load older comments",
+  "threadUnreadDivider": "Unread comments",
+  "@threadUnreadDivider": {
+    "description": "Divider above the first comment that came after the thread was last read."
+  },
   "threadDiscussionStarted": "Discussion started",
   "@threadDiscussionStarted": {
     "description": "Pill above the first comment of a thread."

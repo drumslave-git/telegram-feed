@@ -1089,6 +1089,19 @@ final class FakeTelegram extends TimelineGateway {
   @override
   Stream<Comment> get comments => _commentsCtl.stream;
 
+  /// How far each thread has been read, by post; a thread starts read up to its first
+  /// comment.
+  final _threadRead = <(int, int), int>{};
+
+  @override
+  Future<void> markCommentsViewed(Thread thread, List<int> messageIds) async {
+    await super.markCommentsViewed(thread, messageIds);
+    if (messageIds.isEmpty) return;
+    final key = (thread.postChatId, thread.postMessageId);
+    final newest = messageIds.reduce((a, b) => a > b ? a : b);
+    if (newest > (_threadRead[key] ?? 1)) _threadRead[key] = newest;
+  }
+
   @override
   Future<Thread?> discussion(int chatId, int messageId) async {
     final post = histories[chatId]
@@ -1123,6 +1136,10 @@ final class FakeTelegram extends TimelineGateway {
       postChatId: chatId,
       postMessageId: messageId,
       replyCount: _threads[key]!.length,
+      lastReadId: _threadRead[key] ?? 1,
+      unreadCount: _threads[key]!
+          .where((c) => c.messageId > (_threadRead[key] ?? 1))
+          .length,
     );
   }
 

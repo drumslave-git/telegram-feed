@@ -508,6 +508,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get threadLoadOlder => 'Load older comments';
 
   @override
+  String get threadUnreadDivider => 'Unread comments';
+
+  @override
   String get threadDiscussionStarted => 'Discussion started';
 
   @override

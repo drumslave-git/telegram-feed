@@ -174,6 +174,10 @@ abstract interface class TelegramGateway {
   /// official app's "Save to Saved Messages" does: with the channel as its source.
   Future<void> saveToSavedMessages(int chatId, List<int> messageIds);
 
+  /// Tells Telegram that the comments [messageIds] of [thread] were on the screen, which
+  /// moves the thread's read position as the official app does.
+  Future<void> markCommentsViewed(Thread thread, List<int> messageIds);
+
   /// Reports posts of a channel to Telegram's moderators, one step at a time as Telegram
   /// asks: the first call brings the reasons to choose from, the next ones carry the
   /// chosen [optionId] (and the [text] it asked for) until the answer is [ReportDone].

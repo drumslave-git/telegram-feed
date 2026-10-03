@@ -792,7 +792,15 @@ final class Thread {
     required this.postChatId,
     required this.postMessageId,
     required this.replyCount,
+    this.lastReadId = 0,
+    this.unreadCount = 0,
   });
+
+  /// The newest comment the account has read; 0 when it never opened the thread.
+  final int lastReadId;
+
+  /// How many comments are newer than [lastReadId], as Telegram counts them.
+  final int unreadCount;
 
   /// The discussion group chat.
   final int chatId;

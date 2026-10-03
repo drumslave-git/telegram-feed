@@ -235,6 +235,13 @@ class ChannelsGateway implements TelegramGateway {
   Future<List<Post>> mediaCalendar(int chatId, {int fromMessageId = 0}) async =>
       const [];
 
+  /// The comments the app reported as seen, as `thread:ids`, in the order of the calls.
+  final commentsViewed = <String>[];
+
+  @override
+  Future<void> markCommentsViewed(Thread thread, List<int> messageIds) async =>
+      commentsViewed.add('${thread.threadId}:${messageIds.join(',')}');
+
   /// The reports that reached "Telegram", as `chat/ids option text`.
   final reports = <String>[];
 

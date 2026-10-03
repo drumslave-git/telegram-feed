@@ -208,6 +208,8 @@ final class HistoryGateway implements TelegramGateway {
   Future<List<Post>> mediaCalendar(int chatId, {int fromMessageId = 0}) async =>
       const [];
   @override
+  Future<void> markCommentsViewed(Thread thread, List<int> messageIds) async {}
+  @override
   Future<ReportStep> report(
     int chatId,
     List<int> messageIds, {

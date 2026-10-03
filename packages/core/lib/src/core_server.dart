@@ -359,6 +359,11 @@ final class CoreServer {
           'totalCount': page.totalCount,
           'nextOffset': page.nextOffset,
         };
+      case 'markCommentsViewed':
+        await gateway.markCommentsViewed(
+          decodeThread(a['thread'] as Map<Object?, Object?>),
+          (a['messageIds'] as List).cast<int>(),
+        );
       case 'report':
         return encodeReportStep(
           await gateway.report(

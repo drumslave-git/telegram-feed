@@ -528,6 +528,9 @@ class AppLocalizationsUk extends AppLocalizations {
   String get threadLoadOlder => 'Завантажити старіші коментарі';
 
   @override
+  String get threadUnreadDivider => 'Непрочитані коментарі';
+
+  @override
   String get threadDiscussionStarted => 'Початок обговорення';
 
   @override

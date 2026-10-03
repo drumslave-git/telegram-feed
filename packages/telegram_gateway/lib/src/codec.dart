@@ -515,6 +515,8 @@ Map<String, Object?> encodeThread(Thread t) => {
   'postChatId': t.postChatId,
   'postMessageId': t.postMessageId,
   'replyCount': t.replyCount,
+  'lastReadId': t.lastReadId,
+  'unreadCount': t.unreadCount,
 };
 
 Thread decodeThread(Map<Object?, Object?> m) => Thread(
@@ -523,6 +525,8 @@ Thread decodeThread(Map<Object?, Object?> m) => Thread(
   postChatId: m['postChatId'] as int,
   postMessageId: m['postMessageId'] as int,
   replyCount: m['replyCount'] as int,
+  lastReadId: (m['lastReadId'] as int?) ?? 0,
+  unreadCount: (m['unreadCount'] as int?) ?? 0,
 );
 
 Map<String, Object?> encodeComment(Comment c) => {

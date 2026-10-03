@@ -1797,6 +1797,30 @@ const standardReactions = [
   '😡',
 ];
 
+/// Marks where the unread posts (or comments) began when the list was opened.
+class UnreadDivider extends StatelessWidget {
+  const UnreadDivider({super.key, this.label});
+
+  /// What the divider says; "Unread posts" when null.
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      color: scheme.secondaryContainer.withValues(alpha: 0.85),
+      alignment: Alignment.center,
+      child: Text(
+        label ?? context.l10n.timelineUnreadDivider,
+        style: Theme.of(context).textTheme.labelMedium
+            ?.copyWith(color: scheme.onSecondaryContainer),
+      ),
+    );
+  }
+}
+
 /// The photos and videos of an album in Telegram's mosaic ([layoutAlbum]).
 class AlbumMosaic extends StatelessWidget {
   const AlbumMosaic({

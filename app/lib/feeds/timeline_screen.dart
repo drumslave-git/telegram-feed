@@ -35,7 +35,7 @@ import 'saved_position.dart';
 import 'thread_screen.dart';
 import 'timeline_search.dart';
 
-export 'post_card.dart' show PostCard;
+export 'post_card.dart' show PostCard, UnreadDivider;
 
 /// A timeline with its own app bar: a feed opened from a notification, or one channel
 /// opened from a folder tab or the channel list. The app bar also carries the search of
@@ -3398,25 +3398,4 @@ class _FloatingDayState extends State<FloatingDay>
       );
     },
   );
-}
-
-/// Marks where the unread posts began when the feed was opened.
-class UnreadDivider extends StatelessWidget {
-  const UnreadDivider({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      color: scheme.secondaryContainer.withValues(alpha: 0.85),
-      alignment: Alignment.center,
-      child: Text(
-        context.l10n.timelineUnreadDivider,
-        style: Theme.of(context).textTheme.labelMedium
-            ?.copyWith(color: scheme.onSecondaryContainer),
-      ),
-    );
-  }
 }

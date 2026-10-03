@@ -902,6 +902,12 @@ abstract class AppLocalizations {
   /// **'Load older comments'**
   String get threadLoadOlder;
 
+  /// Divider above the first comment that came after the thread was last read.
+  ///
+  /// In en, this message translates to:
+  /// **'Unread comments'**
+  String get threadUnreadDivider;
+
   /// Pill above the first comment of a thread.
   ///
   /// In en, this message translates to:

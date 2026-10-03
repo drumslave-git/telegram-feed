@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../l10n/l10n.dart';
@@ -44,7 +46,32 @@ class ThreadScreen extends StatefulWidget {
 
 class _ThreadScreenState extends State<ThreadScreen> {
   final _composer = TextEditingController();
-  final _scroll = ScrollController();
+
+  /// The list is turned over, like the timeline's: index 0 is the newest comment at the
+  /// bottom, and the post the comments belong to is the last row, at the top.
+  final _scroll = ItemScrollController();
+  final _positions = ItemPositionsListener.create();
+  int _initialIndex = 0;
+  double _initialAlignment = 0;
+  bool _settled = false;
+
+  /// The comment under the "Unread comments" divider: the first one that came after the
+  /// thread was last read.
+  int? _firstUnread;
+
+  /// How many comments an opening loads at most on its way to the first unread one.
+  static const _openCap = 300;
+
+  /// The newest comment that has been on the screen, and the timer that tells Telegram.
+  int _seenUpTo = 0;
+  int _reportedUpTo = 0;
+  Timer? _readDebounce;
+
+  /// Comments that arrived while the thread is open, on top of what Telegram counted.
+  int _arrived = 0;
+
+  /// The first pages are on their way; the list is built once it is known where it opens.
+  bool _opening = true;
   Thread? _thread;
   bool _loading = true;
   bool _noThread = false;
@@ -64,7 +91,63 @@ class _ThreadScreenState extends State<ThreadScreen> {
   @override
   void initState() {
     super.initState();
+    _positions.itemPositions.addListener(_onPositions);
     unawaited(_open());
+  }
+
+  /// Row [index] of the list for the comment at [at] of [_comments], and back.
+  int _rowOf(int at) => _comments.length - 1 - at;
+
+  /// What is on the screen: the comments that are read by being there, and whether the
+  /// few unread ones leave the list short of its end.
+  void _onPositions() {
+    final positions = _positions.itemPositions.value;
+    if (positions.isEmpty || _comments.isEmpty) return;
+    if (!_settled) {
+      _settled = true;
+      // A few unread comments do not fill the screen under the divider: the newest one
+      // goes to the bottom edge instead of leaving a gap there.
+      for (final p in positions) {
+        if (p.index == 0 && p.itemLeadingEdge > 0.02 && _initialIndex > 0) {
+          _scroll.jumpTo(index: 0, alignment: 0);
+          return;
+        }
+      }
+    }
+    var newest = _seenUpTo;
+    for (final p in positions) {
+      if (p.index >= _comments.length) continue; // the post on top
+      // Read once its lower edge is on the screen, as a post is.
+      if (p.itemLeadingEdge < -0.02 || p.itemTrailingEdge > 1.2) continue;
+      final id = _comments[_rowOf(p.index)].messageId;
+      if (id > newest) newest = id;
+    }
+    if (newest > _seenUpTo) {
+      _seenUpTo = newest;
+      _readDebounce?.cancel();
+      _readDebounce = Timer(
+        const Duration(milliseconds: 300),
+        () => unawaited(_reportRead()),
+      );
+    }
+  }
+
+  /// Tells Telegram which comments were seen since the last time it was told.
+  Future<void> _reportRead() async {
+    final t = _thread;
+    final upTo = _seenUpTo;
+    if (t == null || upTo <= _reportedUpTo) return;
+    final ids = [
+      for (final c in _comments)
+        if (c.messageId > _reportedUpTo && c.messageId <= upTo) c.messageId,
+    ];
+    _reportedUpTo = upTo;
+    if (ids.isEmpty) return;
+    try {
+      await widget.gateway.markCommentsViewed(t, ids);
+    } on TelegramException {
+      // The thread stays unread for Telegram; the next comment seen tells it again.
+    }
   }
 
   void _openSearch() => setState(() => _searchOpen = true);
@@ -133,19 +216,63 @@ class _ThreadScreenState extends State<ThreadScreen> {
         return;
       }
       _thread = t;
+      _reportedUpTo = t.lastReadId;
       _live = widget.gateway.comments.listen((c) {
         if (c.chatId != t.chatId || c.threadId != t.threadId) return;
         if (_comments.any((x) => x.messageId == c.messageId)) return;
-        setState(() => _comments.add(c));
-        // Only when the reader is already at the newest one: otherwise a comment
-        // arriving would yank them out of what they are reading.
-        _scrollToEnd(onlyNearEnd: true);
+        final atEnd = _nearEnd;
+        // The row closest to the newest end: with a comment added below it every row
+        // moves up by one, and a reader who is further up is put back where they were.
+        ItemPosition? held;
+        for (final p in _positions.itemPositions.value) {
+          if (held == null || p.index < held.index) held = p;
+        }
+        setState(() {
+          _comments.add(c);
+          _arrived++;
+        });
+        if (atEnd) {
+          _scrollToEnd();
+        } else if (held != null && _scroll.isAttached) {
+          _scroll.jumpTo(
+            index: held.index + 1,
+            alignment: held.itemLeadingEdge,
+          );
+        }
       });
-      await _loadOlder();
-      // At the newest comment. The official app opens a discussion at the first unread
-      // one.
-      _scrollToEnd(animate: false);
+      await _loadOlder(opening: true);
+      // The official app opens a discussion at the first unread comment: the pages down
+      // to it are loaded, within reason, and the list starts there under a divider. A
+      // thread that was never opened, or has nothing new, opens at its newest comment.
+      if (t.lastReadId > 0 && t.unreadCount > 0) {
+        while (mounted &&
+            !_exhausted &&
+            _comments.isNotEmpty &&
+            _comments.first.messageId > t.lastReadId &&
+            _comments.length < _openCap) {
+          await _loadOlder(opening: true);
+        }
+        final reached =
+            _exhausted ||
+            (_comments.isNotEmpty && _comments.first.messageId <= t.lastReadId);
+        final at = _comments.indexWhere(
+          (c) => c.messageId > t.lastReadId && !c.isOutgoing,
+        );
+        if (reached && at >= 0) {
+          _firstUnread = _comments[at].messageId;
+          // The row above the divider just under the top of the list.
+          _initialIndex = _rowOf(at) + 1;
+          _initialAlignment = 0.92;
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _opening = false;
+        });
+      }
     } on TelegramException catch (e) {
+      _opening = false;
       if (mounted) {
         setState(() {
           _error = e.message;
@@ -155,10 +282,15 @@ class _ThreadScreenState extends State<ThreadScreen> {
     }
   }
 
-  Future<void> _loadOlder() async {
+  bool _loadingOlder = false;
+
+  /// One more page of older comments. They go to the far end of the turned list, so what
+  /// is on the screen stays where it is. While the thread [opening]s the spinner stays.
+  Future<void> _loadOlder({bool opening = false}) async {
     final t = _thread;
-    if (t == null || _exhausted) return;
-    setState(() => _loading = true);
+    if (t == null || _exhausted || _loadingOlder) return;
+    _loadingOlder = true;
+    if (!opening) setState(() => _loading = true);
     try {
       final oldest = _comments.isEmpty ? 0 : _comments.first.messageId;
       final page = await widget.gateway.threadHistory(
@@ -176,7 +308,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
             (c) => !_comments.any((x) => x.messageId == c.messageId),
           ),
         );
-        _loading = false;
+        if (!opening) _loading = false;
       });
     } on TelegramException catch (e) {
       if (mounted) {
@@ -185,6 +317,8 @@ class _ThreadScreenState extends State<ThreadScreen> {
           _loading = false;
         });
       }
+    } finally {
+      _loadingOlder = false;
     }
   }
 
@@ -207,13 +341,22 @@ class _ThreadScreenState extends State<ThreadScreen> {
     if (index < 0) return;
     setState(() => _highlight = target.messageId);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scroll.hasClients) return;
-      // The rows are of different heights, so the position is an estimate; the tint
-      // says which one it is.
-      final extent = _scroll.position.maxScrollExtent;
-      final at = _comments.isEmpty ? 0.0 : extent * (index / _comments.length);
-      _scroll.jumpTo(at.clamp(0, extent));
+      if (!mounted || !_scroll.isAttached) return;
+      // The comment itself, a third of the way up the list; the tint says which one.
+      _scroll.jumpTo(index: _rowOf(index), alignment: 0.3);
     });
+  }
+
+  /// "N comments", as the official app titles a discussion: what Telegram counted and
+  /// what has arrived since; "Comments" while the number is not known or there are none.
+  String _title(AppLocalizations l10n) {
+    final count = math.max(
+      (_thread?.replyCount ?? 0) + _arrived,
+      _comments.length,
+    );
+    return count == 0
+        ? l10n.commonComments
+        : l10n.postCommentCount(count, '$count');
   }
 
   /// The comment a search result led to, tinted for a moment.
@@ -252,25 +395,26 @@ class _ThreadScreenState extends State<ThreadScreen> {
   }
 
   /// True while the newest comment is (nearly) on screen.
-  bool get _nearEnd =>
-      !_scroll.hasClients ||
-      _scroll.position.maxScrollExtent - _scroll.position.pixels < 240;
+  bool get _nearEnd {
+    final positions = _positions.itemPositions.value;
+    return positions.isEmpty || positions.any((p) => p.index <= 1);
+  }
 
   void _scrollToEnd({bool onlyNearEnd = false, bool animate = true}) {
     if (onlyNearEnd && !_nearEnd) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scroll.hasClients) return;
-      final end = _scroll.position.maxScrollExtent;
+      if (!mounted || !_scroll.isAttached) return;
       if (animate) {
         unawaited(
-          _scroll.animateTo(
-            end,
+          _scroll.scrollTo(
+            index: 0,
+            alignment: 0,
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeOut,
           ),
         );
       } else {
-        _scroll.jumpTo(end);
+        _scroll.jumpTo(index: 0, alignment: 0);
       }
     });
   }
@@ -280,10 +424,13 @@ class _ThreadScreenState extends State<ThreadScreen> {
     _debounce?.cancel();
     _queryCtl.dispose();
     _live?.cancel();
+    _positions.itemPositions.removeListener(_onPositions);
+    // What was seen in the last moment is told before the thread closes.
+    _readDebounce?.cancel();
+    unawaited(_reportRead());
     final t = _thread;
     if (t != null) unawaited(widget.gateway.closeThread(t));
     _composer.dispose();
-    _scroll.dispose();
     super.dispose();
   }
 
@@ -325,11 +472,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
                 ],
               )
             : AppBar(
-                title: Text(
-                  widget.channelTitle.isEmpty
-                      ? l10n.commonComments
-                      : l10n.threadTitleWithChannel(widget.channelTitle),
-                ),
+                title: Text(_title(l10n)),
                 actions: [
                   if (!_noThread)
                     IconButton(
@@ -399,21 +542,24 @@ class _ThreadScreenState extends State<ThreadScreen> {
                                   ),
                                 ),
                               ))
-                      : _loading && _comments.isEmpty
+                      : _opening
                       ? const Center(child: CircularProgressIndicator())
-                      : ListView.builder(
-                          controller: _scroll,
+                      : ScrollablePositionedList.builder(
+                          reverse: true,
+                          itemScrollController: _scroll,
+                          itemPositionsListener: _positions,
+                          initialScrollIndex: _initialIndex.clamp(
+                            0,
+                            _comments.length,
+                          ),
+                          initialAlignment: _initialAlignment,
                           padding: const EdgeInsets.symmetric(vertical: 8),
-                          itemCount: _comments.length + 2,
+                          itemCount: _comments.length + 1,
                           itemBuilder: (context, i) {
-                            if (i == 0) return _header(l10n);
-                            if (i == _comments.length + 1) {
-                              return _comments.isEmpty && !_loading
-                                  ? ChatPill(l10n.threadNoComments)
-                                  : const SizedBox(height: 8);
-                            }
-                            final comment = _comments[i - 1];
-                            return AnimatedContainer(
+                            // The post, on top of everything that is loaded.
+                            if (i == _comments.length) return _header(l10n);
+                            final comment = _comments[_rowOf(i)];
+                            final bubble = AnimatedContainer(
                               duration: const Duration(milliseconds: 300),
                               color: comment.messageId == _highlight
                                   ? Theme.of(context).colorScheme.primary
@@ -424,6 +570,16 @@ class _ThreadScreenState extends State<ThreadScreen> {
                                 gateway: widget.gateway,
                                 onOpenLink: _openLink,
                               ),
+                            );
+                            if (comment.messageId != _firstUnread) {
+                              return bubble;
+                            }
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                UnreadDivider(label: l10n.threadUnreadDivider),
+                                bubble,
+                              ],
                             );
                           },
                         ),
@@ -469,27 +625,49 @@ class _ThreadScreenState extends State<ThreadScreen> {
 
   /// The post the comments belong to, as it looks in the timeline, as the official app
   /// shows it on top of its comments.
-  Widget _header(AppLocalizations l10n) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      PostCard(
-        item: widget.item ?? TimelineItem(widget.post),
-        channelTitle: widget.channelTitle,
-        channelPhoto: widget.channelPhoto,
-        gateway: widget.gateway,
-        onOpenLink: _openLink,
-      ),
-      if (!_exhausted && _thread != null)
-        Center(
-          child: TextButton(
-            onPressed: _loading ? null : _loadOlder,
-            child: Text(_loading ? l10n.commonLoading : l10n.threadLoadOlder),
-          ),
-        )
-      else if (_comments.isNotEmpty)
-        ChatPill(l10n.threadDiscussionStarted),
-    ],
-  );
+  Widget _header(AppLocalizations l10n) {
+    // The list builds this row a little before it scrolls into view: time to fetch older
+    // comments, as the timeline fetches older posts.
+    if (!_exhausted && _thread != null && _error == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_loadOlder());
+      });
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PostCard(
+          item: widget.item ?? TimelineItem(widget.post),
+          channelTitle: widget.channelTitle,
+          channelPhoto: widget.channelPhoto,
+          gateway: widget.gateway,
+          onOpenLink: _openLink,
+        ),
+        if (!_exhausted && _thread != null)
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Center(
+              child: _error != null
+                  ? TextButton(
+                      onPressed: () {
+                        setState(() => _error = null);
+                        unawaited(_loadOlder());
+                      },
+                      child: Text(l10n.threadLoadOlder),
+                    )
+                  : const SizedBox.square(
+                      dimension: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+            ),
+          )
+        else if (_comments.isNotEmpty)
+          ChatPill(l10n.threadDiscussionStarted)
+        else if (!_loading)
+          ChatPill(l10n.threadNoComments),
+      ],
+    );
+  }
 }
 
 /// One comment: a bubble with the coloured name, the author's photo at the right end of

@@ -102,12 +102,13 @@ void main() {
       );
       await tester.pump();
       await tester.pump();
-      final texts = tester
-          .widgetList<Text>(find.byType(Text))
-          .map((t) => t.data)
-          .whereType<String>()
-          .toList();
-      expect(texts.indexOf('first'), lessThan(texts.indexOf('second')));
+      // Oldest on top, newest at the bottom, like a chat.
+      expect(
+        tester.getTopLeft(find.text('first')).dy,
+        lessThan(tester.getTopLeft(find.text('second')).dy),
+      );
+      // The title counts the comments.
+      expect(find.text('2 comments'), findsOneWidget);
       expect(find.text('Ann'), findsOneWidget);
       // The post on top with the channel's avatar, and one avatar per comment author.
       expect(find.byType(PostCard), findsOneWidget);

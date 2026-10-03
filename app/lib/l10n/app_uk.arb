@@ -134,6 +134,7 @@
   "threadWriteComment": "Напишіть коментар",
   "threadSend": "Надіслати",
   "threadLoadOlder": "Завантажити старіші коментарі",
+  "threadUnreadDivider": "Непрочитані коментарі",
   "threadDiscussionStarted": "Початок обговорення",
   "postDayToday": "Сьогодні",
   "postDayYesterday": "Вчора",

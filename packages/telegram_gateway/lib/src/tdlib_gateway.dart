@@ -741,6 +741,8 @@ final class TdlibGateway implements TelegramGateway {
         postChatId: chatId,
         postMessageId: messageId,
         replyCount: info.replyInfo?.replyCount ?? 0,
+        lastReadId: info.replyInfo?.lastReadInboxMessageId ?? 0,
+        unreadCount: info.unreadMessageCount,
       );
       _openThreads.add((t.chatId, t.threadId));
       return t;
@@ -749,6 +751,19 @@ final class TdlibGateway implements TelegramGateway {
       if (e.code == 400 || e.code == 404) return null;
       rethrow;
     }
+  }
+
+  @override
+  Future<void> markCommentsViewed(Thread thread, List<int> messageIds) async {
+    if (messageIds.isEmpty) return;
+    await _client.call(
+      td.ViewMessages(
+        chatId: thread.chatId,
+        messageIds: messageIds,
+        source: const td.MessageSourceMessageThreadHistory(),
+        forceRead: true,
+      ),
+    );
   }
 
   @override
