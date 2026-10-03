@@ -4,7 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-45.
+**Current phase:** Parity with the official app. **Next task:** Q-46.
 
 ## Differences from the official app
 
@@ -12,7 +12,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Search
 
-- [ ] Q-45 Result rows mark every word of the query and show the time today, the weekday within a week, "Sep 12" within a year, and "12.09.25" before that.
 - [ ] Q-46 The search over all channels takes typed dates ("yesterday", "12 sep", a month) as a date filter, and shows media, files, links and music in their own layouts.
 - [ ] Q-47 A recent search is removed singly, and "Clear" asks first.
 
@@ -20,7 +19,7 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 - [ ] Q-48 "All channels" is the first tab; a tab's counter counts channels with unread posts; a tap on the active tab scrolls its list to the top; a long press on "All channels" marks everything read.
 - [ ] Q-49 A channel row shows up to three thumbnails of its newest post and "N photos" for an album, with the media label in the accent colour; a muted channel's counter is grey; counters print the whole number.
-- [ ] Q-50 A channel row is 70 dp high with a 52 dp photo and a divider, shows the verified mark, and dates as in Q-45; a new post moves its row at once, animated.
+- [ ] Q-50 A channel row is 70 dp high with a 52 dp photo and a divider, and shows the verified mark; a new post moves its row at once, animated.
 - [ ] Q-51 A long press on a channel row also offers "Mark as unread".
 - [ ] Q-52 Channel info: the photo pulls down to a full-width gallery of every channel photo, links in the description open, the subscriber count is written in full, and the link row opens the share sheet.
 - [ ] Q-53 Shared media: the grid pinches from two to nine columns, has a date scroller and a photo/video filter; Files, Links and Music can be searched; a long press on an item offers "Show in chat"; empty tabs are left out and GIFs have their own.

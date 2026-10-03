@@ -614,6 +614,9 @@ class AppLocalizationsUk extends AppLocalizations {
   String get postDayYesterday => 'Вчора';
 
   @override
+  String get listDatePattern => 'dd MMM';
+
+  @override
   String get postDayPattern => 'd MMMM';
 
   @override

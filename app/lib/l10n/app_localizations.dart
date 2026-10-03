@@ -1040,6 +1040,12 @@ abstract class AppLocalizations {
   /// **'Yesterday'**
   String get postDayYesterday;
 
+  /// Date pattern (ICU) for a row's date within the last year, as the official app's formatterMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'MMM dd'**
+  String get listDatePattern;
+
   /// intl DateFormat pattern of a day of this year between two days of a chat, e.g. September 17. Not a sentence: only the order of the fields changes.
   ///
   /// In en, this message translates to:

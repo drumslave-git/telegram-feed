@@ -592,6 +592,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get postDayYesterday => 'Yesterday';
 
   @override
+  String get listDatePattern => 'MMM dd';
+
+  @override
   String get postDayPattern => 'MMMM d';
 
   @override

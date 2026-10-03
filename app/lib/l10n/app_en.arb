@@ -414,6 +414,10 @@
   "@postDayYesterday": {
     "description": "Label between two days of a chat."
   },
+  "listDatePattern": "MMM dd",
+  "@listDatePattern": {
+    "description": "Date pattern (ICU) for a row's date within the last year, as the official app's formatterMonth."
+  },
   "postDayPattern": "MMMM d",
   "@postDayPattern": {
     "description": "intl DateFormat pattern of a day of this year between two days of a chat, e.g. September 17. Not a sentence: only the order of the fields changes."

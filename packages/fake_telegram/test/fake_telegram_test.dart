@@ -217,6 +217,15 @@ void main() {
     );
   });
 
+  test('a channel row carries its newest post', () async {
+    final harbour = (await tg.myChannels()).firstWhere(
+      (c) => c.chatId == FakeChats.harbourTimes,
+    );
+    final newest = (await tg.history(FakeChats.harbourTimes)).first;
+    expect(harbour.lastMessageText, newest.text);
+    expect(harbour.lastMessageDate, newest.date);
+  });
+
   test('a post arrives on the wire', () async {
     final added = tg.postEvents.first;
     tg.arriveOnWire();

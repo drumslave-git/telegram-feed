@@ -1082,6 +1082,31 @@ final class FakeTelegram extends TimelineGateway {
     posts.add(PostEdited(edited));
   }
 
+  /// The channels with their newest post, which the rows of the chat list show.
+  @override
+  Future<List<Channel>> myChannels() async => [
+    for (final c in await super.myChannels()) _withNewestPost(c),
+  ];
+
+  Channel _withNewestPost(Channel c) {
+    final newest = histories[c.chatId]?.firstOrNull;
+    if (newest == null) return c;
+    return Channel(
+      chatId: c.chatId,
+      title: c.title,
+      username: c.username,
+      memberCount: c.memberCount,
+      photo: c.photo,
+      isMember: c.isMember,
+      lastMessageId: c.lastMessageId,
+      lastReadMessageId: c.lastReadMessageId,
+      unreadCount: c.unreadCount,
+      lastMessageText: newest.text,
+      lastMessageMedia: newest.media,
+      lastMessageDate: newest.date,
+    );
+  }
+
   // ---- comments ----
 
   final _threads = <(int, int), List<Comment>>{};

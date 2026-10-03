@@ -370,26 +370,35 @@ class ChannelAvatar extends StatelessWidget {
   }
 }
 
-/// Time today, weekday within a week, else the date, as the official app's chat list
-/// writes them. With a [context] the clock and the date follow the phone's own settings,
-/// and the weekday the interface language.
+/// When a row of a list was posted, as the official app writes it
+/// (`LocaleController.stringForMessageListDate`): the time for today, and for last night
+/// while it is less than eight hours ago; the weekday within a week; "Sep 12" within a
+/// year; "12.09.25" before that.
 String formatListDate(DateTime d, {DateTime? now, BuildContext? context}) {
   final n = now ?? DateTime.now();
-  String two(int x) => x.toString().padLeft(2, '0');
-  if (d.year == n.year && d.month == n.month && d.day == n.day) {
+  // Where the app's strings are not loaded, neither is intl's date data of their
+  // language: en_US needs none.
+  final strings = context == null
+      ? null
+      : Localizations.of<AppLocalizations>(context, AppLocalizations);
+  final locale = strings == null || strings.localeName == 'en'
+      ? 'en_US'
+      : strings.localeName;
+  if (n.difference(d).abs() >= const Duration(days: 365)) {
+    return DateFormat('dd.MM.yy').format(d);
+  }
+  // Rounded: a day with a clock change is 23 or 25 hours long.
+  final days =
+      (DateTime(
+                n.year,
+                n.month,
+                n.day,
+              ).difference(DateTime(d.year, d.month, d.day)).inHours /
+              24)
+          .round();
+  if (days == 0 || (days == 1 && n.difference(d) < const Duration(hours: 8))) {
     return formatTime(d, context);
   }
-  if (n.difference(d).inDays < 6 && !d.isAfter(n)) {
-    // Where the app's strings are not loaded, neither is intl's date data of their
-    // language: intl's default locale (en_US) needs none.
-    final strings = context == null
-        ? null
-        : Localizations.of<AppLocalizations>(context, AppLocalizations);
-    return DateFormat.E(strings?.localeName).format(d);
-  }
-  final material = context == null
-      ? null
-      : Localizations.of<MaterialLocalizations>(context, MaterialLocalizations);
-  return material?.formatShortDate(d) ??
-      '${d.year}-${two(d.month)}-${two(d.day)}';
+  if (days >= 1 && days < 7) return DateFormat.E(locale).format(d);
+  return DateFormat(strings?.listDatePattern ?? 'MMM dd', locale).format(d);
 }

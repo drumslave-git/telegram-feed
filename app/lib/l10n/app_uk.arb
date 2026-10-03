@@ -157,6 +157,7 @@
   "threadDiscussionStarted": "Початок обговорення",
   "postDayToday": "Сьогодні",
   "postDayYesterday": "Вчора",
+  "listDatePattern": "dd MMM",
   "postDayPattern": "d MMMM",
   "postDayYearPattern": "d MMMM y",
   "linkViewChannel": "Відкрити канал",

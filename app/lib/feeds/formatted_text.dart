@@ -35,7 +35,7 @@ Future<bool> confirmOpenLink(BuildContext context, String url) async {
 }
 
 /// Where [text] has the words of [query], whatever their case: start and end of each
-/// place, in order. Nothing for a text whose lower case has another length, where the
+/// place, in order and apart from one another. Nothing for a text whose lower case has another length, where the
 /// places would not line up.
 List<(int, int)> foundRanges(String text, String? query) {
   if (query == null) return const [];
@@ -54,7 +54,17 @@ List<(int, int)> foundRanges(String text, String? query) {
       at = lower.indexOf(w, at + w.length);
     }
   }
-  return out..sort((a, b) => a.$1.compareTo(b.$1));
+  out.sort((a, b) => a.$1.compareTo(b.$1));
+  // Words that share letters, or follow one another, make one place.
+  final merged = <(int, int)>[];
+  for (final r in out) {
+    if (merged.isNotEmpty && r.$1 <= merged.last.$2) {
+      if (r.$2 > merged.last.$2) merged.last = (merged.last.$1, r.$2);
+    } else {
+      merged.add(r);
+    }
+  }
+  return merged;
 }
 
 /// A post's text with Telegram's formatting: bold, italic, underline, strikethrough,

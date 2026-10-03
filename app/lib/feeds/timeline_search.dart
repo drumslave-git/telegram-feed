@@ -2,10 +2,11 @@ import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import '../home/channel_list.dart' show ChannelAvatar;
+import '../home/channel_list.dart' show ChannelAvatar, formatListDate;
 import '../l10n/l10n.dart';
 import '../widgets/error_state.dart';
-import 'post_card.dart' show formatDay, peerColor;
+import 'formatted_text.dart' show foundRanges;
+import 'post_card.dart' show peerColor;
 
 /// The chips under a search bar: what kind of post to look for, as the official app offers
 /// inside its search. "Everything" is the plain text search.
@@ -275,9 +276,8 @@ class SearchResultTile extends StatelessWidget {
             ),
           ),
           Text(
-            // The day, in words: "Today" and "September 12". The official app's result
-            // rows mix clock times, weekdays and short dates instead.
-            formatDay(date, l10n: context.l10n),
+            // As the official app's rows: a time, a weekday or a short date.
+            formatListDate(date, context: context),
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -289,7 +289,8 @@ class SearchResultTile extends StatelessWidget {
   }
 }
 
-/// Two lines of the post with the searched words marked, starting at the first match.
+/// Two lines of the post with every word of the search marked, starting at the first
+/// place one of them stands.
 class _Snippet extends StatelessWidget {
   const _Snippet({required this.text, required this.query});
   final String text;
@@ -302,33 +303,28 @@ class _Snippet extends StatelessWidget {
     if (q.isEmpty) {
       return Text(text, maxLines: 2, overflow: TextOverflow.ellipsis);
     }
-    final lower = text.toLowerCase();
-    final needle = q.toLowerCase();
-    final first = lower.indexOf(needle);
-    // Start a little before the match, so it is on the first line of the row.
-    final start = first <= 24 ? 0 : first - 20;
+    final all = foundRanges(text, q);
+    if (all.isEmpty) {
+      return Text(text, maxLines: 2, overflow: TextOverflow.ellipsis);
+    }
+    // Start a little before the first match, so it is on the first line of the row, and
+    // not in the middle of a character that takes two code units.
+    final first = all.first.$1;
+    var start = first <= 24 ? 0 : first - 20;
+    if (start > 0 && (text.codeUnitAt(start) & 0xFC00) == 0xDC00) start++;
     final shown = start == 0 ? text : '…${text.substring(start)}';
-    final hay = shown.toLowerCase();
+    final marked = TextStyle(
+      color: theme.colorScheme.primary,
+      fontWeight: FontWeight.w600,
+    );
     final spans = <TextSpan>[];
     var i = 0;
-    while (true) {
-      final at = hay.indexOf(needle, i);
-      if (at < 0) {
-        spans.add(TextSpan(text: shown.substring(i)));
-        break;
-      }
-      if (at > i) spans.add(TextSpan(text: shown.substring(i, at)));
-      spans.add(
-        TextSpan(
-          text: shown.substring(at, at + needle.length),
-          style: TextStyle(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      );
-      i = at + needle.length;
+    for (final (from, to) in foundRanges(shown, q)) {
+      if (from > i) spans.add(TextSpan(text: shown.substring(i, from)));
+      spans.add(TextSpan(text: shown.substring(from, to), style: marked));
+      i = to;
     }
+    if (i < shown.length) spans.add(TextSpan(text: shown.substring(i)));
     return Text.rich(
       TextSpan(children: spans),
       maxLines: 2,

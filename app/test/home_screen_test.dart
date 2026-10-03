@@ -637,10 +637,27 @@ void main() {
     await unmount(tester);
   });
 
-  test('formatListDate: time today, weekday this week, date before', () {
+  test('formatListDate: time today, weekday within a week, a short date within '
+      'a year, digits before', () {
     final now = DateTime(2026, 9, 19, 12);
     expect(formatListDate(DateTime(2026, 9, 19, 8, 5), now: now), '08:05');
+    // Last night is still a time in the small hours; by noon it is a weekday.
+    expect(
+      formatListDate(
+        DateTime(2026, 9, 18, 23, 30),
+        now: DateTime(2026, 9, 19, 2),
+      ),
+      '23:30',
+    );
+    expect(formatListDate(DateTime(2026, 9, 18, 23, 30), now: now), 'Fri');
     expect(formatListDate(DateTime(2026, 9, 17, 8, 5), now: now), 'Thu');
-    expect(formatListDate(DateTime(2026, 8, 1), now: now), '2026-08-01');
+    expect(formatListDate(DateTime(2026, 9, 13, 8, 5), now: now), 'Sun');
+    // A week ago and more: the day and the month.
+    expect(formatListDate(DateTime(2026, 9, 12, 8, 5), now: now), 'Sep 12');
+    expect(formatListDate(DateTime(2026, 8, 1), now: now), 'Aug 01');
+    expect(formatListDate(DateTime(2025, 10, 3), now: now), 'Oct 03');
+    // A year ago and more: digits, with the year.
+    expect(formatListDate(DateTime(2025, 9, 12), now: now), '12.09.25');
+    expect(formatListDate(DateTime(2019, 1, 5), now: now), '05.01.19');
   });
 }
