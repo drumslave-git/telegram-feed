@@ -38,6 +38,14 @@ class AuthGate extends StatelessWidget {
             gateway: gateway,
             hint: hint,
           ),
+          AuthWaitEmailAddress() => EmailScreen(gateway: gateway),
+          AuthWaitEmailCode(:final emailPattern, :final codeLength) =>
+            EmailCodeScreen(
+              gateway: gateway,
+              emailPattern: emailPattern,
+              codeLength: codeLength,
+            ),
+          AuthUnsupported() => UnsupportedLoginScreen(gateway: gateway),
           AuthWaitRegistration() => RegistrationScreen(gateway: gateway),
           AuthStarting() ||
           AuthLoggingOut() ||
@@ -297,6 +305,89 @@ class CodeScreen extends StatelessWidget {
       secondaryLabel: l10n.loginChangeNumber,
       secondaryIcon: Icons.edit_outlined,
       onSecondary: gateway.logOut,
+    );
+  }
+}
+
+/// Telegram asks some accounts for an email address, where their login codes go from
+/// then on.
+class EmailScreen extends StatelessWidget {
+  const EmailScreen({super.key, required this.gateway});
+  final TelegramGateway gateway;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return _StepForm(
+      title: l10n.loginEmailTitle,
+      explanation: l10n.loginEmailExplanation,
+      label: l10n.loginEmail,
+      action: l10n.commonContinue,
+      keyboardType: TextInputType.emailAddress,
+      onSubmit: gateway.setEmailAddress,
+      secondaryLabel: l10n.loginChangeNumber,
+      secondaryIcon: Icons.edit_outlined,
+      onSecondary: gateway.logOut,
+    );
+  }
+}
+
+/// The login code went to the account's email address.
+class EmailCodeScreen extends StatelessWidget {
+  const EmailCodeScreen({
+    super.key,
+    required this.gateway,
+    required this.emailPattern,
+    required this.codeLength,
+  });
+  final TelegramGateway gateway;
+  final String emailPattern;
+  final int codeLength;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return _StepForm(
+      title: l10n.loginEmailCodeTitle,
+      explanation: l10n.loginEmailCodeExplanation(emailPattern),
+      label: l10n.loginCode,
+      action: l10n.commonContinue,
+      keyboardType: TextInputType.number,
+      maxLength: codeLength > 0 ? codeLength : null,
+      onSubmit: gateway.checkEmailCode,
+      secondaryLabel: l10n.loginChangeNumber,
+      secondaryIcon: Icons.edit_outlined,
+      onSecondary: gateway.logOut,
+    );
+  }
+}
+
+/// A step the app cannot do: Telegram asks for a Premium purchase before this login goes
+/// on. The way out is another number, or the official app.
+class UnsupportedLoginScreen extends StatelessWidget {
+  const UnsupportedLoginScreen({super.key, required this.gateway});
+  final TelegramGateway gateway;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.loginPhoneTitle)),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(l10n.loginUnsupportedExplanation),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => unawaited(gateway.logOut()),
+              icon: const Icon(Icons.edit_outlined),
+              label: Text(l10n.loginChangeNumber),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

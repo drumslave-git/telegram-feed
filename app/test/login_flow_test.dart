@@ -37,6 +37,10 @@ final class ScriptedGateway implements TelegramGateway {
   @override
   Future<void> checkCode(String code) => _record('code:$code');
   @override
+  Future<void> setEmailAddress(String email) => _record('email:$email');
+  @override
+  Future<void> checkEmailCode(String code) => _record('emailCode:$code');
+  @override
   Future<void> resendCode() => _record('resend');
   @override
   Future<void> checkPassword(String password) => _record('password:$password');
@@ -246,6 +250,46 @@ void main() {
     await tester.pump();
     expect(find.text('Wrong code.'), findsOneWidget);
     expect(tester.widget<TextField>(find.byType(TextField)).enabled, isTrue);
+  });
+
+  testWidgets('an account that logs in by email: the address, then its code', (
+    tester,
+  ) async {
+    final g = ScriptedGateway()..state = const AuthWaitEmailAddress();
+    await tester.pumpWidget(app(g));
+    await tester.pump();
+    expect(find.text('Your email'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'ann@example.com');
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+    expect(g.calls, ['email:ann@example.com']);
+
+    g.go(
+      const AuthWaitEmailCode(emailPattern: 'a***@example.com', codeLength: 6),
+    );
+    await tester.pump();
+    expect(find.text('Check your email'), findsOneWidget);
+    expect(find.textContaining('a***@example.com'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '123456');
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+    expect(g.calls.last, 'emailCode:123456');
+
+    await tester.tap(find.text('Change number'));
+    await tester.pump();
+    expect(g.calls.last, 'logout');
+  });
+
+  testWidgets('a login step the app cannot do says so and offers another '
+      'number', (tester) async {
+    final g = ScriptedGateway()..state = const AuthUnsupported();
+    await tester.pumpWidget(app(g));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.textContaining('official Telegram app'), findsOneWidget);
+    await tester.tap(find.text('Change number'));
+    await tester.pump();
+    expect(g.calls.last, 'logout');
   });
 
   testWidgets('the code screen can go back to change the number', (

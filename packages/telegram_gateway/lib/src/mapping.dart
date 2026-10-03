@@ -39,8 +39,13 @@ AuthState authState(td.AuthorizationState s) => switch (s) {
   td.AuthorizationStateLoggingOut() => const AuthLoggingOut(),
   td.AuthorizationStateClosing() => const AuthLoggingOut(),
   td.AuthorizationStateClosed() => const AuthClosed(),
-  // Email and premium-purchase states are not supported by this client.
-  _ => const AuthStarting(),
+  td.AuthorizationStateWaitEmailAddress() => const AuthWaitEmailAddress(),
+  td.AuthorizationStateWaitEmailCode(:final codeInfo) => AuthWaitEmailCode(
+    emailPattern: codeInfo?.emailAddressPattern ?? '',
+    codeLength: codeInfo?.length ?? 0,
+  ),
+  // Telegram asks for a Premium purchase before the login goes on.
+  _ => const AuthUnsupported(),
 };
 
 UserInfo user(td.User u, {String bio = ''}) => UserInfo(

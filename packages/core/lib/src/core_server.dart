@@ -205,6 +205,10 @@ final class CoreServer {
         await gateway.checkCode(a['code'] as String);
       case 'resendCode':
         await gateway.resendCode();
+      case 'setEmailAddress':
+        await gateway.setEmailAddress(a['email'] as String);
+      case 'checkEmailCode':
+        await gateway.checkEmailCode(a['code'] as String);
       case 'checkPassword':
         await gateway.checkPassword(a['password'] as String);
       case 'registerUser':

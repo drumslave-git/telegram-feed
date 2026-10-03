@@ -64,7 +64,7 @@ The pure-Dart packages carry most of the tests. `app/` stays thin.
 
 | Area | Members |
 |---|---|
-| Login | `authState`, `setPhoneNumber`, `checkCode`, `checkPassword`, `registerUser`, `requestQrCode`, `logOut` |
+| Login | `authState`, `setPhoneNumber`, `checkCode`, `resendCode`, `setEmailAddress`, `checkEmailCode`, `checkPassword`, `registerUser`, `requestQrCode`, `logOut`. An authorization state the app has no step for (a Premium purchase) is `AuthUnsupported`, which the login shows as a screen of its own |
 | Channels | `myChannels`, `membershipEvents`, `chatFolders`, `archivedChannels`, `savedMessages`, `channelInfo`, `similarChannels`, `pinnedPost` |
 | Posts | `history`, `historyAfter`, `postEvents`, `markViewed`, `readState`, `readUpdates`, `messageIdByDate`, `customEmoji` |
 | Search | `searchHistory`, `searchAllChannels`, `searchThread` |

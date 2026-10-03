@@ -67,10 +67,20 @@ final class FakeTelegram extends TimelineGateway {
   /// The phone number the login entered, for assertions.
   String phoneNumber = '';
 
+  /// A number that ends so logs in with a code sent to its email address.
+  static const emailLoginSuffix = '2222';
+
   @override
   Future<void> setPhoneNumber(String phone) async {
     phoneNumber = phone;
-    _setAuth(AuthWaitCode(phoneNumber: phone, codeLength: 5, viaSms: true));
+    _setAuth(
+      phone.endsWith(emailLoginSuffix)
+          ? const AuthWaitEmailCode(
+              emailPattern: 'f***@example.com',
+              codeLength: 5,
+            )
+          : AuthWaitCode(phoneNumber: phone, codeLength: 5, viaSms: true),
+    );
   }
 
   @override
@@ -80,6 +90,14 @@ final class FakeTelegram extends TimelineGateway {
     }
     _setAuth(const AuthReady());
   }
+
+  @override
+  Future<void> setEmailAddress(String email) async => _setAuth(
+    const AuthWaitEmailCode(emailPattern: 'f***@example.com', codeLength: 5),
+  );
+
+  @override
+  Future<void> checkEmailCode(String code) => checkCode(code);
 
   @override
   Future<void> checkPassword(String password) async =>

@@ -2054,6 +2054,42 @@ abstract class AppLocalizations {
   /// **'Change number'**
   String get loginChangeNumber;
 
+  /// No description provided for @loginEmailTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your email'**
+  String get loginEmailTitle;
+
+  /// No description provided for @loginEmailExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram asks this account for an email address. Login codes will be sent to it every time you log in from a new device.'**
+  String get loginEmailExplanation;
+
+  /// No description provided for @loginEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email address'**
+  String get loginEmail;
+
+  /// No description provided for @loginEmailCodeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your email'**
+  String get loginEmailCodeTitle;
+
+  /// No description provided for @loginEmailCodeExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram sent a code to {email}. Look in the spam folder too.'**
+  String loginEmailCodeExplanation(String email);
+
+  /// No description provided for @loginUnsupportedExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram asks for a Premium purchase before it lets this number log in, which this app cannot do. Log in with the official Telegram app first, or use another number.'**
+  String get loginUnsupportedExplanation;
+
   /// No description provided for @loginPasswordTitle.
   ///
   /// In en, this message translates to:

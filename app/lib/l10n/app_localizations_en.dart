@@ -1251,6 +1251,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginChangeNumber => 'Change number';
 
   @override
+  String get loginEmailTitle => 'Your email';
+
+  @override
+  String get loginEmailExplanation =>
+      'Telegram asks this account for an email address. Login codes will be sent to it every time you log in from a new device.';
+
+  @override
+  String get loginEmail => 'Email address';
+
+  @override
+  String get loginEmailCodeTitle => 'Check your email';
+
+  @override
+  String loginEmailCodeExplanation(String email) {
+    return 'Telegram sent a code to $email. Look in the spam folder too.';
+  }
+
+  @override
+  String get loginUnsupportedExplanation =>
+      'Telegram asks for a Premium purchase before it lets this number log in, which this app cannot do. Log in with the official Telegram app first, or use another number.';
+
+  @override
   String get loginPasswordTitle => 'Two-step verification';
 
   @override

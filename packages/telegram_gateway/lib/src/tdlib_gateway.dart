@@ -238,6 +238,15 @@ final class TdlibGateway implements TelegramGateway {
   @override
   Future<void> resendCode() => _client.call(td.ResendAuthenticationCode());
   @override
+  Future<void> setEmailAddress(String email) =>
+      _client.call(td.SetAuthenticationEmailAddress(emailAddress: email));
+  @override
+  Future<void> checkEmailCode(String code) => _client.call(
+    td.CheckAuthenticationEmailCode(
+      code: td.EmailAddressAuthenticationCode(code: code),
+    ),
+  );
+  @override
   Future<void> checkPassword(String password) =>
       _client.call(td.CheckAuthenticationPassword(password: password));
   @override

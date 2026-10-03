@@ -44,6 +44,30 @@ final class AuthWaitCode extends AuthState {
   final bool viaSms;
 }
 
+/// Telegram wants an email address for this account: login codes will go there.
+final class AuthWaitEmailAddress extends AuthState {
+  const AuthWaitEmailAddress();
+}
+
+/// Telegram sent the login code to the account's email address.
+final class AuthWaitEmailCode extends AuthState {
+  const AuthWaitEmailCode({
+    required this.emailPattern,
+    required this.codeLength,
+  });
+
+  /// The address with most of it hidden, as Telegram gives it ("a***@example.com").
+  final String emailPattern;
+
+  /// 0 when the code length is unknown.
+  final int codeLength;
+}
+
+/// A step of the login this app cannot do (Telegram asks for a Premium purchase first).
+final class AuthUnsupported extends AuthState {
+  const AuthUnsupported();
+}
+
 final class AuthWaitRegistration extends AuthState {
   const AuthWaitRegistration();
 }

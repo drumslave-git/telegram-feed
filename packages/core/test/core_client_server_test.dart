@@ -39,6 +39,11 @@ final class FakeGateway implements TelegramGateway {
   }
 
   @override
+  Future<void> setEmailAddress(String email) async => calls.add('email:$email');
+  @override
+  Future<void> checkEmailCode(String code) async =>
+      calls.add('emailCode:$code');
+  @override
   Future<void> resendCode() async => calls.add('resend');
 
   @override

@@ -1298,6 +1298,28 @@ class AppLocalizationsUk extends AppLocalizations {
   String get loginChangeNumber => 'Змінити номер';
 
   @override
+  String get loginEmailTitle => 'Ваша ел. пошта';
+
+  @override
+  String get loginEmailExplanation =>
+      'Telegram просить для цього акаунта адресу ел. пошти. На неї надходитимуть коди щоразу, як ви входите з нового пристрою.';
+
+  @override
+  String get loginEmail => 'Адреса ел. пошти';
+
+  @override
+  String get loginEmailCodeTitle => 'Перевірте ел. пошту';
+
+  @override
+  String loginEmailCodeExplanation(String email) {
+    return 'Telegram надіслав код на $email. Не забудьте перевірити теку зі спамом.';
+  }
+
+  @override
+  String get loginUnsupportedExplanation =>
+      'Telegram вимагає придбати Premium, перш ніж дозволить вхід із цим номером, а цей застосунок цього не вміє. Спершу увійдіть в офіційному застосунку Telegram або скористайтеся іншим номером.';
+
+  @override
   String get loginPasswordTitle => 'Двоетапна перевірка';
 
   @override

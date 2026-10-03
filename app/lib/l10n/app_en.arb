@@ -1034,6 +1034,19 @@
   "loginCode": "Code",
   "loginResendCode": "Resend code",
   "loginChangeNumber": "Change number",
+  "loginEmailTitle": "Your email",
+  "loginEmailExplanation": "Telegram asks this account for an email address. Login codes will be sent to it every time you log in from a new device.",
+  "loginEmail": "Email address",
+  "loginEmailCodeTitle": "Check your email",
+  "loginEmailCodeExplanation": "Telegram sent a code to {email}. Look in the spam folder too.",
+  "@loginEmailCodeExplanation": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "loginUnsupportedExplanation": "Telegram asks for a Premium purchase before it lets this number log in, which this app cannot do. Log in with the official Telegram app first, or use another number.",
   "loginPasswordTitle": "Two-step verification",
   "loginPasswordExplanation": "Your account has a cloud password.",
   "loginPasswordExplanationWithHint": "Your account has a cloud password. Hint: {hint}",

@@ -51,6 +51,10 @@ class ChannelsGateway implements TelegramGateway {
   @override
   Future<void> checkCode(String code) async {}
   @override
+  Future<void> setEmailAddress(String email) async {}
+  @override
+  Future<void> checkEmailCode(String code) async {}
+  @override
   Future<void> resendCode() async {}
   @override
   Future<void> checkPassword(String password) async {}
