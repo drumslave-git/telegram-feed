@@ -95,7 +95,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - The magnifier in a feed or a channel searches all of its channels at once; what the feed hides is not found. Results say how many there are and name the channel, the text and the day; a tap opens the timeline at that post, with arrows and a counter to step through the matches.
 - Chips pick the kind of post: media, links, files, music, voice. A chip works without words.
 - A calendar, and a tap on any day label, jumps to a date. Cancelling the calendar leaves the search open.
-- An open search bar offers the words I looked for last.
+- An open search bar offers the words I looked for last: those that led me to a result I opened.
 - The comments of a post can be searched.
 
 ### Notification rules

@@ -182,10 +182,6 @@ class _TimelineScreenState extends State<TimelineScreen> {
       _session = session;
       _current = -1;
     });
-    if (query.isNotEmpty) {
-      final words = await RecentSearches(widget.db).remember(query);
-      if (mounted) setState(() => _recent = words);
-    }
     await session.loadMore();
     if (mounted && identical(_session, session)) setState(() {});
   }
@@ -195,6 +191,12 @@ class _TimelineScreenState extends State<TimelineScreen> {
     if (session == null) return;
     final changed = await session.loadMore();
     if (changed && mounted && identical(_session, session)) setState(() {});
+  }
+
+  Future<void> _rememberQuery(String query) async {
+    if (query.trim().isEmpty) return;
+    final words = await RecentSearches(widget.db).remember(query);
+    if (mounted) setState(() => _recent = words);
   }
 
   /// Opens the result at [index]: the list makes way and the timeline is rebuilt around
@@ -207,6 +209,9 @@ class _TimelineScreenState extends State<TimelineScreen> {
       if (!await session.ensure(index)) return;
       if (!mounted || !identical(_session, session)) return;
       final post = session.results[index];
+      // Words are worth offering again once they led somewhere: what was typed on the way
+      // to them is not kept.
+      unawaited(_rememberQuery(session.query));
       _queryFocus.unfocus();
       setState(() {
         _current = index;

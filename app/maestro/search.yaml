@@ -17,6 +17,12 @@ appId: dev.telegramfeed.telegram_feed
     visible: '1 post found'
     timeout: 15000
 - assertVisible: '(?s).*about the pier.*'
+# Words are offered again once one of their results was opened.
+- tapOn: '(?s).*about the pier.*'
+- extendedWaitUntil:
+    visible: '1 of 1'
+    timeout: 15000
+- tapOn: 'pier'
 - tapOn: 'Clear'
 - assertVisible: 'pier'
 - tapOn: 'Media'
@@ -31,7 +37,10 @@ appId: dev.telegramfeed.telegram_feed
 - tapOn: 'Jump to date'
 - assertVisible: 'Cancel'
 - tapOn: 'Cancel'
+# The calendar's fade swallows a tap made while it runs.
+- waitForAnimationToEnd
 - tapOn: 'Back'
+- waitForAnimationToEnd
 - tapOn: 'Back'
 - tapOn: 'Search posts'
 - inputText: 'Northfield'

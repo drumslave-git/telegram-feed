@@ -164,10 +164,6 @@ class _HomeScreenState extends State<HomeScreen>
       filter: _searchFilter,
     );
     setState(() => _session = session);
-    if (query.isNotEmpty) {
-      final words = await RecentSearches(widget.db).remember(query);
-      if (mounted) setState(() => _recent = words);
-    }
     await session.loadMore();
     if (mounted && identical(_session, session)) setState(() {});
   }
@@ -190,6 +186,14 @@ class _HomeScreenState extends State<HomeScreen>
         SnackBar(content: Text(context.l10n.homeSearchChannelNotInList)),
       );
       return;
+    }
+    // Words are worth offering again once they led somewhere.
+    if (session.query.trim().isNotEmpty) {
+      unawaited(
+        RecentSearches(widget.db).remember(session.query).then((words) {
+          if (mounted) setState(() => _recent = words);
+        }),
+      );
     }
     unawaited(
       Navigator.of(context).push(

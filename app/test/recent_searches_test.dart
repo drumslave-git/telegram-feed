@@ -64,9 +64,24 @@ void main() {
     await settle();
     await tester.tap(find.byTooltip('Search posts'));
     await tester.pumpAndSettle();
+    // Typed on the way to the word: searched, and not worth keeping.
+    await tester.enterText(find.byType(TextField), 'nee');
+    await tester.pump(const Duration(milliseconds: 400));
+    await settle();
     await tester.enterText(find.byType(TextField), 'needle');
     await tester.pump(const Duration(milliseconds: 400));
     await settle();
+    expect(gw.globalQueries.any((q) => q.startsWith('nee|')), isTrue);
+    expect(await tester.runAsync(RecentSearches(db).load), isEmpty);
+
+    // A result that is opened makes its words worth offering again.
+    await tester.tap(find.textContaining('the needle'));
+    await settle();
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await settle();
+    expect(await tester.runAsync(RecentSearches(db).load), ['needle']);
 
     // Closing and opening again offers what was searched for.
     await tester.tap(find.byType(BackButton));
