@@ -22,8 +22,8 @@ import '../widgets/error_state.dart';
 import '../app_name.dart';
 import '../l10n/l10n.dart';
 
-/// The main screen: `+`, the "Feeds" tab (list of feeds), one tab per Telegram folder (its
-/// channels), and "All channels". Feeds and channels open as timelines of their own.
+/// The main screen: the "Feeds" tab (list of feeds, with a button that makes one), one tab
+/// per Telegram folder (its channels), and "All channels". Feeds and channels open as timelines of their own.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
@@ -869,7 +869,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   /// What the folder's tab counts, from Telegram's own counter of each channel: its
   /// unread posts together, or the channels that have any, as the Badge counter switch
-  /// says (J-1) — the two ways the official app counts on its tabs.
+  /// says. The official app's tabs count the chats with unread messages.
   int _unreadInFolder(ChatFolder folder) {
     final inFolder = folder.channelIds.toSet();
     var channels = 0;

@@ -403,9 +403,9 @@ class PostCard extends StatelessWidget {
           ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            // A long press opens the menu, as in the official app: a plain tap cannot do
-            // that and leave room for the double tap that sends the quick reaction,
-            // because the menu would swallow the second tap.
+            // A long press opens the menu. The official app opens it on a tap; here a
+            // plain tap cannot do that and leave room for the double tap that sends the
+            // quick reaction, because the menu would swallow the second tap.
             onLongPress: _hasMenu ? () => _menu(context) : null,
             // Every bubble takes the whole row, whatever it holds, so the posts line up.
             child: SizedBox(width: double.infinity, child: bubble),

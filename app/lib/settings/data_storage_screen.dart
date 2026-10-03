@@ -308,8 +308,8 @@ class DataUsageSlider extends StatelessWidget {
   }
 }
 
-/// The largest video or file that loads by itself, in the steps the official app's slider
-/// has, and for videos whether the first seconds of larger ones are loaded ahead.
+/// The largest video or file that loads by itself, in fixed steps over the range of the
+/// official app's slider (which moves without steps), and for videos whether the first seconds of larger ones are loaded ahead.
 class _SizeSheet extends StatefulWidget {
   const _SizeSheet({required this.preset, required this.videos});
   final DownloadPreset preset;

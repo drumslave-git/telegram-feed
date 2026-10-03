@@ -4,11 +4,10 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-19.
+**Current phase:** Parity with the official app. **Next task:** Q-20.
 
 ## Defects
 
-- [ ] Q-19 Code comments and docs that state official behaviour wrongly are corrected: `post_card.dart` (long press), `unread_badge.dart` ("999+"), `accounts.dart` (account limit), `thread_screen.dart` (opening position), `audio_bar.dart` (bar position), `home_screen.dart` (tab counting, the `+` in the tab bar), `timeline_search.dart` (row dates), `data_storage_screen.dart` (slider steps), `notification_launch.dart` (feed opened), `models.dart` and `mapping.dart` (stickers, custom emoji); ARCHITECTURE §5.9 (menu order, album layout source), §5.4 (`markViewed`), §5.10 (recents in the comment search), §6.3 (where the permission is asked); SPEC §3 (accounts are listed by name and phone only after Accounts was opened on each, "swipe down to close" closes both ways, the download button on album cells and round videos, the calendar in the home search).
 
 ## Differences from the official app
 

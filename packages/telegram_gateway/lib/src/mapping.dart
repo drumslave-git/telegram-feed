@@ -350,7 +350,8 @@ td.FormattedText? formattedText(td.MessageContent? c) => switch (c) {
   _ => null,
 };
 
-/// Formatting the app draws; custom emoji, timestamps and the like stay plain text.
+/// Formatting the app draws, custom emoji included; phone numbers, bank cards and the like
+/// stay plain text.
 List<TextEntity> entities(td.FormattedText? t) {
   if (t == null) return const [];
   final text = t.text;

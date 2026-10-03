@@ -10,8 +10,9 @@ import 'open_post.dart';
 export 'notification_policy.dart';
 export 'open_post.dart';
 
-/// UI-side handling of notification taps: opens the post in the first feed that contains
-/// its channel (SPEC), or the Telegram app for the "Open in Telegram" action.
+/// UI-side handling of notification taps: opens the post in the feed of the rule that
+/// raised the notification (the first feed that holds the channel when that feed is gone),
+/// or the Telegram app for the "Open in Telegram" action.
 final class NotificationLaunch {
   NotificationLaunch(this.host);
   final AppHost host;

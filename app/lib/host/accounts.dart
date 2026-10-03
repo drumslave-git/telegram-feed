@@ -27,7 +27,7 @@ class AccountStore {
   const AccountStore(this.supportDirectory);
   final String supportDirectory;
 
-  /// As many as the official app holds.
+  /// As many as the official app holds with Premium; without it that app stops at three.
   static const maxAccounts = 4;
 
   String get _path => '$supportDirectory/accounts.json';

@@ -137,7 +137,8 @@ class _ThreadScreenState extends State<ThreadScreen> {
         _scrollToEnd(onlyNearEnd: true);
       });
       await _loadOlder();
-      // At the newest comment, as the official app opens a discussion.
+      // At the newest comment. The official app opens a discussion at the first unread
+      // one.
       _scrollToEnd(animate: false);
     } on TelegramException catch (e) {
       if (mounted) {

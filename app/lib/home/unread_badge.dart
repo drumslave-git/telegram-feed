@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../l10n/l10n.dart';
 
-/// The unread counter of a feed, a folder tab or a channel row, drawn as the official app
-/// draws it: the accent colour, never the error red, and "999+" past a thousand.
+/// The unread counter of a feed, a folder tab or a channel row, in the accent colour as
+/// the official app draws it, never the error red. Past a thousand it says "999+", where
+/// the official app prints the whole number.
 class UnreadBadge extends StatelessWidget {
   const UnreadBadge(this.count, {super.key});
   final int count;

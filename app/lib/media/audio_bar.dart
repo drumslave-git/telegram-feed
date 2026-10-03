@@ -7,8 +7,9 @@ import '../l10n/l10n.dart';
 import 'audio_session.dart';
 import 'media_viewer.dart' show MediaViewerScreen;
 
-/// Keeps the player bar under every screen while something plays, the way the official app
-/// keeps its music bar. The sound itself lives in [AudioSessions] and is not tied to the
+/// Keeps the player bar under every screen while something plays. The official app keeps
+/// its music bar under the header instead, and opens a player from it. The sound itself
+/// lives in [AudioSessions] and is not tied to the
 /// post it came from, so scrolling away or leaving the screen does not stop it.
 class AudioBarHost extends StatelessWidget {
   const AudioBarHost({super.key, required this.child, this.sessions});

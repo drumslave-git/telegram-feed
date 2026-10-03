@@ -275,8 +275,8 @@ class SearchResultTile extends StatelessWidget {
             ),
           ),
           Text(
-            // The day, as the results of the official app name it: "Today" and
-            // "September 12" instead of a mix of clock times, weekdays and 2026-09-04.
+            // The day, in words: "Today" and "September 12". The official app's result
+            // rows mix clock times, weekdays and short dates instead.
             formatDay(date, l10n: context.l10n),
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,

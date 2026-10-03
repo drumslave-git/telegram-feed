@@ -625,7 +625,7 @@ final class ServiceNote extends Media {
   int get hashCode => Object.hash(kind, title, messageId, seconds);
 }
 
-/// Content the app does not render yet (polls, stickers, ...); [tdType] names it.
+/// Content the app does not draw (polls, locations, invoices, ...); [tdType] names it.
 final class UnsupportedMedia extends Media {
   const UnsupportedMedia(this.tdType);
   final String tdType;
@@ -826,7 +826,7 @@ final class Post {
   final int views;
   final bool isOutgoing;
 
-  /// Emoji reactions (custom-emoji and paid reactions are not shown).
+  /// The post's reactions: plain emoji, custom emoji and the paid one ([Reaction.emoji]).
   final List<Reaction> reactions;
 
   /// Comments in the linked discussion group (0 when the channel has none).
