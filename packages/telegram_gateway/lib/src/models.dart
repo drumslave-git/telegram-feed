@@ -640,12 +640,18 @@ final class Comment {
     this.authorPhoto,
     this.isOutgoing = false,
     this.entities = const [],
+    this.media,
   });
   final int chatId;
   final int messageId;
   final int threadId;
   final int date;
+
+  /// The comment's words, or the caption of what it carries.
   final String text;
+
+  /// The picture, video, sticker, voice message or file of the comment, if it has one.
+  final Media? media;
   final String author;
 
   /// User id, or chat id of a channel or group commenting as itself; picks the colour of

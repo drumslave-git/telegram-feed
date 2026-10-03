@@ -5,11 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../l10n/l10n.dart';
+import '../media/media_viewer.dart';
 import '../widgets/error_state.dart';
 import 'bubble_text.dart';
 import 'formatted_text.dart';
+import 'media_view.dart';
 import 'open_links.dart';
 import 'post_card.dart';
+import 'sticker_view.dart';
 import 'text_scale.dart';
 
 /// Comments on a post from the channel's discussion group, with a reply composer.
@@ -500,6 +503,9 @@ class CommentBubble extends StatelessWidget {
     final colors = ChatColors.of(context);
     final c = comment;
     final own = c.isOutgoing;
+    final media = c.media;
+    final viewable =
+        media != null && MediaViewerScreen.viewable([media]).isNotEmpty;
     final time = Text(
       formatTime(DateTime.fromMillisecondsSinceEpoch(c.date * 1000), context),
       style: TextStyle(
@@ -521,7 +527,14 @@ class CommentBubble extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
-        child: IntrinsicWidth(
+        // Words make the bubble as wide as they are. A picture, a player or a file row
+        // cannot say how wide it wants to be, so such a bubble has a width of its own.
+        child: _BubbleWidth(
+          width: media == null
+              ? null
+              : media is StickerMedia
+              ? 180
+              : 280,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
@@ -536,20 +549,54 @@ class CommentBubble extends StatelessWidget {
                     gateway: gateway,
                   ),
                 ),
-              BubbleText(
-                text: FormattedText(
-                  text: c.text,
-                  entities: c.entities,
-                  onOpenLink: onOpenLink,
-                  gateway: gateway,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.3,
-                    color: scheme.onSurface,
-                  ),
+              if (media != null)
+                Padding(
+                  padding: EdgeInsets.only(bottom: c.text.isEmpty ? 2 : 6),
+                  child: media is StickerMedia
+                      ? Align(
+                          alignment: Alignment.centerLeft,
+                          child: StickerView(
+                            sticker: media,
+                            gateway: gateway,
+                            side: 140,
+                          ),
+                        )
+                      : ConstrainedBox(
+                          // A tall picture is cut to this height.
+                          constraints: const BoxConstraints(maxHeight: 320),
+                          child: MediaView(
+                            media: media,
+                            gateway: gateway,
+                            onOpen: viewable
+                                ? () => unawaited(
+                                    MediaViewerScreen.open(
+                                      context,
+                                      items: [media],
+                                      gateway: gateway,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
                 ),
-                footer: time,
-              ),
+              // A comment that is only a picture has its time under it.
+              if (c.text.isEmpty && media != null)
+                Align(alignment: Alignment.centerRight, child: time)
+              else
+                BubbleText(
+                  text: FormattedText(
+                    text: c.text,
+                    entities: c.entities,
+                    onOpenLink: onOpenLink,
+                    gateway: gateway,
+                    style: TextStyle(
+                      fontSize: 16,
+                      height: 1.3,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  footer: time,
+                ),
             ],
           ),
         ),
@@ -563,4 +610,16 @@ class CommentBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+/// As wide as its child wants to be, or [width] where that is given.
+class _BubbleWidth extends StatelessWidget {
+  const _BubbleWidth({required this.width, required this.child});
+  final double? width;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => width == null
+      ? IntrinsicWidth(child: child)
+      : SizedBox(width: width, child: child);
 }

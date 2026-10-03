@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telegram_feed/feeds/media_view.dart';
 import 'package:telegram_feed/feeds/post_card.dart';
 import 'package:telegram_feed/feeds/thread_screen.dart';
 import 'package:telegram_feed/home/channel_list.dart';
@@ -172,6 +173,55 @@ void main() {
       expect(gw.closed, [ThreadGateway.thread]);
     },
   );
+
+  testWidgets('a comment shows what it carries', (tester) async {
+    const file = FileRef(id: 1, remoteId: 'r', size: 10, width: 40, height: 30);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListView(
+            children: [
+              CommentBubble(
+                comment: const Comment(
+                  chatId: -2,
+                  messageId: 1,
+                  threadId: 900,
+                  date: 1,
+                  text: '',
+                  author: 'Ann',
+                  media: PhotoMedia(sizes: [file]),
+                ),
+                gateway: ThreadGateway(),
+              ),
+              CommentBubble(
+                comment: const Comment(
+                  chatId: -2,
+                  messageId: 2,
+                  threadId: 900,
+                  date: 2,
+                  text: 'the minutes',
+                  author: 'Bob',
+                  media: DocumentMedia(
+                    file: file,
+                    fileName: 'minutes.pdf',
+                    mimeType: 'application/pdf',
+                  ),
+                ),
+                gateway: ThreadGateway(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byType(MediaView), findsNWidgets(2));
+    expect(find.byType(PhotoView), findsOneWidget);
+    expect(find.text('minutes.pdf'), findsOneWidget);
+    expect(find.text('the minutes'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
 
   testWidgets('channel without discussion group', (tester) async {
     final gw = ThreadGateway(hasThread: false);

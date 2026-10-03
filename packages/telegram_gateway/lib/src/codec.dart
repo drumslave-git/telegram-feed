@@ -388,6 +388,7 @@ Map<String, Object?> encodeComment(Comment c) => {
   'authorPhoto': _fileOrNull(c.authorPhoto),
   'isOutgoing': c.isOutgoing,
   'entities': _encodeEntities(c.entities),
+  'media': c.media == null ? null : encodeMedia(c.media!),
 };
 
 Comment decodeComment(Map<Object?, Object?> m) => Comment(
@@ -401,6 +402,9 @@ Comment decodeComment(Map<Object?, Object?> m) => Comment(
   authorPhoto: _decodeFileOrNull(m['authorPhoto']),
   isOutgoing: m['isOutgoing'] as bool,
   entities: _decodeEntities(m['entities']),
+  media: m['media'] == null
+      ? null
+      : decodeMedia(m['media'] as Map<Object?, Object?>),
 );
 
 Post decodePost(Map<Object?, Object?> m) => Post(

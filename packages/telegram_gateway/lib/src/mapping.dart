@@ -416,6 +416,7 @@ Comment comment(td.Message m, Sender sender) => Comment(
   threadId: threadIdOf(m),
   date: m.date,
   text: content(m.content).$1,
+  media: content(m.content).$2,
   author: sender.name,
   authorId: sender.id,
   authorPhoto: sender.photo,

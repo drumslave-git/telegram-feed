@@ -4,11 +4,10 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-6.
+**Current phase:** Parity with the official app. **Next task:** Q-7.
 
 ## Defects
 
-- [ ] Q-6 Comments show their media: photos, videos, stickers, voice and files.
 - [ ] Q-7 An album raises one rule notification, and sharing an album carries its caption whichever part holds it.
 - [ ] Q-8 The app lock is one lock for every account on the device and survives a logout; the recents switcher shows no content while a lock is set; wrong PINs are delayed as in the official app (from the third try: 5, 10, 15, 20, 25, 30 s). Check on the emulator whether switching accounts skips the PIN.
 - [ ] Q-9 Login with an email code works.

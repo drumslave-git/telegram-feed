@@ -815,6 +815,7 @@ final class FakeTelegram extends TimelineGateway {
         text: 'Apples from the orchard stall, as every year.',
         author: 'Mara',
         authorId: 11,
+        media: PhotoMedia(sizes: [_file('photo4.png', 640, 480)]),
       ),
       Comment(
         chatId: chatId - 1000,

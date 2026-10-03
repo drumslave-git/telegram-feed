@@ -140,7 +140,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 ### Interactions
 
 - I react to a post with the reactions the channel allows, its custom emoji among them. The paid reaction (Telegram Stars) is shown with its count; the app does not send it.
-- I open the comments of a post and reply, when the channel has a discussion group.
+- I open the comments of a post and reply, when the channel has a discussion group. A comment shows its photo, video, sticker, voice message or file.
 - I share a post or copy its link.
 - I save a post, with its whole album, to my Saved Messages, and read Saved Messages in the app from Settings. There I delete posts, one from its menu or several selected, after confirming, as in the official app.
 
