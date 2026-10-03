@@ -579,6 +579,61 @@ class AppLocalizationsEn extends AppLocalizations {
   String get postNoAppForFile => 'No app on this phone opens this file.';
 
   @override
+  String get postSaveToDownloads => 'Save to downloads';
+
+  @override
+  String get postSaveToMusic => 'Save to music';
+
+  @override
+  String postSavedToGallery(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count saved to gallery.',
+      one: 'Saved to gallery.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String postSavedToDownloads(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files saved to Downloads.',
+      one: 'File saved to Downloads.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String postSavedToMusic(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count audio files saved to Music.',
+      one: 'Audio saved to Music.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get postReport => 'Report';
+
+  @override
+  String get postReportHint => 'Additional details...';
+
+  @override
+  String get postReportSend => 'Send report';
+
+  @override
+  String get postReportSent =>
+      'Thank you! Your report will be reviewed by Telegram\'s team.';
+
+  @override
+  String get postReportFailed => 'Could not send the report.';
+
+  @override
   String get postPinned => 'Pinned';
 
   @override

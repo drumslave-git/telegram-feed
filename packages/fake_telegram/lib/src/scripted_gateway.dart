@@ -234,6 +234,35 @@ class ChannelsGateway implements TelegramGateway {
   @override
   Future<List<Post>> mediaCalendar(int chatId, {int fromMessageId = 0}) async =>
       const [];
+
+  /// The reports that reached "Telegram", as `chat/ids option text`.
+  final reports = <String>[];
+
+  /// Telegram's questions, played back: a reason, and for "other" some words.
+  @override
+  Future<ReportStep> report(
+    int chatId,
+    List<int> messageIds, {
+    String optionId = '',
+    String text = '',
+  }) async {
+    if (optionId.isEmpty) {
+      return const ReportChoice(
+        title: 'Report',
+        options: [
+          ReportOption(id: 'spam', text: 'Spam'),
+          ReportOption(id: 'violence', text: 'Violence'),
+          ReportOption(id: 'other', text: 'Other'),
+        ],
+      );
+    }
+    if (optionId == 'other' && text.isEmpty) {
+      return const ReportText(optionId: 'other!', optional: false);
+    }
+    reports.add('$chatId/${messageIds.join(',')} $optionId $text'.trim());
+    return const ReportDone();
+  }
+
   @override
   Future<FileRef> mapThumbnail(
     double latitude,

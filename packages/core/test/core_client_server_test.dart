@@ -244,6 +244,13 @@ final class FakeGateway implements TelegramGateway {
   Future<List<Post>> mediaCalendar(int chatId, {int fromMessageId = 0}) async =>
       const [];
   @override
+  Future<ReportStep> report(
+    int chatId,
+    List<int> messageIds, {
+    String optionId = '',
+    String text = '',
+  }) async => const ReportDone();
+  @override
   Future<FileRef> mapThumbnail(
     double latitude,
     double longitude, {

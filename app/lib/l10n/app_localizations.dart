@@ -1040,6 +1040,66 @@ abstract class AppLocalizations {
   /// **'No app on this phone opens this file.'**
   String get postNoAppForFile;
 
+  /// No description provided for @postSaveToDownloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to downloads'**
+  String get postSaveToDownloads;
+
+  /// No description provided for @postSaveToMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to music'**
+  String get postSaveToMusic;
+
+  /// After the pictures and videos of a post were copied to the phone's gallery.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Saved to gallery.} other{{count} saved to gallery.}}'**
+  String postSavedToGallery(int count);
+
+  /// No description provided for @postSavedToDownloads.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{File saved to Downloads.} other{{count} files saved to Downloads.}}'**
+  String postSavedToDownloads(int count);
+
+  /// No description provided for @postSavedToMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Audio saved to Music.} other{{count} audio files saved to Music.}}'**
+  String postSavedToMusic(int count);
+
+  /// No description provided for @postReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Report'**
+  String get postReport;
+
+  /// No description provided for @postReportHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Additional details...'**
+  String get postReportHint;
+
+  /// No description provided for @postReportSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send report'**
+  String get postReportSend;
+
+  /// No description provided for @postReportSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you! Your report will be reviewed by Telegram\'s team.'**
+  String get postReportSent;
+
+  /// No description provided for @postReportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not send the report.'**
+  String get postReportFailed;
+
   /// Screen-reader label of the pin icon in the footer of a pinned post.
   ///
   /// In en, this message translates to:

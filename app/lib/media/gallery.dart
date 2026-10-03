@@ -1,9 +1,22 @@
 import 'package:flutter/services.dart';
 
-/// Copies a picture or a video the app has in Telegram's cache into the phone's own gallery
-/// (`Pictures/TG Feed` or `Movies/TG Feed`), which is what the official app's
-/// "Save to gallery" does. MediaStore needs no permission for a file the app writes itself
+/// Copies a file the app has in Telegram's cache to where the phone keeps such files: a
+/// picture or a video into the gallery (`Pictures/TG Feed` or `Movies/TG Feed`), a document
+/// into `Download/TG Feed`, music into `Music/TG Feed`, which is what the official app's
+/// "Save to gallery", "Save to downloads" and "Save to music" do. MediaStore needs no permission for a file the app writes itself
 /// on Android 10 and later, the oldest version this app runs on.
+/// Where a file of a post is copied to on the phone.
+enum SaveTo {
+  /// `Pictures/TG Feed` or `Movies/TG Feed`, by the kind of file.
+  gallery,
+
+  /// `Download/TG Feed`.
+  downloads,
+
+  /// `Music/TG Feed`.
+  music,
+}
+
 class Gallery {
   const Gallery({MethodChannel? channel}) : _channel = channel ?? _default;
   static const _default = MethodChannel('tf/gallery');
@@ -14,10 +27,12 @@ class Gallery {
     required String path,
     required String name,
     required String mimeType,
+    SaveTo to = SaveTo.gallery,
   }) => _channel.invokeMethod<String>('save', {
     'path': path,
     'name': name,
     'mimeType': mimeType,
+    'to': to.name,
   });
 
   /// A name for the copy: the app, the day and the file's own id, so two pictures of one

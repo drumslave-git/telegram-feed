@@ -359,6 +359,15 @@ final class CoreServer {
           'totalCount': page.totalCount,
           'nextOffset': page.nextOffset,
         };
+      case 'report':
+        return encodeReportStep(
+          await gateway.report(
+            a['chatId'] as int,
+            (a['messageIds'] as List).cast<int>(),
+            optionId: a['optionId'] as String,
+            text: a['text'] as String,
+          ),
+        );
       case 'mapThumbnail':
         return encodeFileRef(
           await gateway.mapThumbnail(

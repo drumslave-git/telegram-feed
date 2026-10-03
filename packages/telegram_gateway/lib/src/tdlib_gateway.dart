@@ -943,6 +943,36 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
+  Future<ReportStep> report(
+    int chatId,
+    List<int> messageIds, {
+    String optionId = '',
+    String text = '',
+  }) async {
+    final answer = await _client.call(
+      td.ReportChat(
+        chatId: chatId,
+        optionId: optionId,
+        messageIds: messageIds,
+        text: text,
+      ),
+    );
+    return switch (answer) {
+      td.ReportChatResultOptionRequired(:final title, :final options) =>
+        ReportChoice(
+          title: title,
+          options: [
+            for (final o in options) ReportOption(id: o.id, text: o.text),
+          ],
+        ),
+      td.ReportChatResultTextRequired(:final optionId, :final isOptional) =>
+        ReportText(optionId: optionId, optional: isOptional),
+      // The posts were named with the first call; nothing else is left to ask.
+      _ => const ReportDone(),
+    };
+  }
+
+  @override
   Future<FileRef> mapThumbnail(
     double latitude,
     double longitude, {

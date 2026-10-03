@@ -174,6 +174,16 @@ abstract interface class TelegramGateway {
   /// official app's "Save to Saved Messages" does: with the channel as its source.
   Future<void> saveToSavedMessages(int chatId, List<int> messageIds);
 
+  /// Reports posts of a channel to Telegram's moderators, one step at a time as Telegram
+  /// asks: the first call brings the reasons to choose from, the next ones carry the
+  /// chosen [optionId] (and the [text] it asked for) until the answer is [ReportDone].
+  Future<ReportStep> report(
+    int chatId,
+    List<int> messageIds, {
+    String optionId = '',
+    String text = '',
+  });
+
   /// Deletes posts from the account's Saved Messages, as the official app's Delete does
   /// there, on every device of the account. It is the only deletion the app makes:
   /// channels are read, not managed.

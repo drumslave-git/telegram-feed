@@ -604,6 +604,8 @@ MediaCover _spoiler(bool hasSpoiler) =>
       durationSeconds: audio.duration,
       title: audio.title,
       performer: audio.performer,
+      fileName: audio.fileName,
+      mimeType: audio.mimeType,
     ),
   ),
   td.MessageVoiceNote(:final voiceNote, :final caption)

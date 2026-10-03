@@ -212,7 +212,14 @@ class MainActivity : FlutterActivity() {
                             result.error("args", "path and name are required", null)
                         } else {
                             try {
-                                result.success(saveToGallery(File(path), name, mime))
+                                result.success(
+                                    saveToGallery(
+                                        File(path),
+                                        name,
+                                        mime,
+                                        call.argument<String>("to") ?: "gallery",
+                                    ),
+                                )
                             } catch (e: Exception) {
                                 result.error("save", e.message, null)
                             }
@@ -307,15 +314,26 @@ class MainActivity : FlutterActivity() {
             cm.activeNetworkInfo?.isRoaming == true
         }
 
-    /** Copies the file into Pictures/TG Feed (or Movies) and answers with its uri. */
-    private fun saveToGallery(file: File, name: String, mime: String): String {
+    /**
+     * Copies the file to where the phone keeps such files and answers with its uri:
+     * Pictures or Movies for the gallery, Download for documents, Music for audio.
+     */
+    private fun saveToGallery(file: File, name: String, mime: String, to: String): String {
         val video = mime.startsWith("video")
-        val collection = if (video) {
-            MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-        } else {
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        val collection = when (to) {
+            "downloads" -> MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            "music" -> MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+            else -> if (video) {
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            } else {
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            }
         }
-        val folder = if (video) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES
+        val folder = when (to) {
+            "downloads" -> Environment.DIRECTORY_DOWNLOADS
+            "music" -> Environment.DIRECTORY_MUSIC
+            else -> if (video) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES
+        }
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, name)
             put(MediaStore.MediaColumns.MIME_TYPE, mime)

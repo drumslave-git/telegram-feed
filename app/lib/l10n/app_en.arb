@@ -407,6 +407,38 @@
     }
   },
   "postNoAppForFile": "No app on this phone opens this file.",
+  "postSaveToDownloads": "Save to downloads",
+  "postSaveToMusic": "Save to music",
+  "postSavedToGallery": "{count, plural, =1{Saved to gallery.} other{{count} saved to gallery.}}",
+  "@postSavedToGallery": {
+    "description": "After the pictures and videos of a post were copied to the phone's gallery.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "postSavedToDownloads": "{count, plural, =1{File saved to Downloads.} other{{count} files saved to Downloads.}}",
+  "@postSavedToDownloads": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "postSavedToMusic": "{count, plural, =1{Audio saved to Music.} other{{count} audio files saved to Music.}}",
+  "@postSavedToMusic": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "postReport": "Report",
+  "postReportHint": "Additional details...",
+  "postReportSend": "Send report",
+  "postReportSent": "Thank you! Your report will be reviewed by Telegram's team.",
+  "postReportFailed": "Could not send the report.",
   "postPinned": "Pinned",
   "@postPinned": {
     "description": "Screen-reader label of the pin icon in the footer of a pinned post."

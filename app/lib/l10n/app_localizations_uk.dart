@@ -601,6 +601,67 @@ class AppLocalizationsUk extends AppLocalizations {
       'На цьому телефоні немає застосунку, що відкриває цей файл.';
 
   @override
+  String get postSaveToDownloads => 'Зберегти в Завантаження';
+
+  @override
+  String get postSaveToMusic => 'Зберегти до Музики';
+
+  @override
+  String postSavedToGallery(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count збережено до галереї.',
+      many: '$count збережено до галереї.',
+      few: '$count збережено до галереї.',
+      one: 'Збережено до галереї.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String postSavedToDownloads(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count файлу збережено в Завантаженнях.',
+      many: '$count файлів збережено в Завантаженнях.',
+      few: '$count файли збережено в Завантаженнях.',
+      one: '$count файл збережено в Завантаженнях.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String postSavedToMusic(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count аудіо збережено до Музики.',
+      many: '$count аудіо збережено до Музики.',
+      few: '$count аудіо збережено до Музики.',
+      one: 'Аудіо збережено до Музики.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get postReport => 'Поскаржитися';
+
+  @override
+  String get postReportHint => 'Коментар...';
+
+  @override
+  String get postReportSend => 'Надіслати скаргу';
+
+  @override
+  String get postReportSent =>
+      'Дякуємо! Вашу скаргу розгляне команда Telegram.';
+
+  @override
+  String get postReportFailed => 'Не вдалося надіслати скаргу.';
+
+  @override
   String get postPinned => 'Прикріплено';
 
   @override

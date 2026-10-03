@@ -189,6 +189,8 @@ Map<String, Object?> encodeMedia(Media m) => switch (m) {
     :final title,
     :final performer,
     :final isVoice,
+    :final fileName,
+    :final mimeType,
   ) =>
     {
       'kind': 'audio',
@@ -197,6 +199,8 @@ Map<String, Object?> encodeMedia(Media m) => switch (m) {
       'title': title,
       'performer': performer,
       'isVoice': isVoice,
+      if (fileName.isNotEmpty) 'fileName': fileName,
+      if (mimeType.isNotEmpty) 'mimeType': mimeType,
     },
   StickerMedia(
     :final file,
@@ -301,6 +305,8 @@ Media decodeMedia(Map<Object?, Object?> m) => switch (m['kind']) {
     title: m['title'] as String,
     performer: m['performer'] as String,
     isVoice: m['isVoice'] as bool,
+    fileName: (m['fileName'] as String?) ?? '',
+    mimeType: (m['mimeType'] as String?) ?? '',
   ),
   'document' => DocumentMedia(
     file: decodeFileRef(m['file'] as Map<Object?, Object?>),
@@ -471,6 +477,37 @@ List<TextEntity> _decodeEntities(Object? list) => [
       expandable: e['x'] == true,
     ),
 ];
+
+Map<String, Object?> encodeReportStep(ReportStep s) => switch (s) {
+  ReportDone() => {'step': 'done'},
+  ReportChoice(:final title, :final options) => {
+    'step': 'choice',
+    'title': title,
+    'options': [
+      for (final o in options) {'id': o.id, 'text': o.text},
+    ],
+  },
+  ReportText(:final optionId, :final optional) => {
+    'step': 'text',
+    'optionId': optionId,
+    'optional': optional,
+  },
+};
+
+ReportStep decodeReportStep(Map<Object?, Object?> m) => switch (m['step']) {
+  'choice' => ReportChoice(
+    title: (m['title'] as String?) ?? '',
+    options: [
+      for (final o in (m['options'] as List?) ?? const [])
+        ReportOption(id: (o as Map)['id'] as String, text: o['text'] as String),
+    ],
+  ),
+  'text' => ReportText(
+    optionId: m['optionId'] as String,
+    optional: m['optional'] == true,
+  ),
+  _ => const ReportDone(),
+};
 
 Map<String, Object?> encodeThread(Thread t) => {
   'chatId': t.chatId,

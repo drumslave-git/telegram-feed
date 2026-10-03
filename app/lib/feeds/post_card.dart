@@ -7,6 +7,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../home/channel_list.dart' show ChannelAvatar;
 import '../l10n/l10n.dart';
+import '../media/gallery.dart';
 import '../media/media_viewer.dart';
 import 'album_layout.dart';
 import 'bubble_text.dart';
@@ -151,6 +152,8 @@ class PostCard extends StatelessWidget {
     this.onCopyLink,
     this.onCopyText,
     this.onSave,
+    this.onSaveToDevice,
+    this.onReport,
     this.onDelete,
     this.onReact,
     this.availableReactions,
@@ -188,6 +191,13 @@ class PostCard extends StatelessWidget {
 
   /// Forwards the post into the account's Saved Messages.
   final VoidCallback? onSave;
+
+  /// Copies the post's pictures and videos to the gallery, its documents to Downloads or
+  /// its music to Music; the menu offers the ones the post has something for.
+  final void Function(SaveTo to)? onSaveToDevice;
+
+  /// Reports the post to Telegram's moderators.
+  final VoidCallback? onReport;
 
   /// Deletes the post; only in Saved Messages.
   final VoidCallback? onDelete;
@@ -267,6 +277,8 @@ class PostCard extends StatelessWidget {
       onCopyText != null ||
       onMinimize != null ||
       onSave != null ||
+      onSaveToDevice != null ||
+      onReport != null ||
       onDelete != null ||
       availableReactions != null;
 
@@ -319,6 +331,39 @@ class PostCard extends StatelessWidget {
             icon: Icons.bookmark_add_outlined,
             label: l10n.postSaveToSavedMessages,
             onSelected: onSave,
+          ),
+        // What the phone can keep of the post, by what the post carries, in the official
+        // app's words.
+        if (onSaveToDevice != null && !protected) ...[
+          if (item.allPosts.any(
+            (p) => p.media is PhotoMedia || p.media is VideoMedia,
+          ))
+            PostMenuEntry(
+              icon: Icons.download_outlined,
+              label: l10n.viewerSaveToGallery,
+              onSelected: () => onSaveToDevice!(SaveTo.gallery),
+            ),
+          if (item.allPosts.any((p) => p.media is DocumentMedia))
+            PostMenuEntry(
+              icon: Icons.download_outlined,
+              label: l10n.postSaveToDownloads,
+              onSelected: () => onSaveToDevice!(SaveTo.downloads),
+            ),
+          if (item.allPosts.any((p) {
+            final m = p.media;
+            return m is AudioMedia && !m.isVoice;
+          }))
+            PostMenuEntry(
+              icon: Icons.library_music_outlined,
+              label: l10n.postSaveToMusic,
+              onSelected: () => onSaveToDevice!(SaveTo.music),
+            ),
+        ],
+        if (onReport != null)
+          PostMenuEntry(
+            icon: Icons.report_gmailerrorred_outlined,
+            label: l10n.postReport,
+            onSelected: onReport,
           ),
         if (onMinimize != null)
           PostMenuEntry(

@@ -430,12 +430,19 @@ final class AudioMedia extends Media {
     this.title = '',
     this.performer = '',
     this.isVoice = false,
+    this.fileName = '',
+    this.mimeType = '',
   });
   final FileRef file;
   final int durationSeconds;
   final String title;
   final String performer;
   final bool isVoice;
+
+  /// The name and the type of a music file, as its sender gave them; empty for a voice
+  /// message.
+  final String fileName;
+  final String mimeType;
 }
 
 final class DocumentMedia extends Media {
@@ -744,6 +751,37 @@ final class ChecklistMedia extends Media {
 final class UnsupportedMedia extends Media {
   const UnsupportedMedia(this.tdType);
   final String tdType;
+}
+
+/// One answer Telegram can be given while a post is reported.
+final class ReportOption {
+  const ReportOption({required this.id, required this.text});
+  final String id;
+  final String text;
+}
+
+/// Where a report stands: Telegram asks its questions one by one.
+sealed class ReportStep {
+  const ReportStep();
+}
+
+/// The report is with Telegram's moderators.
+final class ReportDone extends ReportStep {
+  const ReportDone();
+}
+
+/// One of [options] has to be picked, under [title].
+final class ReportChoice extends ReportStep {
+  const ReportChoice({required this.title, required this.options});
+  final String title;
+  final List<ReportOption> options;
+}
+
+/// Words are asked for after option [optionId]; they may be left out when [optional].
+final class ReportText extends ReportStep {
+  const ReportText({required this.optionId, required this.optional});
+  final String optionId;
+  final bool optional;
 }
 
 /// A post's discussion thread, hosted in the channel's linked discussion group.

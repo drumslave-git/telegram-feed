@@ -16,6 +16,7 @@ import '../host/haptics.dart';
 import '../home/channel_info_screen.dart';
 import '../home/connection_title.dart';
 import '../l10n/l10n.dart';
+import '../media/gallery.dart';
 import '../media/media_viewer.dart';
 import '../settings/data_storage_screen.dart' show DataStorageScreen;
 import '../settings/settings_tiles.dart' show openSettingsScreen;
@@ -2281,6 +2282,162 @@ class TimelineViewState extends State<TimelineView>
     );
   }
 
+  /// Copies what the post carries of one kind to the phone: pictures and videos to the
+  /// gallery, documents to Downloads, music to Music. A file that is not here yet is
+  /// downloaded first.
+  Future<void> _saveToDevice(TimelineItem item, SaveTo to) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    // Oldest first, as the post shows them.
+    final files = <({FileRef file, String name, String mime})>[];
+    for (final p in item.allPosts.reversed) {
+      switch ((to, p.media)) {
+        case (SaveTo.gallery, PhotoMedia(:final sizes)) when sizes.isNotEmpty:
+          files.add((
+            file: sizes.last,
+            name: Gallery.nameFor(fileId: sizes.last.id, video: false),
+            mime: 'image/jpeg',
+          ));
+        case (SaveTo.gallery, VideoMedia(:final file)):
+          files.add((
+            file: file,
+            name: Gallery.nameFor(fileId: file.id, video: true),
+            mime: 'video/mp4',
+          ));
+        case (
+          SaveTo.downloads,
+          DocumentMedia(:final file, :final fileName, :final mimeType),
+        ):
+          files.add((
+            file: file,
+            name: fileName.isEmpty ? 'telegram-feed-${file.id}' : fileName,
+            mime: mimeType.isEmpty ? 'application/octet-stream' : mimeType,
+          ));
+        case (
+          SaveTo.music,
+          AudioMedia(
+            :final file,
+            :final fileName,
+            :final mimeType,
+            :final title,
+            :final performer,
+            isVoice: false,
+          ),
+        ):
+          final named = [
+            performer,
+            title,
+          ].where((s) => s.isNotEmpty).join(' - ');
+          files.add((
+            file: file,
+            name: fileName.isNotEmpty
+                ? fileName
+                : named.isNotEmpty
+                ? '$named.mp3'
+                : 'telegram-feed-${file.id}.mp3',
+            mime: mimeType.isEmpty ? 'audio/mpeg' : mimeType,
+          ));
+        default:
+      }
+    }
+    if (files.isEmpty) return;
+    try {
+      for (final f in files) {
+        final ready = f.file.localPath != null
+            ? f.file
+            : await widget.gateway.download(f.file);
+        final path = ready.localPath;
+        if (path == null) throw StateError('the file did not arrive');
+        await const Gallery().save(
+          path: path,
+          name: f.name,
+          mimeType: f.mime,
+          to: to,
+        );
+      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(switch (to) {
+            SaveTo.gallery => l10n.postSavedToGallery(files.length),
+            SaveTo.downloads => l10n.postSavedToDownloads(files.length),
+            SaveTo.music => l10n.postSavedToMusic(files.length),
+          }),
+        ),
+      );
+    } on Object catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.viewerSaveFailed('$e'))),
+      );
+    }
+  }
+
+  /// Reports a post to Telegram, which asks its questions one by one: a reason out of a
+  /// list, perhaps another list, perhaps some words. Leaving any of them sends nothing.
+  Future<void> _report(TimelineItem item) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    final ids = [for (final p in item.allPosts) p.messageId];
+    var option = '';
+    var text = '';
+    try {
+      // Telegram's own questions end by themselves; the bound is for a server that
+      // would not.
+      for (var asked = 0; asked < 8; asked++) {
+        final step = await widget.gateway.report(
+          item.chatId,
+          ids,
+          optionId: option,
+          text: text,
+        );
+        if (!mounted) return;
+        switch (step) {
+          case ReportDone():
+            messenger.showSnackBar(
+              SnackBar(content: Text(l10n.postReportSent)),
+            );
+            return;
+          case ReportChoice(:final title, :final options):
+            final picked = await showModalBottomSheet<String>(
+              context: context,
+              showDragHandle: true,
+              builder: (context) => SafeArea(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    ListTile(
+                      title: Text(
+                        title.isEmpty ? l10n.postReport : title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    for (final o in options)
+                      ListTile(
+                        title: Text(o.text),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.pop(context, o.id),
+                      ),
+                  ],
+                ),
+              ),
+            );
+            if (picked == null || !mounted) return;
+            option = picked;
+            text = '';
+          case ReportText(:final optionId, :final optional):
+            final words = await showDialog<String>(
+              context: context,
+              builder: (context) => _ReportWords(optional: optional),
+            );
+            if (words == null || !mounted) return;
+            option = optionId;
+            text = words;
+        }
+      }
+    } on TelegramException catch (e) {
+      showTelegramError(messenger, e, what: l10n.postReportFailed);
+    }
+  }
+
   /// Deletes posts of Saved Messages, albums whole, once the reader says yes, as the
   /// official app asks. They leave the timeline when Telegram reports them deleted.
   Future<void> deletePosts(List<TimelineItem> items) async {
@@ -2960,6 +3117,13 @@ class TimelineViewState extends State<TimelineView>
                           ? () => unawaited(deletePosts([item]))
                           : null,
                       onReact: (emoji, remove) => _react(item, emoji, remove),
+                      // What is kept in Saved Messages is the reader's own: there is
+                      // nothing to report there.
+                      onReport: widget.savedMessages
+                          ? null
+                          : () => unawaited(_report(item)),
+                      onSaveToDevice: (to) =>
+                          unawaited(_saveToDevice(item, to)),
                       availableReactions: () => _availableReactions(item),
                       onOpenLink: (url) =>
                           unawaited(_openLink(url, from: item)),
@@ -3115,6 +3279,54 @@ final class _RowInputs {
         tint == o.tint &&
         newDay == o.newDay &&
         firstUnread == o.firstUnread;
+  }
+}
+
+/// The words Telegram asks for with a report: a field and a Send button, which waits for
+/// words unless they are optional.
+class _ReportWords extends StatefulWidget {
+  const _ReportWords({required this.optional});
+  final bool optional;
+
+  @override
+  State<_ReportWords> createState() => _ReportWordsState();
+}
+
+class _ReportWordsState extends State<_ReportWords> {
+  final _words = TextEditingController();
+
+  @override
+  void dispose() {
+    _words.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.postReport),
+      content: TextField(
+        controller: _words,
+        autofocus: true,
+        minLines: 1,
+        maxLines: 4,
+        decoration: InputDecoration(hintText: l10n.postReportHint),
+        onChanged: (_) => setState(() {}),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.commonCancel),
+        ),
+        TextButton(
+          onPressed: widget.optional || _words.text.trim().isNotEmpty
+              ? () => Navigator.pop(context, _words.text.trim())
+              : null,
+          child: Text(l10n.postReportSend),
+        ),
+      ],
+    );
   }
 }
 

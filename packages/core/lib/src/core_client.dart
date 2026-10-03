@@ -379,6 +379,21 @@ final class CoreClient implements TelegramGateway {
   }
 
   @override
+  Future<ReportStep> report(
+    int chatId,
+    List<int> messageIds, {
+    String optionId = '',
+    String text = '',
+  }) async => decodeReportStep(
+    (await _call('report', {
+      'chatId': chatId,
+      'messageIds': messageIds,
+      'optionId': optionId,
+      'text': text,
+    })) as Map<Object?, Object?>,
+  );
+
+  @override
   Future<FileRef> mapThumbnail(
     double latitude,
     double longitude, {
