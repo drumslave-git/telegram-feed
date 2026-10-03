@@ -139,6 +139,9 @@ final class FakeGateway implements TelegramGateway {
   }
 
   @override
+  Future<void> countViews(int chatId, List<int> messageIds) async =>
+      calls.add('views:$chatId:${messageIds.join(',')}');
+  @override
   Future<void> markViewed(int chatId, List<int> messageIds) async =>
       calls.add('viewed:$chatId:${messageIds.join(",")}');
 

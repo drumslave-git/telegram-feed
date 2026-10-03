@@ -36,7 +36,7 @@ void main() {
     expect(gw.viewed, unorderedEquals(['-1:20,30', '-2:3,4,5']));
     expect(gw.readPositions, {-1: 30, -2: 5});
 
-    // Older posts seen later do not move the position back or report again.
+    // An older post seen later counts its view and leaves the position where it is.
     m.read(
       {-1: 10},
       viewed: {
@@ -45,7 +45,46 @@ void main() {
     );
     await m.flush();
     expect(gw.viewed.length, 2);
+    expect(gw.viewsCounted, ['-1:10']);
     expect(gw.readPositions, {-1: 30, -2: 5});
+  });
+
+  test('a post on the screen counts a view once, read or not', () async {
+    final m = ReadMarker(gateway: gw);
+    // 40 is on the screen but not far enough in to be read; 30 is read.
+    m.read(
+      {-1: 30},
+      viewed: {
+        -1: [40, 30, 20],
+      },
+    );
+    await m.flush();
+    expect(gw.viewed, ['-1:20,30']);
+    expect(gw.viewsCounted, ['-1:40']);
+    expect(gw.readPositions, {-1: 30});
+
+    // Still on the screen at the next scroll event: nothing is sent again.
+    m.read(
+      const {},
+      viewed: {
+        -1: [40, 30, 20],
+      },
+    );
+    await m.flush();
+    expect(gw.viewed, ['-1:20,30']);
+    expect(gw.viewsCounted, ['-1:40']);
+
+    // Read a moment later: the position moves, the view is not counted twice.
+    m.read(
+      {-1: 40},
+      viewed: {
+        -1: [40],
+      },
+    );
+    await m.flush();
+    expect(gw.viewed, ['-1:20,30', '-1:40']);
+    expect(gw.viewsCounted, ['-1:40']);
+    expect(gw.readPositions, {-1: 40});
   });
 
   test(

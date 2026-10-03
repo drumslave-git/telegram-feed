@@ -132,6 +132,13 @@ class ChannelsGateway implements TelegramGateway {
     lastMessageId: lastMessageOf(chatId),
   );
 
+  /// The posts whose views were counted, as "chat:ids".
+  final viewsCounted = <String>[];
+
+  @override
+  Future<void> countViews(int chatId, List<int> messageIds) async =>
+      viewsCounted.add('$chatId:${messageIds.join(',')}');
+
   @override
   Future<void> markViewed(int chatId, List<int> messageIds) async {
     markedViewed[chatId] = messageIds;

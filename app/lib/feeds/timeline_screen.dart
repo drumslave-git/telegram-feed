@@ -1279,14 +1279,16 @@ class TimelineViewState extends State<TimelineView>
       if (!_dividerSeen && divider == (item.chatId, item.rowId)) {
         _dividerSeen = true;
       }
+      // Every post on the screen counts a view, as in the official app: an older one
+      // scrolled back to, and one not yet far enough in to be read. A minimized line is
+      // read with the rest, but its post has not been seen.
+      if (!_folded(item)) {
+        (viewed[item.chatId] ??= []).addAll(
+          item.allPosts.map((x) => x.messageId),
+        );
+      }
       if (_readable(item, p)) {
         if (readIndex < 0 || p.index < readIndex) readIndex = p.index;
-        // A minimized line is read with the rest, but its post has not been seen.
-        if (!_folded(item)) {
-          (viewed[item.chatId] ??= []).addAll(
-            item.allPosts.map((x) => x.messageId),
-          );
-        }
       }
     }
     final live = !t.anchored || t.exhaustedNewer;
@@ -1298,6 +1300,7 @@ class TimelineViewState extends State<TimelineView>
         throughNewest: readIndex == 0 && live && !t.hasPending,
       );
       _marker.read(passed, viewed: viewed);
+      viewed.clear();
       Map<int, int>? moved;
       passed.forEach((chat, id) {
         if (id > (_marks[chat] ?? 0)) (moved ??= {..._marks})[chat] = id;
@@ -1307,6 +1310,8 @@ class TimelineViewState extends State<TimelineView>
         _corner.value++; // the unread count on the button
       }
     }
+    // Nothing new was read, but what is on the screen was seen.
+    if (viewed.isNotEmpty) _marker.read(const {}, viewed: viewed);
     // The list is reversed, so the row on top of the screen is the one with the highest
     // index: its day is what the floating pill names.
     _show(_stickyDay, _dayOf(items[oldestIndex.clamp(0, items.length - 1)]));

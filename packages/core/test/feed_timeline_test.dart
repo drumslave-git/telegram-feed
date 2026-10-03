@@ -127,6 +127,8 @@ final class HistoryGateway implements TelegramGateway {
   @override
   Future<List<Channel>> myChannels() async => const [];
   @override
+  Future<void> countViews(int chatId, List<int> messageIds) async {}
+  @override
   Future<void> markViewed(int chatId, List<int> messageIds) async {}
   @override
   Future<ReadState> readState(int chatId) async =>

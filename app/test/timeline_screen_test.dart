@@ -238,6 +238,41 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('older posts scrolled back to count a view', (tester) async {
+    gw.histories[-1] = forty();
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Views');
+      await db.addSource(feed.id, -1, title: 'One');
+      gw.readPositions[-1] = 40;
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+    await tester.pumpAndSettle();
+    // The newest posts are on the screen; Telegram hears of them after the debounce.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 500)),
+    );
+    await tester.pump();
+    expect(gw.viewsCounted, isEmpty);
+
+    // Scrolling up brings older posts in. They are read already, so the read position is
+    // not sent again; their views are counted.
+    await tester.drag(find.byType(TimelineView), const Offset(0, 500));
+    await tester.pumpAndSettle();
+    await unmount(tester);
+    expect(gw.viewsCounted, isNotEmpty);
+    final ids = [
+      for (final call in gw.viewsCounted)
+        ...call.split(':').last.split(',').map(int.parse),
+    ];
+    expect(ids.every((id) => id < 40), isTrue);
+    expect(ids.toSet().length, ids.length); // each post once
+  });
+
   testWidgets('posts seen to their end are marked read', (tester) async {
     gw.histories[-1] = forty();
     await tester.runAsync(() async {

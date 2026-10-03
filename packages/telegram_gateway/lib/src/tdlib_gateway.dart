@@ -518,6 +518,16 @@ final class TdlibGateway implements TelegramGateway {
   );
 
   @override
+  Future<void> countViews(int chatId, List<int> messageIds) => _client.call(
+    td.ViewMessages(
+      chatId: chatId,
+      messageIds: messageIds,
+      source: const td.MessageSourceChatHistory(),
+      forceRead: false,
+    ),
+  );
+
+  @override
   Future<ReadState> readState(int chatId) async {
     final chat = await _client.call(td.GetChat(chatId: chatId));
     return ReadState(

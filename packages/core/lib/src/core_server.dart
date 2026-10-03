@@ -261,6 +261,11 @@ final class CoreServer {
           a['chatId'] as int,
           (a['messageIds'] as List).cast<int>(),
         );
+      case 'countViews':
+        await gateway.countViews(
+          a['chatId'] as int,
+          (a['messageIds'] as List).cast<int>(),
+        );
       case 'readState':
         return encodeReadState(await gateway.readState(a['chatId'] as int));
       case 'saveToSavedMessages':

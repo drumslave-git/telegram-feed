@@ -230,6 +230,9 @@ final class CoreClient implements TelegramGateway {
   @override
   Future<void> markViewed(int chatId, List<int> messageIds) =>
       _call('markViewed', {'chatId': chatId, 'messageIds': messageIds});
+  @override
+  Future<void> countViews(int chatId, List<int> messageIds) =>
+      _call('countViews', {'chatId': chatId, 'messageIds': messageIds});
 
   @override
   Future<ReadState> readState(int chatId) async => decodeReadState(

@@ -884,6 +884,15 @@ void main() {
     expect((r['source'] as Map)['@type'], 'messageSourceChatHistory');
   });
 
+  test('countViews reports the posts without reading them', () async {
+    t.handlers['viewMessages'] = (_) => {'@type': 'ok'};
+    await g.countViews(-1001, [1, 2]);
+    final r = t.sent.last;
+    expect(r['@type'], 'viewMessages');
+    expect(r['message_ids'], [1, 2]);
+    expect(r['force_read'], false);
+  });
+
   test(
     'download returns at once when TDLib reports the file complete',
     () async {

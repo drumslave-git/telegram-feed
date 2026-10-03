@@ -89,6 +89,8 @@ final class ScriptedGateway implements TelegramGateway {
   Future<ChannelInfo> channelInfo(int chatId) async =>
       ChannelInfo(chatId: chatId);
   @override
+  Future<void> countViews(int chatId, List<int> messageIds) async {}
+  @override
   Future<void> markViewed(int chatId, List<int> messageIds) async {}
   @override
   Future<ReadState> readState(int chatId) async =>

@@ -71,6 +71,10 @@ abstract interface class TelegramGateway {
   /// Telegram and so in the official app.
   Future<void> markViewed(int chatId, List<int> messageIds);
 
+  /// Tells Telegram that these posts were on the screen, for their view counters, without
+  /// moving the read position: posts read long ago, and posts not read yet.
+  Future<void> countViews(int chatId, List<int> messageIds);
+
   /// Telegram's read state of the chat now.
   Future<ReadState> readState(int chatId);
 
