@@ -186,6 +186,35 @@ void main() {
     await unmountFixtures(tester);
   });
 
+  testWidgets('the button to the newest posts comes after 100 px of scrolling '
+      'towards them and goes after 100 px the other way', (tester) async {
+    final feed = await feedOf(tester, 'Scrolled', marks: {-1: 40, -2: 40});
+    await open(tester, app(feed));
+    final button = find.byIcon(Icons.keyboard_arrow_down);
+
+    // Back into older posts: everything is read, so nothing calls for the button.
+    await tester.dragFrom(_middle, const Offset(0, 500));
+    await tester.pumpAndSettle();
+    expect(button, findsNothing);
+
+    // Towards the newest posts: not yet after some 60 px, there after some 120.
+    await tester.dragFrom(_middle, const Offset(0, -80));
+    await tester.pumpAndSettle();
+    expect(button, findsNothing);
+    await tester.dragFrom(_middle, const Offset(0, -80));
+    await tester.pumpAndSettle();
+    expect(button, findsOneWidget);
+
+    // And the other way again.
+    await tester.dragFrom(_middle, const Offset(0, 80));
+    await tester.pumpAndSettle();
+    expect(button, findsOneWidget);
+    await tester.dragFrom(_middle, const Offset(0, 80));
+    await tester.pumpAndSettle();
+    expect(button, findsNothing);
+    await unmountFixtures(tester);
+  });
+
   testWidgets('one unread channel decides where the feed opens', (
     tester,
   ) async {

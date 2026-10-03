@@ -4,7 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-23.
+**Current phase:** Parity with the official app. **Next task:** Q-24.
 
 ## Differences from the official app
 
@@ -12,7 +12,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Timeline
 
-- [ ] Q-23 The button to the newest posts appears after 100 dp of scrolling towards the newest posts and hides after 100 dp the other way, animated; it is always shown after opening at unread posts, after a jump and when a post arrives.
 - [ ] Q-24 A jump to a post scrolls there animated when the post is loaded and puts it in the middle of the screen with its top visible; a link to a post of the channel on screen scrolls in place; the highlight lasts 1 s and ends when the list is dragged.
 - [ ] Q-25 The pinned bar holds every pinned post: a tap goes to the current one and moves on to the next older, a button opens the list of pinned posts, and hiding the bar is remembered.
 - [ ] Q-26 Posts that arrive while the app is in the background get a new "Unread posts" divider, and the list returns to it.

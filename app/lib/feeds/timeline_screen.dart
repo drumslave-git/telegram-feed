@@ -1215,6 +1215,8 @@ class TimelineViewState extends State<TimelineView>
           _opening = false;
         });
         _settled = false;
+        _cornerByScroll = _initialIndex > 0 || _initialAlignment != 0;
+        _scrolled = 0;
         if (reposition) {
           final at = _initialIndex;
           final alignment = _initialAlignment;
@@ -1354,7 +1356,11 @@ class TimelineViewState extends State<TimelineView>
         newest.index == 0 && newest.itemLeadingEdge >= -0.05 && live;
     if (atNewest != t.atTop) {
       t.atTop = atNewest;
-      if (atNewest) _returnTo = null;
+      if (atNewest) {
+        _returnTo = null;
+        _cornerByScroll = false;
+        _scrolled = 0;
+      }
       if (atNewest && t.hasPending) {
         _release();
       } else {
@@ -1368,7 +1374,47 @@ class TimelineViewState extends State<TimelineView>
   /// list moves under the finger and fades out [_stickyLinger] after the list came to rest,
   /// like the date in the official app. A scroll of the app's own making (opening the feed,
   /// a jump to a date, new posts at the bottom) does not bring it out.
+  /// The button to the newest posts came with the scroll: the reader went this far
+  /// towards the newest posts, as in the official app. Going as far back takes it away.
+  /// A timeline that opens somewhere else than at its newest post (where it was left)
+  /// starts with it, and it is lost at the newest post.
+  bool _cornerByScroll = false;
+
+  /// How far the finger has scrolled one way since it last turned: positive towards the
+  /// newest posts, negative towards older ones.
+  double _scrolled = 0;
+
+  /// The distance, either way, after which the button comes or goes.
+  static const _cornerScroll = 100.0;
+
+  /// Follows the scroll for the button: it comes after [_cornerScroll] towards the
+  /// newest posts and goes after as much the other way.
+  void _followScrollForCorner(double delta) {
+    // The list is reversed: its offset grows towards older posts.
+    final towardsNewest = -delta;
+    if (towardsNewest == 0) return;
+    if ((towardsNewest > 0) != (_scrolled > 0)) _scrolled = 0;
+    _scrolled += towardsNewest;
+    final show = _scrolled >= _cornerScroll
+        ? true
+        : _scrolled <= -_cornerScroll
+        ? false
+        : _cornerByScroll;
+    if (show != _cornerByScroll) {
+      _cornerByScroll = show;
+      _corner.value++;
+    }
+  }
+
+  /// The reader's own scroll is under way: the drag, and the fling after it.
+  bool _userScrolling = false;
+
   bool _onScroll(ScrollNotification n) {
+    if (n is UserScrollNotification) {
+      _userScrolling = n.direction != ScrollDirection.idle;
+    } else if (n is ScrollUpdateNotification && _userScrolling) {
+      _followScrollForCorner(n.scrollDelta ?? 0);
+    }
     if (n is UserScrollNotification) {
       if (n.direction != ScrollDirection.idle) _armSticky();
     } else if (n is ScrollUpdateNotification && _stickyShown.value) {
@@ -2087,37 +2133,53 @@ class TimelineViewState extends State<TimelineView>
     );
   }
 
-  /// The button to the newest posts, with the unread count on it.
+  /// The button to the newest posts, with the unread count on it. As in the official app
+  /// it is there while there is something to go to: unread posts, posts that arrived
+  /// meanwhile, the way back from a jump. Otherwise it comes when the reader scrolls
+  /// towards the newest posts and goes when they scroll away from them, and it is never
+  /// there at the newest post itself.
   Widget _cornerButton(BuildContext context) {
     final t = _timeline;
+    // Unread posts as Telegram counts them, and the ones that arrived meanwhile.
+    final unread = t == null ? 0 : t.unreadPosts(_marks) + t.pendingNew;
     // No `_opening` here: the button would blink away and back every time the feed
     // is rebuilt (a changed filter, another channel).
-    // Positioned even when away: a child of the stack without a position would size it.
-    if (t == null || (t.atTop && !t.anchored)) {
-      return const Positioned(right: 0, bottom: 0, child: SizedBox.shrink());
-    }
-    // Unread posts as Telegram counts them, and the ones that arrived meanwhile.
-    final unread = t.unreadPosts(_marks) + t.pendingNew;
+    final away = t == null || (t.atTop && !t.anchored);
+    final wanted = unread > 0 || (t?.anchored ?? false) || _returnTo != null;
+    final shown = !away && (wanted || _cornerByScroll);
     return Positioned(
       right: 16,
       // Above the gesture bar: the app draws edge to edge.
       bottom: 16 + MediaQuery.paddingOf(context).bottom,
-      // The accent colour, as the official app counts on its page-down button.
-      child: Badge.count(
-        count: unread,
-        isLabelVisible: unread > 0,
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        textColor: Theme.of(context).colorScheme.onPrimary,
-        child: FloatingActionButton.small(
-          heroTag: null,
-          tooltip: t.pendingNew > 0
-              ? context.l10n.timelineNewPosts(t.pendingNew)
-              : unread > 0
-              ? context.l10n.timelineUnreadPostsCount(unread)
-              : context.l10n.timelineNewestPosts,
-          onPressed: _onDownButton,
-          child: const Icon(Icons.keyboard_arrow_down),
+      // It grows in and shrinks away, as the official app's button does.
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        transitionBuilder: (child, animation) => ScaleTransition(
+          scale: Tween<double>(begin: 0.6, end: 1).animate(animation),
+          child: FadeTransition(opacity: animation, child: child),
         ),
+        child: !shown
+            ? const SizedBox.shrink()
+            // The accent colour, as the official app counts on its page-down button.
+            : Badge.count(
+                key: const ValueKey('to newest'),
+                count: unread,
+                isLabelVisible: unread > 0,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                textColor: Theme.of(context).colorScheme.onPrimary,
+                child: FloatingActionButton.small(
+                  heroTag: null,
+                  tooltip: t.pendingNew > 0
+                      ? context.l10n.timelineNewPosts(t.pendingNew)
+                      : unread > 0
+                      ? context.l10n.timelineUnreadPostsCount(unread)
+                      : context.l10n.timelineNewestPosts,
+                  onPressed: _onDownButton,
+                  child: const Icon(Icons.keyboard_arrow_down),
+                ),
+              ),
       ),
     );
   }
