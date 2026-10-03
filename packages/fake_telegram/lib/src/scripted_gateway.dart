@@ -235,6 +235,19 @@ class ChannelsGateway implements TelegramGateway {
   Future<List<Post>> mediaCalendar(int chatId, {int fromMessageId = 0}) async =>
       const [];
   @override
+  Future<FileRef> mapThumbnail(
+    double latitude,
+    double longitude, {
+    int width = 600,
+    int height = 300,
+  }) async => FileRef(
+    id: 900000 + (latitude * 100).round() + (longitude * 100).round(),
+    remoteId: 'map',
+    size: 0,
+    width: width,
+    height: height,
+  );
+  @override
   Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async =>
       const {};
   @override

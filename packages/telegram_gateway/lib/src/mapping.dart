@@ -544,6 +544,11 @@ List<String> availableEmoji(td.AvailableReactions a) => {
 String? _miniature(td.Minithumbnail? mini) =>
     mini == null || mini.data.isEmpty ? null : mini.data;
 
+StickerMedia? _diceSticker(td.DiceStickers? state) => switch (state) {
+  td.DiceStickersRegular(sticker: final dice?) => sticker(dice),
+  _ => null,
+};
+
 MediaCover _spoiler(bool hasSpoiler) =>
     hasSpoiler ? MediaCover.spoiler : MediaCover.none;
 
@@ -687,6 +692,54 @@ MediaCover _spoiler(bool hasSpoiler) =>
   td.MessageVideoChatScheduled(:final startDate) => (
     '',
     ServiceNote(ServiceKind.liveScheduled, seconds: startDate),
+  ),
+  td.MessageLocation(:final location) when location != null => (
+    '',
+    LocationMedia(latitude: location.latitude, longitude: location.longitude),
+  ),
+  td.MessageVenue(:final venue) when venue?.location != null => (
+    '',
+    LocationMedia(
+      latitude: venue!.location!.latitude,
+      longitude: venue.location!.longitude,
+      title: venue.title,
+      address: venue.address,
+    ),
+  ),
+  td.MessageContact(:final contact) when contact != null => (
+    '',
+    ContactMedia(
+      name: [
+        contact.firstName,
+        contact.lastName,
+      ].where((s) => s.isNotEmpty).join(' '),
+      phone: contact.phoneNumber,
+      userId: contact.userId,
+    ),
+  ),
+  // A dice is the sticker of what it came to; one TDLib has no sticker for (the slot
+  // machine is drawn from parts) is its emoji, which a post of one emoji shows large.
+  td.MessageDice(:final finalState, :final initialState)
+      when _diceSticker(finalState ?? initialState) != null =>
+    ('', _diceSticker(finalState ?? initialState)),
+  td.MessageDice(:final emoji) when emoji.isNotEmpty => (emoji, null),
+  td.MessageGame(:final game) when game != null => (
+    game.text?.text ?? '',
+    GameMedia(
+      title: game.title,
+      description: game.description,
+      photo: _photo(game.photo),
+    ),
+  ),
+  td.MessageChecklist(:final list) when list != null => (
+    '',
+    ChecklistMedia(
+      title: list.title?.text ?? '',
+      tasks: [
+        for (final t in list.tasks)
+          ChecklistTask(text: t.text?.text ?? '', done: t.completionDate != 0),
+      ],
+    ),
   ),
   null => ('', null),
   final other when _isContent(other) => (

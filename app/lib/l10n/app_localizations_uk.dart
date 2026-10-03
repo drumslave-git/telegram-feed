@@ -582,6 +582,21 @@ class AppLocalizationsUk extends AppLocalizations {
   String get linkOpenApp => 'Запустити';
 
   @override
+  String get mediaLocationOpens => 'Геопозиція, відкривається на карті';
+
+  @override
+  String get mediaVenueOpens => 'Місце, відкривається на карті';
+
+  @override
+  String get mediaNoMapApp =>
+      'На цьому телефоні немає застосунку, що відкриває карту.';
+
+  @override
+  String mediaChecklistDone(int done, int total) {
+    return 'Виконано $done з $total';
+  }
+
+  @override
   String get postNoAppForFile =>
       'На цьому телефоні немає застосунку, що відкриває цей файл.';
 

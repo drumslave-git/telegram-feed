@@ -16,6 +16,7 @@ import '../media/media_viewer.dart';
 import '../media/video_downloads.dart';
 import '../media/video_sessions.dart';
 import '../media/video_stage.dart';
+import 'extra_media.dart';
 import 'media_cover.dart';
 import 'players.dart';
 import 'sticker_view.dart';
@@ -220,6 +221,13 @@ class MediaView extends StatelessWidget {
           gateway: gateway,
           autoStart: policy.file(file.size),
         ),
+      final LocationMedia place => LocationView(place: place, gateway: gateway),
+      final ContactMedia contact => ContactView(
+        contact: contact,
+        gateway: gateway,
+      ),
+      final GameMedia game => GameView(game: game, gateway: gateway),
+      final ChecklistMedia list => ChecklistView(list: list),
       UnsupportedMedia(:final tdType) => Chip(
         label: Text(l10n.unsupportedLabel(tdType)),
         visualDensity: VisualDensity.compact,

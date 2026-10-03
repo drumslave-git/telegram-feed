@@ -228,6 +228,38 @@ Map<String, Object?> encodeMedia(Media m) => switch (m) {
       'mimeType': mimeType,
       'thumbnail': _fileOrNull(thumbnail),
     },
+  LocationMedia(
+    :final latitude,
+    :final longitude,
+    :final title,
+    :final address,
+  ) =>
+    {
+      'kind': 'location',
+      'lat': latitude,
+      'lon': longitude,
+      'title': title,
+      'address': address,
+    },
+  ContactMedia(:final name, :final phone, :final userId) => {
+    'kind': 'contact',
+    'name': name,
+    'phone': phone,
+    'userId': userId,
+  },
+  GameMedia(:final title, :final description, :final photo) => {
+    'kind': 'game',
+    'title': title,
+    'description': description,
+    'photo': photo == null ? null : encodeMedia(photo),
+  },
+  ChecklistMedia(:final title, :final tasks) => {
+    'kind': 'checklist',
+    'title': title,
+    'tasks': [
+      for (final t in tasks) {'text': t.text, 'done': t.done},
+    ],
+  },
   UnsupportedMedia(:final tdType) => {'kind': 'unsupported', 'tdType': tdType},
   ServiceNote(:final kind, :final title, :final messageId, :final seconds) => {
     'kind': 'service',
@@ -275,6 +307,34 @@ Media decodeMedia(Map<Object?, Object?> m) => switch (m['kind']) {
     fileName: m['fileName'] as String,
     mimeType: m['mimeType'] as String,
     thumbnail: _decodeFileOrNull(m['thumbnail']),
+  ),
+  'location' => LocationMedia(
+    latitude: (m['lat'] as num).toDouble(),
+    longitude: (m['lon'] as num).toDouble(),
+    title: (m['title'] as String?) ?? '',
+    address: (m['address'] as String?) ?? '',
+  ),
+  'contact' => ContactMedia(
+    name: m['name'] as String,
+    phone: m['phone'] as String,
+    userId: (m['userId'] as int?) ?? 0,
+  ),
+  'game' => GameMedia(
+    title: m['title'] as String,
+    description: (m['description'] as String?) ?? '',
+    photo: m['photo'] == null
+        ? null
+        : decodeMedia(m['photo'] as Map<Object?, Object?>) as PhotoMedia,
+  ),
+  'checklist' => ChecklistMedia(
+    title: m['title'] as String,
+    tasks: [
+      for (final t in (m['tasks'] as List?) ?? const [])
+        ChecklistTask(
+          text: (t as Map)['text'] as String,
+          done: t['done'] == true,
+        ),
+    ],
   ),
   'unsupported' => UnsupportedMedia(m['tdType'] as String),
   'service' => ServiceNote(

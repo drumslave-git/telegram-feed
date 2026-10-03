@@ -274,12 +274,68 @@ final class FakeTelegram extends TimelineGateway {
         canBeSaved: false,
       ),
     ];
+    // Saved Messages holds what was put aside: a note, and one of each kind of post that
+    // is not words, pictures or files.
     histories[FakeChats.savedMessages] = [
       _post(
         FakeChats.savedMessages,
-        1,
-        hoursAgo: 50,
+        6,
+        hoursAgo: 10,
         text: 'A note to myself: read the Harbour Times on Sundays.',
+      ),
+      _post(
+        FakeChats.savedMessages,
+        5,
+        hoursAgo: 20,
+        text: 'Beat my score',
+        media: const GameMedia(
+          title: 'Tide Runner',
+          description: 'Run along the quay before the water comes in.',
+        ),
+      ),
+      _post(
+        FakeChats.savedMessages,
+        4,
+        hoursAgo: 24,
+        text: '',
+        media: const ChecklistMedia(
+          title: 'Before the ferry',
+          tasks: [
+            ChecklistTask(text: 'Tickets', done: true),
+            ChecklistTask(text: 'Coffee for the crossing'),
+            ChecklistTask(text: 'Feed the cat', done: true),
+          ],
+        ),
+      ),
+      _post(
+        FakeChats.savedMessages,
+        3,
+        hoursAgo: 30,
+        text: '',
+        media: const ContactMedia(
+          name: 'Mara Lind',
+          phone: '+1 555 010 0142',
+          userId: 11,
+        ),
+      ),
+      _post(
+        FakeChats.savedMessages,
+        2,
+        hoursAgo: 36,
+        text: '',
+        media: const LocationMedia(
+          latitude: 54.3233,
+          longitude: 10.1394,
+          title: 'The Quay',
+          address: 'Harbour Road 1',
+        ),
+      ),
+      _post(
+        FakeChats.savedMessages,
+        1,
+        hoursAgo: 40,
+        text: '',
+        media: const LocationMedia(latitude: 54.3233, longitude: 10.1394),
       ),
     ];
     // Everything but the newest three posts of each channel is read already, so a
@@ -288,7 +344,9 @@ final class FakeTelegram extends TimelineGateway {
       final h = histories[c.chatId]!;
       readPositions[c.chatId] = h.length > 3 ? h[3].messageId : 0;
     }
-    readPositions[FakeChats.savedMessages] = 1;
+    // What the account saved itself is read, as its own messages are.
+    readPositions[FakeChats.savedMessages] =
+        histories[FakeChats.savedMessages]!.first.messageId;
   }
 
   /// Eleven posts, one of every kind, newest first: the sample the reading screens show.
@@ -710,6 +768,15 @@ final class FakeTelegram extends TimelineGateway {
     forwardedFrom: forwardedFrom,
     replyTo: replyTo,
   );
+
+  /// Every place has the same map: the fake has one picture for it.
+  @override
+  Future<FileRef> mapThumbnail(
+    double latitude,
+    double longitude, {
+    int width = 600,
+    int height = 300,
+  }) async => _file('photo4.png', 640, 360);
 
   // ---- media ----
 

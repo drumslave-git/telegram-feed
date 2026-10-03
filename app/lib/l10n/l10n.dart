@@ -81,6 +81,11 @@ extension MediaWordsOf on AppLocalizations {
     sticker: mediaSticker,
     stickerWithEmoji: mediaStickerWithEmoji,
     post: mediaPost,
+    location: mediaLocation,
+    venue: mediaVenue,
+    contact: mediaContact,
+    game: mediaGame,
+    checklist: mediaChecklist,
   );
 
   /// One line for what a post without words carries, in a channel list or a reply quote:

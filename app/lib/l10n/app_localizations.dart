@@ -1010,6 +1010,30 @@ abstract class AppLocalizations {
   /// **'Launch'**
   String get linkOpenApp;
 
+  /// Screen-reader label of the map picture of a location in a post.
+  ///
+  /// In en, this message translates to:
+  /// **'Location, opens in a map'**
+  String get mediaLocationOpens;
+
+  /// No description provided for @mediaVenueOpens.
+  ///
+  /// In en, this message translates to:
+  /// **'Venue, opens in a map'**
+  String get mediaVenueOpens;
+
+  /// No description provided for @mediaNoMapApp.
+  ///
+  /// In en, this message translates to:
+  /// **'No app on this phone opens a map.'**
+  String get mediaNoMapApp;
+
+  /// Under a checklist: how many of its tasks are done.
+  ///
+  /// In en, this message translates to:
+  /// **'{done} of {total} completed'**
+  String mediaChecklistDone(int done, int total);
+
   /// No description provided for @postNoAppForFile.
   ///
   /// In en, this message translates to:

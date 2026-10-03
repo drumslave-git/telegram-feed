@@ -379,6 +379,21 @@ final class CoreClient implements TelegramGateway {
   }
 
   @override
+  Future<FileRef> mapThumbnail(
+    double latitude,
+    double longitude, {
+    int width = 600,
+    int height = 300,
+  }) async => decodeFileRef(
+    (await _call('mapThumbnail', {
+      'lat': latitude,
+      'lon': longitude,
+      'width': width,
+      'height': height,
+    })) as Map<Object?, Object?>,
+  );
+
+  @override
   Future<List<Post>> mediaCalendar(int chatId, {int fromMessageId = 0}) async =>
       ((await _call('mediaCalendar', {
         'chatId': chatId,

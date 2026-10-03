@@ -78,6 +78,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - Views and reaction counts are shortened as in the official app: "1.9K" for 1 950, cut and never rounded up.
 - A file in a post shows Telegram's preview of it when it has one. A tap on a downloaded file opens it in the app the phone has for it; the button beside it hands the file to an app I choose.
 - A mention or a Telegram link in a comment opens a channel I follow in the app, as it does in a post.
+- A location or a venue is drawn as a map with a pin (and the venue's name and address) and opens in the phone's map app; a contact shows its name and number and dials on a tap; a dice is the sticker of what it came to; a game shows its title, description and picture; a checklist shows its tasks and which are done.
 - The link buttons a channel puts under a post are drawn under its bubble, in the channel's rows. A tap asks "Do you want to open …?" first, and opens a link into Telegram at once. Buttons that talk to a bot are not shown.
 - A Telegram link in a post that leads to a channel I follow opens here, at that post: in place when the post belongs to the timeline on the screen, with the button to the newest posts leading back to where I tapped, and in the channel's own timeline otherwise. Other links open in the app that handles them; a link hidden behind other words asks "Do you want to open …?" first, and a long press on a link offers to open or copy it.
 - A tap on a hashtag searches the feed or channel for it, a phone number offers to call or copy it, and a tap on inline code copies it.
@@ -190,7 +191,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - Joining or leaving channels, adding channels the account has not joined, editing Telegram's chat folders, muting a channel (rules take that place).
 - Server-side session storage. The app never uploads the Telegram session.
 - Algorithmic ranking of the feed.
-- Polls, quizzes, giveaways, invoices and paid media; they show as a label that names their kind, or "Unsupported post" for a kind the app has no name for.
+- Polls, quizzes, giveaways, invoices and paid media; they show as a label that names their kind, or "Unsupported post" for a kind the app has no name for. Playing a game and ticking a checklist's tasks.
 - Selecting part of a post's text (the whole text can be copied).
 - Translating posts, transcribing voice messages, voice-message waveforms.
 - Swiping a channel row to mark it read (the row's menu does it).

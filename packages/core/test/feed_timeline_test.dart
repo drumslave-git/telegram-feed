@@ -208,6 +208,13 @@ final class HistoryGateway implements TelegramGateway {
   Future<List<Post>> mediaCalendar(int chatId, {int fromMessageId = 0}) async =>
       const [];
   @override
+  Future<FileRef> mapThumbnail(
+    double latitude,
+    double longitude, {
+    int width = 600,
+    int height = 300,
+  }) async => const FileRef(id: 1, remoteId: 'map', size: 0);
+  @override
   Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async =>
       const {};
   @override

@@ -562,6 +562,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get linkOpenApp => 'Launch';
 
   @override
+  String get mediaLocationOpens => 'Location, opens in a map';
+
+  @override
+  String get mediaVenueOpens => 'Venue, opens in a map';
+
+  @override
+  String get mediaNoMapApp => 'No app on this phone opens a map.';
+
+  @override
+  String mediaChecklistDone(int done, int total) {
+    return '$done of $total completed';
+  }
+
+  @override
   String get postNoAppForFile => 'No app on this phone opens this file.';
 
   @override

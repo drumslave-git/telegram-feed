@@ -136,6 +136,15 @@ abstract interface class TelegramGateway {
   /// The first value is what it is now.
   Stream<ConnectionStatus> get connection;
 
+  /// The picture of the map around a place, [width] by [height] logical pixels, as
+  /// Telegram draws it for a location: a file to download like any other.
+  Future<FileRef> mapThumbnail(
+    double latitude,
+    double longitude, {
+    int width = 600,
+    int height = 300,
+  });
+
   /// One post with a photo or a video for every day that has any, newest day first, from
   /// the post [fromMessageId] back (0: from the newest). The days are those of the phone's
   /// clock. Telegram answers in pages; an empty answer is the end. The official app draws

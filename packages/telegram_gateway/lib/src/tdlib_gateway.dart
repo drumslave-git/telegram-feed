@@ -943,6 +943,33 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
+  Future<FileRef> mapThumbnail(
+    double latitude,
+    double longitude, {
+    int width = 600,
+    int height = 300,
+  }) async {
+    // Telegram's limits: 16 to 1024 a side, at one to three times the density.
+    final w = width.clamp(16, 1024);
+    final h = height.clamp(16, 1024);
+    final file = await _client.call(
+      td.GetMapThumbnailFile(
+        location: td.Location(
+          latitude: latitude,
+          longitude: longitude,
+          horizontalAccuracy: 0,
+        ),
+        zoom: 15,
+        width: w,
+        height: h,
+        scale: 2,
+        chatId: 0,
+      ),
+    );
+    return map.fileRef(file, width: w * 2, height: h * 2);
+  }
+
+  @override
   Future<List<Post>> mediaCalendar(int chatId, {int fromMessageId = 0}) async {
     final r = await _client.call(
       td.GetChatMessageCalendar(

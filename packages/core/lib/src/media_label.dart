@@ -12,7 +12,17 @@ final class MediaWords {
     this.sticker = 'Sticker',
     this.stickerWithEmoji = _englishSticker,
     this.post = 'Post',
+    this.location = 'Location',
+    this.venue = 'Venue',
+    this.contact = 'Contact',
+    this.game = 'Game',
+    this.checklist = 'Checklist',
   });
+  final String location;
+  final String venue;
+  final String contact;
+  final String game;
+  final String checklist;
 
   final String photo;
   final String video;
@@ -48,6 +58,17 @@ String mediaLabel(Media? m, [MediaWords words = const MediaWords()]) =>
         emoji.isEmpty ? words.sticker : words.stickerWithEmoji(emoji),
       AudioMedia(:final isVoice) => isVoice ? words.voiceMessage : words.audio,
       DocumentMedia(:final fileName) => fileName,
+      // A place is named by its venue, a contact by its name, a game and a checklist by
+      // their titles, when they have one.
+      LocationMedia(:final title, :final isVenue) =>
+        title.isNotEmpty
+            ? title
+            : isVenue
+            ? words.venue
+            : words.location,
+      ContactMedia(:final name) => name.isEmpty ? words.contact : name,
+      GameMedia(:final title) => title.isEmpty ? words.game : title,
+      ChecklistMedia(:final title) => title.isEmpty ? words.checklist : title,
       UnsupportedMedia() => words.post,
       ServiceNote() => words.post,
       null => words.post,

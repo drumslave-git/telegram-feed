@@ -359,6 +359,15 @@ final class CoreServer {
           'totalCount': page.totalCount,
           'nextOffset': page.nextOffset,
         };
+      case 'mapThumbnail':
+        return encodeFileRef(
+          await gateway.mapThumbnail(
+            (a['lat'] as num).toDouble(),
+            (a['lon'] as num).toDouble(),
+            width: a['width'] as int,
+            height: a['height'] as int,
+          ),
+        );
       case 'mediaCalendar':
         final days = await gateway.mediaCalendar(
           a['chatId'] as int,

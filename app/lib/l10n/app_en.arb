@@ -388,6 +388,24 @@
   "linkBoost": "Boost",
   "linkViewChatFolder": "View chat list",
   "linkOpenApp": "Launch",
+  "mediaLocationOpens": "Location, opens in a map",
+  "@mediaLocationOpens": {
+    "description": "Screen-reader label of the map picture of a location in a post."
+  },
+  "mediaVenueOpens": "Venue, opens in a map",
+  "mediaNoMapApp": "No app on this phone opens a map.",
+  "mediaChecklistDone": "{done} of {total} completed",
+  "@mediaChecklistDone": {
+    "description": "Under a checklist: how many of its tasks are done.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "postNoAppForFile": "No app on this phone opens this file.",
   "postPinned": "Pinned",
   "@postPinned": {

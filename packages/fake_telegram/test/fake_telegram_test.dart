@@ -160,16 +160,18 @@ void main() {
   });
 
   test('saving a post copies it into Saved Messages', () async {
+    final before = (await tg.history(FakeChats.savedMessages)).length;
     await tg.saveToSavedMessages(FakeChats.harbourTimes, [11]);
     final saved = await tg.history(FakeChats.savedMessages);
     expect(saved.first.forwardedFrom?.title, 'Harbour Times');
-    expect(saved, hasLength(2));
+    expect(saved, hasLength(before + 1));
   });
 
   test('saved posts get ids of their own, also after a deletion', () async {
+    final before = (await tg.history(FakeChats.savedMessages)).length;
     await tg.saveToSavedMessages(FakeChats.harbourTimes, [11, 10]);
     var saved = await tg.history(FakeChats.savedMessages);
-    expect(saved.map((p) => p.messageId).toSet(), hasLength(3));
+    expect(saved.map((p) => p.messageId).toSet(), hasLength(before + 2));
 
     final deleted = tg.postEvents.first;
     await tg.deleteFromSavedMessages([for (final p in saved) p.messageId]);

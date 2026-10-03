@@ -679,6 +679,68 @@ final class ServiceNote extends Media {
 }
 
 /// Content the app does not draw (polls, locations, invoices, ...); [tdType] names it.
+/// A place on the map: a bare location, or a venue with its name and address.
+final class LocationMedia extends Media {
+  const LocationMedia({
+    required this.latitude,
+    required this.longitude,
+    this.title = '',
+    this.address = '',
+  });
+  final double latitude;
+  final double longitude;
+
+  /// The venue's name and address; both empty for a bare location.
+  final String title;
+  final String address;
+  bool get isVenue => title.isNotEmpty || address.isNotEmpty;
+}
+
+/// A contact someone shared: a name and a phone number.
+final class ContactMedia extends Media {
+  const ContactMedia({
+    required this.name,
+    required this.phone,
+    this.userId = 0,
+  });
+  final String name;
+  final String phone;
+
+  /// The Telegram user behind the contact, 0 when there is none.
+  final int userId;
+}
+
+/// A game: its title, what it says about itself and its picture. Playing needs the game's
+/// bot, which the app does not talk to.
+final class GameMedia extends Media {
+  const GameMedia({required this.title, this.description = '', this.photo});
+  final String title;
+  final String description;
+  final PhotoMedia? photo;
+}
+
+/// One line of a [ChecklistMedia].
+final class ChecklistTask {
+  const ChecklistTask({required this.text, this.done = false});
+  final String text;
+  final bool done;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ChecklistTask && other.text == text && other.done == done;
+
+  @override
+  int get hashCode => Object.hash(text, done);
+}
+
+/// A checklist: a title and tasks that are done or not. The app shows it and ticks
+/// nothing.
+final class ChecklistMedia extends Media {
+  const ChecklistMedia({required this.title, this.tasks = const []});
+  final String title;
+  final List<ChecklistTask> tasks;
+}
+
 final class UnsupportedMedia extends Media {
   const UnsupportedMedia(this.tdType);
   final String tdType;

@@ -94,6 +94,11 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="tg"/>
         </intent>
+        <!-- A location in a post opens in the map app -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="geo"/>
+        </intent>
         <!-- The speech engine's example sentence for a voice preview -->
         <intent>
             <action android:name="android.speech.tts.engine.GET_SAMPLE_TEXT"/>

@@ -19,6 +19,10 @@ MediaKind? mediaKindOf(Media? m) => switch (m) {
   DocumentMedia() => MediaKind.document,
   // A sticker is neither a picture nor a film; a feed of photos should not show one.
   StickerMedia() => MediaKind.other,
+  LocationMedia() ||
+  ContactMedia() ||
+  GameMedia() ||
+  ChecklistMedia() => MediaKind.other,
   UnsupportedMedia() => MediaKind.other,
   ServiceNote() => MediaKind.other,
 };

@@ -4,7 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-38.
+**Current phase:** Parity with the official app. **Next task:** Q-39.
 
 ## Differences from the official app
 
@@ -15,7 +15,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Posts
 
-- [ ] Q-38 Location, venue, contact, dice, game and checklist posts are drawn.
 
 ### Reactions, menu and comments
 
