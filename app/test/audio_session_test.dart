@@ -42,6 +42,14 @@ class FakeEngine implements AudioEngine {
   @override
   Stream<bool> get playing => _playing.stream;
 
+  final _completed = StreamController<void>.broadcast();
+
+  @override
+  Stream<void> get completed => _completed.stream;
+
+  /// The file played to its end.
+  void finish() => _completed.add(null);
+
   @override
   Duration? get duration => length;
 
@@ -50,6 +58,7 @@ class FakeEngine implements AudioEngine {
     calls.add('dispose');
     await _position.close();
     await _playing.close();
+    await _completed.close();
   }
 
   void moveTo(Duration at) => _position.add(at);
@@ -89,6 +98,22 @@ void main() {
     expect(await sessions.nextSpeed(), 1.5);
     expect(await sessions.nextSpeed(), 2.0);
     expect(await sessions.nextSpeed(), 1.0); // round again
+  });
+
+  test('a file that played to its end leaves nothing on', () async {
+    await sessions.play(
+      const AudioTrack(path: '/a.ogg', label: 'Voice', durationSeconds: 12),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(sessions.playing.value, isTrue);
+
+    engine.finish();
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    // The bar is drawn while there is a track: it goes with it.
+    expect(sessions.track.value, isNull);
+    expect(sessions.playing.value, isFalse);
+    expect(engine.calls.last, 'dispose');
   });
 
   test('a second file takes over from the first', () async {

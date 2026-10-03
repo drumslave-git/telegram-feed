@@ -106,6 +106,14 @@ void main() {
         return null;
       });
       addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      // The screen is kept on for as long as that video plays.
+      const appChannel = MethodChannel('tf/app');
+      final awake = <bool>[];
+      messenger.setMockMethodCallHandler(appChannel, (call) async {
+        if (call.method == 'keepScreenOn') awake.add(call.arguments as bool);
+        return null;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(appChannel, null));
       Future<void> system(bool inWindow) => messenger.handlePlatformMessage(
         channel.name,
         channel.codec.encodeMethodCall(MethodCall('pipChanged', inWindow)),
@@ -116,6 +124,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.play_arrow));
       await settle(tester);
       expect(armed.last, {'enabled': true, 'width': 640, 'height': 360});
+      expect(awake.last, isTrue);
 
       // The user leaves the app; Android shrinks the activity.
       await system(true);
@@ -136,6 +145,8 @@ void main() {
       await tester.pump();
       expect(platform.log.last, 'pause 1');
       expect(armed.last['enabled'], isFalse);
+      // A paused video lets the screen go dark again.
+      expect(awake.last, isFalse);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
       expect(find.byType(MediaViewerScreen), findsOneWidget);

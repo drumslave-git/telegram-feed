@@ -39,6 +39,13 @@ abstract final class SystemPip {
             // No activity behind the channel (tests, a platform without the window).
           }, test: (e) => e is MissingPluginException),
     );
+    // The screen stays on while that video plays, as in the official app: nobody touches
+    // the phone through a long video.
+    unawaited(
+      const MethodChannel('tf/app')
+          .invokeMethod<void>('keepScreenOn', size != null)
+          .catchError((Object e) {}, test: (e) => e is MissingPluginException),
+    );
   }
 }
 

@@ -120,6 +120,15 @@ class MainActivity : FlutterActivity() {
                         }
                         result.success(null)
                     }
+                    // While a video plays in the viewer or the mini player (system_pip.dart).
+                    "keepScreenOn" -> {
+                        if (call.arguments == true) {
+                            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        } else {
+                            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        }
+                        result.success(null)
+                    }
                     "restart" -> {
                         result.success(null)
                         startActivity(

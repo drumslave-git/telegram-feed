@@ -18,6 +18,9 @@ abstract interface class AudioEngine {
   /// Whether sound is coming out.
   Stream<bool> get playing;
 
+  /// Fires when the file has played to its end.
+  Stream<void> get completed;
+
   /// Length of the open file once it is known.
   Duration? get duration;
   Future<void> dispose();
@@ -47,6 +50,11 @@ class JustAudioEngine implements AudioEngine {
 
   @override
   Stream<bool> get playing => _player.playingStream;
+
+  @override
+  Stream<void> get completed => _player.processingStateStream.where(
+    (s) => s == ProcessingState.completed,
+  );
 
   @override
   Duration? get duration => _player.duration;
@@ -113,6 +121,13 @@ class AudioSessions {
     position.value = Duration.zero;
     _subs.add(engine.position.listen((p) => position.value = p));
     _subs.add(engine.playing.listen((p) => playing.value = p));
+    // Played to its end: nothing is on any more, so the bar goes, as in the official app.
+    // The engine itself goes on saying "playing" at the end of a file.
+    _subs.add(
+      engine.completed.listen((_) {
+        if (identical(_engine, engine)) unawaited(stop());
+      }),
+    );
     try {
       await engine.open(next.path);
       await engine.setSpeed(speed.value);
