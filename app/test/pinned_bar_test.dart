@@ -231,6 +231,18 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('a channel that opens at unread posts shows their divider '
+        'below the bar', (tester) async {
+      gw.readPositions[-1] = 30;
+      await open(tester, gw);
+      expect(find.byType(PinnedBar), findsOneWidget);
+      final divider = tester.getRect(find.text('Unread posts'));
+      final bar = tester.getRect(find.byType(PinnedBar));
+      expect(divider.top, greaterThanOrEqualTo(bar.bottom));
+      expect(divider.top, lessThan(bar.bottom + 60));
+      await unmount(tester);
+    });
+
     testWidgets('the list hides the bar', (tester) async {
       await open(tester, gw);
       await tester.tap(find.byTooltip('Pinned posts'));

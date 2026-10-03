@@ -675,6 +675,21 @@ class TimelineViewState extends State<TimelineView>
   bool get _pinsShown =>
       _pins.isNotEmpty && _pins.first.messageId != _pinsHiddenAt;
 
+  /// Done once the channel's pinned posts are known. An opening waits for it a moment:
+  /// where the list opens depends on whether the bar covers its top.
+  Future<void> _pinsLoaded = Future.value();
+
+  /// Where the bottom edge of a row goes so that the next row (with its day label or the
+  /// "Unread posts" divider) starts just under the top of the list, or under the pinned
+  /// bar when there is one. A share of the list's height, measured from its bottom.
+  double get _underTop {
+    const open = 0.92;
+    if (!_pinsShown) return open;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.hasSize || box.size.height <= 0) return open;
+    return open - pinnedBarHeight / box.size.height;
+  }
+
   /// The pinned post the bar shows, as an index into [_pins].
   final _pinIndex = ValueNotifier<int>(0);
 
@@ -878,7 +893,7 @@ class TimelineViewState extends State<TimelineView>
     WidgetsBinding.instance.addObserver(this);
     _readStates = widget.gateway.readUpdates.listen(_onReadState);
     unawaited(_loadQuickReaction());
-    if (widget.channel != null) unawaited(_loadPinned());
+    if (widget.channel != null) _pinsLoaded = _loadPinned();
     final feed = widget.feed;
     if (feed == null) {
       final c = widget.channel!;
@@ -1018,7 +1033,7 @@ class TimelineViewState extends State<TimelineView>
           // As when the timeline opens at unread posts: the row above the divider just
           // below the top, and the newest post at the bottom when the new ones do not
           // fill the screen.
-          _scrollCtl.jumpTo(index: index + 1, alignment: 0.92);
+          _scrollCtl.jumpTo(index: index + 1, alignment: _underTop);
           _settled = false;
         } else {
           _scrollCtl.jumpTo(index: 0, alignment: 0);
@@ -1284,7 +1299,7 @@ class TimelineViewState extends State<TimelineView>
         // As an opening at a day: the row above the day's pill just below the top.
         await _scrollCtl.scrollTo(
           index: first + 1,
-          alignment: 0.92,
+          alignment: _underTop,
           duration: _jumpScroll,
           curve: Curves.easeOut,
         );
@@ -1379,10 +1394,10 @@ class TimelineViewState extends State<TimelineView>
   /// As when the timeline opens at unread posts: the row above the divider just below the
   /// top, or the list at its end when the unread posts do not fill the screen.
   Future<void> _scrollToDivider(int index) async {
-    if (_endsAtNewest(index, 0.92)) return _scrollToEnd();
+    if (_endsAtNewest(index, _underTop)) return _scrollToEnd();
     await _scrollCtl.scrollTo(
       index: index + 1,
-      alignment: 0.92,
+      alignment: _underTop,
       duration: _jumpScroll,
       curve: Curves.easeOut,
     );
@@ -1495,6 +1510,10 @@ class TimelineViewState extends State<TimelineView>
     setState(() => _loading = true);
     try {
       _marks = await _loadMarks();
+      await _pinsLoaded.timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {}, // the bar comes when it comes
+      );
       final entering = !_entered;
       _entered = true;
       final left = entering
@@ -1540,7 +1559,7 @@ class TimelineViewState extends State<TimelineView>
         }
         if (first >= 0) {
           _initialIndex = (first + 1).clamp(0, t.items.length);
-          _initialAlignment = 0.92;
+          _initialAlignment = _underTop;
           _error = null;
           return;
         }
@@ -1632,7 +1651,7 @@ class TimelineViewState extends State<TimelineView>
           // by a row's bottom edge, so the row above it (older, or the footer) is put
           // just below the top of the screen.
           index = unread + 1;
-          _initialAlignment = 0.92;
+          _initialAlignment = _underTop;
         }
       }
       _initialIndex = index;
