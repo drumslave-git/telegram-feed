@@ -500,20 +500,86 @@ void main() {
       },
     );
 
-    // The reader has not moved, and the new posts are counted, not shown.
-    expect(top(tester, 'a-21'), closeTo(before, 0.5));
+    // The reader has not moved (the divider that stood over a-21 is gone, which is all
+    // that row lost), and the new posts are counted, not shown.
+    expect(top(tester, 'a-21'), closeTo(before, 40));
     expect(find.text('b-41'), findsNothing);
+    expect(find.text('Unread posts'), findsNothing);
     expect(find.byTooltip('2 new posts'), findsOneWidget);
 
+    // The button lets them in and goes to the divider, which now stands over the first of
+    // them; two posts do not fill the screen, so the list is at its end.
     await tester.tap(find.byTooltip('2 new posts'));
+    await settleJump(tester);
     await tester.pumpAndSettle();
     await settleFixtures(tester);
     expect(find.text('a-41'), findsOneWidget);
+    expect(divider(tester), lessThan(top(tester, 'b-41')));
+    expect(top(tester, 'a-40'), lessThan(divider(tester)));
     await unmountFixtures(tester);
 
     // Read at last: the marks cover the posts that arrived while the app rested.
     final marks = await marksOf(tester, feed);
     expect(marks, {-1: 41, -2: 41});
+  });
+
+  testWidgets(
+    'posts that arrive while the app rests at the newest post get the '
+    'divider, and are read when the app is back',
+    (tester) async {
+      final feed = await feedOf(tester, 'Back', marks: {-1: 40, -2: 40});
+      await open(tester, app(feed));
+      await flushReads(tester);
+      expect(find.text('Unread posts'), findsNothing);
+
+      await pauseAndResume(
+        tester,
+        whileAway: () async {
+          gw.arrive(fixturePost(-2, 41, date: 8300, text: 'b-41'));
+          gw.arrive(fixturePost(-1, 41, date: 8400, text: 'a-41'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 400));
+          // Nobody is looking: nothing is read.
+          expect(gw.readPositions[-2], 40);
+        },
+      );
+
+      // The divider stands over the first of them; the two do not fill the screen, so the
+      // newest post is at the bottom edge as before.
+      expect(divider(tester), lessThan(top(tester, 'b-41')));
+      expect(top(tester, 'b-40'), lessThan(divider(tester)));
+      expect(tester.getBottomLeft(cardOf('a-41')).dy, greaterThan(500));
+      await flushReads(tester);
+      await unmountFixtures(tester);
+      expect(await marksOf(tester, feed), {-1: 41, -2: 41});
+    },
+  );
+
+  testWidgets('many posts that arrive while the app rests: the list returns to '
+      'the divider, not to the newest post', (tester) async {
+    final feed = await feedOf(tester, 'Many', marks: {-1: 40, -2: 40});
+    await open(tester, app(feed));
+    await flushReads(tester);
+
+    await pauseAndResume(
+      tester,
+      whileAway: () async {
+        for (var id = 41; id <= 60; id++) {
+          gw.arrive(fixturePost(-1, id, date: id * 200, text: 'a-$id'));
+        }
+        await tester.pump();
+      },
+    );
+
+    expect(divider(tester), lessThan(200));
+    expect(divider(tester), lessThan(top(tester, 'a-41')));
+    expect(find.text('a-60'), findsNothing);
+    // The rest is unread and counted on the button.
+    final badge = tester.widget<Badge>(find.byType(Badge));
+    expect(int.parse((badge.label! as Text).data!), greaterThan(8));
+    await flushReads(tester);
+    await unmountFixtures(tester);
+    expect((await marksOf(tester, feed))[-1], lessThan(60));
   });
 
   testWidgets('a post arriving while the reader is at the newest lands under', (

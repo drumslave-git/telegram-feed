@@ -958,11 +958,69 @@ class TimelineViewState extends State<TimelineView>
     setState(() => _marks = {..._marks, r.chatId: r.lastReadMessageId});
   }
 
+  /// The app is in the background (or its window is covered whole): nothing on the screen
+  /// is being read.
+  bool _away = false;
+
+  /// The first post that arrived during this absence. It gets the "Unread posts" divider,
+  /// as in the official app, which drops the divider it had and puts a new one above the
+  /// first message that comes in while it is paused.
+  (int, int)? _awayDivider;
+
+  /// The reader stood at the newest post when that post arrived: the list goes back to the
+  /// divider when the app returns. A reader further up stays where they are.
+  bool _awayAtNewest = false;
+
+  void _dividerWhileAway(FeedTimeline t, Post post) {
+    if (_awayDivider != null) return;
+    final row = (
+      post.chatId,
+      post.albumId != 0 ? post.albumId : post.messageId,
+    );
+    _awayDivider = row;
+    _awayAtNewest = t.atTop;
+    setState(() {
+      _firstUnread = row;
+      _dividerSeen = false;
+    });
+  }
+
   // Leaving the app is leaving the timeline, as far as its position goes: the official app
   // keeps a chat's position when it pauses.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) _keepPosition();
+    final away =
+        state == AppLifecycleState.paused || state == AppLifecycleState.hidden;
+    if (away == _away || state == AppLifecycleState.inactive) return;
+    _away = away;
+    if (away) return;
+    final divider = _awayDivider;
+    _awayDivider = null;
+    final t = _timeline;
+    if (t == null || !_scrollCtl.isAttached || !t.atTop) return;
+    final index = divider == null || !_awayAtNewest
+        ? -1
+        : t.items.indexWhere((i) => (i.chatId, i.rowId) == divider);
+    // What the list reports until it stands where it belongs is not what the reader sees.
+    _repositioning = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && identical(t, _timeline) && _scrollCtl.isAttached) {
+        if (index >= 0) {
+          // As when the timeline opens at unread posts: the row above the divider just
+          // below the top, and the newest post at the bottom when the new ones do not
+          // fill the screen.
+          _scrollCtl.jumpTo(index: index + 1, alignment: 0.92);
+          _settled = false;
+        } else {
+          _scrollCtl.jumpTo(index: 0, alignment: 0);
+        }
+      }
+      WidgetsBinding.instance
+        ..addPostFrameCallback((_) => _repositioning = false)
+        ..scheduleFrame();
+    });
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   /// Keeps where the reader is for the next visit, or forgets it when they are at the
@@ -1004,14 +1062,21 @@ class TimelineViewState extends State<TimelineView>
     _timeline = t;
     _events = widget.gateway.postEvents.listen((e) {
       final before = t.items.length;
+      final waiting = t.pendingNew;
       final changed = t.apply(e);
+      if (e is PostAdded &&
+          _away &&
+          (t.items.length > before || t.pendingNew > waiting)) {
+        _dividerWhileAway(t, e.post);
+      }
       if (changed) {
         setState(() {});
       } else if (e is PostAdded) {
         _corner.value++; // held back while the reader is further up: the button counts it
       }
       // A row added at the newest end shifts every index; stay glued to the newest post.
-      if (t.atTop && t.items.length > before) _jumpToNewest();
+      // While the app is away the list is put right when it comes back.
+      if (!_away && t.atTop && t.items.length > before) _jumpToNewest();
     });
     // A list that is already up keeps its scroll position: initialScrollIndex only counts
     // when it is built for the first time, and the spinner in between may never be drawn.
@@ -1240,17 +1305,17 @@ class TimelineViewState extends State<TimelineView>
     final divider = _firstUnread;
     if (divider != null && !_dividerSeen) {
       _dividerSeen = true;
-      final i = t.items.indexWhere((x) => (x.chatId, x.rowId) == divider);
+      int find() => t.items.indexWhere((x) => (x.chatId, x.rowId) == divider);
+      var i = find();
+      if (i < 0 && !t.anchored && t.hasPending) {
+        // The divider stands on a post that arrived while the app was away and still
+        // waits behind this button: the posts come in, and the list goes to the divider.
+        t.releasePending();
+        setState(() {});
+        i = find();
+      }
       if (i >= 0 && _scrollCtl.isAttached) {
-        // As when the timeline opens there: the row above the divider just below the top.
-        unawaited(
-          _scrollCtl.scrollTo(
-            index: i + 1,
-            alignment: 0.92,
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOut,
-          ),
-        );
+        unawaited(_scrollToDivider(i));
         return;
       }
       if (t.anchored) {
@@ -1275,6 +1340,26 @@ class TimelineViewState extends State<TimelineView>
     } else {
       _release(toEnd: true);
     }
+  }
+
+  /// As when the timeline opens at unread posts: the row above the divider just below the
+  /// top, or the list at its end when the unread posts do not fill the screen.
+  Future<void> _scrollToDivider(int index) async {
+    if (_endsAtNewest(index, 0.92)) return _scrollToEnd();
+    await _scrollCtl.scrollTo(
+      index: index + 1,
+      alignment: 0.92,
+      duration: _jumpScroll,
+      curve: Curves.easeOut,
+    );
+    // Rows that were not laid out before the scroll tell only now how much they fill.
+    if (!mounted || !_scrollCtl.isAttached) return;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted || !_scrollCtl.isAttached) return;
+    final gap = _positions.itemPositions.value.any(
+      (p) => p.index == 0 && p.itemLeadingEdge > 0.03,
+    );
+    if (gap) await _scrollToEnd();
   }
 
   /// After a failed load: the timeline is built again from the same place, so a reader who
@@ -1501,7 +1586,9 @@ class TimelineViewState extends State<TimelineView>
   void _onPositions() {
     final t = _timeline;
     final positions = _positions.itemPositions.value;
-    if (t == null || positions.isEmpty || _opening || _repositioning) return;
+    if (t == null || positions.isEmpty || _opening || _repositioning || _away) {
+      return;
+    }
     if (!_settled) {
       // First layout after opening.
       _settled = true;
