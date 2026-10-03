@@ -10,12 +10,6 @@ Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
 Each task makes the app behave as the official Android app does. SPEC.md and ARCHITECTURE.md change in the same commit where a task reverses a decision recorded there.
 
-### Timeline
-
-
-### Posts
-
-
 ### Reactions, menu and comments
 
 - [ ] Q-39 The reaction picker opens to the full list with an arrow, and a reaction animates. The quick reaction is chosen in Settings and stays as chosen; a double tap anywhere on the post sends it, and does nothing when the channel does not allow it.

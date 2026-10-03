@@ -42,16 +42,19 @@ appId: dev.telegramfeed.telegram_feed
       visible: 'Got it'
     commands:
       - tapOn: 'Got it'
-# The controls hide while the video plays; a tap brings them back.
+# The controls hide while the video plays; a tap brings them back, and they stay while
+# an accessibility service (this test) reads the screen.
 - extendedWaitUntil:
     notVisible: 'Video 0:10, .*'
     timeout: 10000
+# A playing video never lets the screen settle: the tap does not wait for stillness.
 - tapOn:
     point: '50%,50%'
+    waitToSettleTimeoutMs: 300
 - extendedWaitUntil:
     visible: 'Pause|Play'
     timeout: 10000
 - assertVisible: 'Picture-in-picture'
-# The controls hide again on their own; the Back key closes the viewer either way.
+# The Back key closes the viewer whatever the controls do.
 - back
 - assertVisible: 'Video 0:10, .*'

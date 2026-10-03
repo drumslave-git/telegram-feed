@@ -195,9 +195,12 @@ class _VideoStageState extends State<VideoStage> {
   void _scheduleHide() {
     _hide?.cancel();
     _hide = Timer(const Duration(seconds: 3), () {
-      if (mounted && (_s.controller?.value.isPlaying ?? false)) {
-        setState(() => _controls = false);
-      }
+      if (!mounted || !(_s.controller?.value.isPlaying ?? false)) return;
+      // Someone who works the screen through a screen reader (or a test through the
+      // same service) needs longer than three seconds to reach a control: for them the
+      // controls stay until they are tapped away, as a snack bar with an action does.
+      if (MediaQuery.accessibleNavigationOf(context)) return;
+      setState(() => _controls = false);
     });
   }
 
