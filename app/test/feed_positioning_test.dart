@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:app_db/app_db.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:telegram_feed/feeds/saved_position.dart';
 import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
@@ -213,6 +215,119 @@ void main() {
     await tester.pumpAndSettle();
     expect(button, findsNothing);
     await unmountFixtures(tester);
+  });
+
+  testWidgets('the button to the newest posts rests the newest post where it '
+      'stands when the feed opens there', (tester) async {
+    final feed = await feedOf(tester, 'Rest', marks: {-1: 40, -2: 40});
+    await open(tester, app(feed));
+    final rest = tester.getRect(cardOf('b-40'));
+
+    // A little into older posts and some way back, which brings the button.
+    await tester.dragFrom(_middle, const Offset(0, 400));
+    await tester.pumpAndSettle();
+    await tester.dragFrom(_middle, const Offset(0, -140));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(cardOf('b-40')), rest);
+    await unmountFixtures(tester);
+  });
+
+  group('a jump to a post', () {
+    /// The tint of the row a jump landed on.
+    bool tinted(WidgetTester tester, String text) {
+      final tint = Theme.of(tester.element(find.byType(TimelineView)))
+          .colorScheme
+          .primary
+          .withValues(alpha: 0.12);
+      return tester
+          .widgetList<AnimatedContainer>(
+            find.ancestor(
+              of: find.text(text),
+              matching: find.byType(AnimatedContainer),
+            ),
+          )
+          .any((c) => (c.decoration as BoxDecoration?)?.color == tint);
+    }
+
+    /// How far the middle of the post is from the middle of the list.
+    double offCentre(WidgetTester tester, String text) =>
+        (tester.getRect(cardOf(text)).center.dy -
+                tester.getRect(find.byType(ScrollablePositionedList)).center.dy)
+            .abs();
+
+    Future<TimelineViewState> opened(WidgetTester tester) async {
+      final feed = await feedOf(tester, 'Jump', marks: {-1: 40, -2: 40});
+      await open(tester, app(feed));
+      return tester.state<TimelineViewState>(find.byType(TimelineView));
+    }
+
+    testWidgets('a loaded post is scrolled to, stands in the middle and is '
+        'tinted for a second', (tester) async {
+      final state = await opened(tester);
+      expect(find.text('a-36'), findsNothing);
+
+      unawaited(state.jumpToPost(chatId: -1, messageId: 36, date: 7200));
+      await settleJump(tester);
+      expect(offCentre(tester, 'a-36'), lessThan(12));
+      expect(tinted(tester, 'a-36'), isTrue);
+
+      await tester.pump(const Duration(milliseconds: 1100));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(tinted(tester, 'a-36'), isFalse);
+      await unmountFixtures(tester);
+    });
+
+    testWidgets('a post on the screen is centred where it stands', (
+      tester,
+    ) async {
+      final state = await opened(tester);
+      expect(find.text('b-37'), findsOneWidget);
+      expect(offCentre(tester, 'b-37'), greaterThan(150));
+
+      unawaited(state.jumpToPost(chatId: -2, messageId: 37, date: 7500));
+      await settleJump(tester);
+      expect(offCentre(tester, 'b-37'), lessThan(12));
+      await unmountFixtures(tester);
+    });
+
+    testWidgets('a post next to the newest one stays where it is: the list '
+        'does not leave its end', (tester) async {
+      final state = await opened(tester);
+      final before = tester.getRect(cardOf('b-39'));
+
+      unawaited(state.jumpToPost(chatId: -2, messageId: 39, date: 7900));
+      await settleJump(tester);
+      expect(tester.getRect(cardOf('b-39')), before);
+      expect(tinted(tester, 'b-39'), isTrue);
+      await unmountFixtures(tester);
+    });
+
+    testWidgets('a drag of the list ends the tint', (tester) async {
+      final state = await opened(tester);
+      unawaited(state.jumpToPost(chatId: -1, messageId: 36, date: 7200));
+      await settleJump(tester);
+      expect(tinted(tester, 'a-36'), isTrue);
+
+      await tester.dragFrom(_middle, const Offset(0, 40));
+      await tester.pump();
+      expect(tinted(tester, 'a-36'), isFalse);
+      await tester.pumpAndSettle();
+      await unmountFixtures(tester);
+    });
+
+    testWidgets('a post that is not loaded opens in the middle too', (
+      tester,
+    ) async {
+      final state = await opened(tester);
+      unawaited(state.jumpToPost(chatId: -1, messageId: 5, date: 1000));
+      await settleFixtures(tester);
+      await settleJump(tester);
+      expect(offCentre(tester, 'a-5'), lessThan(12));
+      expect(tinted(tester, 'a-5'), isTrue);
+      await unmountFixtures(tester);
+    });
   });
 
   testWidgets('one unread channel decides where the feed opens', (

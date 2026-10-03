@@ -935,6 +935,18 @@ class TimelineViewState extends State<TimelineView>
     required int messageId,
     required int date,
   }) async {
+    final t = _timeline;
+    final loaded = t == null || _opening
+        ? -1
+        : _indexOf(
+            t,
+            chatId,
+            (i) => i.allPosts.any((p) => p.messageId == messageId),
+          );
+    if (t != null && loaded >= 0) {
+      await _scrollToLoaded(t, loaded);
+      return;
+    }
     final others = [
       for (final s in _sourceRows)
         if (s.chatId != chatId) s.chatId,
@@ -959,6 +971,100 @@ class TimelineViewState extends State<TimelineView>
     _timeline = null;
     _setSources(_sourceRows);
   }
+
+  static const _jumpScroll = Duration(milliseconds: 250);
+
+  /// Scrolls to a row that is already loaded, as the official app does when the message
+  /// it jumps to is in its list: animated, the row in the middle of the screen, tinted.
+  Future<void> _scrollToLoaded(FeedTimeline t, int index) async {
+    if (!_scrollCtl.isAttached) return;
+    final row = (t.items[index].chatId, t.items[index].rowId);
+    // A minimized post opens: the reader asked for that post.
+    setState(() {
+      _opened.add(row);
+      _highlightTimer?.cancel();
+      _highlight = row;
+    });
+    // The list is measured once this frame has laid it out: the row may have opened, and
+    // a search bar that closed on the way here has changed the list's height.
+    await WidgetsBinding.instance.endOfFrame;
+    // Rows that load on the way move every index: the row is looked up again each time.
+    int here() => !mounted || !identical(t, _timeline) || !_scrollCtl.isAttached
+        ? -1
+        : t.items.indexWhere((i) => (i.chatId, i.rowId) == row);
+    var at = here();
+    if (at < 0) return;
+    var top = _centredTop(at);
+    if (top == null) {
+      // Not laid out, so its height is not known: its top goes a quarter down the screen,
+      // and the row is centred once it is there.
+      await _scrollCtl.scrollTo(
+        index: at + 1,
+        alignment: 0.75,
+        duration: _jumpScroll,
+        curve: Curves.easeOut,
+      );
+      // Where the row stands is told after the frame that put it there.
+      if (mounted) await WidgetsBinding.instance.endOfFrame;
+      at = here();
+      if (at < 0) return;
+      top = _centredTop(at);
+    }
+    if (top != null) {
+      final end = _endsAtNewest(at, top);
+      // A row near the newest post cannot be centred: the list goes to its end, and
+      // stays as it is when it is there already.
+      if (end) {
+        if (!t.atTop) await _scrollToEnd();
+      } else {
+        await _scrollCtl.scrollTo(
+          index: at + 1,
+          alignment: top,
+          duration: _jumpScroll,
+          curve: Curves.easeOut,
+        );
+      }
+    }
+    if (mounted && _highlight == row) _flash(row);
+  }
+
+  /// Where the top edge of the row at [index] belongs so that the row stands in the middle
+  /// of the list (of what the pinned bar leaves of it), or with its top at the top when it
+  /// is taller than that: `getScrollOffsetForMessage` of the official app. A share of the
+  /// list's height, measured from its bottom; null while the row is not laid out.
+  double? _centredTop(int index) {
+    // The render box, not the element: a rebuild that waits for its frame marks the list
+    // dirty, and the element will not tell its size then.
+    final box = _listKey.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return null;
+    final height = box.size.height;
+    if (height <= 0) return null;
+    for (final p in _positions.itemPositions.value) {
+      if (p.index != index) continue;
+      final covered = _pinned != null && !_pinnedHidden ? pinnedBarHeight : 0.0;
+      final free = 1 - covered / height;
+      final row = p.itemTrailingEdge - p.itemLeadingEdge;
+      return math.min(free, (free + row) / 2);
+    }
+    return null;
+  }
+
+  /// True when the row at [index] with its top at [top] would lift the newest post off the
+  /// bottom edge and leave the list empty under it: the list belongs at its end then.
+  bool _endsAtNewest(int index, double top) {
+    ItemPosition? row;
+    ItemPosition? newest;
+    for (final p in _positions.itemPositions.value) {
+      if (p.index == index) row = p;
+      if (p.index == 0) newest = p;
+    }
+    if (row == null || newest == null) return false;
+    return newest.itemLeadingEdge + top - row.itemTrailingEdge > 0;
+  }
+
+  /// A timeline that was opened around a post: the post is centred as soon as the list has
+  /// laid it out and its height is known.
+  int? _centreOnOpen;
 
   /// Opens the calendar and jumps to the day the reader picks, as in the official app.
   /// Asks for a day and goes there; true when one was picked. [onPicked] runs first,
@@ -1172,9 +1278,15 @@ class TimelineViewState extends State<TimelineView>
           index = _indexOf(t, focusChat, isFocus);
           _flash((focusChat, t.items[index].rowId));
         }
-        // A minimized post opens: the reader asked for that post.
-        if (index >= 0) _opened.add((focusChat, t.items[index].rowId));
-        _initialAlignment = t.anchored ? 0.55 : 0.3;
+        if (index >= 0) {
+          // A minimized post opens: the reader asked for that post.
+          _opened.add((focusChat, t.items[index].rowId));
+          // The top of the post (the bottom of the row above it) a quarter down the
+          // screen; the first layout tells its height, and it is centred.
+          _centreOnOpen = index;
+          index += 1;
+          _initialAlignment = 0.75;
+        }
       } else if (left != null && !atUnread) {
         // Everything newer than that row is loaded on the way to it, the unread posts
         // among them: the divider goes on the first of them, below the reader.
@@ -1283,7 +1395,16 @@ class TimelineViewState extends State<TimelineView>
     if (!_settled) {
       // First layout after opening.
       _settled = true;
-      _settleAtNewest(positions);
+      final centre = _centreOnOpen;
+      _centreOnOpen = null;
+      final top = centre == null ? null : _centredTop(centre);
+      if (top != null && !_endsAtNewest(centre!, top)) {
+        if (_scrollCtl.isAttached) {
+          _scrollCtl.jumpTo(index: centre + 1, alignment: top);
+        }
+      } else {
+        _settleAtNewest(positions);
+      }
     }
     final items = t.items;
     if (items.isEmpty) return;
@@ -1410,6 +1531,12 @@ class TimelineViewState extends State<TimelineView>
   bool _userScrolling = false;
 
   bool _onScroll(ScrollNotification n) {
+    if (n is ScrollStartNotification &&
+        n.dragDetails != null &&
+        _highlight != null) {
+      _highlightTimer?.cancel();
+      setState(() => _highlight = null);
+    }
     if (n is UserScrollNotification) {
       _userScrolling = n.direction != ScrollDirection.idle;
     } else if (n is ScrollUpdateNotification && _userScrolling) {
@@ -1447,11 +1574,12 @@ class TimelineViewState extends State<TimelineView>
     });
   }
 
-  /// Tints the row for a moment, so the post the timeline jumped to is easy to spot.
+  /// Tints the row for a second, so the post the timeline jumped to is easy to spot. A
+  /// drag of the list ends it, as in the official app.
   void _flash((int, int) row) {
     _highlightTimer?.cancel();
     _highlight = row;
-    _highlightTimer = Timer(const Duration(milliseconds: 2500), () {
+    _highlightTimer = Timer(const Duration(seconds: 1), () {
       if (mounted) setState(() => _highlight = null);
     });
   }
@@ -1508,11 +1636,57 @@ class TimelineViewState extends State<TimelineView>
     final arrived = t.releasePending();
     setState(() {});
     if (!_scrollCtl.isAttached) return;
-    final middle = !toEnd && arrived > 1;
-    _scrollCtl.scrollTo(
-      index: middle ? arrived - 1 : 0,
-      alignment: middle ? 0.5 : 0,
-      duration: const Duration(milliseconds: 250),
+    if (toEnd || arrived <= 1) {
+      unawaited(_scrollToEnd());
+      return;
+    }
+    unawaited(
+      _scrollCtl.scrollTo(
+        index: arrived - 1,
+        alignment: 0.5,
+        duration: _jumpScroll,
+        curve: Curves.easeOut,
+      ),
+    );
+  }
+
+  /// True when the list has built the row at [index], on the screen or in the stretch it
+  /// keeps ready beyond it. The list reports only the rows on the screen; it keys every
+  /// row it builds with the row's index, and that is looked for here.
+  bool _rowBuilt(int index) {
+    var found = false;
+    void visit(Element e) {
+      if (found) return;
+      final key = e.widget.key;
+      if (key is ValueKey<int>) {
+        // A row: what stands inside it is of no interest.
+        found = key.value == index;
+        return;
+      }
+      e.visitChildren(visit);
+    }
+
+    _listKey.currentContext?.visitChildElements(visit);
+    return found;
+  }
+
+  /// Animates to the newest post, where the list rests with its bottom padding under the
+  /// post. The list package leaves that padding out when it scrolls to a row it has built
+  /// (the post would end under the gesture bar) and counts it when the row is far, so
+  /// the padding is handed over as the alignment in the first case.
+  Future<void> _scrollToEnd() {
+    var alignment = 0.0;
+    final box = _listKey.currentContext?.findRenderObject();
+    if (box is RenderBox &&
+        box.hasSize &&
+        box.size.height > 0 &&
+        _rowBuilt(0)) {
+      alignment = (8 + MediaQuery.paddingOf(context).bottom) / box.size.height;
+    }
+    return _scrollCtl.scrollTo(
+      index: 0,
+      alignment: alignment,
+      duration: _jumpScroll,
       curve: Curves.easeOut,
     );
   }
@@ -1616,11 +1790,11 @@ class TimelineViewState extends State<TimelineView>
 
   /// A link in a post. A Telegram link to a channel the account follows opens here, post
   /// and all; everything else goes to whatever app handles it (the browser for web pages).
-  Future<void> _openLink(String url) async {
+  Future<void> _openLink(String url, {TimelineItem? from}) async {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = context.l10n;
     final uri = Uri.tryParse(url);
-    if (uri != null && _openTelegramLink(uri)) return;
+    if (uri != null && _openTelegramLink(uri, from: from)) return;
     if (await launchFirst([uri])) return;
     messenger.showSnackBar(
       SnackBar(content: Text(l10n.timelineNoAppForLink(url))),
@@ -1631,8 +1805,11 @@ class TimelineViewState extends State<TimelineView>
   @visibleForTesting
   bool openLinkForTest(String url) => _openTelegramLink(Uri.parse(url));
 
-  /// True when the link named a channel of this account and its timeline was opened.
-  bool _openTelegramLink(Uri uri) {
+  /// True when the link named a channel of this account and the app went there itself. A
+  /// post of a channel of this timeline is jumped to in place, and the button at the corner
+  /// comes back to the post the link stood in ([from]), as in the official app; any other
+  /// channel opens in a timeline of its own.
+  bool _openTelegramLink(Uri uri, {TimelineItem? from}) {
     final target = telegramTargetOf(uri);
     if (target == null) return false;
     final username = target.username?.toLowerCase();
@@ -1645,6 +1822,35 @@ class TimelineViewState extends State<TimelineView>
       if (channel != null) break;
     }
     if (channel == null) return false;
+    final t = _timeline;
+    final messageId = target.messageId;
+    if (t != null && messageId != null && t.chatIds.contains(channel.chatId)) {
+      final loaded = _indexOf(
+        t,
+        channel.chatId,
+        (i) => i.allPosts.any((p) => p.messageId == messageId),
+      );
+      // A post that is not loaded is opened around its date, which the link does not
+      // tell: the timeline of one channel needs none. A filter may keep the post out of
+      // this timeline, and then its channel shows it.
+      if (loaded >= 0 || (t.chatIds.length == 1 && _filter.isEmpty)) {
+        if (from != null) {
+          _returnTo = (
+            chatId: from.chatId,
+            messageId: from.head.messageId,
+            date: from.head.date,
+          );
+        }
+        unawaited(
+          jumpToPost(
+            chatId: channel.chatId,
+            messageId: messageId,
+            date: loaded >= 0 ? t.items[loaded].head.date : 0,
+          ),
+        );
+        return true;
+      }
+    }
     unawaited(
       Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -2357,7 +2563,8 @@ class TimelineViewState extends State<TimelineView>
                           : null,
                       onReact: (emoji, remove) => _react(item, emoji, remove),
                       availableReactions: () => _availableReactions(item),
-                      onOpenLink: _openLink,
+                      onOpenLink: (url) =>
+                          unawaited(_openLink(url, from: item)),
                       onOpenHashtag: widget.onHashtag,
                       onAutoplaySettings: () => openSettingsScreen(
                         context,

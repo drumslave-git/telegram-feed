@@ -52,3 +52,14 @@ Future<void> unmountFixtures(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 1));
 }
+
+/// An animated jump inside a timeline. The list's scroll runs on pumped time and the code
+/// that waits for it in real time, so the two take turns until both are through.
+Future<void> settleJump(WidgetTester tester) async {
+  for (var i = 0; i < 16; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}

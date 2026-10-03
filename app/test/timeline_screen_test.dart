@@ -730,9 +730,9 @@ void main() {
       lessThan(16),
     );
 
-    // The older match: the timeline is rebuilt around it and the stepper appears.
+    // The older match: the timeline scrolls to it and the stepper appears.
     await tester.tap(find.byType(SearchResultTile).last);
-    await settle(tester);
+    await settleJump(tester);
     await tester.pumpAndSettle();
     expect(find.text('2 of 2'), findsOneWidget);
     expect(find.byType(SearchResults), findsNothing);
@@ -749,7 +749,7 @@ void main() {
 
     // Step to the newer match.
     await tester.tap(find.byTooltip('Newer match'));
-    await settle(tester);
+    await settleJump(tester);
     await tester.pumpAndSettle();
     expect(find.text('1 of 2'), findsOneWidget);
     expect(

@@ -105,14 +105,17 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
 
-    // A channel by username.
+    // A post of the feed's own channel is jumped to in place, loaded or not: no second
+    // screen opens over the feed's.
+    expect(state.openLinkForTest('https://t.me/one/3'), isTrue);
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.byType(TimelineScreen, skipOffstage: false), findsOneWidget);
     expect(state.openLinkForTest('https://t.me/one/42'), isTrue);
     await settle(tester);
     await tester.pumpAndSettle();
-    // The feed's screen is below, offstage under the channel's.
-    expect(find.byType(TimelineScreen, skipOffstage: false), findsNWidgets(2));
-    await tester.pageBack();
-    await tester.pumpAndSettle();
+    expect(find.byType(TimelineScreen, skipOffstage: false), findsOneWidget);
+    expect(find.textContaining('see t.me/one/42'), findsOneWidget);
 
     // A web page, and a channel the account does not follow, are for other apps.
     expect(state.openLinkForTest('https://example.org/story'), isFalse);

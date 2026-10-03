@@ -67,7 +67,8 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - A post that is a single emoji shows that emoji.
 - A forwarded post names the channel it came from; a tap opens the original post when I follow that channel.
 - A post with a link shows the site's card (site, title, description, picture, with a play badge for a video); a tap opens the link.
-- A Telegram link in a post that leads to a channel I follow opens here, at that post. Other links open in the app that handles them; a link hidden behind other words asks "Do you want to open …?" first, and a long press on a link offers to open or copy it.
+- A jump to a post (a reply quote, a search result, the pinned bar, a link) scrolls there when the post is already loaded and opens the timeline around it otherwise. The post lands in the middle of the screen, or with its top at the top when it is taller, and is tinted for a second or until I drag the list.
+- A Telegram link in a post that leads to a channel I follow opens here, at that post: in place when the post belongs to the timeline on the screen, with the button to the newest posts leading back to where I tapped, and in the channel's own timeline otherwise. Other links open in the app that handles them; a link hidden behind other words asks "Do you want to open …?" first, and a long press on a link offers to open or copy it.
 - A tap on a hashtag searches the feed or channel for it, a phone number offers to call or copy it, and a tap on inline code copies it.
 - A double tap on a post sends my quick reaction; a single tap opens the menu a moment later, once no second tap has come. A reaction shows on the post at once, before Telegram confirms it.
 - I copy a post's text from its menu, and a block of code with the button at its end.
