@@ -372,6 +372,25 @@
   "@postDayYearPattern": {
     "description": "intl DateFormat pattern of a day of another year between two days of a chat, e.g. March 3, 2025. Not a sentence: only the order of the fields changes."
   },
+  "postDayJumpToStart": "{day}. Go to the start of the day",
+  "@postDayJumpToStart": {
+    "description": "Screen-reader label of the floating date over a timeline; a tap goes to the first post of that day.",
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarTitle": "Calendar",
+  "calendarDayWithMedia": "{day}, with a picture",
+  "@calendarDayWithMedia": {
+    "description": "Screen-reader label of a calendar day that shows a thumbnail of a photo or video posted that day.",
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
   "postDayJumpToDate": "{day}. Jump to a date",
   "@postDayJumpToDate": {
     "description": "Screen reader label of the day pill, which opens the calendar.",

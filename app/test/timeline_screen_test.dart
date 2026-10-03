@@ -4,8 +4,9 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:telegram_feed/feeds/calendar_screen.dart';
 import 'package:telegram_feed/feeds/post_card.dart'
-    show ChatPill, PostCard, formatDay;
+    show ChatPill, PostCard, formatChatDay;
 import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_feed/settings/data_storage_screen.dart';
 import 'package:telegram_feed/feeds/timeline_search.dart';
@@ -868,18 +869,18 @@ void main() {
       // A day pill leads to the calendar; so does the button in the search bar.
       await tester.tap(find.byType(ChatPill).first);
       await tester.pumpAndSettle();
-      expect(find.byType(DatePickerDialog), findsOneWidget);
-      await tester.tap(find.text('Cancel'));
+      expect(find.byType(CalendarScreen), findsOneWidget);
+      await tester.pageBack();
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('Search'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Jump to date'));
       await tester.pumpAndSettle();
-      expect(find.byType(DatePickerDialog), findsOneWidget);
-      await tester.tap(find.text('Cancel'));
+      expect(find.byType(CalendarScreen), findsOneWidget);
+      await tester.pageBack();
       await tester.pumpAndSettle();
-      // Cancelled, the calendar leaves the search as it was.
+      // Left without a day, the calendar leaves the search as it was.
       expect(find.byType(TextField), findsOneWidget);
       await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
@@ -912,7 +913,7 @@ void main() {
     const base = 1700000000; // 2023-11-14 22:13 UTC
     int dateOf(int id) => base + (id > 20 ? oneDay : 0) + id * 60;
     String dayOf(int id) =>
-        formatDay(DateTime.fromMillisecondsSinceEpoch(dateOf(id) * 1000));
+        formatChatDay(DateTime.fromMillisecondsSinceEpoch(dateOf(id) * 1000));
     gw.histories[-1] = [
       for (var id = 40; id >= 1; id--) post(-1, id, dateOf(id), 'post-$id'),
     ];
@@ -977,15 +978,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(pill, findsNothing);
 
-    // The calendar opens from it, as from the day pills between the posts.
-    await tester.dragFrom(centre, const Offset(0, 100));
+    // A tap on it goes to the first post of its day: no calendar, and the day's own pill
+    // stands at the top with post-21, the first post of the second day, under it.
+    await tester.dragFrom(centre, const Offset(0, -700));
+    await tester.pumpAndSettle();
+    await tester.dragFrom(centre, const Offset(0, 60));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
+    expect(label(), dayOf(40));
     await tester.tap(pill);
+    await settleJump(tester);
     await tester.pumpAndSettle();
-    expect(find.byType(DatePickerDialog), findsOneWidget);
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
+    expect(find.byType(CalendarScreen), findsNothing);
+    expect(find.text('post-21'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('post-21')).dy, lessThan(260));
+    // The last post of the day before ends just under the top edge of the list.
+    expect(tester.getBottomLeft(find.text('post-20')).dy, lessThan(130));
     await unmount(tester);
   });
 

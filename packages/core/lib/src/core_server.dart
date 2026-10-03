@@ -359,6 +359,12 @@ final class CoreServer {
           'totalCount': page.totalCount,
           'nextOffset': page.nextOffset,
         };
+      case 'mediaCalendar':
+        final days = await gateway.mediaCalendar(
+          a['chatId'] as int,
+          fromMessageId: a['fromMessageId'] as int,
+        );
+        return days.map(encodePost).toList();
       case 'pinnedPosts':
         final pinned = await gateway.pinnedPosts(a['chatId'] as int);
         return pinned.map(encodePost).toList();

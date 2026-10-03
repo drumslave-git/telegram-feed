@@ -523,6 +523,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get postDayYearPattern => 'MMMM d, y';
 
   @override
+  String postDayJumpToStart(String day) {
+    return '$day. Go to the start of the day';
+  }
+
+  @override
+  String get calendarTitle => 'Calendar';
+
+  @override
+  String calendarDayWithMedia(String day) {
+    return '$day, with a picture';
+  }
+
+  @override
   String postDayJumpToDate(String day) {
     return '$day. Jump to a date';
   }

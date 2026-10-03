@@ -1426,4 +1426,18 @@ String formatDay(DateTime d, {DateTime? now, AppLocalizations? l10n}) {
   return DateFormat(pattern, locale).format(d);
 }
 
+/// The day on a separator between posts and on the floating date, as the official app
+/// writes it (`LocaleController.formatDateChat`): "October 3", with the year once the day
+/// is a year or more away. It never says "Today" or "Yesterday".
+String formatChatDay(DateTime d, {DateTime? now, AppLocalizations? l10n}) {
+  final words = l10n ?? _english;
+  final n = now ?? DateTime.now();
+  final near = n.difference(d).abs() < const Duration(days: 365);
+  final locale = words.localeName == 'en' ? 'en_US' : words.localeName;
+  return DateFormat(
+    near ? words.postDayPattern : words.postDayYearPattern,
+    locale,
+  ).format(d);
+}
+
 final AppLocalizations _english = lookupAppLocalizations(const Locale('en'));

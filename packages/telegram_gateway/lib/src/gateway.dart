@@ -136,6 +136,12 @@ abstract interface class TelegramGateway {
   /// The first value is what it is now.
   Stream<ConnectionStatus> get connection;
 
+  /// One post with a photo or a video for every day that has any, newest day first, from
+  /// the post [fromMessageId] back (0: from the newest). The days are those of the phone's
+  /// clock. Telegram answers in pages; an empty answer is the end. The official app draws
+  /// its calendar from this.
+  Future<List<Post>> mediaCalendar(int chatId, {int fromMessageId = 0});
+
   /// The posts pinned in a channel, newest first; empty when it has none. The official app
   /// shows them in a bar over the timeline.
   Future<List<Post>> pinnedPosts(int chatId);

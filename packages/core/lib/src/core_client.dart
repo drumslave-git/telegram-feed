@@ -379,6 +379,13 @@ final class CoreClient implements TelegramGateway {
   }
 
   @override
+  Future<List<Post>> mediaCalendar(int chatId, {int fromMessageId = 0}) async =>
+      ((await _call('mediaCalendar', {
+        'chatId': chatId,
+        'fromMessageId': fromMessageId,
+      })) as List).map((e) => decodePost(e as Map<Object?, Object?>)).toList();
+
+  @override
   Future<List<Post>> pinnedPosts(int chatId) async =>
       ((await _call('pinnedPosts', {'chatId': chatId})) as List)
           .map((e) => decodePost(e as Map<Object?, Object?>))

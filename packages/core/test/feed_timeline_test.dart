@@ -205,6 +205,9 @@ final class HistoryGateway implements TelegramGateway {
   @override
   Future<List<Post>> pinnedPosts(int chatId) async => const [];
   @override
+  Future<List<Post>> mediaCalendar(int chatId, {int fromMessageId = 0}) async =>
+      const [];
+  @override
   Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async =>
       const {};
   @override

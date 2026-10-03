@@ -543,6 +543,19 @@ class AppLocalizationsUk extends AppLocalizations {
   String get postDayYearPattern => 'd MMMM y';
 
   @override
+  String postDayJumpToStart(String day) {
+    return '$day. Перейти до початку дня';
+  }
+
+  @override
+  String get calendarTitle => 'Календар';
+
+  @override
+  String calendarDayWithMedia(String day) {
+    return '$day, із зображенням';
+  }
+
+  @override
   String postDayJumpToDate(String day) {
     return '$day. Перейти до дати';
   }

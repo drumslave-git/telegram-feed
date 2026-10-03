@@ -232,6 +232,9 @@ class ChannelsGateway implements TelegramGateway {
   @override
   Future<List<Post>> pinnedPosts(int chatId) async => const [];
   @override
+  Future<List<Post>> mediaCalendar(int chatId, {int fromMessageId = 0}) async =>
+      const [];
+  @override
   Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async =>
       const {};
   @override
@@ -299,6 +302,30 @@ class TimelineGateway extends ChannelsGateway {
       totalCount: all.length,
       nextOffset: '',
     );
+  }
+
+  /// The calendar pages that were asked for, as `chat|from`.
+  final calendarAsked = <String>[];
+
+  /// How many days one calendar page holds; small in a test of paging.
+  int calendarPage = 100;
+
+  @override
+  Future<List<Post>> mediaCalendar(int chatId, {int fromMessageId = 0}) async {
+    calendarAsked.add('$chatId|$fromMessageId');
+    final days = <Post>[];
+    DateTime? last;
+    for (final p in histories[chatId] ?? const <Post>[]) {
+      if (fromMessageId != 0 && p.messageId >= fromMessageId) continue;
+      if (p.media is! PhotoMedia && p.media is! VideoMedia) continue;
+      final at = DateTime.fromMillisecondsSinceEpoch(p.date * 1000);
+      final day = DateTime(at.year, at.month, at.day);
+      if (day == last) continue;
+      last = day;
+      days.add(p);
+      if (days.length == calendarPage) break;
+    }
+    return days;
   }
 
   @override

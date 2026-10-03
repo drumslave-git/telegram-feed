@@ -932,6 +932,24 @@ abstract class AppLocalizations {
   /// **'MMMM d, y'**
   String get postDayYearPattern;
 
+  /// Screen-reader label of the floating date over a timeline; a tap goes to the first post of that day.
+  ///
+  /// In en, this message translates to:
+  /// **'{day}. Go to the start of the day'**
+  String postDayJumpToStart(String day);
+
+  /// No description provided for @calendarTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar'**
+  String get calendarTitle;
+
+  /// Screen-reader label of a calendar day that shows a thumbnail of a photo or video posted that day.
+  ///
+  /// In en, this message translates to:
+  /// **'{day}, with a picture'**
+  String calendarDayWithMedia(String day);
+
   /// Screen reader label of the day pill, which opens the calendar.
   ///
   /// In en, this message translates to:

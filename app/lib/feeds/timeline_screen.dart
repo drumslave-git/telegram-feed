@@ -21,6 +21,7 @@ import '../settings/settings_tiles.dart' show openSettingsScreen;
 import '../widgets/destructive_button.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
+import 'calendar_screen.dart';
 import 'feed_editor_screen.dart';
 import 'open_links.dart';
 import 'pinned_posts.dart';
@@ -1245,19 +1246,45 @@ class TimelineViewState extends State<TimelineView>
   /// Asks for a day and goes there; true when one was picked. [onPicked] runs first,
   /// before the jump, so the search can close only when the reader did pick a day.
   Future<bool> pickDate({DateTime? around, VoidCallback? onPicked}) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: around ?? now,
-      // Telegram itself is younger than this.
-      firstDate: DateTime(2013),
-      lastDate: now,
-      helpText: context.l10n.timelineJumpToDate,
+    final picked = await Navigator.of(context).push<DateTime>(
+      MaterialPageRoute(
+        builder: (_) => CalendarScreen(
+          gateway: widget.gateway,
+          chatIds: [for (final s in _sourceRows) s.chatId],
+          around: around,
+        ),
+      ),
     );
     if (picked == null || !mounted) return false;
     onPicked?.call();
     await jumpToDate(picked);
     return true;
+  }
+
+  /// A tap on the floating date: to the first post of that day, as in the official app.
+  /// A day whose first post is loaded is scrolled to; any other opens the timeline there.
+  Future<void> jumpToDayStart(DateTime day) async {
+    final t = _timeline;
+    if (t != null && !_opening && _scrollCtl.isAttached) {
+      final items = t.items;
+      // The list runs from the newest post: the last row of the day is its first post.
+      var first = -1;
+      for (var i = 0; i < items.length; i++) {
+        if (_dayOf(items[i]) == day) first = i;
+      }
+      // Its first post for certain only when an older row is loaded too.
+      if (first >= 0 && (first + 1 < items.length || t.exhausted)) {
+        // As an opening at a day: the row above the day's pill just below the top.
+        await _scrollCtl.scrollTo(
+          index: first + 1,
+          alignment: 0.92,
+          duration: _jumpScroll,
+          curve: Curves.easeOut,
+        );
+        return;
+      }
+    }
+    await jumpToDate(day);
   }
 
   /// Opens the timeline at a day: every source starts at its newest post of that day (or
@@ -2538,7 +2565,7 @@ class TimelineViewState extends State<TimelineView>
             child: FloatingDay(
               day: _stickyDay,
               shown: _stickyShown,
-              onTap: (day) => unawaited(pickDate(around: day)),
+              onTap: (day) => unawaited(jumpToDayStart(day)),
             ),
           ),
         ValueListenableBuilder<int>(
@@ -2838,7 +2865,7 @@ class TimelineViewState extends State<TimelineView>
                         children: [
                           if (newDay)
                             ChatPill(
-                              formatDay(day, l10n: context.l10n),
+                              formatChatDay(day, l10n: context.l10n),
                               onTap: () => unawaited(pickDate(around: day)),
                             ),
                           if (id == _firstUnread) const UnreadDivider(),
@@ -2917,7 +2944,7 @@ final class _RowInputs {
 
 /// The day of the topmost post, floating over the timeline: it is there while the list
 /// moves and fades out once it comes to rest, as the date does in the official app. A tap
-/// opens the calendar on that day, like the day pills between the posts.
+/// goes to the first post of that day; the day pills between the posts open the calendar.
 class FloatingDay extends StatefulWidget {
   const FloatingDay({
     super.key,
@@ -2974,7 +3001,10 @@ class _FloatingDayState extends State<FloatingDay>
       return Opacity(
         opacity: _fade.value,
         child: ChatPill(
-          formatDay(day, l10n: context.l10n),
+          formatChatDay(day, l10n: context.l10n),
+          tapLabel: context.l10n.postDayJumpToStart(
+            formatChatDay(day, l10n: context.l10n),
+          ),
           onTap: widget.onTap == null ? null : () => widget.onTap!(day),
         ),
       );

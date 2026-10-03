@@ -922,6 +922,21 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
+  Future<List<Post>> mediaCalendar(int chatId, {int fromMessageId = 0}) async {
+    final r = await _client.call(
+      td.GetChatMessageCalendar(
+        chatId: chatId,
+        filter: const td.SearchMessagesFilterPhotoAndVideo(),
+        fromMessageId: fromMessageId,
+      ),
+    );
+    return _posts([
+      for (final day in r.days)
+        if (day.message != null) day.message!,
+    ]);
+  }
+
+  @override
   Future<List<Post>> pinnedPosts(int chatId) async {
     // searchChatMessages answers newest first, in pages of its own size.
     final out = <Post>[];

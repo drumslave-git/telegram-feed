@@ -98,7 +98,9 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - The magnifier on the home screen searches the posts of every channel I follow, the archived ones too.
 - The magnifier in a feed or a channel searches all of its channels at once; what the feed hides is not found. Results say how many there are and name the channel, the text and the day; a tap opens the timeline at that post, with arrows and a counter to step through the matches.
 - Chips pick the kind of post: media, links, files, music, voice. A chip works without words.
-- A calendar, and a tap on any day label, jumps to a date. Cancelling the calendar leaves the search open.
+- The day labels between the posts and the floating date read like the official app's: "October 3", with the year once the day is a year or more away, never "Today" or "Yesterday".
+- A tap on a day label, and the calendar button of the search, opens the calendar: the months under one another, the newest at the bottom, with a small round picture in every day that has a photo or a video (in a feed, the newest of that day among its channels). A tap on a day jumps to it; days to come cannot be picked. Leaving the calendar without a day leaves the search open.
+- A tap on the floating date goes to the first post of that day.
 - An open search bar offers the words I looked for last: those that led me to a result I opened.
 - The comments of a post can be searched.
 
