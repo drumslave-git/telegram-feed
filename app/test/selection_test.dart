@@ -193,4 +193,55 @@ void main() {
     expect(shared.single.contains('first'), isTrue);
     await unmount(tester);
   });
+
+  testWidgets('an album is shared with its caption, whichever part holds it', (
+    tester,
+  ) async {
+    const file = FileRef(id: 1, remoteId: 'r', size: 1, width: 4, height: 3);
+    gw.histories[-1] = [
+      // The caption sits on the first picture, which is not the newest part.
+      const Post(
+        chatId: -1,
+        messageId: 5,
+        date: 500,
+        text: '',
+        albumId: 9,
+        media: PhotoMedia(sizes: [file]),
+      ),
+      const Post(
+        chatId: -1,
+        messageId: 4,
+        date: 500,
+        text: 'three views of the quay',
+        albumId: 9,
+        media: PhotoMedia(sizes: [file]),
+      ),
+    ];
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Pick');
+      await db.addSource(feed.id, -1, title: 'One', username: 'one');
+      gw.readPositions[-1] = 5;
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(
+          db: db,
+          gateway: gw,
+          feed: feed,
+          share: (text, {required subject}) async => shared.add(text),
+        ),
+      ),
+    );
+    await settle(tester);
+    // The pictures never arrive, so their spinners never settle.
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.longPress(find.text('three views of the quay'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Share'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(shared.single, contains('three views of the quay'));
+    await unmount(tester);
+  });
 }

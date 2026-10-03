@@ -1599,7 +1599,7 @@ class TimelineViewState extends State<TimelineView>
     final title = _titles[item.chatId] ?? '';
     return link == null
         ? item.text
-        : shareText(channelTitle: title, text: item.head.text, link: link);
+        : shareText(channelTitle: title, text: item.text, link: link);
   }
 
   Future<void> _share(TimelineItem item) async {
@@ -1612,7 +1612,7 @@ class TimelineViewState extends State<TimelineView>
     }
     final title = _titles[item.chatId] ?? '';
     await widget.share(
-      shareText(channelTitle: title, text: item.head.text, link: link),
+      shareText(channelTitle: title, text: item.text, link: link),
       subject: title,
     );
   }

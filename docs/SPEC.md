@@ -112,6 +112,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - A rule can be switched off without deleting it.
 - A matching new post raises a notification that opens the post in the feed of the rule and names the rule that fired. When several rules match, the highest priority wins, and read-aloud happens if any matching rule asks for it.
 - Android has to allow notifications at all; the app asks for that when I save my first rule, not before I have logged in.
+- An album raises one notification, matched by its caption; without a caption it says "Album".
 - Posts that match no rule raise no notification. The app does not replicate Telegram's own per-chat notifications.
 - Rules match post text and media captions. Edited posts are not matched again.
 - I test a rule against the recent posts of its channels to see what it would have matched. The result says how many posts and channels it checked.

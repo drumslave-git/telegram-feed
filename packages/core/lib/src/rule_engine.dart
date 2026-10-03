@@ -225,11 +225,23 @@ final class RuleFeed {
 ///
 /// - Every rule belongs to a feed and watches its channels, or one of them.
 /// - Only [PostAdded] is evaluated; edits are ignored.
+/// - An album is one post: its parts arrive as messages of their own, so they are held for
+///   [albumWait] after the last one and evaluated together.
 /// - [PostsDeleted] is forwarded on [cancellations] so a pending notification can be dropped.
 final class RuleEngine {
-  RuleEngine({DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
+  RuleEngine({
+    DateTime Function()? clock,
+    this.albumWait = const Duration(seconds: 1),
+  }) : _clock = clock ?? DateTime.now;
 
   final DateTime Function() _clock;
+
+  /// How long after the last part of an album the album is taken as complete.
+  final Duration albumWait;
+
+  /// The parts of the albums still arriving, by chat and album, with the timer that ends
+  /// the wait.
+  final _albums = <(int, int), ({List<Post> parts, Timer timer})>{};
   final _evaluator = RuleEvaluator();
   final _matches = StreamController<RuleMatch>.broadcast();
   final _cancels = StreamController<PostsDeleted>.broadcast();
@@ -288,13 +300,41 @@ final class RuleEngine {
     // A service message (a pin, a new channel photo) is not a post.
     if (post.media is ServiceNote) return null;
     final text = post.text;
-    final hits = [
+    return _matchOf(post, [
       for (final r in candidates(post.chatId, now: now))
         if (_shows(r, post) &&
             _mayMatch(r, text) &&
             _evaluator.matches(r.condition, text))
           r,
-    ];
+    ]);
+  }
+
+  /// Evaluates an album as the one post it is: its captions together are its words, and a
+  /// rule's feed shows it when it shows any of its parts. The match names the part with
+  /// the caption, or the first part of an album without one.
+  RuleMatch? evaluateAlbum(List<Post> parts, {DateTime? now}) {
+    if (parts.isEmpty || !_watched.contains(parts.first.chatId)) return null;
+    final ordered = [...parts]
+      ..sort((a, b) => a.messageId.compareTo(b.messageId));
+    final text = [
+      for (final p in ordered)
+        if (p.text.isNotEmpty) p.text,
+    ].join('\n');
+    final post = ordered.firstWhere(
+      (p) => p.text.isNotEmpty,
+      orElse: () => ordered.first,
+    );
+    return _matchOf(post, [
+      for (final r in candidates(post.chatId, now: now))
+        if ((_feeds[r.feedId]?.filter.shownParts(ordered).isNotEmpty ??
+                false) &&
+            _mayMatch(r, text) &&
+            _evaluator.matches(r.condition, text))
+          r,
+    ]);
+  }
+
+  RuleMatch? _matchOf(Post post, List<RuleSpec> hits) {
     if (hits.isEmpty) return null;
     var priority = RulePriority.silent;
     var readAloud = false;
@@ -314,6 +354,8 @@ final class RuleEngine {
   StreamSubscription<PostEvent> attach(Stream<PostEvent> events) =>
       events.listen((e) {
         switch (e) {
+          case PostAdded(:final post) when post.albumId != 0:
+            _holdAlbumPart(post);
           case PostAdded(:final post):
             final m = evaluate(post);
             if (m != null) _matches.add(m);
@@ -324,7 +366,28 @@ final class RuleEngine {
         }
       });
 
+  /// Keeps a part of an album until no further part has come for [albumWait], then
+  /// evaluates the album once.
+  void _holdAlbumPart(Post post) {
+    final key = (post.chatId, post.albumId);
+    final held = _albums[key];
+    held?.timer.cancel();
+    _albums[key] = (
+      parts: [...?held?.parts, post],
+      timer: Timer(albumWait, () {
+        final album = _albums.remove(key);
+        if (album == null || _matches.isClosed) return;
+        final m = evaluateAlbum(album.parts);
+        if (m != null) _matches.add(m);
+      }),
+    );
+  }
+
   Future<void> close() async {
+    for (final album in _albums.values) {
+      album.timer.cancel();
+    }
+    _albums.clear();
     await _matches.close();
     await _cancels.close();
   }

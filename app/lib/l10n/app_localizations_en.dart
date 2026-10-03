@@ -2760,6 +2760,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mediaChecklist => 'Checklist';
 
   @override
+  String get mediaAlbum => 'Album';
+
+  @override
   String get mediaPaidMedia => 'Paid media';
 
   @override

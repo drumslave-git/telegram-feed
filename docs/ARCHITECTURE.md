@@ -332,6 +332,8 @@ A rule with no condition (`And([])`, which every post satisfies) notifies about 
 4. If none match, stop. Otherwise priority is the maximum over the matches and read-aloud is true if any match asks for it.
 5. Send a `MatchEvent` to the service host, which shows the notification (section 6.3) and, if read-aloud is set, queues the post for speech (section 7).
 
+An album is one post. Its parts arrive as messages of their own, so `RuleEngine.attach` holds the parts of an album (`Post.albumId`) until none has come for a second (`albumWait`) and `evaluateAlbum` judges them together: the captions joined are its words, a rule's feed shows it when `FeedFilter.shownParts` leaves any part, and the match names the part with the caption, or the first part. The notification of an album without a caption says "Album".
+
 Edited posts are not evaluated again. A deleted post cancels its notification.
 
 The pause stops evaluation: `CoreServer.setPaused` detaches the engine from the gateway's post events, so nothing matches, notifies or is read aloud. The core keeps it in the device-local setting `rules.paused` (`onPaused`) and starts paused when it says so. It is switched from the home screen's header (`PauseButton`), from the banner's Resume and from the Pause and Resume actions of the service notification; the core tells every client (`CoreStream.paused`). On a pause the service host stops read-aloud and clears its queue (`TtsService.stopAll`). While paused, `StatusBannerHost` shows a banner with Resume under the header of every screen; a post read aloud (Listen still reads) takes its place until the queue is empty.

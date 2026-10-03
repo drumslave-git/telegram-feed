@@ -2227,6 +2227,7 @@
   "mediaGiveaway": "Giveaway",
   "mediaStory": "Story",
   "mediaChecklist": "Checklist",
+  "mediaAlbum": "Album",
   "mediaPaidMedia": "Paid media",
   "mediaUnsupported": "Unsupported post",
   "servicePinned": "{channel} pinned a post",

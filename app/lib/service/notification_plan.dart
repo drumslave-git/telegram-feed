@@ -127,10 +127,13 @@ final class NotificationPlan {
     final s = strings ?? AppLanguage.englishStrings;
     // A rule with no condition also notifies about posts without text; those show what
     // they carry ("Photo", "Video", the file's name).
-    final text = postLabel(
-      m.post,
-      s.mediaWords,
-    ).replaceAll(RegExp(r'\s+'), ' ').trim();
+    final text =
+        (m.post.albumId != 0 && m.post.text.trim().isEmpty
+                // An album without a caption is named as one, not by its first picture.
+                ? s.mediaAlbum
+                : postLabel(m.post, s.mediaWords))
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .trim();
     final body = text.length > 240 ? '${text.substring(0, 240)}…' : text;
     // The rules that matched, so the shade says why this post is here.
     final rule = m.ruleNames.join(', ');

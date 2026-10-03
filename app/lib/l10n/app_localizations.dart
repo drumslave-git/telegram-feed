@@ -4418,6 +4418,12 @@ abstract class AppLocalizations {
   /// **'Checklist'**
   String get mediaChecklist;
 
+  /// No description provided for @mediaAlbum.
+  ///
+  /// In en, this message translates to:
+  /// **'Album'**
+  String get mediaAlbum;
+
   /// No description provided for @mediaPaidMedia.
   ///
   /// In en, this message translates to:

@@ -64,6 +64,29 @@ void main() {
     );
   });
 
+  test('an album without a caption is named as an album', () {
+    final m = MatchEvent.of(
+      Post(
+        chatId: -1001,
+        messageId: 5 << 20,
+        date: 1,
+        text: '',
+        albumId: 7,
+        media: const PhotoMedia(
+          sizes: [FileRef(id: 1, remoteId: 'r', size: 1)],
+        ),
+      ),
+      const [
+        MatchedRule(
+          name: 'every post',
+          priority: RulePriority.normal,
+          readAloud: false,
+        ),
+      ],
+    );
+    expect(NotificationPlan.forMatch(m, channelTitle: 'News').body, 'Album');
+  });
+
   test('a post without text shows what it carries', () {
     MatchEvent carrying(Media? media) => MatchEvent.of(
       Post(chatId: -1001, messageId: 5 << 20, date: 1, text: '', media: media),

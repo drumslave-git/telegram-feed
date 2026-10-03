@@ -2868,6 +2868,9 @@ class AppLocalizationsUk extends AppLocalizations {
   String get mediaChecklist => 'Список задач';
 
   @override
+  String get mediaAlbum => 'Альбом';
+
+  @override
   String get mediaPaidMedia => 'Платне медіа';
 
   @override

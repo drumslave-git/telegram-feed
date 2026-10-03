@@ -204,6 +204,67 @@ void main() {
     },
   );
 
+  group('albums', () {
+    const file = FileRef(id: 1, remoteId: 'r', size: 1);
+    Post part(int id, {String text = ''}) => Post(
+      chatId: -1,
+      messageId: id,
+      date: 1,
+      text: text,
+      albumId: 7,
+      media: const PhotoMedia(sizes: [file]),
+    );
+    const everyPost = RuleSpec(
+      id: 1,
+      name: 'every',
+      condition: And([]),
+      feedId: 1,
+    );
+
+    test('an album raises one match, on the part with the caption', () async {
+      final events = StreamController<PostEvent>();
+      final e = RuleEngine(albumWait: const Duration(milliseconds: 40))
+        ..update(rules: [everyPost, rule(2, 'quay')], feeds: oneFeed);
+      final matches = <RuleMatch>[];
+      e.matches.listen(matches.add);
+      final sub = e.attach(events.stream);
+
+      events
+        ..add(PostAdded(part(10)))
+        ..add(PostAdded(part(11, text: 'Three views of the quay')))
+        ..add(PostAdded(part(12)));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(matches, isEmpty); // still waiting for more parts
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+
+      expect(matches, hasLength(1));
+      expect(matches.single.post.messageId, 11);
+      expect(matches.single.rules.map((r) => r.id), [1, 2]);
+      await sub.cancel();
+      await e.close();
+    });
+
+    test('an album without a caption matches a rule with no condition, once, '
+        'on its first part', () {
+      final e = RuleEngine()
+        ..update(rules: [everyPost, rule(2, 'quay')], feeds: oneFeed);
+      final m = e.evaluateAlbum([part(12), part(10), part(11)])!;
+      expect(m.post.messageId, 10);
+      expect(m.rules.map((r) => r.id), [1]);
+    });
+
+    test('an album its feed hides raises nothing', () {
+      final e = RuleEngine()
+        ..update(
+          rules: [everyPost],
+          feeds: const {
+            1: RuleFeed({-1}, FeedFilter(media: MediaPresence.textOnly)),
+          },
+        );
+      expect(e.evaluateAlbum([part(10), part(11)]), isNull);
+    });
+  });
+
   test("a post the rule's feed hides raises nothing from that rule", () {
     const mediaOnly = FeedFilter(media: MediaPresence.withMedia);
     final e = RuleEngine()
