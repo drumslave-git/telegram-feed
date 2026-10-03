@@ -23,6 +23,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
 import 'feed_editor_screen.dart';
 import 'open_links.dart';
+import 'pinned_posts.dart';
 import 'post_card.dart';
 import '../host/secure_window.dart';
 import 'read_marker.dart';
@@ -661,10 +662,119 @@ class TimelineViewState extends State<TimelineView>
   bool _folded(TimelineItem item) =>
       item.minimized && !_opened.contains((item.chatId, item.rowId));
 
-  /// The channel's pinned post, shown in a bar over the timeline. A feed mixes channels,
-  /// so it has no such bar.
-  Post? _pinned;
-  bool _pinnedHidden = false;
+  /// The channel's pinned posts, newest first, shown one at a time in a bar over the
+  /// timeline. A feed mixes channels, so it has no such bar.
+  List<Post> _pins = const [];
+
+  /// The newest pinned post at the moment the reader hid the bar: the bar stays away until
+  /// a newer post is pinned, as in the official app. Kept in the settings.
+  int _pinsHiddenAt = 0;
+
+  bool get _pinsShown =>
+      _pins.isNotEmpty && _pins.first.messageId != _pinsHiddenAt;
+
+  /// The pinned post the bar shows, as an index into [_pins].
+  final _pinIndex = ValueNotifier<int>(0);
+
+  /// The pinned post the list stands at: the newest one that is not newer than the newest
+  /// post on the screen, or the oldest when the reader is above them all.
+  int _pinByScroll = 0;
+
+  /// After a tap on the bar it moves on to the next older pinned post (from the oldest back
+  /// to the newest) wherever the list stands, until the reader scrolls on.
+  int? _pinForced;
+
+  void _showPinAt(int newestVisibleId) {
+    if (_pins.isEmpty) return;
+    var at = _pins.indexWhere((p) => p.messageId <= newestVisibleId);
+    if (at < 0) at = _pins.length - 1;
+    _pinByScroll = at;
+    _show(_pinIndex, _pinForced ?? at);
+  }
+
+  /// The reader's own scroll lets go of the pin a tap moved the bar to: at once towards
+  /// the newest posts and after the wrap to the newest pin, and towards older posts once
+  /// the list is past that pin, as in the official app.
+  void _followScrollForPin(double towardsNewest) {
+    final forced = _pinForced;
+    if (forced == null) return;
+    if (towardsNewest > 0 || forced == 0 || _pinByScroll > forced) {
+      _pinForced = null;
+      _show(_pinIndex, _pinByScroll);
+    }
+  }
+
+  /// A tap on the bar: to the post it shows, and the bar moves on to the next older one.
+  void _onPinnedTap() {
+    final at = _pinIndex.value.clamp(0, _pins.length - 1);
+    final pin = _pins[at];
+    _pinForced = at == _pins.length - 1 ? 0 : at + 1;
+    _pinIndex.value = _pinForced!;
+    unawaited(
+      jumpToPost(chatId: pin.chatId, messageId: pin.messageId, date: pin.date),
+    );
+  }
+
+  String get _pinsHiddenKey =>
+      SettingKeys.pinsHiddenOfChat(widget.channel!.chatId);
+
+  /// Puts the bar away until a newer post is pinned, and offers to take that back.
+  void _hidePinned() {
+    if (_pins.isEmpty) return;
+    final before = _pinsHiddenAt;
+    final l10n = context.l10n;
+    setState(() => _pinsHiddenAt = _pins.first.messageId);
+    unawaited(widget.db.setSetting(_pinsHiddenKey, '$_pinsHiddenAt'));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.pinnedPostsHidden),
+          action: SnackBarAction(
+            label: l10n.commonUndo,
+            onPressed: () {
+              if (!mounted) return;
+              setState(() => _pinsHiddenAt = before);
+              unawaited(
+                before == 0
+                    ? widget.db.deleteSetting(_pinsHiddenKey)
+                    : widget.db.setSetting(_pinsHiddenKey, '$before'),
+              );
+            },
+          ),
+        ),
+      );
+  }
+
+  /// The list of pinned posts: a post picked there is jumped to, and its button hides the
+  /// bar.
+  Future<void> _openPinnedList() async {
+    final channel = widget.channel!;
+    final picked = await Navigator.of(context).push<Object>(
+      MaterialPageRoute(
+        builder: (_) => PinnedPostsScreen(
+          pins: _pins,
+          channelTitle: _titles[channel.chatId] ?? channel.title,
+          channelPhoto: _photos[channel.chatId],
+          gateway: widget.gateway,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (picked == true) {
+      _hidePinned();
+    } else if (picked is Post) {
+      // The bar names the post the list went to, like any place the reader scrolls to.
+      _pinForced = null;
+      unawaited(
+        jumpToPost(
+          chatId: picked.chatId,
+          messageId: picked.messageId,
+          date: picked.date,
+        ),
+      );
+    }
+  }
 
   /// Emoji a double tap sends; the reader's last one, a thumbs up until they react once.
   /// Read once when the timeline opens and kept up to date by reacting here: watching the
@@ -1041,7 +1151,7 @@ class TimelineViewState extends State<TimelineView>
     if (height <= 0) return null;
     for (final p in _positions.itemPositions.value) {
       if (p.index != index) continue;
-      final covered = _pinned != null && !_pinnedHidden ? pinnedBarHeight : 0.0;
+      final covered = _pinsShown ? pinnedBarHeight : 0.0;
       final free = 1 - covered / height;
       final row = p.itemTrailingEdge - p.itemLeadingEdge;
       return math.min(free, (free + row) / 2);
@@ -1459,6 +1569,9 @@ class TimelineViewState extends State<TimelineView>
     _show(_stickyDay, _dayOf(items[oldestIndex.clamp(0, items.length - 1)]));
     if (newest.index < items.length) {
       final row = items[newest.index];
+      if (_pins.isNotEmpty) {
+        _showPinAt(row.allPosts.map((p) => p.messageId).reduce(math.max));
+      }
       _hereKnown = true;
       _here = (newest.index == 0 && live) || FeedTimeline.isUnread(row, _marks)
           ? null
@@ -1541,6 +1654,8 @@ class TimelineViewState extends State<TimelineView>
       _userScrolling = n.direction != ScrollDirection.idle;
     } else if (n is ScrollUpdateNotification && _userScrolling) {
       _followScrollForCorner(n.scrollDelta ?? 0);
+      // The list is reversed: its offset grows towards older posts.
+      _followScrollForPin(-(n.scrollDelta ?? 0));
     }
     if (n is UserScrollNotification) {
       if (n.direction != ScrollDirection.idle) _armSticky();
@@ -2234,8 +2349,16 @@ class TimelineViewState extends State<TimelineView>
 
   Future<void> _loadPinned() async {
     try {
-      final pinned = await widget.gateway.pinnedPost(widget.channel!.chatId);
-      if (mounted && pinned != null) setState(() => _pinned = pinned);
+      final pins = await widget.gateway.pinnedPosts(widget.channel!.chatId);
+      if (pins.isEmpty) return;
+      final hidden = int.tryParse(
+        await widget.db.setting(_pinsHiddenKey) ?? '',
+      );
+      if (!mounted) return;
+      setState(() {
+        _pins = pins;
+        _pinsHiddenAt = hidden ?? 0;
+      });
     } on TelegramException {
       // No bar, as if the channel had nothing pinned.
     }
@@ -2279,6 +2402,7 @@ class TimelineViewState extends State<TimelineView>
     _stickyDay.dispose();
     _stickyShown.dispose();
     _corner.dispose();
+    _pinIndex.dispose();
     _highlightTimer?.cancel();
     _events?.cancel();
     _sources?.cancel();
@@ -2303,26 +2427,25 @@ class TimelineViewState extends State<TimelineView>
             ),
           ),
         ),
-        if (_pinned != null && !_pinnedHidden)
+        if (_pinsShown)
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: PinnedBar(
-              post: _pinned!,
-              onTap: () => unawaited(
-                jumpToPost(
-                  chatId: _pinned!.chatId,
-                  messageId: _pinned!.messageId,
-                  date: _pinned!.date,
-                ),
+            child: ValueListenableBuilder(
+              valueListenable: _pinIndex,
+              builder: (context, index, _) => PinnedBar(
+                pins: _pins,
+                index: index,
+                onTap: _onPinnedTap,
+                onHide: _hidePinned,
+                onList: () => unawaited(_openPinnedList()),
               ),
-              onHide: () => setState(() => _pinnedHidden = true),
             ),
           ),
         if (t != null && !_opening && items.isNotEmpty)
           Positioned(
-            top: _pinned != null && !_pinnedHidden ? pinnedBarHeight : 0,
+            top: _pinsShown ? pinnedBarHeight : 0,
             left: 0,
             right: 0,
             child: FloatingDay(
@@ -2770,91 +2893,6 @@ class _FloatingDayState extends State<FloatingDay>
       );
     },
   );
-}
-
-/// Height of [PinnedBar]; the floating day pill stands below it.
-const pinnedBarHeight = 44.0;
-
-/// The channel's pinned post over the timeline, as in the official app: a line of what it
-/// says, a tap to jump to it, and a cross to put the bar away for this visit.
-class PinnedBar extends StatelessWidget {
-  const PinnedBar({
-    super.key,
-    required this.post,
-    required this.onTap,
-    required this.onHide,
-  });
-  final Post post;
-  final VoidCallback onTap;
-  final VoidCallback onHide;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      // Opaque: posts used to shine through the bar and through its words.
-      color: scheme.surfaceContainerHighest,
-      child: SizedBox(
-        height: pinnedBarHeight,
-        child: Row(
-          children: [
-            Expanded(
-              child: InkWell(
-                onTap: onTap,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.push_pin_outlined,
-                        size: 18,
-                        color: scheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              context.l10n.timelinePinnedPost,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: scheme.primary,
-                              ),
-                            ),
-                            Text(
-                              // One line: a pinned post may be a long one.
-                              postLabel(
-                                post,
-                                context.l10n.mediaWords,
-                              ).replaceAll(String.fromCharCode(10), ' '),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            IconButton(
-              tooltip: context.l10n.timelineHidePinned,
-              icon: const Icon(Icons.close, size: 18),
-              onPressed: onHide,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 /// Marks where the unread posts began when the feed was opened.

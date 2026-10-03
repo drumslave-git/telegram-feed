@@ -4,7 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-25.
+**Current phase:** Parity with the official app. **Next task:** Q-26.
 
 ## Differences from the official app
 
@@ -12,11 +12,11 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Timeline
 
-- [ ] Q-25 The pinned bar holds every pinned post: a tap goes to the current one and moves on to the next older, a button opens the list of pinned posts, and hiding the bar is remembered.
 - [ ] Q-26 Posts that arrive while the app is in the background get a new "Unread posts" divider, and the list returns to it.
 - [ ] Q-27 Day separators always read "October 3", with the year only for posts older than a year; a tap on the floating date jumps to the start of that day; a tap on a day separator opens a month calendar with a media thumbnail per day.
 - [ ] Q-28 Haptic feedback on a long press, on a reaction and at the selection limit.
 - [ ] Q-29 A timeline with more than 300 unread rows opens at the first unread post.
+- [ ] Q-74 A channel with a pinned bar opens with its "Unread posts" divider below the bar, not under it.
 
 ### Posts
 

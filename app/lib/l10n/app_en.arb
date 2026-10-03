@@ -252,6 +252,41 @@
   "@timelineHidePinned": {
     "description": "Tooltip of the cross that puts the pinned-post bar away."
   },
+  "timelinePreviousPinned": "Previous post",
+  "@timelinePreviousPinned": {
+    "description": "Title of the pinned bar over the older of two pinned posts."
+  },
+  "timelinePinnedPostNumber": "Pinned post #{number}",
+  "@timelinePinnedPostNumber": {
+    "description": "Title of the pinned bar over an older pinned post; the posts are numbered from the oldest.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "timelinePinnedList": "Pinned posts",
+  "@timelinePinnedList": {
+    "description": "Tooltip of the button in the pinned bar that opens the list of pinned posts."
+  },
+  "pinnedPostsTitle": "{count, plural, =1{Pinned post} other{{count} pinned posts}}",
+  "@pinnedPostsTitle": {
+    "description": "Title of the screen that lists a channel's pinned posts.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pinnedPostsOpen": "Go to the post",
+  "@pinnedPostsOpen": {
+    "description": "What a tap on a post in the list of pinned posts does, for screen readers."
+  },
+  "pinnedPostsHide": "Hide pinned posts",
+  "pinnedPostsHidden": "Pinned posts hidden. They will be shown again when a new post is pinned.",
+  "@pinnedPostsHidden": {
+    "description": "Shown after the pinned bar was hidden, with an Undo action."
+  },
   "timelineUnreadDivider": "Unread posts",
   "@timelineUnreadDivider": {
     "description": "Divider above the first post that was unread when the timeline opened."

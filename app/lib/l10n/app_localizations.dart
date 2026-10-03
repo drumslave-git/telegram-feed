@@ -716,6 +716,48 @@ abstract class AppLocalizations {
   /// **'Hide'**
   String get timelineHidePinned;
 
+  /// Title of the pinned bar over the older of two pinned posts.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous post'**
+  String get timelinePreviousPinned;
+
+  /// Title of the pinned bar over an older pinned post; the posts are numbered from the oldest.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned post #{number}'**
+  String timelinePinnedPostNumber(int number);
+
+  /// Tooltip of the button in the pinned bar that opens the list of pinned posts.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned posts'**
+  String get timelinePinnedList;
+
+  /// Title of the screen that lists a channel's pinned posts.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Pinned post} other{{count} pinned posts}}'**
+  String pinnedPostsTitle(int count);
+
+  /// What a tap on a post in the list of pinned posts does, for screen readers.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to the post'**
+  String get pinnedPostsOpen;
+
+  /// No description provided for @pinnedPostsHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide pinned posts'**
+  String get pinnedPostsHide;
+
+  /// Shown after the pinned bar was hidden, with an Undo action.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned posts hidden. They will be shown again when a new post is pinned.'**
+  String get pinnedPostsHidden;
+
   /// Divider above the first post that was unread when the timeline opened.
   ///
   /// In en, this message translates to:

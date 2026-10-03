@@ -922,16 +922,35 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
-  Future<Post?> pinnedPost(int chatId) async {
+  Future<List<Post>> pinnedPosts(int chatId) async {
+    // searchChatMessages answers newest first, in pages of its own size.
+    final out = <Post>[];
+    var next = 0;
     try {
-      final m = await _client.call(td.GetChatPinnedMessage(chatId: chatId));
-      return await _post(m);
+      while (out.length < _maxPinned) {
+        final r = await _client.call(
+          td.SearchChatMessages(
+            chatId: chatId,
+            query: '',
+            fromMessageId: next,
+            offset: 0,
+            limit: 100,
+            filter: const td.SearchMessagesFilterPinned(),
+          ),
+        );
+        out.addAll(await _posts(r.messages));
+        next = r.nextFromMessageId;
+        if (next == 0 || r.messages.isEmpty) break;
+      }
     } on TelegramException catch (e) {
-      // A channel without a pinned post answers with an error, not with nothing.
-      log?.call('getChatPinnedMessage($chatId): $e');
-      return null;
+      // The bar is an extra: a timeline without it is still a timeline.
+      log?.call('searchChatMessages($chatId, pinned): $e');
     }
+    return out;
   }
+
+  /// More pinned posts than this are not asked for.
+  static const _maxPinned = 500;
 
   @override
   Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async {

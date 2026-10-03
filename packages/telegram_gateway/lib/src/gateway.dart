@@ -136,9 +136,9 @@ abstract interface class TelegramGateway {
   /// The first value is what it is now.
   Stream<ConnectionStatus> get connection;
 
-  /// The post pinned in a channel, or null when it has none. The official app shows it in
-  /// a bar over the timeline.
-  Future<Post?> pinnedPost(int chatId);
+  /// The posts pinned in a channel, newest first; empty when it has none. The official app
+  /// shows them in a bar over the timeline.
+  Future<List<Post>> pinnedPosts(int chatId);
 
   /// The stickers behind custom (premium) emoji ids, for the text that carries them. Ids
   /// TDLib does not know are simply missing from the answer.

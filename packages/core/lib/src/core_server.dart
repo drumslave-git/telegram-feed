@@ -359,9 +359,9 @@ final class CoreServer {
           'totalCount': page.totalCount,
           'nextOffset': page.nextOffset,
         };
-      case 'pinnedPost':
-        final pinned = await gateway.pinnedPost(a['chatId'] as int);
-        return pinned == null ? null : encodePost(pinned);
+      case 'pinnedPosts':
+        final pinned = await gateway.pinnedPosts(a['chatId'] as int);
+        return pinned.map(encodePost).toList();
       case 'customEmoji':
         return {
           for (final e in (await gateway.customEmoji(

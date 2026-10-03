@@ -379,10 +379,10 @@ final class CoreClient implements TelegramGateway {
   }
 
   @override
-  Future<Post?> pinnedPost(int chatId) async {
-    final answer = await _call('pinnedPost', {'chatId': chatId});
-    return answer == null ? null : decodePost(answer as Map<Object?, Object?>);
-  }
+  Future<List<Post>> pinnedPosts(int chatId) async =>
+      ((await _call('pinnedPosts', {'chatId': chatId})) as List)
+          .map((e) => decodePost(e as Map<Object?, Object?>))
+          .toList();
 
   @override
   Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async {

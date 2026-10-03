@@ -230,7 +230,7 @@ class ChannelsGateway implements TelegramGateway {
     int limit = 30,
   }) async => const GlobalSearchPage(posts: [], totalCount: 0, nextOffset: '');
   @override
-  Future<Post?> pinnedPost(int chatId) async => null;
+  Future<List<Post>> pinnedPosts(int chatId) async => const [];
   @override
   Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async =>
       const {};
@@ -266,8 +266,9 @@ class TimelineGateway extends ChannelsGateway {
   final Map<int, List<Post>> histories;
   final reactions = <String>[];
 
-  /// The post a channel timeline finds pinned, and the chats that asked for one.
-  Post? pinned;
+  /// The posts a channel timeline finds pinned, newest first, by chat, and the chats that
+  /// asked for them.
+  final pins = <int, List<Post>>{};
   final pinnedAsked = <int>[];
 
   /// Channels the account archived, for the Archive row of H-30.
@@ -301,9 +302,9 @@ class TimelineGateway extends ChannelsGateway {
   }
 
   @override
-  Future<Post?> pinnedPost(int chatId) async {
+  Future<List<Post>> pinnedPosts(int chatId) async {
     pinnedAsked.add(chatId);
-    return pinned;
+    return pins[chatId] ?? const [];
   }
 
   @override

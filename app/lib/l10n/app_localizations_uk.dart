@@ -405,6 +405,40 @@ class AppLocalizationsUk extends AppLocalizations {
   String get timelineHidePinned => 'Приховати';
 
   @override
+  String get timelinePreviousPinned => 'Попередній допис';
+
+  @override
+  String timelinePinnedPostNumber(int number) {
+    return 'Прикріплений допис #$number';
+  }
+
+  @override
+  String get timelinePinnedList => 'Прикріплені дописи';
+
+  @override
+  String pinnedPostsTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count прикріпленого допису',
+      many: '$count прикріплених дописів',
+      few: '$count прикріплені дописи',
+      one: '$count прикріплений допис',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pinnedPostsOpen => 'Перейти до допису';
+
+  @override
+  String get pinnedPostsHide => 'Приховати всі прикріплені';
+
+  @override
+  String get pinnedPostsHidden =>
+      'Прикріплені дописи приховано. Ви знову побачите їх, коли буде прикріплено новий допис.';
+
+  @override
   String get timelineUnreadDivider => 'Непрочитані дописи';
 
   @override

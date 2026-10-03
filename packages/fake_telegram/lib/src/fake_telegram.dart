@@ -216,6 +216,12 @@ final class FakeTelegram extends TimelineGateway {
     histories[harbour.chatId] = _harbourPosts();
     histories[circuit.chatId] = _circuitPosts();
     histories[gazette.chatId] = _gazettePosts();
+    List<Post> pinnedOf(int chatId, List<int> ids) => [
+      for (final p in histories[chatId]!)
+        if (ids.contains(p.messageId)) p,
+    ];
+    pins[gazette.chatId] = pinnedOf(gazette.chatId, const [3]);
+    pins[harbour.chatId] = pinnedOf(harbour.chatId, const [10, 6, 1]);
     histories[wire.chatId] = [
       _post(
         wire.chatId,

@@ -389,6 +389,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get timelineHidePinned => 'Hide';
 
   @override
+  String get timelinePreviousPinned => 'Previous post';
+
+  @override
+  String timelinePinnedPostNumber(int number) {
+    return 'Pinned post #$number';
+  }
+
+  @override
+  String get timelinePinnedList => 'Pinned posts';
+
+  @override
+  String pinnedPostsTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pinned posts',
+      one: 'Pinned post',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pinnedPostsOpen => 'Go to the post';
+
+  @override
+  String get pinnedPostsHide => 'Hide pinned posts';
+
+  @override
+  String get pinnedPostsHidden =>
+      'Pinned posts hidden. They will be shown again when a new post is pinned.';
+
+  @override
   String get timelineUnreadDivider => 'Unread posts';
 
   @override

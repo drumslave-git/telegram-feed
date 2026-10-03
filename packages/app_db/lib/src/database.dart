@@ -179,6 +179,11 @@ abstract final class SettingKeys {
   static String positionOfFeed(int feedId) => 'position.feed.$feedId';
   static String positionOfChat(int chatId) => 'position.chat.$chatId';
 
+  /// The newest pinned post of a channel at the moment the reader hid its pinned bar, as
+  /// the message id; the bar stays away until a newer post is pinned, as in the official
+  /// app. Kept on this device.
+  static String pinsHiddenOfChat(int chatId) => 'pins.hidden.chat.$chatId';
+
   /// A video that loads by itself starts muted when it scrolls into view; 'true' | 'false',
   /// default true.
   static const autoplay = 'media.autoplay';

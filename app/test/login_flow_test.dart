@@ -165,7 +165,7 @@ final class ScriptedGateway implements TelegramGateway {
     int limit = 30,
   }) async => const GlobalSearchPage(posts: [], totalCount: 0, nextOffset: '');
   @override
-  Future<Post?> pinnedPost(int chatId) async => null;
+  Future<List<Post>> pinnedPosts(int chatId) async => const [];
   @override
   Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async =>
       const {};
