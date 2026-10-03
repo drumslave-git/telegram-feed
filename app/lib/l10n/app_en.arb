@@ -372,6 +372,10 @@
   "@postDayYearPattern": {
     "description": "intl DateFormat pattern of a day of another year between two days of a chat, e.g. March 3, 2025. Not a sentence: only the order of the fields changes."
   },
+  "postPinned": "Pinned",
+  "@postPinned": {
+    "description": "Screen-reader label of the pin icon in the footer of a pinned post."
+  },
   "mediaCancelDownload": "Cancel the download",
   "mediaLoadedOf": "{loaded} / {total}",
   "@mediaLoadedOf": {

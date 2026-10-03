@@ -1174,7 +1174,7 @@ class _Bubble extends StatelessWidget {
       gateway: gateway,
       canCopy: !item.isProtected,
       style: TextStyle(
-        fontSize: 16,
+        fontSize: emojiOnlySize(text, item.textPost.entities) ?? 16,
         height: 1.3,
         color: Theme.of(context).colorScheme.onSurface,
       ),
@@ -1182,7 +1182,45 @@ class _Bubble extends StatelessWidget {
   );
 }
 
-/// Views, "edited" and the time. A channel's post carries no read mark, as in the official
+final _emojiGrapheme = RegExp(
+  r'^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]\uFE0F?\u20E3)',
+  unicode: true,
+);
+
+/// How many emoji a text consists of when it consists of nothing else (white space
+/// aside); 0 for any other text.
+int emojiOnlyCount(String text) {
+  var count = 0;
+  for (final grapheme in text.characters) {
+    if (grapheme.trim().isEmpty) continue;
+    if (!_emojiGrapheme.hasMatch(grapheme)) return 0;
+    count++;
+  }
+  return count;
+}
+
+/// The size a post of nothing but emoji is drawn at, as the official app sizes it: the
+/// fewer there are the larger they get, and custom emoji alone get larger still. Null
+/// for a post with words, or with formatting other than custom emoji.
+double? emojiOnlySize(String text, List<TextEntity> entities) {
+  final count = emojiOnlyCount(text);
+  if (count == 0) return null;
+  if (entities.any((e) => e.kind != TextEntityKind.customEmoji)) return null;
+  // The official sizes, in steps: shares of 120 dp.
+  const sizes = [81.6, 55.2, 40.8, 33.6, 26.4, 22.8];
+  final custom = entities.length == count;
+  final step = switch (count) {
+    1 || 2 => custom ? 0 : 2,
+    3 => custom ? 1 : 3,
+    4 => custom ? 2 : 4,
+    5 => custom ? 3 : 5,
+    6 => custom ? 4 : 5,
+    _ => 5,
+  };
+  return sizes[step];
+}
+
+/// The pin of a pinned post, views, the author's signature, "edited" and the time. A channel's post carries no read mark, as in the official
 /// app: the "Unread posts" divider and the counters say what is new.
 class PostFooter extends StatelessWidget {
   const PostFooter({super.key, required this.post, required this.color});
@@ -1196,12 +1234,31 @@ class PostFooter extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (post.isPinned) ...[
+          Icon(
+            Icons.push_pin,
+            size: 13,
+            color: color,
+            semanticLabel: context.l10n.postPinned,
+          ),
+          const SizedBox(width: 4),
+        ],
         if (post.views > 0) ...[
           Icon(Icons.visibility_outlined, size: 14, color: color),
           const SizedBox(width: 3),
           Text(formatCount(post.views), style: style),
           const SizedBox(width: 6),
         ],
+        // A long name gives way: the time is always all there.
+        if (post.signature.isNotEmpty)
+          Flexible(
+            child: Text(
+              '${post.signature}, ',
+              style: style,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         if (post.editDate > 0) ...[
           Text(context.l10n.postEdited, style: style),
           const SizedBox(width: 4),

@@ -156,6 +156,8 @@ Post post(td.Message m, {ForwardOrigin? forwardedFrom, ReplyTarget? replyTo}) {
     replyTo: replyTo ?? replyTarget(m),
     canBeSaved: m.canBeSaved,
     buttons: urlButtons(m.replyMarkup),
+    signature: m.authorSignature,
+    isPinned: m.isPinned,
   );
 }
 

@@ -303,6 +303,8 @@ Map<String, Object?> encodePost(Post p) => {
   'replyCount': p.replyCount,
   'canComment': p.canComment,
   if (!p.canBeSaved) 'protected': true,
+  if (p.signature.isNotEmpty) 'signature': p.signature,
+  if (p.isPinned) 'pinned': true,
   if (p.buttons.isNotEmpty)
     'buttons': [
       for (final row in p.buttons)
@@ -447,6 +449,8 @@ Comment decodeComment(Map<Object?, Object?> m) => Comment(
 
 Post decodePost(Map<Object?, Object?> m) => Post(
   canBeSaved: m['protected'] != true,
+  signature: (m['signature'] as String?) ?? '',
+  isPinned: m['pinned'] == true,
   buttons: [
     for (final row in (m['buttons'] as List?) ?? const [])
       [

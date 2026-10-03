@@ -543,6 +543,9 @@ class AppLocalizationsUk extends AppLocalizations {
   String get postDayYearPattern => 'd MMMM y';
 
   @override
+  String get postPinned => 'Прикріплено';
+
+  @override
   String get mediaCancelDownload => 'Скасувати завантаження';
 
   @override

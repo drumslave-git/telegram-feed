@@ -216,10 +216,39 @@ final class FakeTelegram extends TimelineGateway {
     histories[harbour.chatId] = _harbourPosts();
     histories[circuit.chatId] = _circuitPosts();
     histories[gazette.chatId] = _gazettePosts();
-    List<Post> pinnedOf(int chatId, List<int> ids) => [
-      for (final p in histories[chatId]!)
-        if (ids.contains(p.messageId)) p,
-    ];
+    List<Post> pinnedOf(int chatId, List<int> ids) {
+      final history = histories[chatId]!;
+      for (var i = 0; i < history.length; i++) {
+        final p = history[i];
+        if (!ids.contains(p.messageId)) continue;
+        history[i] = Post(
+          chatId: p.chatId,
+          messageId: p.messageId,
+          date: p.date,
+          text: p.text,
+          editDate: p.editDate,
+          albumId: p.albumId,
+          media: p.media,
+          views: p.views,
+          reactions: p.reactions,
+          replyCount: p.replyCount,
+          canComment: p.canComment,
+          entities: p.entities,
+          linkPreview: p.linkPreview,
+          forwardedFrom: p.forwardedFrom,
+          replyTo: p.replyTo,
+          canBeSaved: p.canBeSaved,
+          buttons: p.buttons,
+          signature: p.signature,
+          isPinned: true,
+        );
+      }
+      return [
+        for (final p in history)
+          if (ids.contains(p.messageId)) p,
+      ];
+    }
+
     pins[gazette.chatId] = pinnedOf(gazette.chatId, const [3]);
     pins[harbour.chatId] = pinnedOf(harbour.chatId, const [10, 6, 1]);
     histories[wire.chatId] = [
@@ -493,6 +522,8 @@ final class FakeTelegram extends TimelineGateway {
             hoursAgo: 6 + (16 - n) * 5,
             text: 'Issue $n: ${_circuitTopics[n % _circuitTopics.length]}',
             views: 700 + n,
+            // The channel signs its posts.
+            signature: n.isEven ? 'Ada' : '',
             // The newest issue carries link buttons: one alone, then two in a row.
             buttons: n != 16
                 ? const []
@@ -617,9 +648,13 @@ final class FakeTelegram extends TimelineGateway {
     ReplyTarget? replyTo,
     bool canBeSaved = true,
     List<List<UrlButton>> buttons = const [],
+    String signature = '',
+    bool isPinned = false,
   }) => Post(
     canBeSaved: canBeSaved,
     buttons: buttons,
+    signature: signature,
+    isPinned: isPinned,
     chatId: chatId,
     messageId: messageId,
     date:
@@ -922,6 +957,8 @@ final class FakeTelegram extends TimelineGateway {
       replyTo: p.replyTo,
 
       buttons: p.buttons,
+      signature: p.signature,
+      isPinned: p.isPinned,
     );
     history[i] = edited;
     posts.add(PostEdited(edited));

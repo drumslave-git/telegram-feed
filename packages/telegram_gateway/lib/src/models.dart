@@ -877,9 +877,17 @@ final class Post {
     this.replyTo,
     this.canBeSaved = true,
     this.buttons = const [],
+    this.signature = '',
+    this.isPinned = false,
   });
   final int chatId;
   final int messageId;
+
+  /// The author's signature, in a channel that signs its posts; empty otherwise.
+  final String signature;
+
+  /// The post is pinned in its channel.
+  final bool isPinned;
 
   /// The buttons under the post that open a link, row by row as the channel laid them
   /// out. Buttons of other kinds talk to a bot and are left out.

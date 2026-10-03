@@ -932,6 +932,12 @@ abstract class AppLocalizations {
   /// **'MMMM d, y'**
   String get postDayYearPattern;
 
+  /// Screen-reader label of the pin icon in the footer of a pinned post.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned'**
+  String get postPinned;
+
   /// No description provided for @mediaCancelDownload.
   ///
   /// In en, this message translates to:

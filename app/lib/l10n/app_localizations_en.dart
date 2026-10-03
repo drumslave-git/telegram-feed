@@ -523,6 +523,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get postDayYearPattern => 'MMMM d, y';
 
   @override
+  String get postPinned => 'Pinned';
+
+  @override
   String get mediaCancelDownload => 'Cancel the download';
 
   @override

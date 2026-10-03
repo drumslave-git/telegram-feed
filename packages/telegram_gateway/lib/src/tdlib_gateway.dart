@@ -127,6 +127,9 @@ final class TdlibGateway implements TelegramGateway {
         if (_isChannelChat(chatId)) await _emitEdited(chatId, messageId);
       case td.UpdateMessageEdited(:final chatId, :final messageId):
         if (_isChannelChat(chatId)) await _emitEdited(chatId, messageId);
+      case td.UpdateMessageIsPinned(:final chatId, :final messageId):
+        // The pin in the post's footer comes and goes with it.
+        if (_isChannelChat(chatId)) await _emitEdited(chatId, messageId);
       case td.UpdateMessageInteractionInfo(:final chatId, :final messageId):
         // Reactions and view counts change often; a re-fetch keeps Post complete.
         if (_isChannelChat(chatId)) await _emitEdited(chatId, messageId);
