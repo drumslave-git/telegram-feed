@@ -3182,6 +3182,24 @@ abstract class AppLocalizations {
   /// **'Wrong PIN'**
   String get appLockWrongPin;
 
+  /// No description provided for @appLockTooManyTries.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many tries. Try again in {seconds, plural, =1{1 second} other{{seconds} seconds}}.'**
+  String appLockTooManyTries(int seconds);
+
+  /// No description provided for @appLockShowContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Show app content in task switcher'**
+  String get appLockShowContent;
+
+  /// No description provided for @appLockShowContentSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Off, the task switcher shows a blank card and screenshots are refused while the lock is set'**
+  String get appLockShowContentSubtitle;
+
   /// No description provided for @appLockPin.
   ///
   /// In en, this message translates to:

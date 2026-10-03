@@ -186,7 +186,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SettingsLink(
             icon: Icons.lock_outline,
             title: l10n.settingsPrivacyAndSecurity,
-            onTap: () => _open(PrivacyScreen(db: db)),
+            onTap: () => _open(const PrivacyScreen()),
           ),
           SettingsLink(
             icon: Icons.notifications_none,

@@ -149,7 +149,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 
 - I use up to four Telegram accounts and switch between them in Settings. Each is listed by the name and phone of its profile.
 - The app speaks English or Ukrainian: the phone's language, or the one I pick under Settings → Language. The choice stays on this device.
-- I lock the app with a PIN, and with my fingerprint or face where I allow it, with a timeout of one hour until I pick another. The lock's own settings ask for the PIN first, and removing the lock asks again.
+- I lock the app with a PIN, and with my fingerprint or face where I allow it, with a timeout of one hour until I pick another. The lock holds for every account on the phone and stays when I log out. After three wrong PINs in a row the next try has to wait, 5 seconds at first and up to 30, as in the official app. While the lock is set the task switcher shows no content and screenshots are refused, until I allow them. The lock's own settings ask for the PIN first, and removing the lock asks again.
 - My settings, feeds and rules sync between my devices through my own Google Drive when I turn it on.
 
 ## 4. Screens

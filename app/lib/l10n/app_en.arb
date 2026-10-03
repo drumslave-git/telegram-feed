@@ -1560,6 +1560,16 @@
   },
   "appLockBiometricsUnavailable": "The phone's check is not available; use the PIN.",
   "appLockWrongPin": "Wrong PIN",
+  "appLockTooManyTries": "Too many tries. Try again in {seconds, plural, =1{1 second} other{{seconds} seconds}}.",
+  "@appLockTooManyTries": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "appLockShowContent": "Show app content in task switcher",
+  "appLockShowContentSubtitle": "Off, the task switcher shows a blank card and screenshots are refused while the lock is set",
   "appLockPin": "PIN",
   "appLockUnlock": "Unlock",
   "appLockUseBiometrics": "Use fingerprint or face",

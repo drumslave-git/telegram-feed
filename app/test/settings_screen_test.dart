@@ -8,6 +8,7 @@ import 'package:telegram_feed/media/auto_download.dart';
 import 'package:telegram_feed/settings/chat_settings_screen.dart';
 import 'package:telegram_feed/settings/data_storage_screen.dart';
 import 'package:telegram_feed/settings/notifications_screen.dart';
+import 'package:telegram_feed/settings/app_lock.dart';
 import 'package:telegram_feed/settings/privacy_screen.dart';
 import 'package:telegram_feed/settings/read_aloud_screen.dart';
 import 'package:telegram_feed/feeds/media_view.dart' show formatBytes;
@@ -188,7 +189,9 @@ void main() {
   });
 
   testWidgets('privacy: the app lock row and read sync', (tester) async {
-    await tester.pumpWidget(app(PrivacyScreen(db: db)));
+    await tester.pumpWidget(
+      app(PrivacyScreen(lock: AppLock(store: _NoLock()))),
+    );
     await settle(tester);
     expect(find.text('App lock'), findsOneWidget);
     expect(find.text('Off'), findsOneWidget);
@@ -435,4 +438,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1));
   });
+}
+
+/// A device without a lock.
+final class _NoLock implements LockStore {
+  @override
+  Future<String?> read(String key) async => null;
+
+  @override
+  Future<void> write(String key, String? value) async {}
 }

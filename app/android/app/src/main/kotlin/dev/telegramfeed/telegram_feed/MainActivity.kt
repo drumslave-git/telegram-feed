@@ -18,6 +18,7 @@ import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import java.io.File
 import android.util.Rational
+import android.view.WindowManager
 import androidx.annotation.RequiresApi
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -109,6 +110,16 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "tf/app")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    // While the app lock is set, the task switcher shows a blank card and
+                    // screenshots are refused (app_lock.dart).
+                    "secure" -> {
+                        if (call.arguments == true) {
+                            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                        } else {
+                            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                        }
+                        result.success(null)
+                    }
                     "restart" -> {
                         result.success(null)
                         startActivity(

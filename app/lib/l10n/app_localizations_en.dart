@@ -1927,6 +1927,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appLockWrongPin => 'Wrong PIN';
 
   @override
+  String appLockTooManyTries(int seconds) {
+    String _temp0 = intl.Intl.pluralLogic(
+      seconds,
+      locale: localeName,
+      other: '$seconds seconds',
+      one: '1 second',
+    );
+    return 'Too many tries. Try again in $_temp0.';
+  }
+
+  @override
+  String get appLockShowContent => 'Show app content in task switcher';
+
+  @override
+  String get appLockShowContentSubtitle =>
+      'Off, the task switcher shows a blank card and screenshots are refused while the lock is set';
+
+  @override
   String get appLockPin => 'PIN';
 
   @override

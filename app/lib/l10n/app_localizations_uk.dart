@@ -2021,6 +2021,26 @@ class AppLocalizationsUk extends AppLocalizations {
   String get appLockWrongPin => 'Неправильний PIN-код';
 
   @override
+  String appLockTooManyTries(int seconds) {
+    String _temp0 = intl.Intl.pluralLogic(
+      seconds,
+      locale: localeName,
+      other: '$seconds секунди',
+      many: '$seconds секунд',
+      few: '$seconds секунди',
+      one: '$seconds секунду',
+    );
+    return 'Забагато спроб. Повторіть спробу через $_temp0.';
+  }
+
+  @override
+  String get appLockShowContent => 'Дозволити знімки екрана';
+
+  @override
+  String get appLockShowContentSubtitle =>
+      'Коли вимкнено, у перемикачі застосунків видно порожню картку, а знімки екрана заборонено, доки діє блокування';
+
+  @override
   String get appLockPin => 'PIN-код';
 
   @override

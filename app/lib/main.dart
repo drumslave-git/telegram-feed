@@ -42,7 +42,10 @@ class _TelegramFeedAppState extends State<TelegramFeedApp> {
   Future<AppHost> _start(Future<AppHost>? given) =>
       (given ?? startAppHost()).then(
         (h) async {
-          if (given == null) await attachLaunchHandlers(h);
+          if (given == null) {
+            await attachLaunchHandlers(h);
+            await const AppLock().adoptLegacy(h.db);
+          }
           return h;
         },
         onError: (Object e, StackTrace st) {
@@ -95,29 +98,30 @@ class _TelegramFeedAppState extends State<TelegramFeedApp> {
             builder: (context, child) => AccountSwitch(
               onSwitched: _switchAccount,
               child: PipHost(
-                child: snap.data == null
-                    ? child!
-                    : AutoDownloadScope(
-                        db: snap.data!.db,
-                        child: PostTextScale(
+                // The lock sits above every screen the navigator builds, and stays up
+                // through a change of account.
+                child: LockGate(
+                  child: snap.data == null
+                      ? child!
+                      : AutoDownloadScope(
                           db: snap.data!.db,
-                          // Under the header of every screen while a post is read
-                          // aloud or notifications are paused.
-                          child: StatusBannerHost(
-                            reading: snap.data!.reading,
-                            paused: snap.data!.paused,
-                            onStop: ({required clear}) =>
-                                snap.data!.stopReading(clear: clear),
-                            onResume: () =>
-                                unawaited(snap.data!.setPaused(false)),
-                            // Under every screen while a voice message or a song plays.
-                            // The lock sits above every screen the navigator builds.
-                            child: AudioBarHost(
-                              child: LockGate(db: snap.data!.db, child: child!),
+                          child: PostTextScale(
+                            db: snap.data!.db,
+                            // Under the header of every screen while a post is read
+                            // aloud or notifications are paused.
+                            child: StatusBannerHost(
+                              reading: snap.data!.reading,
+                              paused: snap.data!.paused,
+                              onStop: ({required clear}) =>
+                                  snap.data!.stopReading(clear: clear),
+                              onResume: () =>
+                                  unawaited(snap.data!.setPaused(false)),
+                              // Under every screen while a voice message or a song plays.
+                              child: AudioBarHost(child: child!),
                             ),
                           ),
                         ),
-                      ),
+                ),
               ),
             ),
             home: _Root(host: _host),

@@ -1,4 +1,3 @@
-import 'package:app_db/app_db.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/l10n.dart';
@@ -8,8 +7,8 @@ import 'settings_tiles.dart';
 /// Who can read the app on this phone: the app lock, where the official app keeps its
 /// passcode.
 class PrivacyScreen extends StatelessWidget {
-  const PrivacyScreen({super.key, required this.db});
-  final AppDatabase db;
+  const PrivacyScreen({super.key, this.lock = const AppLock()});
+  final AppLock lock;
 
   @override
   Widget build(BuildContext context) {
@@ -19,13 +18,18 @@ class PrivacyScreen extends StatelessWidget {
       body: ListView(
         children: [
           SettingsHeader(l10n.privacySecurity),
-          StreamBuilder<String?>(
-            stream: db.watchSetting(SettingKeys.lockEnabled),
-            builder: (context, snap) => SettingsLink(
-              icon: Icons.lock_outline,
-              title: l10n.appLockTitle,
-              value: snap.data == 'true' ? l10n.commonOn : l10n.commonOff,
-              onTap: () => openSettingsScreen(context, AppLockScreen(db: db)),
+          // The lock is the device's, on while it has a PIN.
+          ValueListenableBuilder<int>(
+            valueListenable: AppLock.changes,
+            builder: (context, _, _) => FutureBuilder<bool>(
+              future: lock.enabled,
+              builder: (context, snap) => SettingsLink(
+                icon: Icons.lock_outline,
+                title: l10n.appLockTitle,
+                value: snap.data ?? false ? l10n.commonOn : l10n.commonOff,
+                onTap: () =>
+                    openSettingsScreen(context, AppLockScreen(lock: lock)),
+              ),
             ),
           ),
           SettingsFooter(l10n.privacyAppLockFooter),
