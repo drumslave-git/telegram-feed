@@ -39,6 +39,10 @@ Map<String, bool> appOpenMessage(bool open) => {'appOpen': open};
 /// (the background action isolate has no other way to reach it).
 const notifierPortName = 'telegram_feed.notifier';
 
+/// The `type` under which the app tells that port that a notification was tapped: Android
+/// takes it out of the shade, and "N new posts" of its channel has to follow.
+const notificationTapped = 'tapped';
+
 /// Payload carried by every post notification and its actions.
 final class PostRef {
   const PostRef(this.chatId, this.messageId, {this.feedId = 0});

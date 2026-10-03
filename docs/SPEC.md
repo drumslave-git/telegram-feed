@@ -117,7 +117,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - Rules match post text and media captions. Edited posts are not matched again.
 - I test a rule against the recent posts of its channels to see what it would have matched. The result says how many posts and channels it checked.
 - A bell-with-slash button in the home screen's header pauses every rule: nothing notifies me and nothing is read aloud until I press it again, also after the app or the phone restarts. Pausing stops the post being read and clears the queue. While paused, the button is red and a banner under the header of every screen says so, with "Resume". The permanent notification's Pause and Resume are the same switch.
-- Posts from the same channel collapse into one group whose "N new posts" counts only the ones still in the shade. A post deleted in Telegram takes its notification with it.
+- Posts from the same channel collapse into one group whose "N new posts" counts only the ones still in the shade. A post deleted in Telegram takes its notification with it, and so does a post I read, here or in the official app.
 
 ### Background watching
 

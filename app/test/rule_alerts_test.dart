@@ -29,6 +29,8 @@ void main() {
   late StreamController<MatchEvent> matches;
   late StreamController<PostEvent> posts;
   late StreamController<bool> paused;
+  late StreamController<ReadState> reads;
+  late Map<int, Map<Object?, Object?>> shade;
   late List<ReadingNow?> reading;
   late List<({int id, String title, String body})> shown;
   late List<int> cancelled;
@@ -52,6 +54,7 @@ void main() {
     AndroidFlutterLocalNotificationsPlugin.registerWith();
     shown = [];
     cancelled = [];
+    shade = {};
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
           switch (call.method) {
@@ -60,6 +63,7 @@ void main() {
             case 'hasNotificationPolicyAccess':
               return false;
             case 'getActiveNotifications':
+              return shade.values.toList();
             case 'getNotificationChannels':
               return <Object?>[];
             case 'show':
@@ -69,8 +73,17 @@ void main() {
                 title: m['title'] as String? ?? '',
                 body: m['body'] as String? ?? '',
               ));
+              shade[m['id'] as int] = {
+                'id': m['id'],
+                'title': m['title'],
+                // Android reports the tag of a notification it shows, never its payload.
+                'tag': (m['platformSpecifics'] as Map)['tag'],
+                'groupKey': (m['platformSpecifics'] as Map)['groupKey'],
+                'channelId': (m['platformSpecifics'] as Map)['channelId'],
+              };
             case 'cancel':
               cancelled.add((call.arguments as Map)['id'] as int);
+              shade.remove((call.arguments as Map)['id']);
           }
           return null;
         });
@@ -81,12 +94,14 @@ void main() {
     matches = StreamController<MatchEvent>.broadcast();
     posts = StreamController<PostEvent>.broadcast();
     paused = StreamController<bool>.broadcast();
+    reads = StreamController<ReadState>.broadcast();
     reading = [];
     alerts = RuleAlerts(
       db: db,
       matches: matches.stream,
       postEvents: posts.stream,
       pausedChanges: paused.stream,
+      readUpdates: reads.stream,
       history: (chatId, {required fromMessageId, required limit}) async => [
         Post(
           chatId: chatId,
@@ -153,6 +168,22 @@ void main() {
     expect(reading.last, isNull);
     expect(speaker.spoken, hasLength(1));
   });
+
+  test(
+    'a post read here or in the official app loses its notification',
+    () async {
+      matches
+        ..add(match(7))
+        ..add(match(8));
+      await tick();
+      reads.add(
+        const ReadState(chatId: chatId, lastReadMessageId: 7, unreadCount: 1),
+      );
+      await tick();
+      expect(cancelled, contains(NotificationPlan.idFor(chatId, 7)));
+      expect(cancelled, isNot(contains(NotificationPlan.idFor(chatId, 8))));
+    },
+  );
 
   test('a deleted post takes its notification along', () async {
     matches.add(match(7));

@@ -26,6 +26,7 @@ final class RuleAlerts {
     required this.pausedChanges,
     required this.history,
     required this.onReading,
+    this.readUpdates = const Stream.empty(),
     this.onAction,
     Notifier? notifier,
     this.speaker,
@@ -48,6 +49,7 @@ final class RuleAlerts {
          matches: client.matches,
          postEvents: client.postEvents,
          pausedChanges: client.pausedChanges,
+         readUpdates: client.readUpdates,
          history: (chatId, {required fromMessageId, required limit}) =>
              client.history(chatId, fromMessageId: fromMessageId, limit: limit),
          onReading: onReading,
@@ -59,6 +61,9 @@ final class RuleAlerts {
   final Stream<MatchEvent> matches;
   final Stream<PostEvent> postEvents;
   final Stream<bool> pausedChanges;
+
+  /// Every change of a channel's read position, here or in the official app.
+  final Stream<ReadState> readUpdates;
   final Future<List<Post>> Function(
     int chatId, {
     required int fromMessageId,
@@ -123,6 +128,12 @@ final class RuleAlerts {
           unawaited(_notifier.cancel(e.chatId, e.messageIds));
         }
       }),
+    );
+    // A post that was read needs no notification any more.
+    _subs.add(
+      readUpdates.listen(
+        (r) => unawaited(_notifier.cancelRead(r.chatId, r.lastReadMessageId)),
+      ),
     );
     await reloadTitles();
   }
@@ -249,9 +260,17 @@ final class RuleAlerts {
       'on ${ref?.chatId}/${ref?.messageId}',
     );
     if (ref == null) return;
-    // A post swiped away is not read any more, as with its Stop.
+    final id = NotificationPlan.idFor(ref.chatId, ref.messageId);
+    // A post swiped away is not read any more, as with its Stop, and its channel's
+    // "N new posts" counts one fewer.
     if (dismissed) {
       unawaited(_tts?.stop((ref.chatId, ref.messageId)));
+      unawaited(_notifier.recount(ref.chatId, gone: {id}));
+      return;
+    }
+    // A tap opened the post in the app, and Android took the notification away.
+    if (m['type'] == notificationTapped) {
+      unawaited(_notifier.recount(ref.chatId, gone: {id}));
       return;
     }
     await onAction?.call();

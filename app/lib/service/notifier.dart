@@ -313,6 +313,9 @@ final class Notifier {
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           channelId,
+          // What Android gives back of a notification it shows: the tag, not the payload.
+          // So the tag says which post this is.
+          tag: plan.payload,
           // A readable name: were the channel ever created from here, Android's own
           // settings would otherwise list "posts_normal_k3f9".
           channelNameOf(
@@ -387,7 +390,7 @@ final class Notifier {
         title: n.title ?? '',
         body: n.body ?? '',
         groupKey: n.groupKey ?? '',
-        payload: n.payload ?? '',
+        payload: _payloadOf(n),
       );
       if (plan != null) _shown[id] = (plan: plan, reading: false);
     }
@@ -421,18 +424,34 @@ final class Notifier {
     NotificationPlan plan,
     String channelId,
     int count,
-  ) => _plugin.show(
-    id: plan.summaryId,
+  ) => _summary(
+    summaryId: plan.summaryId,
     title: plan.title,
+    groupKey: plan.groupKey,
+    planChannel: plan.channelId,
+    androidChannel: channelId,
+    count: count,
+  );
+
+  Future<void> _summary({
+    required int summaryId,
+    required String title,
+    required String groupKey,
+    required String planChannel,
+    required String androidChannel,
+    required int count,
+  }) => _plugin.show(
+    id: summaryId,
+    title: title,
     body: _strings.notifyNewPosts(count),
     notificationDetails: NotificationDetails(
       android: AndroidNotificationDetails(
-        channelId,
-        channelId,
+        androidChannel,
+        androidChannel,
         icon: notificationIcon,
-        importance: _importanceOf(plan.channelId, channelId),
-        priority: _priorityOf(plan.channelId, channelId),
-        groupKey: plan.groupKey,
+        importance: _importanceOf(planChannel, androidChannel),
+        priority: _priorityOf(planChannel, androidChannel),
+        groupKey: groupKey,
         setAsGroupSummary: true,
         groupAlertBehavior: GroupAlertBehavior.children,
       ),
@@ -452,25 +471,90 @@ final class Notifier {
   /// Drops notifications for deleted posts (ARCHITECTURE 6.2: cancel on delete), and keeps
   /// the group summary honest: it goes when the last post of its channel does.
   Future<void> cancel(int chatId, List<int> messageIds) async {
+    final gone = <int>{};
+    // A notification is cancelled under the tag it was posted with.
+    final tags = {
+      for (final n in await _active() ?? const <ActiveNotification>[])
+        if (n.id != null) n.id!: n.tag,
+    };
     for (final id in messageIds) {
       final notificationId = NotificationPlan.idFor(chatId, id);
+      final tag = _shown[notificationId]?.plan.payload ?? tags[notificationId];
       _shown.remove(notificationId);
-      await _plugin.cancel(id: notificationId);
+      gone.add(notificationId);
+      await _plugin.cancel(id: notificationId, tag: tag);
     }
-    final plan = _lastPerChat[chatId];
-    if (plan == null) return;
-    final live = await _liveInGroup(plan.groupKey, plan.summaryId);
+    await recount(chatId, gone: gone);
+  }
+
+  /// Takes away the notifications of the posts of [chatId] up to [upToMessageId]: they
+  /// were read, here or in the official app. Android is asked which ones it shows, so
+  /// notifications from before this notifier started go as well.
+  Future<void> cancelRead(int chatId, int upToMessageId) async {
+    final active = await _active();
+    if (active == null) return;
+    final gone = <int>{};
+    for (final n in active) {
+      final id = n.id;
+      if (id == null || n.groupKey != _groupOf(chatId)) continue;
+      final ref = PostRef.decode(_payloadOf(n));
+      if (ref == null ||
+          ref.chatId != chatId ||
+          ref.messageId > upToMessageId) {
+        continue;
+      }
+      _shown.remove(id);
+      gone.add(id);
+      await _plugin.cancel(id: id, tag: n.tag);
+    }
+    if (gone.isNotEmpty) await recount(chatId, gone: gone);
+  }
+
+  static String _groupOf(int chatId) => 'chat-$chatId';
+
+  /// The payload of a notification Android shows: its tag, which carries it; the payload
+  /// itself where a platform reports one.
+  static String _payloadOf(ActiveNotification n) => n.tag ?? n.payload ?? '';
+
+  /// Sets "N new posts" of a channel's group to what Android still shows of it, after a
+  /// post left the shade: deleted, read, swiped away or tapped. [gone] names notifications
+  /// that were cancelled a moment ago and Android may still list. The summary goes with
+  /// the last post.
+  Future<void> recount(int chatId, {Set<int> gone = const {}}) async {
+    final active = await _active();
+    if (active == null) return;
+    final summaryId = NotificationPlan.summaryIdFor(chatId);
+    ActiveNotification? summary;
+    final live = <ActiveNotification>[];
+    for (final n in active) {
+      if (n.groupKey != _groupOf(chatId) || n.id == null) continue;
+      if (n.id == summaryId) {
+        summary = n;
+      } else if (!gone.contains(n.id)) {
+        live.add(n);
+      }
+    }
+    final last = _lastPerChat[chatId];
     if (live.isEmpty) {
       _lastPerChat.remove(chatId);
-      await _plugin.cancel(id: plan.summaryId);
+      if (summary != null || last != null) await _plugin.cancel(id: summaryId);
       return;
     }
-    await _showSummary(
-      plan,
-      plan.channelId == channelUrgent
-          ? _urgentId()
-          : _actual[plan.channelId] ?? plan.channelId,
-      live.length,
+    // The channel the group is on: the summary's, as Android reports it, or that of a
+    // post still there.
+    final androidChannel =
+        summary?.channelId ?? live.first.channelId ?? channelSilent;
+    await _summary(
+      summaryId: summaryId,
+      title: last?.title ?? summary?.title ?? live.first.title ?? '',
+      groupKey: _groupOf(chatId),
+      planChannel: androidChannel.startsWith(channelUrgent)
+          ? channelUrgent
+          : androidChannel.startsWith(channelSilent)
+          ? channelSilent
+          : channelNormal,
+      androidChannel: androidChannel,
+      count: live.length,
     );
   }
 }

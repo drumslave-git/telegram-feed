@@ -4,11 +4,10 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-14.
+**Current phase:** Parity with the official app. **Next task:** Q-15.
 
 ## Defects
 
-- [ ] Q-14 A rule notification goes away when its post is read here or in the official app, and "N new posts" is recounted when a notification is swiped away or tapped.
 - [ ] Q-15 The screen stays on while a video plays, and a voice message or track that has ended leaves the audio bar.
 - [ ] Q-16 Saved Messages: Share, Copy link and Save to Saved Messages are not offered there, and a post saved elsewhere appears without reopening the screen.
 - [ ] Q-17 Check on the real account whether an album post shows its reactions and comments bar; read them from the album's primary message as the official app does.

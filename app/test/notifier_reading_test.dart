@@ -77,7 +77,8 @@ void main() {
     'channelId': channelNormal,
     'title': p.title,
     'body': p.body,
-    'payload': p.payload,
+    // Android reports the tag of a notification it shows, never its payload.
+    'tag': p.payload,
   };
 
   test('Listen turns into Stop and back; nothing else changes', () async {

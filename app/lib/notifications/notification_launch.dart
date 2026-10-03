@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -42,6 +43,9 @@ final class NotificationLaunch {
     }
     // Handled by the service host.
     if (r.actionId == actionListen || r.actionId == actionStop) return;
+    // The tap took the notification out of the shade; whoever posts them recounts.
+    IsolateNameServer.lookupPortByName(notifierPortName)
+        ?.send({'type': notificationTapped, 'payload': r.payload});
     await openPost(host, ref);
   }
 }
