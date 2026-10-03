@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:app_db/app_db.dart';
-import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 
 import 'auth/login_screens.dart';
@@ -18,6 +17,7 @@ import 'rules/rules_screen.dart';
 import 'settings/app_lock.dart';
 import 'settings/settings_screen.dart';
 import 'widgets/status_banner.dart';
+import 'widgets/swipe_back.dart';
 import 'app_name.dart';
 
 void main() {
@@ -132,13 +132,13 @@ class _TelegramFeedAppState extends State<TelegramFeedApp> {
   }
 }
 
-/// Screens slide in and can be dragged back from the left edge, as everywhere in the
-/// official app. Flutter's Cupertino transition carries that gesture; the viewer has a
-/// route of its own and keeps its swipe down to close.
+/// Screens slide in and go back with a swipe to the right from anywhere on them, as
+/// everywhere in the official app ([SwipeBackTransitionsBuilder]); the viewer has a route
+/// of its own and keeps its swipe down to close.
 final appPageTransitions = PageTransitionsTheme(
   builders: {
     for (final platform in TargetPlatform.values)
-      platform: const CupertinoPageTransitionsBuilder(),
+      platform: const SwipeBackTransitionsBuilder(),
   },
 );
 

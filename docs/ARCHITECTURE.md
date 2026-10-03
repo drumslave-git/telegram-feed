@@ -195,7 +195,7 @@ Feeds with their sources, rules and a whitelist of settings (`isSyncedSetting`: 
 
 ### 5.9 Posts and comments
 
-Screens use `CupertinoPageTransitionsBuilder` on every platform (`appPageTransitions` in `main.dart`): they slide in, and a drag from the left edge pops them. The media viewer keeps its own see-through route and its swipe down.
+Screens use `SwipeBackTransitionsBuilder` (`widgets/swipe_back.dart`) on every platform (`appPageTransitions` in `main.dart`): they slide in with Flutter's Cupertino transition and go back with a swipe to the right that may start anywhere on the screen, as in the official app. The gesture is a horizontal drag recognizer over the whole route that counts once the finger has gone 25 px (0.4 cm) to the right and then drives the route's own animation; let go past a third of the width, or flung, the screen pops. A sideways scroller inside the screen takes its drags first, a vertical scroll claims the gesture before 25 px of sideways movement, and a route that may not be popped (`popGestureEnabled`: an open selection or search) does not move. The media viewer keeps its own see-through route and its swipe down.
 
 A timeline row (`PostCard`, `feeds/post_card.dart`) is drawn like a post in the official Android app, except that nothing stands beside the bubble, so text and pictures get the whole width. A bubble on a tinted backdrop (`ChatColors`) starts with its title line (`BubbleTitle`): the channel's name in one of Telegram's seven peer colours (`peerColor`, by id) and the channel's photo, small, at the right end of that line. Then media edge to edge, the text, reaction pills and a comments bar. Day pills stand between days.
 

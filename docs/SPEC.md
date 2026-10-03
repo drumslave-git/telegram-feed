@@ -74,7 +74,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - I open the original post in the official Telegram app.
 - The day of the topmost post floats over the list while I scroll.
 - I set the text size of posts, on top of the phone's own text size; it changes the words of a post, not its counters and buttons. Times and dates follow the phone's own clock and locale.
-- I close any screen with a swipe from the left edge. Back closes an open search or selection first, then the screen.
+- I close any screen with a swipe to the right, from anywhere on it. Back closes an open search or selection first, then the screen.
 - When the app cannot reach Telegram, the title says so. A screen that could not load says so in its own words, keeps Telegram's code underneath, and offers to try again.
 
 ### Media
