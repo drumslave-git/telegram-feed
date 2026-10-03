@@ -543,6 +543,14 @@ class AppLocalizationsUk extends AppLocalizations {
   String get postDayYearPattern => 'd MMMM y';
 
   @override
+  String get mediaCancelDownload => 'Скасувати завантаження';
+
+  @override
+  String mediaLoadedOf(String loaded, String total) {
+    return '$loaded / $total';
+  }
+
+  @override
   String get mediaCoverSpoiler => 'Спойлер. Торкніться, щоб показати';
 
   @override

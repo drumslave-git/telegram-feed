@@ -932,6 +932,18 @@ abstract class AppLocalizations {
   /// **'MMMM d, y'**
   String get postDayYearPattern;
 
+  /// No description provided for @mediaCancelDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel the download'**
+  String get mediaCancelDownload;
+
+  /// How much of a photo has been downloaded, e.g. 1.2 MB / 3.4 MB.
+  ///
+  /// In en, this message translates to:
+  /// **'{loaded} / {total}'**
+  String mediaLoadedOf(String loaded, String total);
+
   /// Screen-reader label of a photo or video hidden under a spoiler.
   ///
   /// In en, this message translates to:

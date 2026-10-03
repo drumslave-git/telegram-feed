@@ -497,6 +497,9 @@ List<String> availableEmoji(td.AvailableReactions a) => {
       ?reactionName(r.type),
 }.toList();
 
+String? _miniature(td.Minithumbnail? mini) =>
+    mini == null || mini.data.isEmpty ? null : mini.data;
+
 MediaCover _spoiler(bool hasSpoiler) =>
     hasSpoiler ? MediaCover.spoiler : MediaCover.none;
 
@@ -513,6 +516,7 @@ MediaCover _spoiler(bool hasSpoiler) =>
           fileRef(s.photo!, width: s.width, height: s.height),
       ]..sort((a, b) => a.width.compareTo(b.width)),
       cover: _spoiler(hasSpoiler),
+      miniature: _miniature(photo?.minithumbnail),
     ),
   ),
   td.MessageVideo(:final video, :final caption, :final hasSpoiler)
@@ -524,6 +528,7 @@ MediaCover _spoiler(bool hasSpoiler) =>
         durationSeconds: video.duration,
         thumbnail: thumbRef(video.thumbnail),
         cover: _spoiler(hasSpoiler),
+        miniature: _miniature(video.minithumbnail),
       ),
     ),
   td.MessageAnimation(:final animation, :final caption, :final hasSpoiler)
@@ -540,6 +545,7 @@ MediaCover _spoiler(bool hasSpoiler) =>
         thumbnail: thumbRef(animation.thumbnail),
         isAnimation: true,
         cover: _spoiler(hasSpoiler),
+        miniature: _miniature(animation.minithumbnail),
       ),
     ),
   td.MessageAudio(:final audio, :final caption) when audio?.audio != null => (

@@ -372,6 +372,19 @@
   "@postDayYearPattern": {
     "description": "intl DateFormat pattern of a day of another year between two days of a chat, e.g. March 3, 2025. Not a sentence: only the order of the fields changes."
   },
+  "mediaCancelDownload": "Cancel the download",
+  "mediaLoadedOf": "{loaded} / {total}",
+  "@mediaLoadedOf": {
+    "description": "How much of a photo has been downloaded, e.g. 1.2 MB / 3.4 MB.",
+    "placeholders": {
+      "loaded": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
   "mediaCoverSpoiler": "Spoiler. Tap to show",
   "@mediaCoverSpoiler": {
     "description": "Screen-reader label of a photo or video hidden under a spoiler."

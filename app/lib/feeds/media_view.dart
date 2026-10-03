@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
@@ -138,7 +141,7 @@ class MediaView extends StatelessWidget {
     AppLocalizations l10n,
   ) {
     return switch (media) {
-      PhotoMedia(:final sizes) => PhotoView(
+      PhotoMedia(:final sizes, :final miniature) => PhotoView(
         file: pickPhotoSize(
           sizes,
           MediaQuery.sizeOf(context).width,
@@ -149,6 +152,7 @@ class MediaView extends StatelessWidget {
         fill: fill,
         radius: radius,
         heroTag: heroTag,
+        miniature: miniature,
       ),
       // A sticker keeps its own size, so it must not be stretched by the bubble.
       final StickerMedia sticker => Align(
@@ -244,12 +248,17 @@ class Downloaded extends StatefulWidget {
     this.autoStart = true,
     this.placeholder,
     this.pending,
+    this.waiting,
   });
   final FileRef file;
   final TelegramGateway gateway;
   final Widget Function(BuildContext context, String path) builder;
   final bool autoStart;
   final Widget? placeholder;
+
+  /// Draws the waiting state from all there is to know about it ([DownloadWaiting]): how
+  /// much has come, and the way to stop it. Takes precedence over [pending].
+  final Widget Function(BuildContext context, DownloadWaiting waiting)? waiting;
 
   /// Draws the waiting state itself, with the way to start the download, how far it has
   /// come (null before it starts) and whether it is running. Takes precedence over
@@ -266,10 +275,41 @@ class Downloaded extends StatefulWidget {
   State<Downloaded> createState() => _DownloadedState();
 }
 
+/// A file on its way, for a stand-in that draws itself.
+class DownloadWaiting {
+  const DownloadWaiting({
+    required this.start,
+    required this.cancel,
+    required this.started,
+    required this.cancelled,
+    required this.progress,
+    required this.downloaded,
+    required this.total,
+  });
+  final VoidCallback start;
+  final VoidCallback cancel;
+
+  /// The download is running.
+  final bool started;
+
+  /// The reader stopped it: it does not start again by itself.
+  final bool cancelled;
+
+  /// 0..1, or null while nothing is known.
+  final double? progress;
+
+  /// Bytes that have come, and how many there are in all (0 while unknown).
+  final int downloaded;
+  final int total;
+}
+
 class _DownloadedState extends State<Downloaded> {
   String? _path;
   double? _progress;
+  int _downloaded = 0;
+  int _total = 0;
   bool _started = false;
+  bool _cancelled = false;
   String? _error;
   StreamSubscription<FileProgress>? _sub;
 
@@ -293,27 +333,56 @@ class _DownloadedState extends State<Downloaded> {
     }
     _sub?.cancel();
     _started = false;
+    _cancelled = false;
     _progress = null;
+    _downloaded = 0;
+    _total = 0;
     _error = null;
     _path = widget.file.isDownloaded ? widget.file.localPath : null;
     if (_path == null && widget.autoStart) start();
   }
 
+  /// Stops the download, as the cross in the official app's progress ring does. It does
+  /// not start again until the reader asks.
+  Future<void> cancel() async {
+    if (!_started) return;
+    final file = widget.file;
+    setState(() {
+      _cancelled = true;
+      _started = false;
+      _progress = null;
+    });
+    try {
+      await widget.gateway.cancelDownload(file.id);
+    } on TelegramException {
+      // Nothing to stop: it was done, or never began.
+    }
+  }
+
   Future<void> start() async {
     if (_started) return;
-    setState(() => _started = true);
+    setState(() {
+      _started = true;
+      _cancelled = false;
+      _error = null;
+    });
     final file = widget.file;
     final sub = _sub = widget.gateway.fileProgress(file.id).listen((p) {
-      if (!mounted || widget.file.id != file.id) return;
-      setState(() => _progress = p.total > 0 ? p.downloaded / p.total : null);
+      if (!mounted || widget.file.id != file.id || _cancelled) return;
+      setState(() {
+        _downloaded = p.downloaded;
+        _total = p.total;
+        _progress = p.total > 0 ? p.downloaded / p.total : null;
+      });
     });
     try {
       final done = await widget.gateway.download(file);
-      if (mounted && widget.file.id == file.id) {
+      if (mounted && widget.file.id == file.id && done.localPath != null) {
         setState(() => _path = done.localPath);
       }
     } on TelegramException catch (e) {
-      if (mounted && widget.file.id == file.id) {
+      // A download the reader stopped ends with an error too: that is no failure.
+      if (mounted && widget.file.id == file.id && !_cancelled) {
         // [_started] goes back to false so a tap can ask again: a download that failed
         // once (a dropped connection) is not a dead end.
         setState(() {
@@ -363,6 +432,21 @@ class _DownloadedState extends State<Downloaded> {
               ),
       );
     }
+    final waiting = widget.waiting;
+    if (waiting != null) {
+      return waiting(
+        context,
+        DownloadWaiting(
+          start: () => unawaited(start()),
+          cancel: () => unawaited(cancel()),
+          started: _started,
+          cancelled: _cancelled,
+          progress: _progress,
+          downloaded: _downloaded,
+          total: _total > 0 ? _total : widget.file.size,
+        ),
+      );
+    }
     final pending = widget.pending;
     if (pending != null) {
       return pending(context, () => unawaited(start()), _progress, _started);
@@ -402,10 +486,14 @@ class PhotoView extends StatelessWidget {
     this.fill = false,
     this.radius = 8,
     this.heroTag,
+    this.miniature,
   });
   final FileRef file;
   final TelegramGateway gateway;
   final VoidCallback? onTap;
+
+  /// Telegram's tiny preview of the picture, drawn blurred while the picture loads.
+  final String? miniature;
   final bool fill;
   final double radius;
 
@@ -422,26 +510,24 @@ class PhotoView extends StatelessWidget {
     // either: a moment later the policy is known.
     final policy = AutoDownloadScope.of(context);
     final auto = policy.photos;
+    final backdrop = MediaMiniature(miniature);
     final picture = Downloaded(
       file: file,
       gateway: gateway,
       autoStart: auto,
-      placeholder: auto || !policy.ready
-          ? const ColoredBox(
-              color: Colors.black12,
-              child: Center(child: CircularProgressIndicator()),
-            )
-          : null,
-      // Photos do not load by themselves on this connection: the whole picture area is
-      // the button, with the size on it, as the official app draws it.
-      pending: auto || !policy.ready
-          ? null
-          : (context, start, progress, started) => _PhotoPending(
-              size: file.size,
-              progress: progress,
-              started: started,
-              onStart: start,
-            ),
+      // After a failure: the stand-in, which asks again on a tap.
+      placeholder: backdrop,
+      // While it loads the picture is its own blurred miniature with the ring and the
+      // cross that stops it; where photos do not load by themselves on this connection
+      // (or the reader stopped it) the whole area is the button, with the size on it.
+      // While the settings are still being read nothing starts, and nothing is offered
+      // either: a moment later the policy is known.
+      waiting: (context, w) => _PhotoWaiting(
+        backdrop: backdrop,
+        waiting: w,
+        size: file.size,
+        offer: policy.ready && (!auto || w.cancelled),
+      ),
       builder: (context, path) => SizedFileImage(
         path: path,
         width: file.width,
@@ -473,61 +559,140 @@ class PhotoView extends StatelessWidget {
   }
 }
 
-/// The stand-in for a picture that does not load by itself: a tinted box with a round
-/// download badge and the size of the file, which starts the download on a tap.
-class _PhotoPending extends StatelessWidget {
-  const _PhotoPending({
-    required this.size,
-    required this.progress,
-    required this.started,
-    required this.onStart,
+/// Telegram's tiny preview of a picture or a video, blurred to fill its place while the
+/// real thing loads; a tinted box when the post brought none.
+class MediaMiniature extends StatelessWidget {
+  const MediaMiniature(this.miniature, {super.key});
+
+  /// A small JPEG in base64, or null.
+  final String? miniature;
+
+  static final _decoded = <String, Uint8List?>{};
+
+  static Uint8List? _bytesOf(String data) => _decoded.putIfAbsent(data, () {
+    try {
+      return base64Decode(data);
+    } on FormatException {
+      return null;
+    }
   });
-  final int size;
-  final double? progress;
-  final bool started;
-  final VoidCallback onStart;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: started ? null : onStart,
-    child: ColoredBox(
-      color: Colors.black12,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DecoratedBox(
-              decoration: const BoxDecoration(
-                color: Colors.black45,
-                shape: BoxShape.circle,
-              ),
-              child: SizedBox.square(
-                dimension: 48,
-                child: started
-                    ? Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: CircularProgressIndicator(
-                          value: progress,
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(
-                        Icons.arrow_downward,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-              ),
-            ),
-            if (size > 0) ...[
-              const SizedBox(height: 6),
-              MediaBadge(formatBytes(size)),
-            ],
-          ],
+  Widget build(BuildContext context) {
+    final data = miniature;
+    final bytes = data == null ? null : _bytesOf(data);
+    if (bytes == null) return const ColoredBox(color: Colors.black12);
+    return ClipRect(
+      child: ImageFiltered(
+        imageFilter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          gaplessPlayback: true,
+          excludeFromSemantics: true,
+          // A miniature Telegram sent broken is no reason to show an error.
+          errorBuilder: (_, _, _) => const ColoredBox(color: Colors.black12),
         ),
       ),
-    ),
-  );
+    );
+  }
+}
+
+/// A picture that is not there yet, over its blurred miniature: the ring of the download
+/// with the cross that stops it and how much has come, or the round download badge with
+/// the size of the file where the download waits for a tap.
+class _PhotoWaiting extends StatelessWidget {
+  const _PhotoWaiting({
+    required this.backdrop,
+    required this.waiting,
+    required this.size,
+    required this.offer,
+  });
+  final Widget backdrop;
+  final DownloadWaiting waiting;
+  final int size;
+
+  /// The download waits for the reader: the badge with the arrow is shown.
+  final bool offer;
+
+  @override
+  Widget build(BuildContext context) {
+    final w = waiting;
+    final l10n = context.l10n;
+    Widget badge(Widget child) => DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Colors.black45,
+        shape: BoxShape.circle,
+      ),
+      child: SizedBox.square(dimension: 48, child: child),
+    );
+    final Widget centre;
+    if (w.started) {
+      centre = Semantics(
+        button: true,
+        label: l10n.mediaCancelDownload,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: w.cancel,
+          child: badge(
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(5),
+                  child: CircularProgressIndicator(
+                    value: w.progress,
+                    strokeWidth: 2.5,
+                    color: Colors.white,
+                  ),
+                ),
+                const Icon(Icons.close, color: Colors.white, size: 22),
+              ],
+            ),
+          ),
+        ),
+      );
+    } else if (offer) {
+      centre = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          badge(
+            const Icon(Icons.arrow_downward, color: Colors.white, size: 24),
+          ),
+          if (size > 0) ...[
+            const SizedBox(height: 6),
+            MediaBadge(formatBytes(size)),
+          ],
+        ],
+      );
+    } else {
+      centre = const SizedBox.shrink();
+    }
+    return GestureDetector(
+      onTap: !w.started && offer ? w.start : null,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          backdrop,
+          Center(child: centre),
+          // How much of it is here, in the corner where the official app writes it.
+          if (w.started && w.total > 0)
+            Positioned(
+              left: 8,
+              top: 8,
+              child: MediaBadge(
+                l10n.mediaLoadedOf(
+                  formatBytes(w.downloaded),
+                  formatBytes(w.total),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Side of a round video message, as the official app draws one.
@@ -716,12 +881,12 @@ class _VideoViewState extends State<VideoView> {
   }
 
   Widget _poster() => widget.video.thumbnail == null
-      ? const ColoredBox(color: Colors.black26)
+      ? MediaMiniature(widget.video.miniature)
       : Downloaded(
           key: ValueKey(widget.video.thumbnail!.id),
           file: widget.video.thumbnail!,
           gateway: widget.gateway,
-          placeholder: const ColoredBox(color: Colors.black26),
+          placeholder: MediaMiniature(widget.video.miniature),
           builder: (context, path) => SizedFileImage(
             path: path,
             width: widget.video.thumbnail!.width,

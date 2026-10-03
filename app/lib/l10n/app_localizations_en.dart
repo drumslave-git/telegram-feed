@@ -523,6 +523,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get postDayYearPattern => 'MMMM d, y';
 
   @override
+  String get mediaCancelDownload => 'Cancel the download';
+
+  @override
+  String mediaLoadedOf(String loaded, String total) {
+    return '$loaded / $total';
+  }
+
+  @override
   String get mediaCoverSpoiler => 'Spoiler. Tap to show';
 
   @override

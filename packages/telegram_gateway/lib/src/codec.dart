@@ -158,10 +158,11 @@ MediaCover _decodeCover(Object? name) =>
     name == null ? MediaCover.none : MediaCover.values.byName(name as String);
 
 Map<String, Object?> encodeMedia(Media m) => switch (m) {
-  PhotoMedia(:final sizes, :final cover) => {
+  PhotoMedia(:final sizes, :final cover, :final miniature) => {
     'kind': 'photo',
     'sizes': sizes.map(encodeFileRef).toList(),
     if (cover != MediaCover.none) 'cover': cover.name,
+    'mini': ?miniature,
   },
   VideoMedia(
     :final file,
@@ -170,6 +171,7 @@ Map<String, Object?> encodeMedia(Media m) => switch (m) {
     :final isAnimation,
     :final isVideoNote,
     :final cover,
+    :final miniature,
   ) =>
     {
       'kind': 'video',
@@ -179,6 +181,7 @@ Map<String, Object?> encodeMedia(Media m) => switch (m) {
       'isAnimation': isAnimation,
       'isVideoNote': isVideoNote,
       if (cover != MediaCover.none) 'cover': cover.name,
+      'mini': ?miniature,
     },
   AudioMedia(
     :final file,
@@ -241,6 +244,7 @@ Media decodeMedia(Map<Object?, Object?> m) => switch (m['kind']) {
         .map((e) => decodeFileRef(e as Map<Object?, Object?>))
         .toList(),
     cover: _decodeCover(m['cover']),
+    miniature: m['mini'] as String?,
   ),
   'video' => VideoMedia(
     file: decodeFileRef(m['file'] as Map<Object?, Object?>),
@@ -249,6 +253,7 @@ Media decodeMedia(Map<Object?, Object?> m) => switch (m['kind']) {
     isAnimation: m['isAnimation'] as bool,
     isVideoNote: (m['isVideoNote'] as bool?) ?? false,
     cover: _decodeCover(m['cover']),
+    miniature: m['mini'] as String?,
   ),
   'sticker' => StickerMedia(
     file: decodeFileRef(m['file'] as Map<Object?, Object?>),

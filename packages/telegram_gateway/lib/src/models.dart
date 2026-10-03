@@ -344,15 +344,23 @@ sealed class Media {
 enum MediaCover { none, spoiler, sensitive }
 
 final class PhotoMedia extends Media {
-  const PhotoMedia({required this.sizes, this.cover = MediaCover.none});
+  const PhotoMedia({
+    required this.sizes,
+    this.cover = MediaCover.none,
+    this.miniature,
+  });
 
   /// Ascending by width; pick by target width.
   final List<FileRef> sizes;
   final MediaCover cover;
+
+  /// Telegram's tiny preview of the picture (a JPEG of some forty pixels, in base64),
+  /// which comes with the post itself: drawn blurred while the picture loads.
+  final String? miniature;
   FileRef get largest => sizes.last;
 
   PhotoMedia covered(MediaCover cover) =>
-      PhotoMedia(sizes: sizes, cover: cover);
+      PhotoMedia(sizes: sizes, cover: cover, miniature: miniature);
 }
 
 final class VideoMedia extends Media {
@@ -363,11 +371,15 @@ final class VideoMedia extends Media {
     this.isAnimation = false,
     this.isVideoNote = false,
     this.cover = MediaCover.none,
+    this.miniature,
   });
   final FileRef file;
   final int durationSeconds;
   final FileRef? thumbnail;
   final MediaCover cover;
+
+  /// Telegram's tiny preview of the video, as [PhotoMedia.miniature].
+  final String? miniature;
 
   VideoMedia covered(MediaCover cover) => VideoMedia(
     file: file,
@@ -376,6 +388,7 @@ final class VideoMedia extends Media {
     isAnimation: isAnimation,
     isVideoNote: isVideoNote,
     cover: cover,
+    miniature: miniature,
   );
 
   /// GIF-like animation (`messageAnimation`).

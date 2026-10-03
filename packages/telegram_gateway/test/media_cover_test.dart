@@ -18,6 +18,12 @@ Map<String, Object?> _photo({required bool spoiler}) => {
   'caption': {'@type': 'formattedText', 'text': 'look', 'entities': const []},
   'photo': {
     '@type': 'photo',
+    'minithumbnail': {
+      '@type': 'minithumbnail',
+      'width': 40,
+      'height': 30,
+      'data': '/9j/4AAQ',
+    },
     'sizes': [
       {
         '@type': 'photoSize',
@@ -98,5 +104,15 @@ void main() {
     }
     final plain = map.post(_message(_photo(spoiler: false)));
     expect(_coverOf(decodePost(encodePost(plain))), MediaCover.none);
+  });
+
+  test('a photo brings its miniature, and it crosses the core boundary', () {
+    final post = map.post(_message(_photo(spoiler: true)));
+    expect((post.media! as PhotoMedia).miniature, '/9j/4AAQ');
+    final back = decodePost(encodePost(post)).media! as PhotoMedia;
+    expect(back.miniature, '/9j/4AAQ');
+    expect(back.cover, MediaCover.spoiler);
+    final video = map.post(_message(_video(spoiler: false)));
+    expect((video.media! as VideoMedia).miniature, isNull);
   });
 }

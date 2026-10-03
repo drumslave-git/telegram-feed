@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -181,6 +182,73 @@ void main() {
     await tester.pump();
     expect(find.byType(Image), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('a loading photo is its blurred miniature, says how much has '
+      'come, and can be stopped and started again', (tester) async {
+    final miniature = base64Encode(onePixelPng);
+    await tester.pumpWidget(
+      host(
+        PhotoMedia(
+          miniature: miniature,
+          sizes: const [
+            FileRef(id: 12, remoteId: 'b', size: 50, width: 1280, height: 960),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    // The miniature is drawn (decoded from the post itself), with the ring over it.
+    expect(find.byType(MediaMiniature), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(MediaMiniature),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.close), findsOneWidget);
+
+    gw.progress.add(const FileProgress(fileId: 12, downloaded: 5, total: 50));
+    await tester.pump();
+    expect(find.text('5 B / 50 B'), findsOneWidget);
+
+    // The cross stops it; the download then waits for a tap.
+    await tester.tap(find.bySemanticsLabel('Cancel the download'));
+    await tester.pump();
+    expect(gw.cancelled, [12]);
+    expect(find.byIcon(Icons.close), findsNothing);
+    expect(find.byIcon(Icons.arrow_downward), findsOneWidget);
+    expect(find.text('5 B / 50 B'), findsNothing);
+
+    gw.completers.clear();
+    await tester.tap(find.byIcon(Icons.arrow_downward));
+    await tester.pump();
+    expect(gw.completers.keys, [12]);
+    expect(find.byIcon(Icons.close), findsOneWidget);
+  });
+
+  testWidgets('a photo without a miniature loads over a tinted box', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        const PhotoMedia(
+          sizes: [
+            FileRef(id: 13, remoteId: 'b', size: 50, width: 1280, height: 960),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.descendant(
+        of: find.byType(MediaMiniature),
+        matching: find.byType(Image),
+      ),
+      findsNothing,
+    );
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 
   group('covered media', () {
