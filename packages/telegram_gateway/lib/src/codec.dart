@@ -517,6 +517,9 @@ Map<String, Object?> encodeThread(Thread t) => {
   'replyCount': t.replyCount,
   'lastReadId': t.lastReadId,
   'unreadCount': t.unreadCount,
+  'write': t.write.name,
+  'slowModeWait': t.slowModeWait,
+  'slowModeDelay': t.slowModeDelay,
 };
 
 Thread decodeThread(Map<Object?, Object?> m) => Thread(
@@ -527,6 +530,9 @@ Thread decodeThread(Map<Object?, Object?> m) => Thread(
   replyCount: m['replyCount'] as int,
   lastReadId: (m['lastReadId'] as int?) ?? 0,
   unreadCount: (m['unreadCount'] as int?) ?? 0,
+  write: ThreadWrite.values.asNameMap()[m['write']] ?? ThreadWrite.allowed,
+  slowModeWait: (m['slowModeWait'] as int?) ?? 0,
+  slowModeDelay: (m['slowModeDelay'] as int?) ?? 0,
 );
 
 Map<String, Object?> encodeComment(Comment c) => {
@@ -541,7 +547,31 @@ Map<String, Object?> encodeComment(Comment c) => {
   'isOutgoing': c.isOutgoing,
   'entities': _encodeEntities(c.entities),
   'media': c.media == null ? null : encodeMedia(c.media!),
+  if (c.reactions.isNotEmpty)
+    'reactions': [
+      for (final r in c.reactions)
+        {'emoji': r.emoji, 'count': r.count, 'chosen': r.chosen},
+    ],
+  if (c.replyTo != null)
+    'replyTo': {
+      'messageId': c.replyTo!.messageId,
+      'author': c.replyTo!.author,
+      'text': c.replyTo!.text,
+    },
+  if (c.sendState != CommentSend.sent) 'sendState': c.sendState.name,
+  if (c.edited) 'edited': true,
 };
+
+Map<String, Object?> encodeCommentsGone(CommentsGone g) => {
+  'chatId': g.chatId,
+  // A list of its own: the ids may be a view that does not cross isolates.
+  'messageIds': [...g.messageIds],
+};
+
+CommentsGone decodeCommentsGone(Map<Object?, Object?> m) => CommentsGone(
+  chatId: m['chatId'] as int,
+  messageIds: (m['messageIds'] as List).cast<int>(),
+);
 
 Comment decodeComment(Map<Object?, Object?> m) => Comment(
   chatId: m['chatId'] as int,
@@ -557,6 +587,23 @@ Comment decodeComment(Map<Object?, Object?> m) => Comment(
   media: m['media'] == null
       ? null
       : decodeMedia(m['media'] as Map<Object?, Object?>),
+  reactions: [
+    for (final r in (m['reactions'] as List?) ?? const [])
+      Reaction(
+        emoji: (r as Map)['emoji'] as String,
+        count: r['count'] as int,
+        chosen: r['chosen'] == true,
+      ),
+  ],
+  replyTo: m['replyTo'] == null
+      ? null
+      : CommentReply(
+          messageId: (m['replyTo'] as Map)['messageId'] as int,
+          author: ((m['replyTo'] as Map)['author'] as String?) ?? '',
+          text: ((m['replyTo'] as Map)['text'] as String?) ?? '',
+        ),
+  sendState: CommentSend.values.asNameMap()[m['sendState']] ?? CommentSend.sent,
+  edited: m['edited'] == true,
 );
 
 Post decodePost(Map<Object?, Object?> m) => Post(

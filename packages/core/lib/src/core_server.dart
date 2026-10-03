@@ -120,6 +120,9 @@ final class CoreServer {
       gateway.comments.listen(
         (c) => _broadcast(CoreStream.comments, encodeComment(c)),
       ),
+      gateway.commentsGone.listen(
+        (g) => _broadcast(CoreStream.commentsGone, encodeCommentsGone(g)),
+      ),
       gateway.connection.listen((c) {
         _connection = c;
         _broadcast(CoreStream.connection, {'status': c.name});
@@ -327,6 +330,23 @@ final class CoreServer {
         await gateway.reply(
           decodeThread(a['thread'] as Map<Object?, Object?>),
           a['text'] as String,
+          replyToId: (a['replyToId'] as int?) ?? 0,
+        );
+      case 'editComment':
+        await gateway.editComment(
+          decodeThread(a['thread'] as Map<Object?, Object?>),
+          a['messageId'] as int,
+          a['text'] as String,
+        );
+      case 'deleteComments':
+        await gateway.deleteComments(
+          decodeThread(a['thread'] as Map<Object?, Object?>),
+          (a['messageIds'] as List).cast<int>(),
+        );
+      case 'retryComment':
+        await gateway.retryComment(
+          decodeThread(a['thread'] as Map<Object?, Object?>),
+          a['messageId'] as int,
         );
       case 'closeThread':
         await gateway.closeThread(

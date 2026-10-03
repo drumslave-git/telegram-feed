@@ -1032,6 +1032,7 @@ final class FakeTelegram extends TimelineGateway {
     bool remove = false,
   }) async {
     await super.react(chatId, messageId, emoji, remove: remove);
+    if (_reactToComment(chatId, messageId, emoji, remove)) return;
     final history = histories[chatId];
     if (history == null) return;
     final i = history.indexWhere((p) => p.messageId == messageId);
@@ -1085,6 +1086,76 @@ final class FakeTelegram extends TimelineGateway {
 
   final _threads = <(int, int), List<Comment>>{};
   final _commentsCtl = StreamController<Comment>.broadcast();
+  final _goneCtl = StreamController<CommentsGone>.broadcast();
+
+  @override
+  Stream<CommentsGone> get commentsGone => _goneCtl.stream;
+
+  /// The thread that holds the comment [messageId] of the discussion group [chatId], and
+  /// where it is there.
+  (List<Comment>, int)? _commentAt(int chatId, int messageId) {
+    for (final list in _threads.values) {
+      final i = list.indexWhere(
+        (c) => c.chatId == chatId && c.messageId == messageId,
+      );
+      if (i >= 0) return (list, i);
+    }
+    return null;
+  }
+
+  /// A reaction on a comment; false when [messageId] is no comment.
+  bool _reactToComment(int chatId, int messageId, String emoji, bool remove) {
+    final at = _commentAt(chatId, messageId);
+    if (at == null) return false;
+    final (list, i) = at;
+    final c = list[i];
+    final own = c.reactions.where((r) => r.emoji == emoji).firstOrNull;
+    final reactions = [
+      for (final r in c.reactions)
+        if (r.emoji != emoji) r,
+      if (!remove)
+        Reaction(
+          emoji: emoji,
+          count: (own?.count ?? 0) + (own?.chosen ?? false ? 0 : 1),
+          chosen: true,
+        )
+      else if (own != null && own.count > 1)
+        Reaction(emoji: emoji, count: own.count - 1),
+    ];
+    list[i] = c.copyWith(reactions: reactions);
+    _commentsCtl.add(list[i]);
+    return true;
+  }
+
+  /// Every edit, deletion and retry of a comment, for assertions.
+  final commentEdits = <String>[];
+
+  @override
+  Future<void> editComment(Thread thread, int messageId, String text) async {
+    commentEdits.add('edit $messageId $text');
+    final at = _commentAt(thread.chatId, messageId);
+    if (at == null) return;
+    final (list, i) = at;
+    list[i] = list[i].copyWith(text: text, edited: true);
+    _commentsCtl.add(list[i]);
+  }
+
+  @override
+  Future<void> deleteComments(Thread thread, List<int> messageIds) async {
+    commentEdits.add('delete ${messageIds.join(',')}');
+    _threadOf(thread).removeWhere((c) => messageIds.contains(c.messageId));
+    _goneCtl.add(CommentsGone(chatId: thread.chatId, messageIds: messageIds));
+  }
+
+  @override
+  Future<void> retryComment(Thread thread, int messageId) async {
+    commentEdits.add('retry $messageId');
+    final at = _commentAt(thread.chatId, messageId);
+    if (at == null) return;
+    final (list, i) = at;
+    list[i] = list[i].copyWith(sendState: CommentSend.sent);
+    _commentsCtl.add(list[i]);
+  }
 
   @override
   Stream<Comment> get comments => _commentsCtl.stream;
@@ -1118,6 +1189,13 @@ final class FakeTelegram extends TimelineGateway {
         text: 'Apples from the orchard stall, as every year.',
         author: 'Mara',
         authorId: 11,
+        // She answers Tomas, and two readers liked it.
+        replyTo: const CommentReply(
+          messageId: 1,
+          author: 'Tomas',
+          text: 'Is the fish stall back?',
+        ),
+        reactions: const [Reaction(emoji: '👍', count: 2)],
         media: PhotoMedia(sizes: [_file('photo4.png', 640, 480)]),
       ),
       Comment(
@@ -1140,6 +1218,10 @@ final class FakeTelegram extends TimelineGateway {
       unreadCount: _threads[key]!
           .where((c) => c.messageId > (_threadRead[key] ?? 1))
           .length,
+      // The discussion under the album lets only its members write.
+      write: chatId == FakeChats.harbourTimes && messageId != 11
+          ? ThreadWrite.joinNeeded
+          : ThreadWrite.allowed,
     );
   }
 
@@ -1171,11 +1253,23 @@ final class FakeTelegram extends TimelineGateway {
   final replies = <String>[];
 
   @override
-  Future<void> reply(Thread thread, String text) async {
-    replies.add(text);
+  Future<void> reply(Thread thread, String text, {int replyToId = 0}) async {
+    replies.add(replyToId == 0 ? text : '$text >$replyToId');
     final list = _threads[(thread.postChatId, thread.postMessageId)];
     if (list == null) return;
+    final answered = list.where((c) => c.messageId == replyToId).firstOrNull;
     final c = Comment(
+      replyTo: answered == null
+          ? null
+          : CommentReply(
+              messageId: answered.messageId,
+              author: answered.isOutgoing ? 'Fixture Account' : answered.author,
+              text: answered.text,
+            ),
+      // A comment that says so does not get through, to show what that looks like.
+      sendState: text.toLowerCase().contains('no signal')
+          ? CommentSend.failed
+          : CommentSend.sent,
       chatId: thread.chatId,
       messageId: (list.firstOrNull?.messageId ?? 0) + 1,
       threadId: thread.threadId,
@@ -1212,5 +1306,6 @@ final class FakeTelegram extends TimelineGateway {
     _arrivals?.cancel();
     await _authCtl.close();
     await _commentsCtl.close();
+    await _goneCtl.close();
   }
 }

@@ -525,6 +525,61 @@ class AppLocalizationsUk extends AppLocalizations {
   String get threadSend => 'Надіслати';
 
   @override
+  String get threadReply => 'Відповісти';
+
+  @override
+  String get threadCopy => 'Копіювати';
+
+  @override
+  String get threadEdit => 'Змінити';
+
+  @override
+  String get threadEditMessage => 'Змінити повідомлення';
+
+  @override
+  String threadReplyTo(String name) {
+    return 'Відповідь для $name';
+  }
+
+  @override
+  String get threadYou => 'себе';
+
+  @override
+  String get threadDeleteTitle => 'Видалити повідомлення';
+
+  @override
+  String get threadDeleteBody =>
+      'Ви дійсно хочете видалити це повідомлення для всіх?';
+
+  @override
+  String get threadEditFailed => 'Не вдалося змінити коментар.';
+
+  @override
+  String get threadDeleteFailed => 'Не вдалося видалити коментар.';
+
+  @override
+  String get threadJoinNeeded =>
+      'Коментувати тут можуть лише учасники групи обговорення. Приєднайтеся до групи в Telegram, щоб писати.';
+
+  @override
+  String get threadRestricted =>
+      'Адміни групи заборонили вам надсилати повідомлення.';
+
+  @override
+  String threadSlowMode(String time) {
+    return 'Діє повільний режим. Ви зможете написати через $time.';
+  }
+
+  @override
+  String get threadSending => 'Надсилається';
+
+  @override
+  String get threadNotSent => 'Не надіслано';
+
+  @override
+  String get threadDeletedMessage => 'Видалене повідомлення';
+
+  @override
   String get threadLoadOlder => 'Завантажити старіші коментарі';
 
   @override

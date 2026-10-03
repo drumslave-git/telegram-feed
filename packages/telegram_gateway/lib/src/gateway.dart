@@ -174,6 +174,19 @@ abstract interface class TelegramGateway {
   /// official app's "Save to Saved Messages" does: with the channel as its source.
   Future<void> saveToSavedMessages(int chatId, List<int> messageIds);
 
+  /// Comments of the open threads that are no more: deleted ones, and the temporary ids
+  /// of own comments once Telegram has given them their own.
+  Stream<CommentsGone> get commentsGone;
+
+  /// Changes the words of an own comment.
+  Future<void> editComment(Thread thread, int messageId, String text);
+
+  /// Deletes comments for everyone; also takes back one that could not be sent.
+  Future<void> deleteComments(Thread thread, List<int> messageIds);
+
+  /// Sends a comment again that could not be sent.
+  Future<void> retryComment(Thread thread, int messageId);
+
   /// Tells Telegram that the comments [messageIds] of [thread] were on the screen, which
   /// moves the thread's read position as the official app does.
   Future<void> markCommentsViewed(Thread thread, List<int> messageIds);
@@ -204,7 +217,7 @@ abstract interface class TelegramGateway {
     int limit = 30,
   });
 
-  Future<void> reply(Thread thread, String text);
+  Future<void> reply(Thread thread, String text, {int replyToId = 0});
 
   /// Live comments for open threads.
   Stream<Comment> get comments;

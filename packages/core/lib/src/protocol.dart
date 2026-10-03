@@ -29,6 +29,7 @@ enum CoreStream {
   matches,
   paused,
   comments,
+  commentsGone,
   connection,
   readStates,
 }

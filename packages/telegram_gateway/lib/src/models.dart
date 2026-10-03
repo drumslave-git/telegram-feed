@@ -794,7 +794,21 @@ final class Thread {
     required this.replyCount,
     this.lastReadId = 0,
     this.unreadCount = 0,
+    this.write = ThreadWrite.allowed,
+    this.slowModeWait = 0,
+    this.slowModeDelay = 0,
   });
+
+  /// Seconds the discussion's slow mode makes the account wait between two comments; 0
+  /// when it has none, or the account is exempt from it.
+  final int slowModeDelay;
+
+  /// Whether the account may comment here, and why not.
+  final ThreadWrite write;
+
+  /// Seconds until the discussion's slow mode lets the account comment again; 0 when it
+  /// may at once.
+  final int slowModeWait;
 
   /// The newest comment the account has read; 0 when it never opened the thread.
   final int lastReadId;
@@ -812,6 +826,40 @@ final class Thread {
   final int replyCount;
 }
 
+/// Whether the account may write in a discussion.
+enum ThreadWrite {
+  allowed,
+
+  /// The discussion group lets only its members comment, and the account is not one.
+  joinNeeded,
+
+  /// The group, or its admins, do not let the account write.
+  restricted,
+}
+
+/// Where a comment is on its way to Telegram.
+enum CommentSend { sent, sending, failed }
+
+/// The comment a comment answers: its id, who wrote it and how it begins.
+final class CommentReply {
+  const CommentReply({
+    required this.messageId,
+    this.author = '',
+    this.text = '',
+  });
+  final int messageId;
+  final String author;
+  final String text;
+}
+
+/// Comments that are no more: deleted ones, and the temporary id of a comment that has
+/// been sent (or has failed) and came back under its own.
+final class CommentsGone {
+  const CommentsGone({required this.chatId, required this.messageIds});
+  final int chatId;
+  final List<int> messageIds;
+}
+
 /// One comment in a thread.
 final class Comment {
   const Comment({
@@ -826,11 +874,50 @@ final class Comment {
     this.isOutgoing = false,
     this.entities = const [],
     this.media,
+    this.reactions = const [],
+    this.replyTo,
+    this.sendState = CommentSend.sent,
+    this.edited = false,
   });
   final int chatId;
   final int messageId;
   final int threadId;
   final int date;
+
+  /// The comment's reactions, as [Post.reactions].
+  final List<Reaction> reactions;
+
+  /// The comment this one answers; null for one that answers the post itself.
+  final CommentReply? replyTo;
+
+  /// An own comment that is still being sent, or could not be.
+  final CommentSend sendState;
+  final bool edited;
+
+  Comment copyWith({
+    String? text,
+    List<Reaction>? reactions,
+    CommentSend? sendState,
+    bool? edited,
+    int? messageId,
+  }) => Comment(
+    chatId: chatId,
+    messageId: messageId ?? this.messageId,
+    threadId: threadId,
+    date: date,
+    text: text ?? this.text,
+    author: author,
+    authorId: authorId,
+    authorPhoto: authorPhoto,
+    isOutgoing: isOutgoing,
+    // New words come without the old ones' formatting.
+    entities: text == null ? entities : const [],
+    media: media,
+    reactions: reactions ?? this.reactions,
+    replyTo: replyTo,
+    sendState: sendState ?? this.sendState,
+    edited: edited ?? this.edited,
+  );
 
   /// The comment's words, or the caption of what it carries.
   final String text;

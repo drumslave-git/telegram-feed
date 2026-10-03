@@ -896,6 +896,102 @@ abstract class AppLocalizations {
   /// **'Send'**
   String get threadSend;
 
+  /// No description provided for @threadReply.
+  ///
+  /// In en, this message translates to:
+  /// **'Reply'**
+  String get threadReply;
+
+  /// No description provided for @threadCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get threadCopy;
+
+  /// No description provided for @threadEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get threadEdit;
+
+  /// No description provided for @threadEditMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Message'**
+  String get threadEditMessage;
+
+  /// Title of the bar over the comment field while a comment is being answered.
+  ///
+  /// In en, this message translates to:
+  /// **'Reply to {name}'**
+  String threadReplyTo(String name);
+
+  /// Stands for the name in 'Reply to {name}' when the reader answers their own comment.
+  ///
+  /// In en, this message translates to:
+  /// **'yourself'**
+  String get threadYou;
+
+  /// No description provided for @threadDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete message'**
+  String get threadDeleteTitle;
+
+  /// No description provided for @threadDeleteBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this message for everyone?'**
+  String get threadDeleteBody;
+
+  /// No description provided for @threadEditFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not change the comment.'**
+  String get threadEditFailed;
+
+  /// No description provided for @threadDeleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not delete the comment.'**
+  String get threadDeleteFailed;
+
+  /// No description provided for @threadJoinNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Only members of the discussion group can comment here. Join the group in Telegram to write.'**
+  String get threadJoinNeeded;
+
+  /// No description provided for @threadRestricted.
+  ///
+  /// In en, this message translates to:
+  /// **'The admins of this group have restricted your ability to send messages.'**
+  String get threadRestricted;
+
+  /// In place of the comment field while the discussion group's slow mode makes the reader wait; time is minutes:seconds.
+  ///
+  /// In en, this message translates to:
+  /// **'Slow Mode is active. You can send your next message in {time}.'**
+  String threadSlowMode(String time);
+
+  /// No description provided for @threadSending.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending'**
+  String get threadSending;
+
+  /// No description provided for @threadNotSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Not sent'**
+  String get threadNotSent;
+
+  /// No description provided for @threadDeletedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted message'**
+  String get threadDeletedMessage;
+
   /// No description provided for @threadLoadOlder.
   ///
   /// In en, this message translates to:

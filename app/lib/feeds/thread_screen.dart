@@ -3,9 +3,11 @@ import 'dart:math' as math;
 
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../host/haptics.dart';
 import '../l10n/l10n.dart';
 import '../media/media_viewer.dart';
 import '../widgets/error_state.dart';
@@ -14,6 +16,7 @@ import 'formatted_text.dart';
 import 'media_view.dart';
 import 'open_links.dart';
 import 'post_card.dart';
+import 'post_menu.dart';
 import 'sticker_view.dart';
 import 'text_scale.dart';
 
@@ -80,6 +83,23 @@ class _ThreadScreenState extends State<ThreadScreen> {
   String? _error;
   final _comments = <Comment>[]; // oldest first
   StreamSubscription<Comment>? _live;
+  StreamSubscription<CommentsGone>? _gone;
+
+  /// The comment the next one answers, and the own comment whose words are being changed:
+  /// the bar over the field shows which, and its cross lets go of it.
+  Comment? _replyTo;
+  Comment? _editing;
+  final _focus = FocusNode();
+
+  /// Seconds the discussion's slow mode still makes the account wait, counted down.
+  int _slowWait = 0;
+  Timer? _slowTick;
+
+  /// What the discussion lets the account react with, asked once per visit.
+  Future<List<String>>? _allowedReactions;
+
+  /// Reactions set here that Telegram has not confirmed yet, by comment.
+  final _reacting = <int>{};
 
   /// Search inside the thread (H-27): open, the words, what was found (newest first).
   bool _searchOpen = false;
@@ -139,7 +159,10 @@ class _ThreadScreenState extends State<ThreadScreen> {
     if (t == null || upTo <= _reportedUpTo) return;
     final ids = [
       for (final c in _comments)
-        if (c.messageId > _reportedUpTo && c.messageId <= upTo) c.messageId,
+        if (c.messageId > _reportedUpTo &&
+            c.messageId <= upTo &&
+            c.sendState == CommentSend.sent)
+          c.messageId,
     ];
     _reportedUpTo = upTo;
     if (ids.isEmpty) return;
@@ -217,9 +240,29 @@ class _ThreadScreenState extends State<ThreadScreen> {
       }
       _thread = t;
       _reportedUpTo = t.lastReadId;
+      _startSlowMode(t.slowModeWait);
+      _gone = widget.gateway.commentsGone.listen((g) {
+        if (g.chatId != t.chatId) return;
+        final before = _comments.length;
+        setState(() {
+          _comments.removeWhere((c) => g.messageIds.contains(c.messageId));
+          _arrived -= before - _comments.length;
+          if (g.messageIds.contains(_replyTo?.messageId)) _replyTo = null;
+          if (g.messageIds.contains(_editing?.messageId)) {
+            _editing = null;
+            _composer.clear();
+          }
+        });
+      });
       _live = widget.gateway.comments.listen((c) {
         if (c.chatId != t.chatId || c.threadId != t.threadId) return;
-        if (_comments.any((x) => x.messageId == c.messageId)) return;
+        // A comment that is here already has changed: its words, its reactions, or
+        // whether it was sent.
+        final known = _comments.indexWhere((x) => x.messageId == c.messageId);
+        if (known >= 0) {
+          setState(() => _comments[known] = c);
+          return;
+        }
         final atEnd = _nearEnd;
         // The row closest to the newest end: with a comment added below it every row
         // moves up by one, and a reader who is further up is put back where they were.
@@ -330,21 +373,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
       _queryCtl.clear();
       _searchOpen = false;
     });
-    var guard = 0;
-    while (!_comments.any((c) => c.messageId == target.messageId) &&
-        !_exhausted &&
-        guard++ < 20) {
-      await _loadOlder();
-    }
-    if (!mounted) return;
-    final index = _comments.indexWhere((c) => c.messageId == target.messageId);
-    if (index < 0) return;
-    setState(() => _highlight = target.messageId);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scroll.isAttached) return;
-      // The comment itself, a third of the way up the list; the tint says which one.
-      _scroll.jumpTo(index: _rowOf(index), alignment: 0.3);
-    });
+    await _jumpToComment(target.messageId);
   }
 
   /// "N comments", as the official app titles a discussion: what Telegram counted and
@@ -366,22 +395,282 @@ class _ThreadScreenState extends State<ThreadScreen> {
     final t = _thread;
     final text = _composer.text.trim();
     if (t == null || text.isEmpty || _sending) return;
+    final editing = _editing;
+    // Nothing was changed: the edit is simply over.
+    if (editing != null && text == editing.text.trim()) {
+      _letGo();
+      return;
+    }
     setState(() => _sending = true);
     try {
-      await widget.gateway.reply(t, text);
+      if (editing != null) {
+        await widget.gateway.editComment(t, editing.messageId, text);
+      } else {
+        await widget.gateway.reply(
+          t,
+          text,
+          replyToId: _replyTo?.messageId ?? 0,
+        );
+        _startSlowMode(t.slowModeDelay);
+      }
       _composer.clear();
+      if (mounted) {
+        setState(() {
+          _editing = null;
+          _replyTo = null;
+        });
+      }
     } on TelegramException catch (e) {
       if (mounted) {
         showTelegramError(
           ScaffoldMessenger.of(context),
           e,
-          what: context.l10n.threadPostFailed,
+          what: editing != null
+              ? context.l10n.threadEditFailed
+              : context.l10n.threadPostFailed,
         );
       }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
   }
+
+  /// Counts the slow mode's wait down; the field is back when it is over.
+  void _startSlowMode(int seconds) {
+    _slowTick?.cancel();
+    if (seconds <= 0) return;
+    if (mounted) setState(() => _slowWait = seconds);
+    _slowTick = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return timer.cancel();
+      setState(() => _slowWait--);
+      if (_slowWait <= 0) timer.cancel();
+    });
+  }
+
+  /// Leaves the reply or the edit the bar over the field shows.
+  void _letGo() {
+    final wasEditing = _editing != null;
+    setState(() {
+      _replyTo = null;
+      _editing = null;
+    });
+    if (wasEditing) _composer.clear();
+  }
+
+  void _startReply(Comment c) {
+    if (_editing != null) _composer.clear();
+    setState(() {
+      _editing = null;
+      _replyTo = c;
+    });
+    _focus.requestFocus();
+  }
+
+  void _startEdit(Comment c) {
+    setState(() {
+      _replyTo = null;
+      _editing = c;
+    });
+    _composer.value = TextEditingValue(
+      text: c.text,
+      selection: TextSelection.collapsed(offset: c.text.length),
+    );
+    _focus.requestFocus();
+  }
+
+  /// An own comment may be changed for two days, as Telegram allows.
+  bool _canEdit(Comment c) =>
+      c.isOutgoing &&
+      c.sendState == CommentSend.sent &&
+      c.media == null &&
+      DateTime.now().millisecondsSinceEpoch ~/ 1000 - c.date < 48 * 3600;
+
+  /// The menu of a comment, where it was touched: the reactions in their strip, then
+  /// Reply, Copy and, for an own comment, Edit and Delete. A comment that was not sent
+  /// offers to try again or to drop it.
+  Future<void> _menu(Comment c, Offset at) async {
+    final t = _thread;
+    if (t == null) return;
+    final l10n = context.l10n;
+    final sent = c.sendState == CommentSend.sent;
+    final action = await showPostMenu(
+      context,
+      at: at,
+      strip: !sent
+          ? null
+          : (close) => ReactionStrip(
+              load: () => _allowedReactions ??= widget.gateway
+                  .availableReactions(c.chatId, c.messageId),
+              gateway: widget.gateway,
+              chosen: {
+                for (final r in c.reactions)
+                  if (r.chosen) r.emoji,
+              },
+              onPick: (emoji, remove) =>
+                  close(() => unawaited(_react(c, emoji, remove))),
+            ),
+      entries: [
+        if (c.sendState == CommentSend.failed)
+          PostMenuEntry(
+            icon: Icons.refresh,
+            label: l10n.commonRetry,
+            onSelected: () => unawaited(_retry(c)),
+          ),
+        if (sent && t.write == ThreadWrite.allowed)
+          PostMenuEntry(
+            icon: Icons.reply,
+            label: l10n.threadReply,
+            onSelected: () => _startReply(c),
+          ),
+        if (c.text.isNotEmpty)
+          PostMenuEntry(
+            icon: Icons.content_copy,
+            label: l10n.threadCopy,
+            onSelected: () => unawaited(_copy(c)),
+          ),
+        if (_canEdit(c) && t.write == ThreadWrite.allowed)
+          PostMenuEntry(
+            icon: Icons.edit_outlined,
+            label: l10n.threadEdit,
+            onSelected: () => _startEdit(c),
+          ),
+        if (c.isOutgoing)
+          PostMenuEntry(
+            icon: Icons.delete_outline,
+            label: l10n.commonDelete,
+            onSelected: () => unawaited(_delete(c)),
+            destructive: true,
+          ),
+      ],
+    );
+    action?.call();
+  }
+
+  Future<void> _copy(Comment c) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    await Clipboard.setData(ClipboardData(text: c.text));
+    messenger.showSnackBar(SnackBar(content: Text(l10n.timelineTextCopied)));
+  }
+
+  /// Sets or takes back a reaction on a comment. The pill changes at once; what Telegram
+  /// then says about the comment replaces it.
+  Future<void> _react(Comment c, String emoji, bool remove) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    if (_reacting.contains(c.messageId)) return;
+    final at = _comments.indexWhere((x) => x.messageId == c.messageId);
+    if (at < 0) return;
+    Haptics.reaction();
+    _reacting.add(c.messageId);
+    final before = _comments[at];
+    final own = before.reactions.where((r) => r.emoji == emoji).firstOrNull;
+    setState(() {
+      _comments[at] = before.copyWith(
+        reactions: [
+          for (final r in before.reactions)
+            if (r.emoji != emoji)
+              r
+            else if (!remove)
+              Reaction(
+                emoji: emoji,
+                count: r.count + (r.chosen ? 0 : 1),
+                chosen: true,
+              )
+            else if (r.count > 1)
+              Reaction(emoji: emoji, count: r.count - 1),
+          if (!remove && own == null)
+            Reaction(emoji: emoji, count: 1, chosen: true),
+        ],
+      );
+    });
+    try {
+      await widget.gateway.react(c.chatId, c.messageId, emoji, remove: remove);
+    } on TelegramException catch (e) {
+      if (mounted) {
+        final now = _comments.indexWhere((x) => x.messageId == c.messageId);
+        if (now >= 0) setState(() => _comments[now] = before);
+      }
+      showTelegramError(messenger, e, what: l10n.timelineReactionFailed);
+    } finally {
+      _reacting.remove(c.messageId);
+    }
+  }
+
+  Future<void> _retry(Comment c) async {
+    final t = _thread;
+    if (t == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    try {
+      await widget.gateway.retryComment(t, c.messageId);
+    } on TelegramException catch (e) {
+      showTelegramError(messenger, e, what: l10n.threadPostFailed);
+    }
+  }
+
+  /// Deletes an own comment for everyone, once the reader has said so; one that was never
+  /// sent goes without a question.
+  Future<void> _delete(Comment c) async {
+    final t = _thread;
+    if (t == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    if (c.sendState == CommentSend.sent) {
+      final sure = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(l10n.threadDeleteTitle),
+          content: Text(l10n.threadDeleteBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.commonCancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(
+                l10n.commonDelete,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (sure != true) return;
+    }
+    try {
+      await widget.gateway.deleteComments(t, [c.messageId]);
+    } on TelegramException catch (e) {
+      showTelegramError(messenger, e, what: l10n.threadDeleteFailed);
+    }
+  }
+
+  /// Shows the comment [messageId] among the others, loading older ones until it is
+  /// there, and tints it for a moment.
+  Future<void> _jumpToComment(int messageId) async {
+    var guard = 0;
+    while (!_comments.any((c) => c.messageId == messageId) &&
+        !_exhausted &&
+        guard++ < 20) {
+      await _loadOlder();
+    }
+    if (!mounted) return;
+    final index = _comments.indexWhere((c) => c.messageId == messageId);
+    if (index < 0) return;
+    setState(() => _highlight = messageId);
+    _highlightEnd?.cancel();
+    _highlightEnd = Timer(const Duration(seconds: 1), () {
+      if (mounted) setState(() => _highlight = null);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.isAttached) return;
+      // The comment itself, a third of the way up the list; the tint says which one.
+      _scroll.jumpTo(index: _rowOf(index), alignment: 0.3);
+    });
+  }
+
+  Timer? _highlightEnd;
 
   Future<void> _openLink(String url) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -424,6 +713,10 @@ class _ThreadScreenState extends State<ThreadScreen> {
     _debounce?.cancel();
     _queryCtl.dispose();
     _live?.cancel();
+    _gone?.cancel();
+    _slowTick?.cancel();
+    _highlightEnd?.cancel();
+    _focus.dispose();
     _positions.itemPositions.removeListener(_onPositions);
     // What was seen in the last moment is told before the thread closes.
     _readDebounce?.cancel();
@@ -569,6 +862,16 @@ class _ThreadScreenState extends State<ThreadScreen> {
                                 comment: comment,
                                 gateway: widget.gateway,
                                 onOpenLink: _openLink,
+                                onMenu: (at) => unawaited(_menu(comment, at)),
+                                onReact: (emoji, remove) =>
+                                    unawaited(_react(comment, emoji, remove)),
+                                onOpenReply: comment.replyTo == null
+                                    ? null
+                                    : () => unawaited(
+                                        _jumpToComment(
+                                          comment.replyTo!.messageId,
+                                        ),
+                                      ),
                               ),
                             );
                             if (comment.messageId != _firstUnread) {
@@ -584,40 +887,150 @@ class _ThreadScreenState extends State<ThreadScreen> {
                           },
                         ),
                 ),
-                if (_thread != null)
-                  Material(
-                    color: Theme.of(context).colorScheme.surface,
-                    child: SafeArea(
-                      top: false,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _composer,
-                                minLines: 1,
-                                maxLines: 4,
-                                decoration: InputDecoration(
-                                  hintText: l10n.threadWriteComment,
-                                  isDense: true,
-                                ),
-                                onSubmitted: (_) => _send(),
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: l10n.threadSend,
-                              icon: const Icon(Icons.send),
-                              onPressed: _sending ? null : _send,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                if (_thread != null) _writing(context, _thread!),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  /// What is under the comments: the field with its Send button, under the bar of the
+  /// comment being answered or changed; or, where the account cannot write now, the
+  /// reason in the field's place, as the official app says it there.
+  Widget _writing(BuildContext context, Thread t) {
+    final l10n = context.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    final editing = _editing;
+    // An own comment can still be changed while the slow mode makes new ones wait.
+    final notice = switch (t.write) {
+      ThreadWrite.joinNeeded => l10n.threadJoinNeeded,
+      ThreadWrite.restricted => l10n.threadRestricted,
+      ThreadWrite.allowed =>
+        _slowWait > 0 && editing == null
+            ? l10n.threadSlowMode(
+                '${_slowWait ~/ 60}:${(_slowWait % 60).toString().padLeft(2, '0')}',
+              )
+            : null,
+    };
+    if (notice != null) {
+      return Material(
+        color: scheme.surface,
+        child: SafeArea(
+          top: false,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Text(
+                  notice,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: scheme.onSurfaceVariant),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    final held = editing ?? _replyTo;
+    return Material(
+      color: scheme.surface,
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // The keys keep the field what it is when the bar comes and goes: built anew
+            // it would keep the focus and lose the keyboard.
+            if (held != null)
+              Padding(
+                key: const ValueKey('held'),
+                padding: const EdgeInsets.fromLTRB(12, 6, 0, 0),
+                child: Row(
+                  children: [
+                    Icon(
+                      editing != null ? Icons.edit_outlined : Icons.reply,
+                      color: scheme.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            editing != null
+                                ? l10n.threadEditMessage
+                                : l10n.threadReplyTo(
+                                    held.isOutgoing
+                                        ? l10n.threadYou
+                                        : held.author,
+                                  ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: scheme.primary,
+                            ),
+                          ),
+                          Text(
+                            held.text.isEmpty
+                                ? l10n.mediaPreview(held.media, channel: '')
+                                : held.text.replaceAll('\n', ' '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: l10n.commonCancel,
+                      icon: const Icon(Icons.close),
+                      onPressed: _letGo,
+                    ),
+                  ],
+                ),
+              ),
+            Padding(
+              key: const ValueKey('field'),
+              padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _composer,
+                      focusNode: _focus,
+                      minLines: 1,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        hintText: l10n.threadWriteComment,
+                        isDense: true,
+                      ),
+                      onSubmitted: (_) => _send(),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: editing != null
+                        ? l10n.commonSave
+                        : l10n.threadSend,
+                    icon: Icon(editing != null ? Icons.check : Icons.send),
+                    onPressed: _sending ? null : _send,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -671,17 +1084,31 @@ class _ThreadScreenState extends State<ThreadScreen> {
 }
 
 /// One comment: a bubble with the coloured name, the author's photo at the right end of
-/// that line, the text and the time. Own comments sit on the right without name and photo.
+/// that line, the comment it answers, the text, its reactions and the time. Own comments
+/// sit on the right without name and photo, and say while they are on their way or that
+/// they were not sent.
 class CommentBubble extends StatelessWidget {
   const CommentBubble({
     super.key,
     required this.comment,
     required this.gateway,
     this.onOpenLink,
+    this.onMenu,
+    this.onReact,
+    this.onOpenReply,
   });
   final Comment comment;
   final TelegramGateway gateway;
   final void Function(String url)? onOpenLink;
+
+  /// Opens the comment's menu where it was touched.
+  final void Function(Offset at)? onMenu;
+
+  /// A tap on a reaction pill: sets it, or takes back an own one.
+  final void Function(String emoji, bool remove)? onReact;
+
+  /// A tap on the quote of the answered comment: goes to that comment.
+  final VoidCallback? onOpenReply;
 
   @override
   Widget build(BuildContext context) {
@@ -692,14 +1119,62 @@ class CommentBubble extends StatelessWidget {
     final media = c.media;
     final viewable =
         media != null && MediaViewerScreen.viewable([media]).isNotEmpty;
-    final time = Text(
-      formatTime(DateTime.fromMillisecondsSinceEpoch(c.date * 1000), context),
-      style: TextStyle(
-        fontSize: 12,
-        height: 1.2,
-        color: scheme.onSurfaceVariant,
-      ),
+    final l10n = context.l10n;
+    final clock = formatTime(
+      DateTime.fromMillisecondsSinceEpoch(c.date * 1000),
+      context,
     );
+    final time = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          c.edited ? '${l10n.postEdited} $clock' : clock,
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.2,
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+        // On its way, or not sent: a clock, or the red mark the official app draws.
+        if (c.sendState == CommentSend.sending)
+          Padding(
+            padding: const EdgeInsets.only(left: 3),
+            child: Icon(
+              Icons.schedule,
+              size: 13,
+              color: scheme.onSurfaceVariant,
+              semanticLabel: l10n.threadSending,
+            ),
+          )
+        else if (c.sendState == CommentSend.failed)
+          Padding(
+            padding: const EdgeInsets.only(left: 3),
+            child: Icon(
+              Icons.error,
+              size: 14,
+              color: scheme.error,
+              semanticLabel: l10n.threadNotSent,
+            ),
+          ),
+      ],
+    );
+    final reply = c.replyTo;
+    final pills = c.reactions.isEmpty
+        ? null
+        : Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              for (final r in c.reactions)
+                ReactionPill(
+                  reaction: r,
+                  gateway: gateway,
+                  onTap: onReact == null
+                      ? null
+                      : () => onReact!(r.emoji, r.chosen),
+                ),
+            ],
+          );
     final bubble = Material(
       color: own ? colors.ownBubble : colors.bubble,
       elevation: 0.5,
@@ -711,66 +1186,76 @@ class CommentBubble extends StatelessWidget {
           bottomRight: Radius.circular(own ? 4 : 14),
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
-        // Words make the bubble as wide as they are. A picture, a player or a file row
-        // cannot say how wide it wants to be, so such a bubble has a width of its own.
-        child: _BubbleWidth(
-          width: media == null
-              ? null
-              : media is StickerMedia
-              ? 180
-              : 280,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!own)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 3),
-                  child: BubbleTitle(
-                    name: c.author,
-                    colorId: c.authorId,
-                    photo: c.authorPhoto,
-                    gateway: gateway,
+      clipBehavior: Clip.antiAlias,
+      // A tap opens the comment's menu where it landed, as a post's does.
+      child: BubbleTaps(
+        onMenu: onMenu,
+        onDoubleTap: null,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+          // Words make the bubble as wide as they are. A picture, a player or a file row
+          // cannot say how wide it wants to be, so such a bubble has a width of its own.
+          child: _BubbleWidth(
+            width: media == null
+                ? null
+                : media is StickerMedia
+                ? 180
+                : 280,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!own)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 3),
+                    child: BubbleTitle(
+                      name: c.author,
+                      colorId: c.authorId,
+                      photo: c.authorPhoto,
+                      gateway: gateway,
+                    ),
                   ),
-                ),
-              if (media != null)
-                Padding(
-                  padding: EdgeInsets.only(bottom: c.text.isEmpty ? 2 : 6),
-                  child: media is StickerMedia
-                      ? Align(
-                          alignment: Alignment.centerLeft,
-                          child: StickerView(
-                            sticker: media,
-                            gateway: gateway,
-                            side: 140,
+                if (reply != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: _AnsweredComment(reply: reply, onTap: onOpenReply),
+                  ),
+                if (media != null)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: c.text.isEmpty ? 2 : 6),
+                    child: media is StickerMedia
+                        ? Align(
+                            alignment: Alignment.centerLeft,
+                            child: StickerView(
+                              sticker: media,
+                              gateway: gateway,
+                              side: 140,
+                            ),
+                          )
+                        : ConstrainedBox(
+                            // A tall picture is cut to this height.
+                            constraints: const BoxConstraints(maxHeight: 320),
+                            child: MediaView(
+                              media: media,
+                              gateway: gateway,
+                              onOpen: viewable
+                                  ? () => unawaited(
+                                      MediaViewerScreen.open(
+                                        context,
+                                        items: [media],
+                                        gateway: gateway,
+                                      ),
+                                    )
+                                  : null,
+                            ),
                           ),
-                        )
-                      : ConstrainedBox(
-                          // A tall picture is cut to this height.
-                          constraints: const BoxConstraints(maxHeight: 320),
-                          child: MediaView(
-                            media: media,
-                            gateway: gateway,
-                            onOpen: viewable
-                                ? () => unawaited(
-                                    MediaViewerScreen.open(
-                                      context,
-                                      items: [media],
-                                      gateway: gateway,
-                                    ),
-                                  )
-                                : null,
-                          ),
-                        ),
-                ),
-              // A comment that is only a picture has its time under it.
-              if (c.text.isEmpty && media != null)
-                Align(alignment: Alignment.centerRight, child: time)
-              else
-                BubbleText(
-                  text: FormattedText(
+                  ),
+                // A comment that is only a picture has its time under it.
+                if (c.text.isEmpty && media != null)
+                  Align(alignment: Alignment.centerRight, child: time)
+                else if (pills != null) ...[
+                  // With reactions the time goes under them, at their end.
+                  FormattedText(
                     text: c.text,
                     entities: c.entities,
                     onOpenLink: onOpenLink,
@@ -781,9 +1266,36 @@ class CommentBubble extends StatelessWidget {
                       color: scheme.onSurface,
                     ),
                   ),
-                  footer: time,
-                ),
-            ],
+                  Padding(
+                    padding: const EdgeInsets.only(top: 5),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(child: pills),
+                        const SizedBox(width: 8),
+                        time,
+                      ],
+                    ),
+                  ),
+                ] else
+                  BubbleText(
+                    text: FormattedText(
+                      text: c.text,
+                      entities: c.entities,
+                      onOpenLink: onOpenLink,
+                      gateway: gateway,
+                      style: TextStyle(
+                        fontSize: 16,
+                        height: 1.3,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    footer: time,
+                  ),
+                if (pills != null && c.text.isEmpty && media != null)
+                  Padding(padding: const EdgeInsets.only(top: 5), child: pills),
+              ],
+            ),
           ),
         ),
       ),
@@ -808,4 +1320,60 @@ class _BubbleWidth extends StatelessWidget {
   Widget build(BuildContext context) => width == null
       ? IntrinsicWidth(child: child)
       : SizedBox(width: width, child: child);
+}
+
+/// The comment a comment answers, over its words: a tinted block with a bar on its left,
+/// the author's name and the beginning of what they wrote. A tap goes to that comment.
+class _AnsweredComment extends StatelessWidget {
+  const _AnsweredComment({required this.reply, required this.onTap});
+  final CommentReply reply;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
+    final accent = scheme.primary;
+    // A comment that was deleted since has nothing left to show.
+    final gone = reply.author.isEmpty && reply.text.isEmpty;
+    return Material(
+      color: accent.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(6),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: gone ? null : onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(left: BorderSide(color: accent, width: 3)),
+          ),
+          padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!gone)
+                Text(
+                  reply.author,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: accent,
+                  ),
+                ),
+              Text(
+                gone
+                    ? l10n.threadDeletedMessage
+                    : reply.text.replaceAll('\n', ' '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

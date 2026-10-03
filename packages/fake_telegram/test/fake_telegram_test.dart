@@ -150,6 +150,49 @@ void main() {
     expect(await tg.threadHistory(thread), hasLength(3));
   });
 
+  test('a comment is answered, reacted to, changed and deleted', () async {
+    final thread = (await tg.discussion(FakeChats.harbourTimes, 11))!;
+    expect(thread.write, ThreadWrite.allowed);
+    final mara = (await tg.threadHistory(thread)).first;
+    expect(mara.replyTo!.author, 'Tomas');
+    expect(mara.reactions.single.count, 2);
+
+    await tg.reply(thread, 'Mine too.', replyToId: mara.messageId);
+    final mine = (await tg.threadHistory(thread)).first;
+    expect(mine.replyTo!.messageId, mara.messageId);
+    expect(mine.replyTo!.author, 'Mara');
+
+    var changed = tg.comments.first;
+    await tg.react(thread.chatId, mara.messageId, '👍');
+    expect((await changed).reactions.single.count, 3);
+    expect((await changed).reactions.single.chosen, isTrue);
+
+    changed = tg.comments.first;
+    await tg.editComment(thread, mine.messageId, 'Mine as well.');
+    expect((await changed).text, 'Mine as well.');
+    expect((await changed).edited, isTrue);
+
+    final gone = tg.commentsGone.first;
+    await tg.deleteComments(thread, [mine.messageId]);
+    expect((await gone).messageIds, [mine.messageId]);
+    expect(await tg.threadHistory(thread), hasLength(2));
+  });
+
+  test('a comment without signal fails and goes out on a retry', () async {
+    final thread = (await tg.discussion(FakeChats.harbourTimes, 11))!;
+    await tg.reply(thread, 'No signal here');
+    final failed = (await tg.threadHistory(thread)).first;
+    expect(failed.sendState, CommentSend.failed);
+    final sent = tg.comments.first;
+    await tg.retryComment(thread, failed.messageId);
+    expect((await sent).sendState, CommentSend.sent);
+  });
+
+  test('the discussion under the album is for its members only', () async {
+    final thread = (await tg.discussion(FakeChats.harbourTimes, 2))!;
+    expect(thread.write, ThreadWrite.joinNeeded);
+  });
+
   test('a post arrives on the wire', () async {
     final added = tg.postEvents.first;
     tg.arriveOnWire();

@@ -162,7 +162,10 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 ### Interactions
 
 - I react to a post with the reactions the channel allows, its custom emoji among them. The paid reaction (Telegram Stars) is shown with its count; the app does not send it.
-- I open the comments of a post and reply, when the channel has a discussion group. A comment shows its photo, video, sticker, voice message or file.
+- I open the comments of a post and reply, when the channel has a discussion group. A comment shows its photo, video, sticker, voice message or file, the comment it answers as a quote that a tap goes to, and its reactions.
+- A tap on a comment opens its menu, with the reactions in a strip above it: Reply, Copy, and for a comment of my own Edit (for two days) and Delete (for everyone, after a question). Reply and Edit put the comment in a bar over the field until I send or let go of it. A tap on a reaction under a comment sets it or takes mine back.
+- A comment of mine shows a clock while it is being sent and a red mark when it was not sent; its menu then offers Retry and Delete.
+- Where I cannot write, the reason stands in place of the field: the discussion group lets only its members comment, its admins restricted me, or its slow mode makes me wait, with the time left counting down.
 - The comments are titled with their number ("12 comments"). They open at the first comment that came since I last read them, under an "Unread comments" divider, or at the newest comment when there is nothing new or I never opened them. Comments I have seen are read for Telegram too, so the dot on the comments bar goes. Older comments load as I scroll up, down to the post itself.
 - I share a post or copy its link.
 - A channel that protects its content keeps it: its posts offer no Copy text, Share, Save to Saved Messages or Save to gallery, the menu says that copying and forwarding is not allowed, and no screenshot can be taken of a timeline or a viewer that shows them. The link to such a post can still be copied.
@@ -183,14 +186,14 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 4. **Timeline** of a feed or a channel: posts drawn like the official app, with full-width bubbles (coloured channel name and the channel's photo at the right end of that line, albums as a mosaic, formatted text, views and time in the corner, reactions, comments bar, link cards, day labels, the floating day), minimized posts as one-line bubbles, the "Unread posts" divider, and the button to the newest posts with the number of unread posts. A tap opens the post menu as a popup where I touched, with the reactions in a strip above it: Comments, Copy text, Copy link, Share, Save to Saved Messages, Save to gallery, Save to downloads or Save to music by what the post carries, Report, Minimize on an opened minimized post, on video posts the autoplay and download settings, Delete in Saved Messages, and Open in Telegram at the end. A long press selects.
 5. **Search** in a feed, a channel or all channels: results with channel, text and date, filter chips and recent queries; in a feed or a channel also a calendar.
 6. **Channel info**, opened from the channel's title: photo (a tap opens it full screen), name, subscribers, description, link, QR code, similar channels (a tap opens one in the official app), and the shared media tabs. No mute and no leave.
-7. **Comments** of a post: the post on top, comments as bubbles, a reply field and a search.
+7. **Comments** of a post: the post on top, comments as bubbles with reply quotes and reactions, a menu on each comment, a field for a comment, an answer or an edit, and a search.
 8. **Media viewer**: photos and videos full screen, with the mini player and picture-in-picture.
 9. **Rules list**, every rule under the name of its feed, and **rule editor** (name and an on/off switch; feed and channels; the condition as a visual builder that starts with an "Add a term" button, or as text with its own syntax sheet; the dry run; priority, read-aloud and schedule; an AI description behind an "Also ask the AI" switch). What is missing is marked on the field it belongs to, and leaving with unsaved changes asks first.
 10. **Settings**, laid out like the official app's: the account profile (photo, name, username, phone, bio, Telegram ID), Accounts, Saved Messages; Chat settings (post text size, theme); Privacy and security (app lock); Notifications and sounds (rule sounds and vibration, badge counting, background watching, a row that opens Android's notification settings); Data and storage (storage usage and cache clearing, which asks first, automatic downloads per connection, autoplay); Language (System, English, Українська); Read aloud; AI rules; Google Drive sync; About and licenses, with the version at the bottom. Log out is in the menu.
 
 ## 5. Out of scope
 
-- Sending messages in private chats or groups. Comments, reactions, saving to Saved Messages, deleting there and reporting a post are the only writes.
+- Sending messages in private chats or groups. Comments (with edits and deletions of my own), reactions, saving to Saved Messages, deleting there and reporting a post are the only writes.
 - Stories, calls, secret chats, Telegram Premium features.
 - Joining or leaving channels, adding channels the account has not joined, editing Telegram's chat folders, muting a channel (rules take that place).
 - Server-side session storage. The app never uploads the Telegram session.

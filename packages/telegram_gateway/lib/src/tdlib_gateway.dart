@@ -62,6 +62,7 @@ final class TdlibGateway implements TelegramGateway {
   final _memberCtl = StreamController<ChannelMembershipEvent>.broadcast();
   final _fileCtl = StreamController<FileProgress>.broadcast();
   final _commentCtl = StreamController<Comment>.broadcast();
+  final _goneCtl = StreamController<CommentsGone>.broadcast();
   final _readCtl = StreamController<ReadState>.broadcast();
   List<td.ChatFolderInfo> _folders = const [];
   final _supergroups = <int, td.Supergroup>{};
@@ -111,17 +112,52 @@ final class TdlibGateway implements TelegramGateway {
       case td.UpdateNewMessage(:final message):
         if (message == null) return;
         if (_openThreads.contains((message.chatId, map.threadIdOf(message)))) {
-          _commentCtl.add(map.comment(message, await _sender(message)));
+          _commentCtl.add(await _comment(message));
         } else if (_isChannelChat(message.chatId) ||
             // Saved Messages too, once Telegram has the post: one still being sent
             // changes its id when it arrives.
             (message.chatId == _myId && message.sendingState == null)) {
           _postCtl.add(PostAdded(await _post(message)));
         }
-      case td.UpdateMessageSendSucceeded(:final message):
+      case td.UpdateMessageSendSucceeded(:final message, :final oldMessageId):
         // A post saved to Saved Messages has arrived there: its timeline shows it.
         if (message != null && message.chatId == _myId) {
           _postCtl.add(PostAdded(await _post(message)));
+        }
+        // An own comment has its real id now: the temporary one goes.
+        if (message != null && _inOpenThread(message)) {
+          _goneCtl.add(
+            CommentsGone(chatId: message.chatId, messageIds: [oldMessageId]),
+          );
+          _commentCtl.add(await _comment(message));
+        }
+      case td.UpdateMessageSendFailed(:final message, :final oldMessageId):
+        if (message != null && _inOpenThread(message)) {
+          if (oldMessageId != message.id) {
+            _goneCtl.add(
+              CommentsGone(chatId: message.chatId, messageIds: [oldMessageId]),
+            );
+          }
+          _commentCtl.add(await _comment(message));
+        }
+      case td.UpdateMessageContent(:final chatId, :final messageId)
+          when _threadChat(chatId):
+        await _emitComment(chatId, messageId);
+      case td.UpdateMessageEdited(:final chatId, :final messageId)
+          when _threadChat(chatId):
+        await _emitComment(chatId, messageId);
+      case td.UpdateMessageInteractionInfo(:final chatId, :final messageId)
+          when _threadChat(chatId):
+        await _emitComment(chatId, messageId);
+      case td.UpdateDeleteMessages(
+            :final chatId,
+            :final messageIds,
+            :final isPermanent,
+            :final fromCache,
+          )
+          when _threadChat(chatId):
+        if (isPermanent && !fromCache) {
+          _goneCtl.add(CommentsGone(chatId: chatId, messageIds: messageIds));
         }
       case td.UpdateMessageContent(:final chatId, :final messageId):
         if (_isChannelChat(chatId)) await _emitEdited(chatId, messageId);
@@ -735,6 +771,7 @@ final class TdlibGateway implements TelegramGateway {
       final info = await _client.call(
         td.GetMessageThread(chatId: chatId, messageId: messageId),
       );
+      final (write, wait, delay) = await _threadWrite(info.chatId);
       final t = Thread(
         chatId: info.chatId,
         threadId: info.messageThreadId,
@@ -743,6 +780,9 @@ final class TdlibGateway implements TelegramGateway {
         replyCount: info.replyInfo?.replyCount ?? 0,
         lastReadId: info.replyInfo?.lastReadInboxMessageId ?? 0,
         unreadCount: info.unreadMessageCount,
+        write: write,
+        slowModeWait: wait,
+        slowModeDelay: delay,
       );
       _openThreads.add((t.chatId, t.threadId));
       return t;
@@ -784,26 +824,165 @@ final class TdlibGateway implements TelegramGateway {
     final out = <Comment>[];
     for (final m in r.messages) {
       if (m.id == thread.threadId) continue; // the forwarded post itself
-      out.add(map.comment(m, await _sender(m)));
+      out.add(await _comment(m));
     }
     return out;
   }
 
+  /// A discussion group one of whose threads is open.
+  bool _threadChat(int chatId) => _openThreads.any((t) => t.$1 == chatId);
+
+  bool _inOpenThread(td.Message m) =>
+      _openThreads.contains((m.chatId, map.threadIdOf(m)));
+
+  /// A comment changed (its words, its reactions): the open thread hears of it.
+  Future<void> _emitComment(int chatId, int messageId) async {
+    try {
+      final m = await _client.call(
+        td.GetMessage(chatId: chatId, messageId: messageId),
+      );
+      if (_inOpenThread(m)) _commentCtl.add(await _comment(m));
+    } on TelegramException {
+      // Deleted meanwhile: the deletion says so itself.
+    }
+  }
+
+  /// A comment with its author and, when it answers another comment, with that one's
+  /// author and first words (looked up once and kept).
+  Future<Comment> _comment(td.Message m) async {
+    CommentReply? reply;
+    final to = m.replyTo;
+    if (to is td.MessageReplyToMessage &&
+        to.messageId != 0 &&
+        to.messageId != map.threadIdOf(m) &&
+        (to.chatId == 0 || to.chatId == m.chatId)) {
+      final key = '${m.chatId}/${to.messageId}';
+      reply = _commentReplies[key];
+      if (reply == null) {
+        try {
+          final answered = await _client.call(
+            td.GetMessage(chatId: m.chatId, messageId: to.messageId),
+          );
+          reply = CommentReply(
+            messageId: to.messageId,
+            author: (await _sender(answered)).name,
+            text: to.quote?.text?.text ?? map.preview(answered.content),
+          );
+        } on TelegramException {
+          reply = CommentReply(
+            messageId: to.messageId,
+          ); // gone, or out of reach
+        }
+        if (_commentReplies.length > 500) _commentReplies.clear();
+        _commentReplies[key] = reply;
+      }
+    }
+    return map.comment(m, await _sender(m), replyTo: reply);
+  }
+
+  final _commentReplies = <String, CommentReply>{};
+
   @override
-  Future<void> reply(Thread thread, String text) => _client.call(
-    td.SendMessage(
+  Stream<CommentsGone> get commentsGone => _goneCtl.stream;
+
+  @override
+  Future<void> editComment(Thread thread, int messageId, String text) =>
+      _client.call(
+        td.EditMessageText(
+          chatId: thread.chatId,
+          messageId: messageId,
+          inputMessageContent: td.InputMessageText(
+            text: td.FormattedText(text: text, entities: const []),
+            clearDraft: false,
+          ),
+        ),
+      );
+
+  @override
+  Future<void> deleteComments(Thread thread, List<int> messageIds) =>
+      _client.call(
+        td.DeleteMessages(
+          chatId: thread.chatId,
+          messageIds: messageIds,
+          revoke: true,
+        ),
+      );
+
+  @override
+  Future<void> retryComment(Thread thread, int messageId) => _client.call(
+    td.ResendMessages(
       chatId: thread.chatId,
-      replyTo: td.InputMessageReplyToMessage(
-        messageId: thread.threadId,
-        checklistTaskId: 0,
-        pollOptionId: '',
-      ),
-      inputMessageContent: td.InputMessageText(
-        text: td.FormattedText(text: text, entities: const []),
-        clearDraft: true,
-      ),
+      messageIds: [messageId],
+      paidMessageStarCount: 0,
     ),
   );
+
+  /// Whether the account may comment in the discussion group [chatId], and how long its
+  /// slow mode still makes it wait.
+  Future<(ThreadWrite, int, int)> _threadWrite(int chatId) async {
+    try {
+      final chat = await _client.call(td.GetChat(chatId: chatId));
+      final type = chat.type;
+      if (type is! td.ChatTypeSupergroup) return (ThreadWrite.allowed, 0, 0);
+      final group = await _client.call(
+        td.GetSupergroup(supergroupId: type.supergroupId),
+      );
+      final status = group.status;
+      final write = switch (status) {
+        td.ChatMemberStatusBanned() => ThreadWrite.restricted,
+        td.ChatMemberStatusRestricted(:final permissions) =>
+          (permissions?.canSendBasicMessages ?? false)
+              ? ThreadWrite.allowed
+              : ThreadWrite.restricted,
+        td.ChatMemberStatusLeft() =>
+          group.joinToSendMessages
+              ? ThreadWrite.joinNeeded
+              : (chat.permissions?.canSendBasicMessages ?? true)
+              ? ThreadWrite.allowed
+              : ThreadWrite.restricted,
+        td.ChatMemberStatusCreator() ||
+        td.ChatMemberStatusAdministrator() => ThreadWrite.allowed,
+        _ =>
+          (chat.permissions?.canSendBasicMessages ?? true)
+              ? ThreadWrite.allowed
+              : ThreadWrite.restricted,
+      };
+      var wait = 0;
+      var delay = 0;
+      // Slow mode is for members; the group's admins write as they like.
+      final exempt =
+          status is td.ChatMemberStatusCreator ||
+          status is td.ChatMemberStatusAdministrator;
+      if (write == ThreadWrite.allowed && group.isSlowModeEnabled && !exempt) {
+        final full = await _client.call(
+          td.GetSupergroupFullInfo(supergroupId: type.supergroupId),
+        );
+        wait = full.slowModeDelayExpiresIn.ceil();
+        delay = full.slowModeDelay;
+      }
+      return (write, wait, delay);
+    } on TelegramException {
+      // Unknown: the field is there, and Telegram says no when it has to.
+      return (ThreadWrite.allowed, 0, 0);
+    }
+  }
+
+  @override
+  Future<void> reply(Thread thread, String text, {int replyToId = 0}) =>
+      _client.call(
+        td.SendMessage(
+          chatId: thread.chatId,
+          replyTo: td.InputMessageReplyToMessage(
+            messageId: replyToId != 0 ? replyToId : thread.threadId,
+            checklistTaskId: 0,
+            pollOptionId: '',
+          ),
+          inputMessageContent: td.InputMessageText(
+            text: td.FormattedText(text: text, entities: const []),
+            clearDraft: true,
+          ),
+        ),
+      );
 
   @override
   Stream<Comment> get comments => _commentCtl.stream;
@@ -920,7 +1099,7 @@ final class TdlibGateway implements TelegramGateway {
     final out = <Comment>[];
     for (final m in r.messages) {
       if (m.id == thread.threadId) continue; // the forwarded post itself
-      out.add(map.comment(m, await _sender(m)));
+      out.add(await _comment(m));
     }
     return out;
   }
@@ -1234,6 +1413,7 @@ final class TdlibGateway implements TelegramGateway {
     await _memberCtl.close();
     await _fileCtl.close();
     await _commentCtl.close();
+    await _goneCtl.close();
     await _connectionCtl.close();
     await _readCtl.close();
   }

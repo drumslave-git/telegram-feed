@@ -193,7 +193,15 @@ class ChannelsGateway implements TelegramGateway {
     int limit = 30,
   }) async => const [];
   @override
-  Future<void> reply(Thread thread, String text) async {}
+  Future<void> reply(Thread thread, String text, {int replyToId = 0}) async {}
+  @override
+  Stream<CommentsGone> get commentsGone => const Stream.empty();
+  @override
+  Future<void> editComment(Thread thread, int messageId, String text) async {}
+  @override
+  Future<void> deleteComments(Thread thread, List<int> messageIds) async {}
+  @override
+  Future<void> retryComment(Thread thread, int messageId) async {}
   @override
   Stream<Comment> get comments => const Stream.empty();
   @override

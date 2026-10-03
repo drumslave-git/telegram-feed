@@ -505,6 +505,61 @@ class AppLocalizationsEn extends AppLocalizations {
   String get threadSend => 'Send';
 
   @override
+  String get threadReply => 'Reply';
+
+  @override
+  String get threadCopy => 'Copy';
+
+  @override
+  String get threadEdit => 'Edit';
+
+  @override
+  String get threadEditMessage => 'Edit Message';
+
+  @override
+  String threadReplyTo(String name) {
+    return 'Reply to $name';
+  }
+
+  @override
+  String get threadYou => 'yourself';
+
+  @override
+  String get threadDeleteTitle => 'Delete message';
+
+  @override
+  String get threadDeleteBody =>
+      'Are you sure you want to delete this message for everyone?';
+
+  @override
+  String get threadEditFailed => 'Could not change the comment.';
+
+  @override
+  String get threadDeleteFailed => 'Could not delete the comment.';
+
+  @override
+  String get threadJoinNeeded =>
+      'Only members of the discussion group can comment here. Join the group in Telegram to write.';
+
+  @override
+  String get threadRestricted =>
+      'The admins of this group have restricted your ability to send messages.';
+
+  @override
+  String threadSlowMode(String time) {
+    return 'Slow Mode is active. You can send your next message in $time.';
+  }
+
+  @override
+  String get threadSending => 'Sending';
+
+  @override
+  String get threadNotSent => 'Not sent';
+
+  @override
+  String get threadDeletedMessage => 'Deleted message';
+
+  @override
   String get threadLoadOlder => 'Load older comments';
 
   @override

@@ -30,6 +30,7 @@ final class CoreClient implements TelegramGateway {
   final _fileCtl = StreamController<FileProgress>.broadcast();
   final _matchCtl = StreamController<MatchEvent>.broadcast();
   final _commentCtl = StreamController<Comment>.broadcast();
+  final _goneCtl = StreamController<CommentsGone>.broadcast();
   final _connectionCtl = StreamController<ConnectionStatus>.broadcast();
   final _readCtl = StreamController<ReadState>.broadcast();
 
@@ -79,6 +80,8 @@ final class CoreClient implements TelegramGateway {
             _pausedCtl.add(data['paused'] as bool);
           case 'comments':
             _commentCtl.add(decodeComment(data));
+          case 'commentsGone':
+            _goneCtl.add(decodeCommentsGone(data));
           case 'connection':
             _connection = ConnectionStatus.values.byName(
               data['status']! as String,
@@ -312,8 +315,31 @@ final class CoreClient implements TelegramGateway {
   })) as List).map((e) => decodeComment(e as Map<Object?, Object?>)).toList();
 
   @override
-  Future<void> reply(Thread thread, String text) =>
-      _call('reply', {'thread': encodeThread(thread), 'text': text});
+  Future<void> reply(Thread thread, String text, {int replyToId = 0}) => _call(
+    'reply',
+    {'thread': encodeThread(thread), 'text': text, 'replyToId': replyToId},
+  );
+
+  @override
+  Stream<CommentsGone> get commentsGone => _goneCtl.stream;
+
+  @override
+  Future<void> editComment(Thread thread, int messageId, String text) => _call(
+    'editComment',
+    {'thread': encodeThread(thread), 'messageId': messageId, 'text': text},
+  );
+
+  @override
+  Future<void> deleteComments(Thread thread, List<int> messageIds) => _call(
+    'deleteComments',
+    {'thread': encodeThread(thread), 'messageIds': messageIds},
+  );
+
+  @override
+  Future<void> retryComment(Thread thread, int messageId) => _call(
+    'retryComment',
+    {'thread': encodeThread(thread), 'messageId': messageId},
+  );
 
   @override
   Stream<Comment> get comments => _commentCtl.stream;
@@ -485,6 +511,7 @@ final class CoreClient implements TelegramGateway {
     await _matchCtl.close();
     await _pausedCtl.close();
     await _commentCtl.close();
+    await _goneCtl.close();
     await _readCtl.close();
   }
 }

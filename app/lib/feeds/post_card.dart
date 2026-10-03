@@ -292,7 +292,7 @@ class PostCard extends StatelessWidget {
       at: at,
       strip: availableReactions == null || onReact == null
           ? null
-          : (close) => _ReactionStrip(
+          : (close) => ReactionStrip(
               load: availableReactions!,
               gateway: gateway,
               chosen: {
@@ -452,7 +452,7 @@ class PostCard extends StatelessWidget {
             // A tap opens the menu where it landed, as in the official app; two taps in
             // a row send the quick reaction instead, so the menu waits a moment for the
             // second one.
-            child: _BubbleTaps(
+            child: BubbleTaps(
               onMenu: _hasMenu && !selecting
                   ? (at) => _menu(context, at)
                   : null,
@@ -605,8 +605,9 @@ class PostButtons extends StatelessWidget {
 /// quick reaction. The menu waits for the time a second tap may take, as the official app
 /// does when a quick reaction is set; links, pictures, pills and the comments bar inside
 /// the bubble answer their own taps at once and never come here.
-class _BubbleTaps extends StatefulWidget {
-  const _BubbleTaps({
+class BubbleTaps extends StatefulWidget {
+  const BubbleTaps({
+    super.key,
     required this.onMenu,
     required this.onDoubleTap,
     required this.child,
@@ -616,10 +617,10 @@ class _BubbleTaps extends StatefulWidget {
   final Widget child;
 
   @override
-  State<_BubbleTaps> createState() => _BubbleTapsState();
+  State<BubbleTaps> createState() => _BubbleTapsState();
 }
 
-class _BubbleTapsState extends State<_BubbleTaps> {
+class _BubbleTapsState extends State<BubbleTaps> {
   /// How long a second tap may take, Android's double-tap timeout.
   static const _window = Duration(milliseconds: 300);
   static const _slop = 48.0;
@@ -1104,7 +1105,7 @@ class _Bubble extends StatelessWidget {
         card != null && !preview!.aboveText && reactions.isEmpty;
 
     /// The quick reaction is sent by a double tap. On the words and the rest of the bubble
-    /// the taps are counted by `_BubbleTaps`, which also opens the menu. The pictures of a
+    /// the taps are counted by `BubbleTaps`, which also opens the menu. The pictures of a
     /// post without words take a recognizer of their own: a picture answers its own tap,
     /// and without the recognizer the first tap would open the viewer before the second
     /// one could arrive.
@@ -1255,10 +1256,11 @@ class _Bubble extends StatelessWidget {
   );
 }
 
-final _emojiGrapheme = RegExp(
-  r'^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]\uFE0F?\u20E3)',
-  unicode: true,
-);
+// A constant of its own: written into the call, the pattern is reported by the analyzer's
+// `valid_regexps` check on some versions of this file, though it is a valid unicode one.
+const _emojiGraphemePattern =
+    r'^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]\uFE0F?\u20E3)';
+final _emojiGrapheme = RegExp(_emojiGraphemePattern, unicode: true);
 
 /// How many emoji a text consists of when it consists of nothing else (white space
 /// aside); 0 for any other text.
@@ -1553,8 +1555,9 @@ class CommentsBar extends StatelessWidget {
 }
 
 /// The emoji the account may use, in one scrolling row at the top of the post menu.
-class _ReactionStrip extends StatefulWidget {
-  const _ReactionStrip({
+class ReactionStrip extends StatefulWidget {
+  const ReactionStrip({
+    super.key,
     required this.load,
     required this.chosen,
     required this.onPick,
@@ -1566,10 +1569,10 @@ class _ReactionStrip extends StatefulWidget {
   final void Function(String emoji, bool remove) onPick;
 
   @override
-  State<_ReactionStrip> createState() => _ReactionStripState();
+  State<ReactionStrip> createState() => _ReactionStripState();
 }
 
-class _ReactionStripState extends State<_ReactionStrip> {
+class _ReactionStripState extends State<ReactionStrip> {
   late final Future<List<String>> _emoji = widget.load();
 
   /// The arrow was tapped: the strip has become the panel of all reactions.

@@ -494,19 +494,28 @@ int threadIdOf(td.Message m) => switch (m.topicId) {
 /// Who wrote a comment: a user, or a channel or group commenting as itself.
 typedef Sender = ({int id, String name, FileRef? photo});
 
-Comment comment(td.Message m, Sender sender) => Comment(
-  chatId: m.chatId,
-  messageId: m.id,
-  threadId: threadIdOf(m),
-  date: m.date,
-  text: content(m.content).$1,
-  media: content(m.content).$2,
-  author: sender.name,
-  authorId: sender.id,
-  authorPhoto: sender.photo,
-  isOutgoing: m.isOutgoing,
-  entities: entities(formattedText(m.content)),
-);
+Comment comment(td.Message m, Sender sender, {CommentReply? replyTo}) =>
+    Comment(
+      reactions: reactions(m.interactionInfo?.reactions),
+      replyTo: replyTo,
+      sendState: switch (m.sendingState) {
+        td.MessageSendingStatePending() => CommentSend.sending,
+        td.MessageSendingStateFailed() => CommentSend.failed,
+        _ => CommentSend.sent,
+      },
+      edited: m.editDate != 0,
+      chatId: m.chatId,
+      messageId: m.id,
+      threadId: threadIdOf(m),
+      date: m.date,
+      text: content(m.content).$1,
+      media: content(m.content).$2,
+      author: sender.name,
+      authorId: sender.id,
+      authorPhoto: sender.photo,
+      isOutgoing: m.isOutgoing,
+      entities: entities(formattedText(m.content)),
+    );
 
 List<Reaction> reactions(td.MessageReactions? r) => [
   for (final x in r?.reactions ?? const <td.MessageReaction>[])

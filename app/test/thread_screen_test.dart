@@ -75,7 +75,8 @@ class ThreadGateway extends ChannelsGateway {
   }
 
   @override
-  Future<void> reply(Thread t, String text) async => replies.add(text);
+  Future<void> reply(Thread t, String text, {int replyToId = 0}) async =>
+      replies.add(replyToId == 0 ? text : '$text >$replyToId');
   @override
   Stream<Comment> get comments => live.stream;
   @override
