@@ -166,6 +166,7 @@ class PostCard extends StatelessWidget {
     this.onOpenChannel,
     this.onQuickReact,
     this.justReacted,
+    this.highlight,
     this.reactions,
     this.onSelect,
     this.onSelectStart,
@@ -223,6 +224,9 @@ class PostCard extends StatelessWidget {
 
   /// The emoji the reader has just reacted with: its pill pops once.
   final String? justReacted;
+
+  /// The words of the search that is open: they are marked in the post's text.
+  final String? highlight;
 
   /// Tap on the quote block: jumps to the post this one answers.
   final VoidCallback? onOpenReply;
@@ -425,6 +429,7 @@ class PostCard extends StatelessWidget {
       onOpenChannel: selecting ? null : onOpenChannel,
       reactions: reactions ?? item.reactionPost.reactions,
       justReacted: justReacted,
+      highlight: highlight,
       onQuickReact: onQuickReact,
       onViewerMedia: onViewerMedia,
       onMoreViewerMedia: onMoreViewerMedia,
@@ -990,6 +995,7 @@ class _Bubble extends StatelessWidget {
     required this.reactions,
     required this.onQuickReact,
     this.justReacted,
+    this.highlight,
     required this.onViewerMedia,
     required this.onMoreViewerMedia,
     required this.onViewerDetails,
@@ -1010,6 +1016,7 @@ class _Bubble extends StatelessWidget {
   final List<Reaction> reactions;
   final VoidCallback? onQuickReact;
   final String? justReacted;
+  final String? highlight;
   final List<Media> Function()? onViewerMedia;
   final Future<List<Media>> Function()? onMoreViewerMedia;
   final List<ViewerDetail> Function()? onViewerDetails;
@@ -1247,6 +1254,7 @@ class _Bubble extends StatelessWidget {
       onOpenHashtag: onOpenHashtag,
       gateway: gateway,
       canCopy: !item.isProtected,
+      highlight: highlight,
       style: TextStyle(
         fontSize: emojiOnlySize(text, item.textPost.entities) ?? 16,
         height: 1.3,

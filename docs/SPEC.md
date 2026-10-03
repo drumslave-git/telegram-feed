@@ -91,7 +91,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - I open the original post in the official Telegram app.
 - The day of the topmost post floats over the list while I scroll.
 - I set the text size of posts, on top of the phone's own text size; it changes the words of a post, not its counters and buttons. Times and dates follow the phone's own clock and locale.
-- I close any screen with a swipe to the right, from anywhere on it. Back closes an open search or selection first, then the screen.
+- I close any screen with a swipe to the right, from anywhere on it. Back closes an open selection or search first, then the screen; in a search it leaves the list of results before the search itself.
 - When the app cannot reach Telegram, the title says so. A screen that could not load says so in its own words, keeps Telegram's code underneath, and offers to try again.
 
 ### Media
@@ -111,13 +111,13 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 ### Search
 
 - The magnifier on the home screen searches the posts of every channel I follow, the archived ones too.
-- The magnifier in a feed or a channel searches all of its channels at once; what the feed hides is not found. Results say how many there are and name the channel, the text and the day; a tap opens the timeline at that post, with arrows and a counter to step through the matches.
+- The magnifier in a feed or a channel searches all of its channels at once; what the feed hides is not found. The search runs when I send the words with the keyboard's search key, not while I type. The timeline then goes to the newest post that has them, with the found words marked in the posts, and a bar under it with arrows and a counter ("3 of 47") to step through the matches. "Show as list" in that bar lists the results, each naming the channel, the text and the day, under their number; a tap on one opens the timeline at that post, and "Show as chat" takes the list away. A filter chip and a tapped hashtag show their results as a list at once.
 - Chips pick the kind of post: media, links, files, music, voice. A chip works without words.
 - The day labels between the posts and the floating date read like the official app's: "October 3", with the year once the day is a year or more away, never "Today" or "Yesterday".
 - A tap on a day label, and the calendar button of the search, opens the calendar: the months under one another, the newest at the bottom, with a small round picture in every day that has a photo or a video (in a feed, the newest of that day among its channels). A tap on a day jumps to it; days to come cannot be picked. Leaving the calendar without a day leaves the search open.
 - A tap on the floating date goes to the first post of that day.
 - An open search bar offers the words I looked for last: those that led me to a result I opened.
-- The comments of a post can be searched. The results are listed newest first under their number and load further pages at the end of the list; a tap opens the thread at that comment, wherever it is in the discussion, with a bar under it that says which match it is ("3 of 41") and steps to the older and the newer one. While the search is open the comment field makes way for it.
+- The comments of a post are searched the same way: sent words take the thread to the newest comment that has them, wherever it is in the discussion, with the words marked and the bar that says which match it is ("3 of 41"), steps to the older and the newer one and shows the results as a list, which loads further pages at its end. While the search is open the comment field makes way for it.
 
 ### Notification rules
 

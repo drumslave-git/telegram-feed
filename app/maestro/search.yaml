@@ -13,16 +13,18 @@ appId: dev.telegramfeed.telegram_feed
 - tapOn: 'Search'
 - inputText: 'pier'
 - pressKey: Enter
-- extendedWaitUntil:
-    visible: '1 post found'
-    timeout: 15000
-- assertVisible: '(?s).*about the pier.*'
-# Words are offered again once one of their results was opened.
-- tapOn: '(?s).*about the pier.*'
+# The timeline goes to the newest match, with the bar under it.
 - extendedWaitUntil:
     visible: '1 of 1'
     timeout: 15000
-- tapOn: 'pier'
+- assertVisible: '(?s).*about the pier.*'
+- tapOn: 'Show as list'
+- extendedWaitUntil:
+    visible: '1 post found'
+    timeout: 15000
+- tapOn: 'Show as chat'
+- assertVisible: '1 of 1'
+# Words are offered again once they led to a post.
 - tapOn: 'Clear'
 - assertVisible: 'pier'
 - tapOn: 'Media'

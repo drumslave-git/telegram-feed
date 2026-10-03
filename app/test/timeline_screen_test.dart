@@ -705,8 +705,34 @@ void main() {
     await tester.tap(find.byTooltip('Search'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'rain');
+    // Typing searches nothing: the words are sent with the keyboard's search key.
     await tester.pump(const Duration(milliseconds: 400));
     await settle(tester);
+    expect(gw.searches, isEmpty);
+    expect(find.byType(SearchStepper), findsNothing);
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await settleJump(tester);
+    await tester.pumpAndSettle();
+
+    // The timeline went to the newest match at once, with the bar under it, and the
+    // found word is marked in the post.
+    expect(find.byType(SearchResults), findsNothing);
+    expect(find.text('1 of 2'), findsOneWidget);
+    final found = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(PostCard),
+        matching: find.text('rain in Prague'),
+      ),
+    );
+    final marked = (found.textSpan! as TextSpan).children!
+        .whereType<TextSpan>()
+        .where((span) => span.style?.backgroundColor != null);
+    expect(marked.map((span) => span.text), ['rain']);
+
+    // "Show as list" puts what was found in a list.
+    await tester.tap(find.text('Show as list'));
+    await tester.pumpAndSettle();
+    expect(find.text('Show as chat'), findsOneWidget);
 
     // Both channels answered, newest match first. The rows mark the query, so their text
     // is rich: they are found by what they contain.
@@ -760,6 +786,32 @@ void main() {
       ),
       findsOneWidget,
     );
+
+    // Back leaves the list first, and the search after it.
+    await tester.tap(find.text('Show as list'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SearchResults), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(SearchResults), findsNothing);
+    expect(find.text('1 of 2'), findsOneWidget);
+    await tester.tap(find.text('Show as list'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Show as chat'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SearchResults), findsNothing);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(SearchStepper), findsNothing);
+    expect(find.byTooltip('Search'), findsOneWidget);
+    // With the search closed nothing is marked any more.
+    final plain = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(PostCard),
+        matching: find.text('rain in Prague'),
+      ),
+    );
+    expect(plain.textSpan, isNull);
     await unmount(tester);
   });
 
@@ -790,7 +842,7 @@ void main() {
     expect(gw.searches.last, '|HistoryFilter.voice');
 
     await tester.enterText(find.byType(TextField), 'needle');
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.testTextInput.receiveAction(TextInputAction.search);
     await settle(tester);
     expect(gw.searches.last, 'needle|HistoryFilter.voice');
     await unmount(tester);
@@ -816,10 +868,8 @@ void main() {
     await tester.tap(find.byTooltip('Search'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'rain');
-    await tester.pump(const Duration(milliseconds: 400));
-    await settle(tester);
-    await tester.tap(find.byType(SearchResultTile).first);
-    await settle(tester);
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await settleJump(tester);
     await tester.pumpAndSettle();
 
     expect(

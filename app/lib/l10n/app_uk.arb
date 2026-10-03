@@ -121,6 +121,8 @@
   "searchOlderMatch": "Старіший результат",
   "searchNewerMatch": "Новіший результат",
   "searchNoMatches": "Немає результатів",
+  "searchShowAsList": "Показати списком",
+  "searchShowAsChat": "Показати в чаті",
   "searchMatchOf": "{current} з {total}",
   "searchPostsHint": "Пошук дописів",
   "threadSearchFailed": "Не вдалося виконати пошук у коментарях.",

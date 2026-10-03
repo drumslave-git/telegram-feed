@@ -464,6 +464,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchNoMatches => 'No matches';
 
   @override
+  String get searchShowAsList => 'Show as list';
+
+  @override
+  String get searchShowAsChat => 'Show as chat';
+
+  @override
   String searchMatchOf(int current, int total) {
     return '$current of $total';
   }

@@ -4,18 +4,14 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-44.
+**Current phase:** Parity with the official app. **Next task:** Q-45.
 
 ## Differences from the official app
 
 Each task makes the app behave as the official Android app does. SPEC.md and ARCHITECTURE.md change in the same commit where a task reverses a decision recorded there.
 
-### Reactions, menu and comments
-
-
 ### Search
 
-- [ ] Q-44 A search in a feed or channel runs when it is submitted, jumps to the newest match at once and marks the found words inside the posts; "Show as list" switches to the result list and back, and Back leaves the list before it closes the search.
 - [ ] Q-45 Result rows mark every word of the query and show the time today, the weekday within a week, "Sep 12" within a year, and "12.09.25" before that.
 - [ ] Q-46 The search over all channels takes typed dates ("yesterday", "12 sep", a month) as a date filter, and shows media, files, links and music in their own layouts.
 - [ ] Q-47 A recent search is removed singly, and "Clear" asks first.

@@ -117,15 +117,6 @@ void main() {
     matching: find.byType(TextField),
   );
 
-  Future<void> search(WidgetTester tester, String words) async {
-    await tester.tap(find.byTooltip('Search comments'));
-    await tester.pumpAndSettle();
-    await tester.enterText(field(), words);
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump();
-    await tester.pump();
-  }
-
   /// A step of the thread towards a comment: the loading, the rebuild and the jump.
   Future<void> land(WidgetTester tester) async {
     for (var i = 0; i < 6; i++) {
@@ -133,48 +124,93 @@ void main() {
     }
   }
 
-  testWidgets('the results say how many there are, and a tap opens the thread '
-      'at that comment with the arrows and the counter under it', (
-    tester,
-  ) async {
-    final gw = await open(tester);
-    await search(tester, 'apple');
-
-    expect(find.text('50 comments found'), findsOneWidget);
-    expect(find.text('comment 1100 apple'), findsOneWidget);
-    // The thread under the results is not shown, and nothing is written meanwhile.
-    expect(find.text('comment 1099'), findsNothing);
-    expect(find.byTooltip('Send'), findsNothing);
-    expect(find.byType(SearchStepper), findsNothing);
-    expect(gw.searchPages, [0]);
-
-    await tester.tap(find.text('comment 1096 apple'));
+  Future<void> search(WidgetTester tester, String words) async {
+    await tester.tap(find.byTooltip('Search comments'));
+    await tester.pumpAndSettle();
+    await tester.enterText(field(), words);
+    // The words are sent with the keyboard's search key; the thread then goes to the
+    // newest comment that has them.
+    await tester.testTextInput.receiveAction(TextInputAction.search);
     await land(tester);
-    // The thread itself again, on the comment that was found.
-    expect(find.text('50 comments found'), findsNothing);
-    expect(find.text('comment 1096 apple'), findsOneWidget);
-    expect(find.text('comment 1097'), findsOneWidget);
-    expect(find.text('2 of 50'), findsOneWidget);
+  }
+
+  testWidgets('typing searches nothing; sent words take the thread to the '
+      'newest match, with the arrows and the counter under it', (tester) async {
+    final gw = await open(tester);
+    await tester.tap(find.byTooltip('Search comments'));
+    await tester.pumpAndSettle();
+    // The field for a comment makes way for the search.
+    expect(find.byTooltip('Send'), findsNothing);
+    await tester.enterText(field(), 'apple');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(gw.searchPages, isEmpty);
+    expect(find.byType(SearchStepper), findsNothing);
+
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await land(tester);
+    expect(gw.searchPages, [0]);
+    expect(find.text('1 of 50'), findsOneWidget);
+    // The found word is marked in the comment, and in no other.
+    final found = tester.widget<Text>(find.text('comment 1100 apple'));
+    final marked = (found.textSpan! as TextSpan).children!
+        .whereType<TextSpan>()
+        .where((span) => span.style?.backgroundColor != null);
+    expect(marked.map((span) => span.text), ['apple']);
+    expect(tester.widget<Text>(find.text('comment 1099')).textSpan, isNull);
 
     // The older match, and back to the newer one.
     await tester.tap(find.byTooltip('Older match'));
     await land(tester);
-    expect(find.text('3 of 50'), findsOneWidget);
-    expect(find.text('comment 1092 apple'), findsOneWidget);
+    expect(find.text('2 of 50'), findsOneWidget);
+    expect(find.text('comment 1096 apple'), findsOneWidget);
     await tester.tap(find.byTooltip('Newer match'));
     await land(tester);
-    expect(find.text('2 of 50'), findsOneWidget);
+    expect(find.text('1 of 50'), findsOneWidget);
+  });
 
-    // A tap into the field brings the list back, with the open result marked.
-    await tester.tap(field());
+  testWidgets('Show as list lists what was found; a tap opens the thread at '
+      'that comment, and Back leaves the list before the search', (
+    tester,
+  ) async {
+    await open(tester);
+    await search(tester, 'apple');
+    await tester.tap(find.text('Show as list'));
     await tester.pump();
     expect(find.text('50 comments found'), findsOneWidget);
+    expect(find.text('Show as chat'), findsOneWidget);
+    // The thread under the list is not shown.
+    expect(find.text('comment 1099'), findsNothing);
 
-    // Back leaves the search: the field for a comment is there again.
+    // The row is the target, not the words in it.
+    await tester.tap(find.text('comment 1092 apple'), warnIfMissed: false);
+    await land(tester);
+    expect(find.text('50 comments found'), findsNothing);
+    expect(find.text('comment 1092 apple'), findsOneWidget);
+    expect(find.text('comment 1093'), findsOneWidget);
+    expect(find.text('3 of 50'), findsOneWidget);
+
+    // Back: out of the list first.
+    await tester.tap(find.text('Show as list'));
+    await tester.pump();
+    expect(find.text('50 comments found'), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await tester.pump();
+    expect(find.text('50 comments found'), findsNothing);
+    expect(find.text('3 of 50'), findsOneWidget);
+    // Then out of the search: the field for a comment is there again.
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
     expect(find.byType(SearchStepper), findsNothing);
     expect(find.byTooltip('Send'), findsOneWidget);
+  });
+
+  testWidgets('words nobody wrote find nothing, and the bar says so', (
+    tester,
+  ) async {
+    await open(tester);
+    await search(tester, 'quince');
+    expect(find.text('No matches'), findsOneWidget);
+    expect(find.text('Show as list'), findsNothing);
   });
 
   testWidgets('the arrows page through the results beyond the first page', (
@@ -182,8 +218,6 @@ void main() {
   ) async {
     final gw = await open(tester);
     await search(tester, 'apple');
-    await tester.tap(find.text('comment 1100 apple'));
-    await land(tester);
     expect(find.text('1 of 50'), findsOneWidget);
     // The newest match has no newer one.
     expect(
@@ -226,6 +260,8 @@ void main() {
   ) async {
     final gw = await open(tester);
     await search(tester, 'apple');
+    await tester.tap(find.text('Show as list'));
+    await tester.pump();
     expect(gw.searchPages, [0]);
     for (var i = 0; i < 12 && gw.searchPages.length < 2; i++) {
       await tester.drag(find.byType(ListView), const Offset(0, -600));
@@ -249,10 +285,6 @@ void main() {
     // The thread holds its newest thirty comments.
     expect(find.text('comment 1099'), findsOneWidget);
     await search(tester, 'pear');
-    expect(find.text('1 comment found'), findsOneWidget);
-
-    await tester.tap(find.text('comment 905 pear'));
-    await land(tester);
     // The comments around it were fetched, not the 165 in between.
     expect(gw.around.first, '905+15-15');
     expect(find.text('comment 905 pear'), findsOneWidget);
@@ -290,8 +322,6 @@ void main() {
       'reader to its end', (tester) async {
     final gw = await open(tester);
     await search(tester, 'pear');
-    await tester.tap(find.text('comment 905 pear'));
-    await land(tester);
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
     expect(find.text('comment 905 pear'), findsOneWidget);

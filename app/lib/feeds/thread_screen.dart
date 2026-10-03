@@ -19,7 +19,7 @@ import 'post_card.dart';
 import 'post_menu.dart';
 import 'sticker_view.dart';
 import 'text_scale.dart';
-import 'timeline_search.dart' show SearchStepper;
+import 'timeline_search.dart' show SearchStepper, keyboardGone;
 
 /// Comments on a post from the channel's discussion group, with a reply composer.
 class ThreadScreen extends StatefulWidget {
@@ -107,7 +107,6 @@ class _ThreadScreenState extends State<ThreadScreen> {
   bool _searchOpen = false;
   final _queryCtl = TextEditingController();
   final _queryFocus = FocusNode();
-  Timer? _debounce;
   _ThreadSearch? _session;
 
   /// True while the results cover the thread; false once one of them was opened.
@@ -192,13 +191,13 @@ class _ThreadScreenState extends State<ThreadScreen> {
     }
   }
 
+  /// The search opens over the thread, which stays where it is until words are sent.
   void _openSearch() => setState(() {
     _searchOpen = true;
-    _listOpen = true;
+    _listOpen = false;
   });
 
   void _closeSearch() {
-    _debounce?.cancel();
     _queryCtl.clear();
     setState(() {
       _searchOpen = false;
@@ -208,36 +207,53 @@ class _ThreadScreenState extends State<ThreadScreen> {
     });
   }
 
+  /// The words in the field changed. Nothing is searched until they are sent, as in the
+  /// official app; a field that was emptied drops what the last search found.
   void _onQuery(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(
-      const Duration(milliseconds: 300),
-      () => unawaited(_startSearch(value)),
-    );
     setState(() {
-      _listOpen = true;
-      _current = -1;
+      if (value.trim().isEmpty) {
+        _session = null;
+        _listOpen = false;
+        _current = -1;
+      }
     });
   }
 
-  /// Telegram searches the thread itself, so a comment far above is found without loading
-  /// everything in between. A new query is a new search; answers to the old one are
-  /// dropped with it.
+  /// Runs the search for [value] and goes to the newest comment that has the words, with
+  /// the bar to step through the others. Telegram searches the thread itself, so a
+  /// comment far above is found without loading everything in between. A new query is a
+  /// new search; answers to the old one are dropped with it.
   Future<void> _startSearch(String value) async {
     final thread = _thread;
     final query = value.trim();
     if (thread == null) return;
     if (query.isEmpty) {
-      setState(() => _session = null);
+      _onQuery('');
       return;
     }
     final session = _ThreadSearch(widget.gateway, thread, query);
     setState(() {
       _session = session;
+      _listOpen = false;
       _current = -1;
     });
     await session.loadMore();
-    if (mounted && identical(_session, session)) setState(() {});
+    if (!mounted || !identical(_session, session)) return;
+    setState(() {});
+    if (session.results.isNotEmpty) await _openResult(0);
+  }
+
+  /// "Show as list" and "Show as chat" of the bar under the search.
+  void _toggleList() => setState(() => _listOpen = !_listOpen);
+
+  /// Back, on the screen or of the phone: out of the list of results to the comment that
+  /// is open under it, and only then out of the search.
+  void _backFromSearch() {
+    if (_listOpen && _current >= 0) {
+      setState(() => _listOpen = false);
+    } else {
+      _closeSearch();
+    }
   }
 
   Future<void> _loadMoreResults() async {
@@ -262,6 +278,8 @@ class _ThreadScreenState extends State<ThreadScreen> {
         _current = index;
         _listOpen = false;
       });
+      await keyboardGone(context);
+      if (!mounted || !identical(_session, session)) return;
       await _jumpToComment(session.results[index].messageId);
     } finally {
       if (mounted) setState(() => _jumping = false);
@@ -863,7 +881,6 @@ class _ThreadScreenState extends State<ThreadScreen> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _queryCtl.dispose();
     _queryFocus.dispose();
     _live?.cancel();
@@ -891,18 +908,18 @@ class _ThreadScreenState extends State<ThreadScreen> {
     return PopScope(
       canPop: !_searchOpen,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _closeSearch();
+        if (!didPop) _backFromSearch();
       },
       child: Scaffold(
         appBar: _searchOpen
             ? AppBar(
-                leading: BackButton(onPressed: _closeSearch),
+                leading: BackButton(onPressed: _backFromSearch),
                 titleSpacing: 0,
                 title: TextField(
                   controller: _queryCtl,
                   focusNode: _queryFocus,
                   autofocus: true,
-                  onTap: () => setState(() => _listOpen = true),
+                  onSubmitted: (value) => unawaited(_startSearch(value)),
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
                     hintText: l10n.threadSearchComments,
@@ -999,12 +1016,16 @@ class _ThreadScreenState extends State<ThreadScreen> {
                         ),
                 ),
                 // While the search is open the field makes way, as in the official app:
-                // once a result is open the bar with the arrows stands there.
-                if (_searchOpen && !_listOpen && session != null)
+                // once words were sent the bar with the arrows stands there.
+                if (_searchOpen && session != null)
                   SearchStepper(
                     current: _current,
                     total: session.total,
-                    loading: _jumping,
+                    loading:
+                        _jumping ||
+                        (session.loading && session.results.isEmpty),
+                    listShown: _listOpen,
+                    onToggleList: session.results.isEmpty ? null : _toggleList,
                     onOlder:
                         _jumping ||
                             (session.exhausted &&
@@ -1039,6 +1060,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
         comment: comment,
         gateway: widget.gateway,
         onOpenLink: _openLink,
+        highlight: _searchOpen ? _session?.query : null,
         onMenu: (at) => unawaited(_menu(comment, at)),
         onReact: (emoji, remove) => unawaited(_react(comment, emoji, remove)),
         onOpenReply: comment.replyTo == null
@@ -1136,6 +1158,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
               child: CommentBubble(
                 comment: results[i],
                 gateway: widget.gateway,
+                highlight: session.query,
               ),
             ),
           ),
@@ -1344,7 +1367,11 @@ class CommentBubble extends StatelessWidget {
     this.onMenu,
     this.onReact,
     this.onOpenReply,
+    this.highlight,
   });
+
+  /// The words of the search that is open: they are marked in the comment.
+  final String? highlight;
   final Comment comment;
   final TelegramGateway gateway;
   final void Function(String url)? onOpenLink;
@@ -1507,6 +1534,7 @@ class CommentBubble extends StatelessWidget {
                     text: c.text,
                     entities: c.entities,
                     onOpenLink: onOpenLink,
+                    highlight: highlight,
                     gateway: gateway,
                     style: TextStyle(
                       fontSize: 16,
@@ -1531,6 +1559,7 @@ class CommentBubble extends StatelessWidget {
                       text: c.text,
                       entities: c.entities,
                       onOpenLink: onOpenLink,
+                      highlight: highlight,
                       gateway: gateway,
                       style: TextStyle(
                         fontSize: 16,

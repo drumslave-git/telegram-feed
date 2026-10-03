@@ -824,6 +824,18 @@ abstract class AppLocalizations {
   /// **'No matches'**
   String get searchNoMatches;
 
+  /// No description provided for @searchShowAsList.
+  ///
+  /// In en, this message translates to:
+  /// **'Show as list'**
+  String get searchShowAsList;
+
+  /// No description provided for @searchShowAsChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Show as chat'**
+  String get searchShowAsChat;
+
   /// Which search result the timeline stands on, e.g. 3 of 17.
   ///
   /// In en, this message translates to:

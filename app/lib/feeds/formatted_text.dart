@@ -34,6 +34,29 @@ Future<bool> confirmOpenLink(BuildContext context, String url) async {
   return yes ?? false;
 }
 
+/// Where [text] has the words of [query], whatever their case: start and end of each
+/// place, in order. Nothing for a text whose lower case has another length, where the
+/// places would not line up.
+List<(int, int)> foundRanges(String text, String? query) {
+  if (query == null) return const [];
+  final words = [
+    for (final w in query.toLowerCase().split(RegExp(r'\s+')))
+      if (w.isNotEmpty) w,
+  ];
+  if (words.isEmpty) return const [];
+  final lower = text.toLowerCase();
+  if (lower.length != text.length) return const [];
+  final out = <(int, int)>[];
+  for (final w in words) {
+    var at = lower.indexOf(w);
+    while (at >= 0) {
+      out.add((at, at + w.length));
+      at = lower.indexOf(w, at + w.length);
+    }
+  }
+  return out..sort((a, b) => a.$1.compareTo(b.$1));
+}
+
 /// A post's text with Telegram's formatting: bold, italic, underline, strikethrough,
 /// monospace, quotes, spoilers (hidden until tapped), links and mentions that open,
 /// hashtags that search and phone numbers that call. Entities may nest and overlap; the
@@ -52,10 +75,15 @@ class FormattedText extends StatefulWidget {
     this.onOpenHashtag,
     this.gateway,
     this.canCopy = true,
+    this.highlight,
   });
   final String text;
   final List<TextEntity> entities;
   final TextStyle style;
+
+  /// The words of a search: where the text has them they are marked, as the official app
+  /// marks what it found.
+  final String? highlight;
 
   /// False for a post of a channel that protects its content: a block of code then has
   /// no copy button.
@@ -259,7 +287,10 @@ class FormattedTextState extends State<FormattedText> {
       for (final e in widget.entities)
         if (e.length > 0 && e.offset >= 0 && e.end <= text.length) e,
     ];
-    if (entities.isEmpty) return Text(text, style: widget.style);
+    // Plain words stay one plain text, unless a search has found something in them.
+    if (entities.isEmpty && foundRanges(text, widget.highlight).isEmpty) {
+      return Text(text, style: widget.style);
+    }
     final blocks = blocksOf(entities);
     if (blocks.isEmpty) {
       return Text.rich(
@@ -347,6 +378,11 @@ class FormattedTextState extends State<FormattedText> {
       if (e.offset > from0 && e.offset < to0) cuts.add(e.offset);
       if (e.end > from0 && e.end < to0) cuts.add(e.end);
     }
+    final found = foundRanges(text, widget.highlight);
+    for (final (start, end) in found) {
+      if (start > from0 && start < to0) cuts.add(start);
+      if (end > from0 && end < to0) cuts.add(end);
+    }
     final bounds = cuts.toList()..sort();
     final spans = <InlineSpan>[];
     for (var i = 0; i + 1 < bounds.length; i++) {
@@ -403,6 +439,12 @@ class FormattedTextState extends State<FormattedText> {
       }
       if (decorations.isNotEmpty) {
         style = style.copyWith(decoration: TextDecoration.combine(decorations));
+      }
+      // A found word, in the colour of selected text.
+      if (found.any((r) => r.$1 <= from && r.$2 >= to)) {
+        style = style.copyWith(
+          backgroundColor: scheme.primary.withValues(alpha: 0.28),
+        );
       }
       GestureRecognizer? recognizer;
       final hidden = spoiler != null && !_revealed.contains(spoiler.offset);

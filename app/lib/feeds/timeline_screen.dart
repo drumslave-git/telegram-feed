@@ -72,9 +72,8 @@ class _TimelineScreenState extends State<TimelineScreen> {
   final _view = GlobalKey<TimelineViewState>();
   final _queryCtl = TextEditingController();
   final _queryFocus = FocusNode();
-  Timer? _debounce;
 
-  /// The running search; null until the first query.
+  /// The running search; null until words were sent.
   SearchSession? _session;
   bool _searchOpen = false;
 
@@ -104,7 +103,6 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _queryCtl.dispose();
     _queryFocus.dispose();
     super.dispose();
@@ -116,23 +114,26 @@ class _TimelineScreenState extends State<TimelineScreen> {
     // A search that started before the sources were known covers them now.
     final session = _session;
     if (session != null && session.chatIds.length != sources.chatIds.length) {
-      unawaited(_startSearch(session.query));
+      unawaited(_startSearch(session.query, asList: _listOpen));
     }
   }
 
+  /// The search opens over the timeline, which stays where it is until words are sent:
+  /// only the words searched for last cover it, while nothing is typed.
   void _openSearch() {
     setState(() {
       _searchOpen = true;
-      _listOpen = true;
+      _listOpen = false;
     });
     unawaited(_loadRecent());
   }
 
-  /// Opens the search with [words] in it, as a tap on a hashtag does in the official app.
+  /// Opens the search with [words] in it and lists what has them, as a tap on a hashtag
+  /// does in the official app.
   void _searchFor(String words) {
     _openSearch();
     _queryCtl.text = words;
-    _onQuery(words);
+    unawaited(_startSearch(words, asList: true));
   }
 
   Future<void> _loadRecent() async {
@@ -141,7 +142,6 @@ class _TimelineScreenState extends State<TimelineScreen> {
   }
 
   void _closeSearch() {
-    _debounce?.cancel();
     _queryCtl.clear();
     setState(() {
       _searchOpen = false;
@@ -156,31 +156,35 @@ class _TimelineScreenState extends State<TimelineScreen> {
   /// yet, a kind alone lists what the channels have of it.
   void _setSearchFilter(HistoryFilter filter) {
     if (filter == _searchFilter) return;
-    setState(() {
-      _searchFilter = filter;
-      _listOpen = true;
-      _current = -1;
-    });
-    unawaited(_startSearch(_queryCtl.text));
+    setState(() => _searchFilter = filter);
+    // A kind of post is looked through as a list.
+    unawaited(_startSearch(_queryCtl.text, asList: true));
   }
 
+  /// The words in the field changed. Nothing is searched until they are sent, as in the
+  /// official app; a field that was emptied drops what the last search found.
   void _onQuery(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(
-      const Duration(milliseconds: 300),
-      () => unawaited(_startSearch(value)),
-    );
     setState(() {
-      _listOpen = true;
-      _current = -1;
+      if (value.trim().isEmpty && _searchFilter == HistoryFilter.any) {
+        _session = null;
+        _listOpen = false;
+        _current = -1;
+      }
     });
   }
 
-  Future<void> _startSearch(String value) async {
+  /// Runs the search for [value]. The timeline goes to the newest post that has the
+  /// words at once, with the bar to step through the others; [asList] shows what was
+  /// found as a list instead.
+  Future<void> _startSearch(String value, {bool asList = false}) async {
     final query = value.trim();
     // A kind of post on its own is a search too: "every video of this feed".
     if (query.isEmpty && _searchFilter == HistoryFilter.any) {
-      setState(() => _session = null);
+      setState(() {
+        _session = null;
+        _listOpen = false;
+        _current = -1;
+      });
       return;
     }
     final session = SearchSession(
@@ -192,10 +196,26 @@ class _TimelineScreenState extends State<TimelineScreen> {
     );
     setState(() {
       _session = session;
+      _listOpen = asList;
       _current = -1;
     });
     await session.loadMore();
-    if (mounted && identical(_session, session)) setState(() {});
+    if (!mounted || !identical(_session, session)) return;
+    setState(() {});
+    if (!asList && session.results.isNotEmpty) await _openResult(0);
+  }
+
+  /// "Show as list" and "Show as chat" of the bar under the search.
+  void _toggleList() => setState(() => _listOpen = !_listOpen);
+
+  /// Back, on the screen or of the phone: out of the list of results to the post that is
+  /// open under it, and only then out of the search.
+  void _backFromSearch() {
+    if (_listOpen && _current >= 0) {
+      setState(() => _listOpen = false);
+    } else {
+      _closeSearch();
+    }
   }
 
   Future<void> _loadMoreResults() async {
@@ -229,6 +249,8 @@ class _TimelineScreenState extends State<TimelineScreen> {
         _current = index;
         _listOpen = false;
       });
+      await keyboardGone(context);
+      if (!mounted || !identical(_session, session)) return;
       await _view.currentState?.jumpToPost(
         chatId: post.chatId,
         messageId: post.messageId,
@@ -349,7 +371,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
     if (_selected > 0) return _selectionBar(l10n);
     if (_searchOpen) {
       return AppBar(
-        leading: BackButton(onPressed: _closeSearch),
+        leading: BackButton(onPressed: _backFromSearch),
         titleSpacing: 0,
         title: TextField(
           controller: _queryCtl,
@@ -361,7 +383,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
             border: InputBorder.none,
           ),
           onChanged: _onQuery,
-          onTap: () => setState(() => _listOpen = true),
+          onSubmitted: (value) => unawaited(_startSearch(value)),
         ),
         actions: [
           if (_queryCtl.text.isNotEmpty)
@@ -453,6 +475,14 @@ class _TimelineScreenState extends State<TimelineScreen> {
   @override
   Widget build(BuildContext context) {
     final session = _session;
+    // What covers the timeline while the search is open: the results as a list, or,
+    // before anything was typed, the words searched for last.
+    final covered =
+        _searchOpen &&
+        (_listOpen ||
+            (session == null &&
+                _queryCtl.text.trim().isEmpty &&
+                _recent.isNotEmpty));
     return PopScope(
       canPop: _selected == 0 && !_searchOpen,
       // Back first leaves the selection, then the search, as in the official app.
@@ -461,7 +491,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
         if (_selected > 0) {
           _view.currentState?.clearSelection();
         } else {
-          _closeSearch();
+          _backFromSearch();
         }
       },
       child: Scaffold(
@@ -477,7 +507,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
               child: Builder(
                 builder: (context) => MediaQuery.removePadding(
                   context: context,
-                  removeBottom: _searchOpen && !_listOpen && session != null,
+                  removeBottom: _searchOpen && session != null,
                   child: Stack(
                     children: [
                       TimelineView(
@@ -494,11 +524,12 @@ class _TimelineScreenState extends State<TimelineScreen> {
                         share: widget.share,
                         onSources: _onSources,
                         onHashtag: _searchFor,
+                        highlight: _searchOpen ? session?.query : null,
                         onEditFeed: widget.feed == null
                             ? null
                             : _openFeedEditor,
                       ),
-                      if (_searchOpen && _listOpen)
+                      if (covered)
                         Positioned.fill(
                           child: Material(
                             color: Theme.of(context).colorScheme.surface,
@@ -520,6 +551,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                               recent: _recent,
                               onRecent: (words) {
                                 _queryCtl.text = words;
+                                _queryFocus.unfocus();
                                 unawaited(_startSearch(words));
                               },
                               onClearRecent: () async {
@@ -534,11 +566,14 @@ class _TimelineScreenState extends State<TimelineScreen> {
                 ),
               ),
             ),
-            if (_searchOpen && !_listOpen && session != null)
+            if (_searchOpen && session != null)
               SearchStepper(
                 current: _current,
                 total: session.total,
-                loading: _jumping,
+                loading:
+                    _jumping || (session.loading && session.results.isEmpty),
+                listShown: _listOpen,
+                onToggleList: session.results.isEmpty ? null : _toggleList,
                 onOlder:
                     _jumping ||
                         (session.exhausted &&
@@ -580,6 +615,7 @@ class TimelineView extends StatefulWidget {
     this.onSelectionChanged,
     this.onEditFeed,
     this.onHashtag,
+    this.highlight,
     this.savedMessages = false,
   }) : assert((feed == null) != (channel == null));
   final AppDatabase db;
@@ -589,6 +625,8 @@ class TimelineView extends StatefulWidget {
   final bool savedMessages;
 
   /// Reports the channels, the filter and the photos as they are loaded, for the search.
+  /// The words of the search that is open: they are marked in the posts.
+  final String? highlight;
   final ValueChanged<TimelineSources>? onSources;
 
   /// How many rows are picked, so the screen can put up the selection bar.
@@ -3052,6 +3090,7 @@ class TimelineViewState extends State<TimelineView>
                 tint: tint,
                 newDay: newDay,
                 firstUnread: id == _firstUnread,
+                highlight: widget.highlight,
                 pop:
                     _justReacted != null &&
                     _justReacted!.$1 == item.chatId &&
@@ -3144,6 +3183,7 @@ class TimelineViewState extends State<TimelineView>
                       onOpenChannel: _channelInfoOf(item.chatId),
                       reactions: _reactionsOf(item),
                       onQuickReact: () => unawaited(_quickReact(item)),
+                      highlight: widget.highlight,
                       justReacted:
                           _justReacted != null &&
                               _justReacted!.$1 == item.chatId &&
@@ -3232,6 +3272,7 @@ final class _RowInputs {
     required this.tint,
     required this.newDay,
     required this.firstUnread,
+    this.highlight,
     this.pop = false,
   }) : head = item.head,
        parts = List.of(item.parts),
@@ -3240,6 +3281,9 @@ final class _RowInputs {
 
   /// A reaction of this row was just set and its pill is popping.
   final bool pop;
+
+  /// The words of the open search, marked in the row's text.
+  final String? highlight;
   final Post head;
   final List<Post> parts;
 
@@ -3278,6 +3322,7 @@ final class _RowInputs {
         selected == o.selected &&
         tint == o.tint &&
         newDay == o.newDay &&
+        highlight == o.highlight &&
         firstUnread == o.firstUnread;
   }
 }

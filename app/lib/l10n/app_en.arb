@@ -318,6 +318,8 @@
   "searchOlderMatch": "Older match",
   "searchNewerMatch": "Newer match",
   "searchNoMatches": "No matches",
+  "searchShowAsList": "Show as list",
+  "searchShowAsChat": "Show as chat",
   "searchMatchOf": "{current} of {total}",
   "@searchMatchOf": {
     "description": "Which search result the timeline stands on, e.g. 3 of 17.",

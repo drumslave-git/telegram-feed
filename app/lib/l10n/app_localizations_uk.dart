@@ -484,6 +484,12 @@ class AppLocalizationsUk extends AppLocalizations {
   String get searchNoMatches => 'Немає результатів';
 
   @override
+  String get searchShowAsList => 'Показати списком';
+
+  @override
+  String get searchShowAsChat => 'Показати в чаті';
+
+  @override
   String searchMatchOf(int current, int total) {
     return '$current з $total';
   }

@@ -337,8 +337,19 @@ class _Snippet extends StatelessWidget {
   }
 }
 
-/// The bar the official app shows once a result is open: which match the timeline stands on,
-/// and arrows to step to the older or the newer one.
+/// Completes once the keyboard has left the screen. The lists are anchored at their lower
+/// edge, so a jump made while the keyboard is still closing would leave the post lower by
+/// the keyboard's height once it is gone.
+Future<void> keyboardGone(BuildContext context) async {
+  final view = View.of(context);
+  for (var i = 0; i < 40 && view.viewInsets.bottom > 0; i++) {
+    await Future<void>.delayed(const Duration(milliseconds: 25));
+  }
+}
+
+/// The bar the official app shows under a search that has run: which match the timeline
+/// stands on, arrows to step to the older or the newer one, and "Show as list", which
+/// puts the results in a list and, as "Show as chat", takes it away again.
 class SearchStepper extends StatelessWidget {
   const SearchStepper({
     super.key,
@@ -347,7 +358,15 @@ class SearchStepper extends StatelessWidget {
     required this.onOlder,
     required this.onNewer,
     this.loading = false,
+    this.listShown = false,
+    this.onToggleList,
   });
+
+  /// The results are shown as a list: the arrows have nothing to step through.
+  final bool listShown;
+
+  /// Switches between the list and the timeline; null while there is nothing to list.
+  final VoidCallback? onToggleList;
 
   /// Zero-based position in the results (newest first).
   final int current;
@@ -371,17 +390,41 @@ class SearchStepper extends StatelessWidget {
           height: 48,
           child: Row(
             children: [
-              IconButton(
-                tooltip: l10n.searchOlderMatch,
-                onPressed: onOlder,
-                icon: const Icon(Icons.keyboard_arrow_up),
+              // The arrows keep their room in the list, so the bar's words do not move.
+              Visibility.maintain(
+                visible: !listShown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: l10n.searchOlderMatch,
+                      onPressed: listShown ? null : onOlder,
+                      icon: const Icon(Icons.keyboard_arrow_up),
+                    ),
+                    IconButton(
+                      tooltip: l10n.searchNewerMatch,
+                      onPressed: listShown ? null : onNewer,
+                      icon: const Icon(Icons.keyboard_arrow_down),
+                    ),
+                  ],
+                ),
               ),
-              IconButton(
-                tooltip: l10n.searchNewerMatch,
-                onPressed: onNewer,
-                icon: const Icon(Icons.keyboard_arrow_down),
+              Expanded(
+                child: onToggleList == null || total <= 0
+                    ? const SizedBox.shrink()
+                    : Center(
+                        child: TextButton(
+                          onPressed: onToggleList,
+                          child: Text(
+                            listShown
+                                ? l10n.searchShowAsChat
+                                : l10n.searchShowAsList,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
               ),
-              const Spacer(),
               if (loading)
                 const Padding(
                   padding: EdgeInsets.only(right: 12),
@@ -395,7 +438,10 @@ class SearchStepper extends StatelessWidget {
                 padding: const EdgeInsets.only(right: 16),
                 child: Text(
                   total <= 0
-                      ? l10n.searchNoMatches
+                      ? (loading ? '' : l10n.searchNoMatches)
+                      // The list says itself how many it holds.
+                      : listShown || current < 0
+                      ? ''
                       : l10n.searchMatchOf(current + 1, shown),
                   style: theme.textTheme.labelLarge,
                 ),

@@ -304,10 +304,12 @@ void main() {
       matching: find.byType(TextField),
     );
     await tester.enterText(searchField, 'second');
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.pump();
     expect(gw.searched, ['second']);
-    // The words are in the field as well as in the comment that was found.
+    // The thread stands on the comment that was found.
     expect(
       find.descendant(
         of: find.byType(CommentBubble),
@@ -315,13 +317,14 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('first'), findsNothing);
+    expect(find.text('1 of 1'), findsOneWidget);
 
     // Nothing for these words.
     await tester.enterText(searchField, 'zzz');
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pump();
-    expect(find.textContaining('Nothing found'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('No matches'), findsOneWidget);
 
     // Back to the thread itself.
     await tester.tap(find.byType(BackButton));
