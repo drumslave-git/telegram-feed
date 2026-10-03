@@ -268,7 +268,7 @@ class PostCard extends StatelessWidget {
                   load: availableReactions!,
                   gateway: gateway,
                   chosen: {
-                    for (final r in reactions ?? item.head.reactions)
+                    for (final r in reactions ?? item.reactionPost.reactions)
                       if (r.chosen) r.emoji,
                   },
                   onPick: (emoji, remove) =>
@@ -382,7 +382,7 @@ class PostCard extends StatelessWidget {
       onOpenForward: onOpenForward,
       onOpenReply: onOpenReply,
       onOpenChannel: selecting ? null : onOpenChannel,
-      reactions: reactions ?? item.head.reactions,
+      reactions: reactions ?? item.reactionPost.reactions,
       onQuickReact: onQuickReact,
       onViewerMedia: onViewerMedia,
       onMoreViewerMedia: onMoreViewerMedia,
@@ -990,7 +990,7 @@ class _Bubble extends StatelessWidget {
             child: Align(alignment: Alignment.centerRight, child: footer),
           ),
         if (onOpenThread != null)
-          _CommentsBar(count: item.head.replyCount, onTap: onOpenThread!),
+          _CommentsBar(count: item.threadPost.replyCount, onTap: onOpenThread!),
       ],
     );
   }

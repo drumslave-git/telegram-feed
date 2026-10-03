@@ -377,6 +377,10 @@ final class FakeTelegram extends TimelineGateway {
         albumId: 7,
         media: PhotoMedia(sizes: [_file('photo4.png', 640, 360)]),
         views: 1500,
+        // Telegram keeps an album's reactions and comments on its first message.
+        reactions: const [Reaction(emoji: '👍', count: 5)],
+        canComment: true,
+        replyCount: 2,
       ),
       _post(
         chat,

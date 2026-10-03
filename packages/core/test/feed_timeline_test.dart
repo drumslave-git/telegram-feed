@@ -241,6 +241,60 @@ List<Post> series(int chat, int n, {int start = 1000, int step = 10}) => [
 ];
 
 void main() {
+  group('an album as one post', () {
+    Post part(
+      int id, {
+      List<Reaction> reactions = const [],
+      bool canComment = false,
+      int replies = 0,
+    }) => Post(
+      chatId: -1,
+      messageId: id,
+      date: 1,
+      text: '',
+      albumId: 7,
+      reactions: reactions,
+      canComment: canComment,
+      replyCount: replies,
+    );
+
+    test('its reactions and comments are those of its first message', () {
+      const likes = [Reaction(emoji: '👍', count: 5)];
+      final album = TimelineItem(part(12), [
+        part(11),
+        part(10, reactions: likes, canComment: true, replies: 2),
+      ]);
+      expect(album.reactionPost.messageId, 10);
+      expect(album.reactionPost.reactions, likes);
+      expect(album.threadPost.messageId, 10);
+      expect(album.threadPost.replyCount, 2);
+    });
+
+    test('a part that holds them is taken, wherever it stands', () {
+      const likes = [Reaction(emoji: '👍', count: 5)];
+      final album = TimelineItem(part(12, reactions: likes, canComment: true), [
+        part(11),
+        part(10),
+      ]);
+      expect(album.reactionPost.messageId, 12);
+      expect(album.threadPost.messageId, 12);
+    });
+
+    test('with none, the first message is where a reaction goes', () {
+      final album = TimelineItem(part(12), [part(11), part(10)]);
+      expect(album.reactionPost.messageId, 10);
+      expect(album.threadPost.canComment, isFalse);
+    });
+
+    test('a single post is its own', () {
+      final single = TimelineItem(
+        const Post(chatId: -1, messageId: 5, date: 1, text: 'x'),
+      );
+      expect(single.reactionPost.messageId, 5);
+      expect(single.threadPost.messageId, 5);
+    });
+  });
+
   test('opened at anchors: older first, then back towards the newest', () async {
     final g = HistoryGateway({
       -1: series(-1, 20, start: 0, step: 10), // ids 20..1, dates 200..10

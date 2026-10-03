@@ -39,6 +39,29 @@ final class TimelineItem {
 
   List<Post> get allPosts => [head, ...parts];
 
+  /// The post that carries the row's reactions. Telegram keeps the reactions of an album
+  /// on its first message, which is where the official app reads and sends them
+  /// (`findPrimaryMessageObject`); should another part hold them, that one is taken.
+  Post get reactionPost {
+    if (parts.isEmpty) return head;
+    final oldestFirst = allPosts.reversed;
+    for (final p in oldestFirst) {
+      if (p.reactions.isNotEmpty) return p;
+    }
+    return oldestFirst.first;
+  }
+
+  /// The post whose comments are the row's: the first message of an album, or whichever
+  /// part Telegram hung the discussion on.
+  Post get threadPost {
+    if (parts.isEmpty) return head;
+    final oldestFirst = allPosts.reversed;
+    for (final p in oldestFirst) {
+      if (p.canComment) return p;
+    }
+    return oldestFirst.first;
+  }
+
   /// The channel protects its content: the row may not be copied, shared or saved.
   bool get isProtected => !head.canBeSaved || parts.any((p) => !p.canBeSaved);
 }

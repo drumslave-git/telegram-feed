@@ -1723,8 +1723,9 @@ class TimelineViewState extends State<TimelineView>
 
   /// The reactions to draw for a post: the reader's change while Telegram has not answered.
   List<Reaction>? _reactionsOf(TimelineItem item) {
-    final o = _optimistic[(item.chatId, item.head.messageId)];
-    if (o == null || !identical(o.$1, item.head.reactions)) return null;
+    final post = item.reactionPost;
+    final o = _optimistic[(item.chatId, post.messageId)];
+    if (o == null || !identical(o.$1, post.reactions)) return null;
     return o.$2;
   }
 
@@ -1765,21 +1766,23 @@ class TimelineViewState extends State<TimelineView>
   Future<void> _react(TimelineItem item, String emoji, bool remove) async {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = context.l10n;
-    final key = (item.chatId, item.head.messageId);
+    // An album's reactions are those of its first message.
+    final post = item.reactionPost;
+    final key = (item.chatId, post.messageId);
     // A second tap before Telegram answered would undo the first.
     if (_reacting.contains(key)) return;
     _reacting.add(key);
-    final shown = _reactionsOf(item) ?? item.head.reactions;
+    final shown = _reactionsOf(item) ?? post.reactions;
     setState(
       () => _optimistic[key] = (
-        item.head.reactions,
+        post.reactions,
         _toggled(shown, emoji, remove: remove),
       ),
     );
     try {
       await widget.gateway.react(
         item.chatId,
-        item.head.messageId,
+        post.messageId,
         emoji,
         remove: remove,
       );
@@ -1912,7 +1915,7 @@ class TimelineViewState extends State<TimelineView>
   /// does not allow that emoji says so through Telegram's own answer.
   Future<void> _quickReact(TimelineItem item) async {
     final emoji = _quick;
-    final chosen = (_reactionsOf(item) ?? item.head.reactions).any(
+    final chosen = (_reactionsOf(item) ?? item.reactionPost.reactions).any(
       (r) => r.emoji == emoji && r.chosen,
     );
     await _react(item, emoji, chosen);
@@ -1926,7 +1929,7 @@ class TimelineViewState extends State<TimelineView>
   Future<List<String>> _availableReactions(TimelineItem item) =>
       _reactionsOfChat[item.chatId] ??= widget.gateway.availableReactions(
         item.chatId,
-        item.head.messageId,
+        item.reactionPost.messageId,
       );
 
   @override
@@ -2234,13 +2237,13 @@ class TimelineViewState extends State<TimelineView>
                       selecting: _selected.isNotEmpty,
                       selected: _selected.contains(id),
                       // Only posts of channels with a discussion group have a thread.
-                      onOpenThread: !item.head.canComment
+                      onOpenThread: !item.threadPost.canComment
                           ? null
                           : () => Navigator.of(context).push(
                               MaterialPageRoute<void>(
                                 builder: (_) => ThreadScreen(
                                   gateway: widget.gateway,
-                                  post: item.head,
+                                  post: item.threadPost,
                                   item: item,
                                   channelTitle: _titles[item.chatId] ?? '',
                                   channelPhoto: _photos[item.chatId],

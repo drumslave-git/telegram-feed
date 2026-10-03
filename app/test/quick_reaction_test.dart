@@ -66,6 +66,35 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('an album shows and takes the reactions of its first message, '
+      'and its comments', (tester) async {
+    gw.histories[-1] = [
+      // Newest first. The caption, the reactions and the discussion sit on the first
+      // message of the album, as Telegram keeps them.
+      const Post(chatId: -1, messageId: 12, date: 300, text: '', albumId: 7),
+      const Post(chatId: -1, messageId: 11, date: 300, text: '', albumId: 7),
+      const Post(
+        chatId: -1,
+        messageId: 10,
+        date: 300,
+        text: 'three views',
+        albumId: 7,
+        reactions: [Reaction(emoji: 'X', count: 2)],
+        canComment: true,
+        replyCount: 4,
+      ),
+    ];
+    await open(tester);
+    expect(find.byType(PostCard), findsOneWidget);
+    expect(find.text('X 2'), findsOneWidget);
+    expect(find.text('4 comments'), findsOneWidget);
+
+    await tester.tap(find.text('X 2'));
+    await settle(tester);
+    expect(gw.reactions, ['-1/10 +X']);
+    await unmount(tester);
+  });
+
   testWidgets('a double tap sends the thumbs up, and takes it back', (
     tester,
   ) async {
