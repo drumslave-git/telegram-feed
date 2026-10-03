@@ -124,6 +124,13 @@ class _TimelineScreenState extends State<TimelineScreen> {
     unawaited(_loadRecent());
   }
 
+  /// Opens the search with [words] in it, as a tap on a hashtag does in the official app.
+  void _searchFor(String words) {
+    _openSearch();
+    _queryCtl.text = words;
+    _onQuery(words);
+  }
+
   Future<void> _loadRecent() async {
     final words = await RecentSearches(widget.db).load();
     if (mounted) setState(() => _recent = words);
@@ -482,6 +489,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                         focusMessageId: widget.focusMessageId,
                         share: widget.share,
                         onSources: _onSources,
+                        onHashtag: _searchFor,
                         onEditFeed: widget.feed == null
                             ? null
                             : _openFeedEditor,
@@ -567,6 +575,7 @@ class TimelineView extends StatefulWidget {
     this.onSources,
     this.onSelectionChanged,
     this.onEditFeed,
+    this.onHashtag,
     this.savedMessages = false,
   }) : assert((feed == null) != (channel == null));
   final AppDatabase db;
@@ -583,6 +592,9 @@ class TimelineView extends StatefulWidget {
 
   /// Opens the feed's channels; the button an empty feed offers. Null for a channel.
   final VoidCallback? onEditFeed;
+
+  /// A hashtag in a post was tapped: the screen searches its posts for it.
+  final void Function(String tag)? onHashtag;
 
   /// A feed of ours: sources and read marks come from the database.
   final Feed? feed;
@@ -2284,6 +2296,7 @@ class TimelineViewState extends State<TimelineView>
                       onReact: (emoji, remove) => _react(item, emoji, remove),
                       availableReactions: () => _availableReactions(item),
                       onOpenLink: _openLink,
+                      onOpenHashtag: widget.onHashtag,
                       onAutoplaySettings: () => openSettingsScreen(
                         context,
                         DataStorageScreen(

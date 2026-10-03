@@ -61,7 +61,7 @@ void main() {
         kind: TextEntityKind.link,
         url: 'https://t.me/durov',
       ),
-      TextEntity(offset: 35, length: 4, kind: TextEntityKind.tag),
+      TextEntity(offset: 35, length: 4, kind: TextEntityKind.hashtag),
       TextEntity(
         offset: 40,
         length: 6,
@@ -96,5 +96,20 @@ void main() {
     expect(decodePost(encodePost(post)).entities, post.entities);
     // A post encoded by an older core has none.
     expect(decodePost(encodePost(post)..remove('entities')).entities, isEmpty);
+  });
+
+  test('a phone number carries its tel: address', () {
+    const text = 'Call +1 (555) 010-0199 now';
+    final post = map.post(
+      _message(text, [_entity(5, 17, 'textEntityTypePhoneNumber')]),
+    );
+    expect(post.entities, const [
+      TextEntity(
+        offset: 5,
+        length: 17,
+        kind: TextEntityKind.phone,
+        url: 'tel:+15550100199',
+      ),
+    ]);
   });
 }

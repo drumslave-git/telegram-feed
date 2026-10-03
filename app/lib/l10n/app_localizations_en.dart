@@ -171,6 +171,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get timelineCodeCopied => 'Code copied';
 
   @override
+  String get linkOpenTitle => 'Open Link';
+
+  @override
+  String linkOpenQuestion(String url) {
+    return 'Do you want to open $url?';
+  }
+
+  @override
+  String get phoneCall => 'Call';
+
+  @override
+  String get phoneCopy => 'Copy number';
+
+  @override
+  String get phoneCopied => 'Phone number copied';
+
+  @override
   String get timelineCopyCode => 'Copy code';
 
   @override

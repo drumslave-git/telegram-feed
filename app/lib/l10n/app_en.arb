@@ -79,6 +79,18 @@
     "description": "Screen-reader label of hidden spoiler text in a post."
   },
   "timelineCodeCopied": "Code copied",
+  "linkOpenTitle": "Open Link",
+  "linkOpenQuestion": "Do you want to open {url}?",
+  "@linkOpenQuestion": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneCall": "Call",
+  "phoneCopy": "Copy number",
+  "phoneCopied": "Phone number copied",
   "timelineCopyCode": "Copy code",
   "@timelineCopyCode": {
     "description": "Button at the end of a monospace block in a post."

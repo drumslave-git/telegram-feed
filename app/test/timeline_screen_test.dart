@@ -1,5 +1,6 @@
 import 'package:app_db/app_db.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -235,6 +236,53 @@ void main() {
       matching: find.byType(PostCard),
     );
     expect(tester.getBottomLeft(card).dy, greaterThan(580));
+    await unmount(tester);
+  });
+
+  testWidgets('a tap on a hashtag searches the timeline for it', (
+    tester,
+  ) async {
+    gw.histories[-1] = [
+      const Post(
+        chatId: -1,
+        messageId: 3,
+        date: 300,
+        text: 'ferries again #ferries',
+        entities: [
+          TextEntity(offset: 14, length: 8, kind: TextEntityKind.hashtag),
+        ],
+      ),
+    ];
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Tags');
+      await db.addSource(feed.id, -1, title: 'One');
+      gw.readPositions[-1] = 3;
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(db: db, gateway: gw, feed: feed),
+      ),
+    );
+    await settle(tester);
+    await tester.pumpAndSettle();
+    final text = tester.widget<Text>(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Text && (w.textSpan?.toPlainText() ?? '').contains('#ferries'),
+      ),
+    );
+    final tag = (text.textSpan! as TextSpan).children!
+        .whereType<TextSpan>()
+        .firstWhere((s) => s.text == '#ferries');
+    (tag.recognizer! as TapGestureRecognizer).onTap!();
+    await tester.pump(const Duration(milliseconds: 400));
+    await settle(tester);
+    // The search bar is open with the tag in it, and the channels were asked.
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      '#ferries',
+    );
+    expect(gw.searches.last.startsWith('#ferries|'), isTrue);
     await unmount(tester);
   });
 

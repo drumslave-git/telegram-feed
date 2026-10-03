@@ -350,8 +350,8 @@ td.FormattedText? formattedText(td.MessageContent? c) => switch (c) {
   _ => null,
 };
 
-/// Formatting the app draws, custom emoji included; phone numbers, bank cards and the like
-/// stay plain text.
+/// Formatting the app draws, custom emoji included; bank cards and the like stay plain
+/// text.
 List<TextEntity> entities(td.FormattedText? t) {
   if (t == null) return const [];
   final text = t.text;
@@ -382,8 +382,12 @@ List<TextEntity> entities(td.FormattedText? t) {
         'https://t.me/${piece.replaceFirst('@', '')}',
       ),
       td.TextEntityTypeEmailAddress() => (TextEntityKind.link, 'mailto:$piece'),
-      td.TextEntityTypeHashtag() => (TextEntityKind.tag, null),
-      td.TextEntityTypeCashtag() => (TextEntityKind.tag, null),
+      td.TextEntityTypeHashtag() => (TextEntityKind.hashtag, null),
+      td.TextEntityTypeCashtag() => (TextEntityKind.hashtag, null),
+      td.TextEntityTypePhoneNumber() => (
+        TextEntityKind.phone,
+        'tel:${piece.replaceAll(RegExp(r'[^0-9+]'), '')}',
+      ),
       td.TextEntityTypeBotCommand() => (TextEntityKind.tag, null),
       // The id travels in the url slot; the app asks TDLib for the sticker behind it.
       td.TextEntityTypeCustomEmoji(:final customEmojiId) => (

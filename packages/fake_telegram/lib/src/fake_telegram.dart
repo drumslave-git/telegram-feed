@@ -291,7 +291,19 @@ final class FakeTelegram extends TimelineGateway {
         chat,
         9,
         hoursAgo: 12,
-        text: 'Timetable for the winter ferries, as a file.',
+        //     0         1         2         3         4         5         6         7
+        //     0123456789012345678901234567890123456789012345678901234567890123456789012345
+        text: 'Timetable for the winter ferries, as a file. #ferries Office: 555-0199, code F12.',
+        entities: const [
+          TextEntity(offset: 45, length: 8, kind: TextEntityKind.hashtag),
+          TextEntity(
+            offset: 62,
+            length: 8,
+            kind: TextEntityKind.phone,
+            url: 'tel:5550199',
+          ),
+          TextEntity(offset: 77, length: 3, kind: TextEntityKind.code),
+        ],
         media: DocumentMedia(
           file: _file('notes.txt', 0, 0),
           fileName: 'ferries-winter.txt',

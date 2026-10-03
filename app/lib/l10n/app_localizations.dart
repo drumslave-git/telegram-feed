@@ -416,6 +416,36 @@ abstract class AppLocalizations {
   /// **'Code copied'**
   String get timelineCodeCopied;
 
+  /// No description provided for @linkOpenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Link'**
+  String get linkOpenTitle;
+
+  /// No description provided for @linkOpenQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Do you want to open {url}?'**
+  String linkOpenQuestion(String url);
+
+  /// No description provided for @phoneCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Call'**
+  String get phoneCall;
+
+  /// No description provided for @phoneCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy number'**
+  String get phoneCopy;
+
+  /// No description provided for @phoneCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone number copied'**
+  String get phoneCopied;
+
   /// Button at the end of a monospace block in a post.
   ///
   /// In en, this message translates to:

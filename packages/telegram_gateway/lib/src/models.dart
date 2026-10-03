@@ -737,8 +737,14 @@ enum TextEntityKind {
   /// Opens [TextEntity.url]: links, text links, mentions, e-mail addresses.
   link,
 
-  /// Coloured like a link but without a target: hashtags, cashtags, bot commands.
+  /// Coloured like a link but without a target: bot commands.
   tag,
+
+  /// A hashtag or a cashtag: a tap searches the timeline for it.
+  hashtag,
+
+  /// A phone number: [TextEntity.url] is its `tel:` address. A tap offers to call or copy.
+  phone,
 
   /// A custom (premium) emoji: [TextEntity.customEmojiId] names the sticker to draw in
   /// place of the plain emoji the text carries.

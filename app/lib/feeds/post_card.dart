@@ -156,6 +156,7 @@ class PostCard extends StatelessWidget {
     this.availableReactions,
     this.onOpenThread,
     this.onOpenLink,
+    this.onOpenHashtag,
     this.onAutoplaySettings,
     this.onOpenForward,
     this.onOpenReply,
@@ -199,6 +200,9 @@ class PostCard extends StatelessWidget {
 
   /// Tap on a link, a mention or an e-mail address in the text.
   final void Function(String url)? onOpenLink;
+
+  /// A tap on a hashtag in the text: the timeline searches for it.
+  final void Function(String tag)? onOpenHashtag;
 
   /// Menu entry of posts with a video: the autoplay switch and limits.
   final VoidCallback? onAutoplaySettings;
@@ -366,6 +370,7 @@ class PostCard extends StatelessWidget {
       onReact: onReact,
       onOpenThread: onOpenThread,
       onOpenLink: onOpenLink,
+      onOpenHashtag: onOpenHashtag,
       onOpenForward: onOpenForward,
       onOpenReply: onOpenReply,
       onOpenChannel: selecting ? null : onOpenChannel,
@@ -827,6 +832,7 @@ class _Bubble extends StatelessWidget {
     required this.onReact,
     required this.onOpenThread,
     required this.onOpenLink,
+    required this.onOpenHashtag,
     required this.onOpenForward,
     required this.onOpenReply,
     required this.onOpenChannel,
@@ -845,6 +851,7 @@ class _Bubble extends StatelessWidget {
   final void Function(String emoji, bool remove)? onReact;
   final VoidCallback? onOpenThread;
   final void Function(String url)? onOpenLink;
+  final void Function(String tag)? onOpenHashtag;
   final VoidCallback? onOpenForward;
   final VoidCallback? onOpenReply;
   final VoidCallback? onOpenChannel;
@@ -1063,6 +1070,7 @@ class _Bubble extends StatelessWidget {
       text: text,
       entities: item.textPost.entities,
       onOpenLink: onOpenLink,
+      onOpenHashtag: onOpenHashtag,
       gateway: gateway,
       canCopy: !item.isProtected,
       style: TextStyle(

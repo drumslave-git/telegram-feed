@@ -6,13 +6,17 @@ import 'package:flutter/services.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../l10n/l10n.dart';
+import 'post_menu.dart';
 import 'sticker_view.dart';
 
 /// A post's text with Telegram's formatting: bold, italic, underline, strikethrough,
-/// monospace, quotes, spoilers (hidden until tapped), links and mentions that open, and
-/// coloured hashtags. Entities may nest and overlap; the text is cut at every boundary and
-/// each piece gets the styles of all entities covering it. A monospace block ends with the
-/// copy button the official app puts in its corner.
+/// monospace, quotes, spoilers (hidden until tapped), links and mentions that open,
+/// hashtags that search and phone numbers that call. Entities may nest and overlap; the
+/// text is cut at every boundary and each piece gets the styles of all entities covering
+/// it. A monospace block ends with the copy button the official app puts in its corner.
+///
+/// As in the official app: a link hidden behind other words asks before it opens, a long
+/// press on a link offers to open it or copy it, and a tap on inline code copies it.
 class FormattedText extends StatefulWidget {
   const FormattedText({
     super.key,
@@ -20,6 +24,7 @@ class FormattedText extends StatefulWidget {
     required this.entities,
     required this.style,
     this.onOpenLink,
+    this.onOpenHashtag,
     this.gateway,
     this.canCopy = true,
   });
@@ -34,15 +39,19 @@ class FormattedText extends StatefulWidget {
   /// Links are plain coloured text without it.
   final void Function(String url)? onOpenLink;
 
+  /// A tap on a hashtag or a cashtag, with the tag as it stands in the text. Tags are
+  /// plain coloured text without it.
+  final void Function(String tag)? onOpenHashtag;
+
   /// Fetches the stickers of custom emoji; without it they stay the plain emoji.
   final TelegramGateway? gateway;
 
   @override
-  State<FormattedText> createState() => _FormattedTextState();
+  State<FormattedText> createState() => FormattedTextState();
 }
 
-class _FormattedTextState extends State<FormattedText> {
-  final _recognizers = <TapGestureRecognizer>[];
+class FormattedTextState extends State<FormattedText> {
+  final _recognizers = <GestureRecognizer>[];
 
   /// Stickers of the custom emoji in this text, once TDLib has named them.
   Map<String, StickerMedia> _emoji = const {};
@@ -64,10 +73,12 @@ class _FormattedTextState extends State<FormattedText> {
   }
 
   @override
-  void didUpdateWidget(FormattedText old) {
-    super.didUpdateWidget(old);
-    if (old.text != widget.text) _revealed.clear();
-    if (old.entities != widget.entities) unawaited(_loadCustomEmoji());
+  void didUpdateWidget(FormattedText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text) _revealed.clear();
+    if (oldWidget.entities != widget.entities) {
+      unawaited(_loadCustomEmoji());
+    }
   }
 
   /// One request for all the custom emoji of this text; the gateway keeps what it learns,
@@ -101,6 +112,117 @@ class _FormattedTextState extends State<FormattedText> {
     return r;
   }
 
+  /// A tap that says where it landed, for a menu that opens there.
+  TapGestureRecognizer _onTapAt(void Function(Offset at) action) {
+    final r = TapGestureRecognizer()..onTapUp = (d) => action(d.globalPosition);
+    _recognizers.add(r);
+    return r;
+  }
+
+  /// A link: a tap opens it, a long press offers to open or copy it.
+  GestureRecognizer _onLink(String url, String shown) {
+    final r = TapOrHoldRecognizer(
+      onTap: () => unawaited(_openLink(url, shown)),
+      onHold: (at) => unawaited(_linkMenu(url, at)),
+    );
+    _recognizers.add(r);
+    return r;
+  }
+
+  /// Whether the link stands behind other words than its own address, so that the reader
+  /// cannot see where it leads: it is then asked about, as the official app does. Links
+  /// into Telegram and addresses that are no web pages are not.
+  static bool hidesTarget(String url, String shown) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+      return false;
+    }
+    final host = uri.host.toLowerCase();
+    const telegram = ['t.me', 'telegram.me', 'telegram.dog', 'telegra.ph'];
+    if (telegram.any((h) => host == h || host.endsWith('.$h'))) return false;
+    String bare(String s) => s
+        .trim()
+        .toLowerCase()
+        .replaceFirst(RegExp(r'^https?://'), '')
+        .replaceFirst(RegExp(r'/$'), '');
+    return bare(shown) != bare(url);
+  }
+
+  Future<void> _openLink(String url, String shown) async {
+    final open = widget.onOpenLink;
+    if (open == null) return;
+    if (!hidesTarget(url, shown)) return open(url);
+    final l10n = context.l10n;
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.linkOpenTitle),
+        content: Text(l10n.linkOpenQuestion(url)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.commonOpen),
+          ),
+        ],
+      ),
+    );
+    if (yes ?? false) open(url);
+  }
+
+  Future<void> _copy(String text, String said) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    await Clipboard.setData(ClipboardData(text: text));
+    messenger?.showSnackBar(SnackBar(content: Text(said)));
+  }
+
+  Future<void> _linkMenu(String url, Offset at) async {
+    final l10n = context.l10n;
+    final action = await showPostMenu(
+      context,
+      at: at,
+      entries: [
+        PostMenuEntry(icon: Icons.link, label: url),
+        PostMenuEntry(
+          icon: Icons.open_in_new,
+          label: l10n.commonOpen,
+          onSelected: () => widget.onOpenLink?.call(url),
+        ),
+        PostMenuEntry(
+          icon: Icons.content_copy,
+          label: l10n.commonCopyLink,
+          onSelected: () => unawaited(_copy(url, l10n.timelineLinkCopied(url))),
+        ),
+      ],
+    );
+    action?.call();
+  }
+
+  Future<void> _phoneMenu(String tel, String shown, Offset at) async {
+    final l10n = context.l10n;
+    final action = await showPostMenu(
+      context,
+      at: at,
+      entries: [
+        PostMenuEntry(icon: Icons.phone_outlined, label: shown),
+        PostMenuEntry(
+          icon: Icons.call,
+          label: l10n.phoneCall,
+          onSelected: () => widget.onOpenLink?.call(tel),
+        ),
+        PostMenuEntry(
+          icon: Icons.content_copy,
+          label: l10n.phoneCopy,
+          onSelected: () => unawaited(_copy(shown, l10n.phoneCopied)),
+        ),
+      ],
+    );
+    action?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     _disposeRecognizers();
@@ -128,6 +250,9 @@ class _FormattedTextState extends State<FormattedText> {
       TextEntity? link;
       TextEntity? spoiler;
       TextEntity? emoji;
+      TextEntity? hashtag;
+      TextEntity? phone;
+      TextEntity? code;
       for (final e in entities) {
         if (e.offset > from || e.end < to) continue;
         switch (e.kind) {
@@ -144,6 +269,7 @@ class _FormattedTextState extends State<FormattedText> {
               fontFamily: 'monospace',
               backgroundColor: scheme.surfaceContainerHighest,
             );
+            if (e.kind == TextEntityKind.code) code = e;
           case TextEntityKind.quote:
             style = style.copyWith(
               fontStyle: FontStyle.italic,
@@ -151,6 +277,12 @@ class _FormattedTextState extends State<FormattedText> {
             );
           case TextEntityKind.tag:
             style = style.copyWith(color: scheme.primary);
+          case TextEntityKind.hashtag:
+            style = style.copyWith(color: scheme.primary);
+            hashtag = e;
+          case TextEntityKind.phone:
+            style = style.copyWith(color: scheme.primary);
+            phone = e;
           case TextEntityKind.link:
             style = style.copyWith(color: scheme.primary);
             link = e;
@@ -176,8 +308,20 @@ class _FormattedTextState extends State<FormattedText> {
         final offset = spoiler.offset;
         recognizer = _onTap(() => setState(() => _revealed.add(offset)));
       } else if (link?.url != null && widget.onOpenLink != null) {
-        final url = link!.url!;
-        recognizer = _onTap(() => widget.onOpenLink!(url));
+        recognizer = _onLink(link!.url!, text.substring(link.offset, link.end));
+      } else if (hashtag != null && widget.onOpenHashtag != null) {
+        final tag = text.substring(hashtag.offset, hashtag.end);
+        recognizer = _onTap(() => widget.onOpenHashtag!(tag));
+      } else if (phone?.url != null && widget.onOpenLink != null) {
+        final tel = phone!.url!;
+        final shown = text.substring(phone.offset, phone.end);
+        recognizer = _onTapAt((at) => unawaited(_phoneMenu(tel, shown, at)));
+      } else if (code != null && widget.canCopy) {
+        // A tap on inline code copies it, as in the official app.
+        final piece = text.substring(code.offset, code.end);
+        recognizer = _onTap(
+          () => unawaited(_copy(piece, context.l10n.timelineCodeCopied)),
+        );
       }
       final sticker = _emoji[emoji?.customEmojiId];
       if (sticker != null && !hidden) {
@@ -254,4 +398,35 @@ class _CopyBlock extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// A recognizer for a piece of text that answers a tap and a long press. A span takes one
+/// recognizer only, and its paragraph knows a tap recognizer when it meets one (for the
+/// screen reader's "activate"), so this is a tap recognizer that brings a long press along.
+class TapOrHoldRecognizer extends TapGestureRecognizer {
+  TapOrHoldRecognizer({
+    required VoidCallback onTap,
+    required void Function(Offset at) onHold,
+  }) {
+    this.onTap = onTap;
+    _hold.onLongPressStart = (d) => onHold(d.globalPosition);
+  }
+  final _hold = LongPressGestureRecognizer();
+
+  /// What a long press at [at] does: a test cannot aim at a piece of text.
+  @visibleForTesting
+  void holdForTest(Offset at) =>
+      _hold.onLongPressStart!(LongPressStartDetails(globalPosition: at));
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    _hold.addPointer(event);
+  }
+
+  @override
+  void dispose() {
+    _hold.dispose();
+    super.dispose();
+  }
 }

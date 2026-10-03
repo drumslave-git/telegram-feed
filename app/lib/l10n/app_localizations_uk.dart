@@ -171,6 +171,23 @@ class AppLocalizationsUk extends AppLocalizations {
   String get timelineCodeCopied => 'Код скопійовано';
 
   @override
+  String get linkOpenTitle => 'Відкрити посилання';
+
+  @override
+  String linkOpenQuestion(String url) {
+    return 'Ви дійсно хочете відкрити $url?';
+  }
+
+  @override
+  String get phoneCall => 'Виклик';
+
+  @override
+  String get phoneCopy => 'Копіювати номер';
+
+  @override
+  String get phoneCopied => 'Номер скопійовано';
+
+  @override
   String get timelineCopyCode => 'Копіювати код';
 
   @override
