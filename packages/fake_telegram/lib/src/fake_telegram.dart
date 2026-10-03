@@ -243,6 +243,7 @@ final class FakeTelegram extends TimelineGateway {
           isPinned: true,
           recentCommenters: p.recentCommenters,
           hasUnreadComments: p.hasUnreadComments,
+          captionAbove: p.captionAbove,
         );
       }
       return [
@@ -526,6 +527,26 @@ final class FakeTelegram extends TimelineGateway {
             text: 'Issue $n: the harbour lights, and how they are wired.',
             media: PhotoMedia(sizes: [_file('photo1.png', 640, 480)]),
             views: 700 + n,
+            // The words stand over the picture.
+            captionAbove: true,
+          )
+        else if (n == 14)
+          // A link into Telegram: the card says what it opens.
+          _post(
+            chat,
+            n,
+            hoursAgo: 6 + (16 - n) * 5,
+            text: 'Issue $n: ${_circuitTopics[n % _circuitTopics.length]}',
+            views: 700 + n,
+            signature: 'Ada',
+            linkPreview: const LinkPreview(
+              url: 'https://t.me/harbourtimes',
+              displayUrl: 't.me/harbourtimes',
+              kind: LinkKind.channel,
+              siteName: 'Telegram',
+              title: 'Harbour Times',
+              description: 'News from the quay, every day.',
+            ),
           )
         else
           _post(
@@ -664,7 +685,9 @@ final class FakeTelegram extends TimelineGateway {
     bool isPinned = false,
     List<Commenter> recentCommenters = const [],
     bool hasUnreadComments = false,
+    bool captionAbove = false,
   }) => Post(
+    captionAbove: captionAbove,
     canBeSaved: canBeSaved,
     buttons: buttons,
     signature: signature,
@@ -977,6 +1000,7 @@ final class FakeTelegram extends TimelineGateway {
       isPinned: p.isPinned,
       recentCommenters: p.recentCommenters,
       hasUnreadComments: p.hasUnreadComments,
+      captionAbove: p.captionAbove,
     );
     history[i] = edited;
     posts.add(PostEdited(edited));

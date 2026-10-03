@@ -978,9 +978,16 @@ class _Bubble extends StatelessWidget {
     final text = item.text;
     // Only a text post carries a link preview, so it never belongs to an album.
     final preview = item.textPost.linkPreview;
+    // The author put the words over the picture: they come first, and the picture is the
+    // last thing in the bubble.
+    final captionAbove =
+        item.textPost.captionAbove && text.isNotEmpty && visual.isNotEmpty;
     // Nothing under the pictures: the footer goes on top of them, as in Telegram.
     final footerOnMedia =
-        text.isEmpty && reactions.isEmpty && other.isEmpty && visual.isNotEmpty;
+        (text.isEmpty || captionAbove) &&
+        reactions.isEmpty &&
+        other.isEmpty &&
+        visual.isNotEmpty;
     final footer = PostFooter(
       post: item.head,
       color: footerOnMedia ? Colors.white : scheme.onSurfaceVariant,
@@ -1086,6 +1093,11 @@ class _Bubble extends StatelessWidget {
               onTap: onOpenReply,
             ),
           ),
+        if (captionAbove)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(_side, 0, _side, 6),
+            child: _text(context, text),
+          ),
         if (pictures != null)
           footerOnMedia
               ? quickReactable(
@@ -1103,13 +1115,15 @@ class _Bubble extends StatelessWidget {
               : text.isEmpty
               ? quickReactable(pictures)
               : pictures,
+        // Room under a picture that ends the bubble with reactions after it.
+        if (captionAbove && !footerOnMedia) const SizedBox(height: 4),
         for (final m in other)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: _side),
             child: MediaView(media: m, gateway: gateway),
           ),
         if (card != null && preview!.aboveText) card,
-        if (text.isNotEmpty)
+        if (text.isNotEmpty && !captionAbove)
           Padding(
             padding: const EdgeInsets.fromLTRB(_side, 6, _side, 6),
             child: reactions.isEmpty && !footerUnderCard

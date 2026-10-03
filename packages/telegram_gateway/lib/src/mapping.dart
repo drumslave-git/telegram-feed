@@ -163,6 +163,13 @@ Post post(
     buttons: urlButtons(m.replyMarkup),
     signature: m.authorSignature,
     isPinned: m.isPinned,
+    captionAbove: switch (m.content) {
+      td.MessagePhoto(:final showCaptionAboveMedia) => showCaptionAboveMedia,
+      td.MessageVideo(:final showCaptionAboveMedia) => showCaptionAboveMedia,
+      td.MessageAnimation(:final showCaptionAboveMedia) =>
+        showCaptionAboveMedia,
+      _ => false,
+    },
     recentCommenters: recentCommenters,
     hasUnreadComments: hasUnreadComments(m.interactionInfo?.replyInfo),
   );
@@ -296,6 +303,7 @@ LinkPreview? linkPreview(td.MessageContent? c) {
   final (photo, isVideo, duration) = _previewPicture(p.type);
   return LinkPreview(
     url: p.url,
+    kind: linkKind(p.type),
     displayUrl: p.displayUrl,
     siteName: p.siteName,
     title: p.title,
@@ -309,6 +317,26 @@ LinkPreview? linkPreview(td.MessageContent? c) {
     aboveText: p.showAboveText,
   );
 }
+
+/// What a preview's link leads to inside Telegram, for the button on its card.
+LinkKind linkKind(td.LinkPreviewType? t) => switch (t) {
+  td.LinkPreviewTypeChat(:final type) =>
+    type is td.InviteLinkChatTypeChannel ? LinkKind.channel : LinkKind.group,
+  td.LinkPreviewTypeDirectMessagesChat() => LinkKind.channel,
+  td.LinkPreviewTypeMessage() => LinkKind.message,
+  td.LinkPreviewTypeUser(:final isBot) => isBot ? LinkKind.bot : LinkKind.user,
+  td.LinkPreviewTypeBackground() => LinkKind.background,
+  td.LinkPreviewTypeTheme() => LinkKind.theme,
+  td.LinkPreviewTypeStickerSet() => LinkKind.stickers,
+  td.LinkPreviewTypeVideoChat() ||
+  td.LinkPreviewTypeGroupCall() => LinkKind.videoChat,
+  td.LinkPreviewTypeStory() => LinkKind.story,
+  td.LinkPreviewTypeChannelBoost() ||
+  td.LinkPreviewTypeSupergroupBoost() => LinkKind.boost,
+  td.LinkPreviewTypeShareableChatFolder() => LinkKind.chatFolder,
+  td.LinkPreviewTypeWebApp() => LinkKind.webApp,
+  _ => LinkKind.web,
+};
 
 /// Picture, video flag and length of a preview, by the kind of link it is. Kinds without a
 /// picture (a chat, a sticker set, an invoice, anything newer than this app) give none and

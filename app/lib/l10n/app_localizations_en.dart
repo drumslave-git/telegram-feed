@@ -523,6 +523,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get postDayYearPattern => 'MMMM d, y';
 
   @override
+  String get linkViewChannel => 'View channel';
+
+  @override
+  String get linkViewGroup => 'View group';
+
+  @override
+  String get linkViewMessage => 'View message';
+
+  @override
+  String get linkSendMessage => 'Send message';
+
+  @override
+  String get linkOpenBot => 'Open bot';
+
+  @override
+  String get linkViewBackground => 'View wallpaper';
+
+  @override
+  String get linkViewTheme => 'View theme';
+
+  @override
+  String get linkViewStickers => 'View stickers';
+
+  @override
+  String get linkJoinVideoChat => 'Join as listener';
+
+  @override
+  String get linkViewStory => 'View story';
+
+  @override
+  String get linkBoost => 'Boost';
+
+  @override
+  String get linkViewChatFolder => 'View chat list';
+
+  @override
+  String get linkOpenApp => 'Launch';
+
+  @override
   String get postPinned => 'Pinned';
 
   @override

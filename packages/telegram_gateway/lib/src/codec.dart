@@ -305,6 +305,7 @@ Map<String, Object?> encodePost(Post p) => {
   if (!p.canBeSaved) 'protected': true,
   if (p.signature.isNotEmpty) 'signature': p.signature,
   if (p.isPinned) 'pinned': true,
+  if (p.captionAbove) 'captionAbove': true,
   if (p.hasUnreadComments) 'unreadComments': true,
   if (p.recentCommenters.isNotEmpty)
     'commenters': [
@@ -351,6 +352,7 @@ Map<String, Object?> encodePost(Post p) => {
 
 Map<String, Object?> encodeLinkPreview(LinkPreview p) => {
   'url': p.url,
+  if (p.kind != LinkKind.web) 'kind': p.kind.name,
   'displayUrl': p.displayUrl,
   'siteName': p.siteName,
   'title': p.title,
@@ -366,6 +368,9 @@ Map<String, Object?> encodeLinkPreview(LinkPreview p) => {
 
 LinkPreview decodeLinkPreview(Map<Object?, Object?> m) => LinkPreview(
   url: m['url'] as String,
+  kind: m['kind'] == null
+      ? LinkKind.web
+      : LinkKind.values.byName(m['kind'] as String),
   displayUrl: (m['displayUrl'] as String?) ?? '',
   siteName: (m['siteName'] as String?) ?? '',
   title: (m['title'] as String?) ?? '',
@@ -457,6 +462,7 @@ Post decodePost(Map<Object?, Object?> m) => Post(
   canBeSaved: m['protected'] != true,
   signature: (m['signature'] as String?) ?? '',
   isPinned: m['pinned'] == true,
+  captionAbove: m['captionAbove'] == true,
   hasUnreadComments: m['unreadComments'] == true,
   recentCommenters: [
     for (final c in (m['commenters'] as List?) ?? const [])

@@ -372,6 +372,22 @@
   "@postDayYearPattern": {
     "description": "intl DateFormat pattern of a day of another year between two days of a chat, e.g. March 3, 2025. Not a sentence: only the order of the fields changes."
   },
+  "linkViewChannel": "View channel",
+  "@linkViewChannel": {
+    "description": "The line at the bottom of a link card that says what a link into Telegram opens. The same for the keys linkViewGroup to linkOpenApp."
+  },
+  "linkViewGroup": "View group",
+  "linkViewMessage": "View message",
+  "linkSendMessage": "Send message",
+  "linkOpenBot": "Open bot",
+  "linkViewBackground": "View wallpaper",
+  "linkViewTheme": "View theme",
+  "linkViewStickers": "View stickers",
+  "linkJoinVideoChat": "Join as listener",
+  "linkViewStory": "View story",
+  "linkBoost": "Boost",
+  "linkViewChatFolder": "View chat list",
+  "linkOpenApp": "Launch",
   "postPinned": "Pinned",
   "@postPinned": {
     "description": "Screen-reader label of the pin icon in the footer of a pinned post."

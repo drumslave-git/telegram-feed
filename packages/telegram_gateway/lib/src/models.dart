@@ -553,12 +553,32 @@ final class ForwardOrigin {
   String toString() => 'ForwardOrigin($title, chat $chatId/$messageId)';
 }
 
+/// What a link in a post leads to, when it leads into Telegram: the card names it on a
+/// button of its own, as the official app does. Everything else is [web].
+enum LinkKind {
+  web,
+  channel,
+  group,
+  message,
+  user,
+  bot,
+  background,
+  theme,
+  stickers,
+  videoChat,
+  story,
+  boost,
+  chatFolder,
+  webApp,
+}
+
 /// The card under (or above) a post with a link: what TDLib hands over as `linkPreview` and
 /// the official app draws with the site, the title, a description and a picture. It is not
 /// [Post.media]: a post with a link stays a text post for a feed's filters.
 final class LinkPreview {
   const LinkPreview({
     required this.url,
+    this.kind = LinkKind.web,
     this.displayUrl = '',
     this.siteName = '',
     this.title = '',
@@ -574,6 +594,7 @@ final class LinkPreview {
 
   /// The link itself, which a tap on the card opens.
   final String url;
+  final LinkKind kind;
 
   /// The link as the official app shows it in the card's corner.
   final String displayUrl;
@@ -899,6 +920,7 @@ final class Post {
     this.buttons = const [],
     this.signature = '',
     this.isPinned = false,
+    this.captionAbove = false,
     this.recentCommenters = const [],
     this.hasUnreadComments = false,
   });
@@ -917,6 +939,9 @@ final class Post {
 
   /// The post is pinned in its channel.
   final bool isPinned;
+
+  /// The author put the caption over the picture or the video, not under it.
+  final bool captionAbove;
 
   /// The buttons under the post that open a link, row by row as the channel laid them
   /// out. Buttons of other kinds talk to a bot and are left out.

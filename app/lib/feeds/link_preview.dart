@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../l10n/l10n.dart';
 import 'media_view.dart';
 import 'post_card.dart' show peerColor;
 
 /// The card of a post that carries a link, drawn like the official app's: an accent bar in
-/// the channel's colour, the site, the title, the description, and the picture — wide under
-/// the text or as a small square beside it, as TDLib asks. A tap anywhere on it opens the
+/// the channel's colour, the site, the title (or the author), up to six lines of
+/// description, and the picture — wide under the text or as a small square beside it, as
+/// TDLib asks. A link into Telegram ends with a line that says what it opens. A tap anywhere on it opens the
 /// link; the app has no player or reader of its own, so even a video link goes out.
 class LinkPreviewCard extends StatelessWidget {
   const LinkPreviewCard({
@@ -60,10 +62,23 @@ class LinkPreviewCard extends StatelessWidget {
               color: scheme.onSurface,
             ),
           ),
+        // The author stands where the title would, when there is none: as the official
+        // app draws it.
+        if (preview.title.isEmpty && preview.author.isNotEmpty)
+          Text(
+            preview.author,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: scheme.onSurface,
+            ),
+          ),
         if (preview.description.isNotEmpty)
           Text(
             preview.description,
-            maxLines: 3,
+            maxLines: 6,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 14,
@@ -74,6 +89,7 @@ class LinkPreviewCard extends StatelessWidget {
         // A preview without any words of its own still says where it leads.
         if (preview.siteName.isEmpty &&
             preview.title.isEmpty &&
+            preview.author.isEmpty &&
             preview.description.isEmpty &&
             preview.displayUrl.isNotEmpty)
           Text(
@@ -84,6 +100,24 @@ class LinkPreviewCard extends StatelessWidget {
           ),
       ],
     );
+
+    final l10n = context.l10n;
+    final button = switch (preview.kind) {
+      LinkKind.web => null,
+      LinkKind.channel => l10n.linkViewChannel,
+      LinkKind.group => l10n.linkViewGroup,
+      LinkKind.message => l10n.linkViewMessage,
+      LinkKind.user => l10n.linkSendMessage,
+      LinkKind.bot => l10n.linkOpenBot,
+      LinkKind.background => l10n.linkViewBackground,
+      LinkKind.theme => l10n.linkViewTheme,
+      LinkKind.stickers => l10n.linkViewStickers,
+      LinkKind.videoChat => l10n.linkJoinVideoChat,
+      LinkKind.story => l10n.linkViewStory,
+      LinkKind.boost => l10n.linkBoost,
+      LinkKind.chatFolder => l10n.linkViewChatFolder,
+      LinkKind.webApp => l10n.linkOpenApp,
+    };
 
     final body = wide
         ? Column(
@@ -125,7 +159,38 @@ class LinkPreviewCard extends StatelessWidget {
             border: Border(left: BorderSide(color: accent, width: 3)),
           ),
           padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-          child: body,
+          child: button == null
+              ? body
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    body,
+                    const SizedBox(height: 6),
+                    // What the link leads to inside Telegram. The whole card is the
+                    // button, so this only says it.
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 7),
+                        child: Text(
+                          button,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: accent,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );

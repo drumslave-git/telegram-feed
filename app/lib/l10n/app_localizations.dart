@@ -932,6 +932,84 @@ abstract class AppLocalizations {
   /// **'MMMM d, y'**
   String get postDayYearPattern;
 
+  /// The line at the bottom of a link card that says what a link into Telegram opens. The same for the keys linkViewGroup to linkOpenApp.
+  ///
+  /// In en, this message translates to:
+  /// **'View channel'**
+  String get linkViewChannel;
+
+  /// No description provided for @linkViewGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'View group'**
+  String get linkViewGroup;
+
+  /// No description provided for @linkViewMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'View message'**
+  String get linkViewMessage;
+
+  /// No description provided for @linkSendMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Send message'**
+  String get linkSendMessage;
+
+  /// No description provided for @linkOpenBot.
+  ///
+  /// In en, this message translates to:
+  /// **'Open bot'**
+  String get linkOpenBot;
+
+  /// No description provided for @linkViewBackground.
+  ///
+  /// In en, this message translates to:
+  /// **'View wallpaper'**
+  String get linkViewBackground;
+
+  /// No description provided for @linkViewTheme.
+  ///
+  /// In en, this message translates to:
+  /// **'View theme'**
+  String get linkViewTheme;
+
+  /// No description provided for @linkViewStickers.
+  ///
+  /// In en, this message translates to:
+  /// **'View stickers'**
+  String get linkViewStickers;
+
+  /// No description provided for @linkJoinVideoChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Join as listener'**
+  String get linkJoinVideoChat;
+
+  /// No description provided for @linkViewStory.
+  ///
+  /// In en, this message translates to:
+  /// **'View story'**
+  String get linkViewStory;
+
+  /// No description provided for @linkBoost.
+  ///
+  /// In en, this message translates to:
+  /// **'Boost'**
+  String get linkBoost;
+
+  /// No description provided for @linkViewChatFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'View chat list'**
+  String get linkViewChatFolder;
+
+  /// No description provided for @linkOpenApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Launch'**
+  String get linkOpenApp;
+
   /// Screen-reader label of the pin icon in the footer of a pinned post.
   ///
   /// In en, this message translates to:

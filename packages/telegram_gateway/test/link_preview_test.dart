@@ -180,4 +180,75 @@ void main() {
       isNull,
     );
   });
+
+  test('a link into Telegram says what it leads to', () {
+    LinkKind kindOf(Map<String, Object?> type) => map
+        .post(
+          _message('t.me/x', {
+            '@type': 'linkPreview',
+            'url': 'https://t.me/x',
+            'display_url': 't.me/x',
+            'title': 'X',
+            'type': type,
+          }),
+        )
+        .linkPreview!
+        .kind;
+
+    expect(
+      kindOf({
+        '@type': 'linkPreviewTypeChat',
+        'type': {'@type': 'inviteLinkChatTypeChannel'},
+        'creates_join_request': false,
+      }),
+      LinkKind.channel,
+    );
+    expect(
+      kindOf({
+        '@type': 'linkPreviewTypeChat',
+        'type': {'@type': 'inviteLinkChatTypeSupergroup'},
+        'creates_join_request': false,
+      }),
+      LinkKind.group,
+    );
+    expect(kindOf({'@type': 'linkPreviewTypeMessage'}), LinkKind.message);
+    expect(
+      kindOf({'@type': 'linkPreviewTypeUser', 'is_bot': true}),
+      LinkKind.bot,
+    );
+    expect(
+      kindOf({'@type': 'linkPreviewTypeUser', 'is_bot': false}),
+      LinkKind.user,
+    );
+    expect(kindOf({'@type': 'linkPreviewTypeUnsupported'}), LinkKind.web);
+
+    final post = map.post(
+      _message('t.me/x', {
+        '@type': 'linkPreview',
+        'url': 'https://t.me/x',
+        'display_url': 't.me/x',
+        'type': {'@type': 'linkPreviewTypeMessage'},
+      }),
+    );
+    expect(decodePost(encodePost(post)).linkPreview!.kind, LinkKind.message);
+  });
+
+  test('a caption the author put over the picture is marked so', () {
+    td.Message photo({required bool above}) => td.Message.fromJson({
+      '@type': 'message',
+      'id': 7,
+      'chat_id': -1001,
+      'date': 1700000000,
+      'content': {
+        '@type': 'messagePhoto',
+        'show_caption_above_media': above,
+        'caption': {'@type': 'formattedText', 'text': 'look'},
+        'photo': _photo([(1, 320, 240)]),
+      },
+    });
+    final above = map.post(photo(above: true));
+    expect(above.captionAbove, isTrue);
+    expect(decodePost(encodePost(above)).captionAbove, isTrue);
+    expect(map.post(photo(above: false)).captionAbove, isFalse);
+  });
 }

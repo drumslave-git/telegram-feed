@@ -153,6 +153,113 @@ void main() {
     expect(find.text('12:34'), findsOneWidget);
   });
 
+  testWidgets('without a title the author stands in its place, and the '
+      'description runs to six lines', (tester) async {
+    await tester.pumpWidget(
+      card(
+        const LinkPreview(
+          url: 'https://example.org/a',
+          siteName: 'Example',
+          author: 'Ada Writer',
+          description: 'What happened',
+        ),
+      ),
+    );
+    expect(find.text('Ada Writer'), findsOneWidget);
+    expect(tester.widget<Text>(find.text('What happened')).maxLines, 6);
+
+    // With a title the author is left out, as in the official app.
+    await tester.pumpWidget(
+      card(
+        const LinkPreview(
+          url: 'https://example.org/a',
+          title: 'A headline',
+          author: 'Ada Writer',
+        ),
+      ),
+    );
+    expect(find.text('Ada Writer'), findsNothing);
+  });
+
+  testWidgets('a link into Telegram says what it opens; a web link does not', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      card(
+        const LinkPreview(
+          url: 'https://t.me/harbourtimes',
+          kind: LinkKind.channel,
+          title: 'Harbour Times',
+        ),
+      ),
+    );
+    expect(find.text('View channel'), findsOneWidget);
+    // The whole card is the button.
+    await tester.tap(find.text('View channel'));
+    expect(links, ['https://t.me/harbourtimes']);
+
+    await tester.pumpWidget(
+      card(
+        const LinkPreview(
+          url: 'https://t.me/harbourtimes/5',
+          kind: LinkKind.message,
+          title: 'Harbour Times',
+        ),
+      ),
+    );
+    expect(find.text('View message'), findsOneWidget);
+
+    await tester.pumpWidget(
+      card(const LinkPreview(url: 'https://example.org', title: 'Example')),
+    );
+    expect(find.text('View channel'), findsNothing);
+    expect(find.text('View message'), findsNothing);
+  });
+
+  testWidgets('a caption the author put over the picture stands over it', (
+    tester,
+  ) async {
+    Widget post({required bool above}) => MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: PostCard(
+            item: TimelineItem(
+              Post(
+                chatId: -1001,
+                messageId: 6,
+                date: 1700000000,
+                text: 'the caption',
+                media: photo,
+                captionAbove: above,
+              ),
+            ),
+            channelTitle: 'Alpha News',
+            gateway: gw,
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(post(above: false));
+    await tester.pump();
+    expect(
+      tester.getTopLeft(find.text('the caption')).dy,
+      greaterThan(tester.getBottomLeft(find.byType(PhotoView)).dy - 1),
+    );
+
+    await tester.pumpWidget(post(above: true));
+    await tester.pump();
+    final picture = tester.getRect(find.byType(PhotoView));
+    expect(
+      tester.getBottomLeft(find.text('the caption')).dy,
+      lessThanOrEqualTo(picture.top),
+    );
+    // The picture ends the bubble, so the time lies on it.
+    final footer = tester.getRect(find.byType(PostFooter));
+    expect(footer.bottom, lessThanOrEqualTo(picture.bottom));
+    expect(footer.top, greaterThan(picture.top));
+  });
+
   testWidgets('a post without a link has no card', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

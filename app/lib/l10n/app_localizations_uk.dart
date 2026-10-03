@@ -543,6 +543,45 @@ class AppLocalizationsUk extends AppLocalizations {
   String get postDayYearPattern => 'd MMMM y';
 
   @override
+  String get linkViewChannel => 'Відкрити канал';
+
+  @override
+  String get linkViewGroup => 'Переглянути групу';
+
+  @override
+  String get linkViewMessage => 'До повідомлення';
+
+  @override
+  String get linkSendMessage => 'Надіслати повідомлення';
+
+  @override
+  String get linkOpenBot => 'Відкрити бота';
+
+  @override
+  String get linkViewBackground => 'Переглянути шпалери';
+
+  @override
+  String get linkViewTheme => 'Переглянути тему';
+
+  @override
+  String get linkViewStickers => 'Переглянути набір';
+
+  @override
+  String get linkJoinVideoChat => 'Увійти як слухач';
+
+  @override
+  String get linkViewStory => 'Переглянути історію';
+
+  @override
+  String get linkBoost => 'Зарядити';
+
+  @override
+  String get linkViewChatFolder => 'Переглянути папку';
+
+  @override
+  String get linkOpenApp => 'Запустити';
+
+  @override
   String get postPinned => 'Прикріплено';
 
   @override
