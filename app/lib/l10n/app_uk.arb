@@ -167,6 +167,7 @@
   "postInReplyToOpen": "У відповідь {name}. Перейти до цього допису",
   "postEdited": "змінено",
   "postCommentCount": "{count, plural, one{{shown} коментар} few{{shown} коментарі} many{{shown} коментарів} other{{shown} коментаря}}",
+  "postCommentsUnread": "Нові коментарі",
   "postLeaveComment": "Коментувати",
   "postReactionsLoadFailed": "Не вдалося завантажити реакції.",
   "postReactionsNotAllowed": "У цьому каналі реакції вимкнено.",

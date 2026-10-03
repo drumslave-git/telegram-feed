@@ -4,7 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-35.
+**Current phase:** Parity with the official app. **Next task:** Q-36.
 
 ## Differences from the official app
 
@@ -15,7 +15,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Posts
 
-- [ ] Q-35 The comments bar shows the photos of up to three recent commenters, the exact count and a dot for unread comments.
 - [ ] Q-36 The link card shows the author, up to six lines of description and its button ("Open channel", "Open message" and the like); a caption can stand above its media.
 - [ ] Q-37 Views and reaction counts are cut, not rounded ("1.9K"); a file row shows its thumbnail and opens the file; a mention opens the channel in the app.
 - [ ] Q-38 Location, venue, contact, dice, game and checklist posts are drawn.

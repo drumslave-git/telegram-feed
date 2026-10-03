@@ -66,6 +66,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - I mark a feed, a folder or a channel read in one action.
 - A photo or a video its author put under a spoiler is blurred until I tap it. One that Telegram marks as content for adults is blurred under an "18+" label and asks before it shows. What I uncovered stays uncovered until the app is closed.
 - A post's footer shows a pin when the post is pinned and, in a channel that signs its posts, the author's name before the time. A post of nothing but emoji is drawn large, the larger the fewer emoji it has.
+- The comments bar under a post shows the photos of up to three people who commented last, the exact number of comments, and a dot when there are comments I have not seen since I last read the thread.
 - A quote in a post's text is a block with a bar at its side; a quote the author made collapsible shows three lines until I tap it, and folds again on the next tap. A block of code names its language and has a copy button.
 - A post that answers an earlier post shows that post above its text (the quote the author picked, or the beginning of it); a tap takes me there.
 - A channel's service messages (a pinned post, a new name or photo, a live stream) are lines of their own between the posts, worded as in the official app; the line of a pin leads to the pinned post. They are not posts: no rule matches them, and a feed that filters its posts leaves them out.

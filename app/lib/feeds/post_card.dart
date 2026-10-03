@@ -1157,7 +1157,13 @@ class _Bubble extends StatelessWidget {
             child: Align(alignment: Alignment.centerRight, child: footer),
           ),
         if (onOpenThread != null)
-          _CommentsBar(count: item.threadPost.replyCount, onTap: onOpenThread!),
+          CommentsBar(
+            count: item.threadPost.replyCount,
+            commenters: item.threadPost.recentCommenters,
+            unread: item.threadPost.hasUnreadComments,
+            gateway: gateway,
+            onTap: onOpenThread!,
+          ),
       ],
     );
   }
@@ -1346,14 +1352,37 @@ class ReactionPill extends StatelessWidget {
   }
 }
 
-class _CommentsBar extends StatelessWidget {
-  const _CommentsBar({required this.count, required this.onTap});
+/// The bar under a post that opens its comments, as the official app draws it: the photos
+/// of up to three people who commented last (the bubbles icon when there are none), the
+/// exact number of comments, and a dot when there are comments the reader has not seen.
+class CommentsBar extends StatelessWidget {
+  const CommentsBar({
+    super.key,
+    required this.count,
+    required this.onTap,
+    required this.gateway,
+    this.commenters = const [],
+    this.unread = false,
+  });
   final int count;
+  final List<Commenter> commenters;
+  final bool unread;
+  final TelegramGateway gateway;
   final VoidCallback onTap;
+
+  static const _avatar = 12.0;
+
+  /// How far each photo covers the one before it.
+  static const _overlap = 7.0;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
+    final bubble = ChatColors.of(context).bubble;
+    final faces = count == 0
+        ? const <Commenter>[]
+        : commenters.take(3).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -1365,21 +1394,80 @@ class _CommentsBar extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(10, 9, 6, 9),
             child: Row(
               children: [
-                Icon(Icons.forum_outlined, size: 18, color: scheme.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    count > 0
-                        ? context.l10n.postCommentCount(
-                            count,
-                            formatCount(count),
-                          )
-                        : context.l10n.postLeaveComment,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: scheme.primary,
+                if (faces.isEmpty)
+                  Icon(Icons.forum_outlined, size: 18, color: scheme.primary)
+                else
+                  // The first is the newest and lies on top, as in the official app.
+                  ExcludeSemantics(
+                    child: SizedBox(
+                      width:
+                          2 * _avatar +
+                          (faces.length - 1) * (2 * _avatar - _overlap) +
+                          3,
+                      height: 2 * _avatar + 3,
+                      child: Stack(
+                        children: [
+                          for (var i = faces.length - 1; i >= 0; i--)
+                            Positioned(
+                              left: i * (2 * _avatar - _overlap),
+                              top: 0,
+                              // A rim in the bubble's colour parts the photos.
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: bubble,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(1.5),
+                                  child: ChannelAvatar(
+                                    photo: faces[i].photo,
+                                    title: faces[i].name,
+                                    gateway: gateway,
+                                    colorId: faces[i].id,
+                                    radius: _avatar,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
+                  ),
+                const SizedBox(width: 8),
+                // The words and their dot keep together at the left; the arrow has the
+                // right edge.
+                Expanded(
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          count > 0
+                              ? l10n.postCommentCount(count, '$count')
+                              : l10n.postLeaveComment,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.primary,
+                          ),
+                        ),
+                      ),
+                      if (unread && count > 0) ...[
+                        const SizedBox(width: 6),
+                        Semantics(
+                          label: l10n.postCommentsUnread,
+                          child: Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: scheme.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 Icon(Icons.chevron_right, size: 20, color: scheme.primary),

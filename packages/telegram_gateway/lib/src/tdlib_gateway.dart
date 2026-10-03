@@ -607,7 +607,25 @@ final class TdlibGateway implements TelegramGateway {
       m,
       forwardedFrom: origin == null ? null : await _named(origin),
       replyTo: await _reply(m),
+      recentCommenters: await _commenters(m),
     );
+  }
+
+  /// The people who commented on [m] last, with the names and photos the sender cache
+  /// holds: one lookup per person and session.
+  Future<List<Commenter>> _commenters(td.Message m) async {
+    final ids = m.interactionInfo?.replyInfo?.recentReplierIds ?? const [];
+    final out = <Commenter>[];
+    for (final id in ids.take(3)) {
+      final sender = switch (id) {
+        td.MessageSenderUser(:final userId) =>
+          _senders['u$userId'] ??= await _userSender(userId),
+        td.MessageSenderChat(:final chatId) =>
+          _senders['c$chatId'] ??= await _chatSender(chatId),
+      };
+      out.add(Commenter(id: sender.id, name: sender.name, photo: sender.photo));
+    }
+    return out;
   }
 
   /// The post a post answers. TDLib hands over the words only when the answered post is in

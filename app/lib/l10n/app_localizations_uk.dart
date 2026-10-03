@@ -660,6 +660,9 @@ class AppLocalizationsUk extends AppLocalizations {
   }
 
   @override
+  String get postCommentsUnread => 'Нові коментарі';
+
+  @override
   String get postLeaveComment => 'Коментувати';
 
   @override

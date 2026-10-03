@@ -127,7 +127,12 @@ Media? previewMedia(td.MessageContent? c) {
   return text.isEmpty ? media : null;
 }
 
-Post post(td.Message m, {ForwardOrigin? forwardedFrom, ReplyTarget? replyTo}) {
+Post post(
+  td.Message m, {
+  ForwardOrigin? forwardedFrom,
+  ReplyTarget? replyTo,
+  List<Commenter> recentCommenters = const [],
+}) {
   var (text, media) = content(m.content);
   // Content for adults is covered whatever else it is, as the official app covers it.
   if (m.restrictionInfo?.hasSensitiveContent ?? false) {
@@ -158,8 +163,17 @@ Post post(td.Message m, {ForwardOrigin? forwardedFrom, ReplyTarget? replyTo}) {
     buttons: urlButtons(m.replyMarkup),
     signature: m.authorSignature,
     isPinned: m.isPinned,
+    recentCommenters: recentCommenters,
+    hasUnreadComments: hasUnreadComments(m.interactionInfo?.replyInfo),
   );
 }
+
+/// The official app's rule for the dot on the comments bar: the thread has been read up to
+/// somewhere, and its last comment is newer than that.
+bool hasUnreadComments(td.MessageReplyInfo? info) =>
+    info != null &&
+    info.lastReadInboxMessageId != 0 &&
+    info.lastReadInboxMessageId < info.lastMessageId;
 
 /// The link buttons of an inline keyboard, in their rows; a row left with none is dropped.
 List<List<UrlButton>> urlButtons(td.ReplyMarkup? markup) {

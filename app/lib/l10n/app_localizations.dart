@@ -1094,11 +1094,17 @@ abstract class AppLocalizations {
   /// **'edited'**
   String get postEdited;
 
-  /// Comments bar under a post. shown is count in short form, e.g. 1.2K.
+  /// Comments bar under a post. shown is the count as it is written, in full.
   ///
   /// In en, this message translates to:
   /// **'{count, plural, =1{{shown} comment} other{{shown} comments}}'**
   String postCommentCount(int count, String shown);
+
+  /// Screen-reader label of the dot on the comments bar that marks comments not seen yet.
+  ///
+  /// In en, this message translates to:
+  /// **'New comments'**
+  String get postCommentsUnread;
 
   /// Comments bar under a post without comments.
   ///

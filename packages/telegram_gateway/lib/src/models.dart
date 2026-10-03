@@ -840,6 +840,26 @@ final class TextEntity {
 }
 
 /// One channel post.
+/// Someone who commented on a post: a user, or a chat that comments as itself.
+final class Commenter {
+  const Commenter({required this.id, this.name = '', this.photo});
+  final int id;
+  final String name;
+
+  /// The small profile photo, when there is one.
+  final FileRef? photo;
+
+  @override
+  bool operator ==(Object other) =>
+      other is Commenter &&
+      other.id == id &&
+      other.name == name &&
+      other.photo?.id == photo?.id;
+
+  @override
+  int get hashCode => Object.hash(id, name, photo?.id);
+}
+
 /// A button under a post that opens [url].
 final class UrlButton {
   const UrlButton({required this.text, required this.url});
@@ -879,9 +899,18 @@ final class Post {
     this.buttons = const [],
     this.signature = '',
     this.isPinned = false,
+    this.recentCommenters = const [],
+    this.hasUnreadComments = false,
   });
   final int chatId;
   final int messageId;
+
+  /// Up to three of the people who commented last, newest first, for their photos on the
+  /// comments bar.
+  final List<Commenter> recentCommenters;
+
+  /// The account has opened the comments before and there are newer ones since.
+  final bool hasUnreadComments;
 
   /// The author's signature, in a channel that signs its posts; empty otherwise.
   final String signature;

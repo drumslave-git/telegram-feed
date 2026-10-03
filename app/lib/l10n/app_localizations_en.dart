@@ -637,6 +637,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get postCommentsUnread => 'New comments';
+
+  @override
   String get postLeaveComment => 'Leave a comment';
 
   @override

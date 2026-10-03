@@ -241,6 +241,8 @@ final class FakeTelegram extends TimelineGateway {
           buttons: p.buttons,
           signature: p.signature,
           isPinned: true,
+          recentCommenters: p.recentCommenters,
+          hasUnreadComments: p.hasUnreadComments,
         );
       }
       return [
@@ -300,6 +302,16 @@ final class FakeTelegram extends TimelineGateway {
         views: 4010,
         canComment: true,
         replyCount: 2,
+        // Mara has a photo, Tomas his initial; a comment came since the thread was read.
+        recentCommenters: [
+          Commenter(
+            id: 11,
+            name: 'Mara',
+            photo: _file('avatar1.png', 160, 160),
+          ),
+          const Commenter(id: 12, name: 'Tomas'),
+        ],
+        hasUnreadComments: true,
         reactions: const [Reaction(emoji: '👍', count: 31)],
       ),
       _post(
@@ -650,11 +662,15 @@ final class FakeTelegram extends TimelineGateway {
     List<List<UrlButton>> buttons = const [],
     String signature = '',
     bool isPinned = false,
+    List<Commenter> recentCommenters = const [],
+    bool hasUnreadComments = false,
   }) => Post(
     canBeSaved: canBeSaved,
     buttons: buttons,
     signature: signature,
     isPinned: isPinned,
+    recentCommenters: recentCommenters,
+    hasUnreadComments: hasUnreadComments,
     chatId: chatId,
     messageId: messageId,
     date:
@@ -959,6 +975,8 @@ final class FakeTelegram extends TimelineGateway {
       buttons: p.buttons,
       signature: p.signature,
       isPinned: p.isPinned,
+      recentCommenters: p.recentCommenters,
+      hasUnreadComments: p.hasUnreadComments,
     );
     history[i] = edited;
     posts.add(PostEdited(edited));

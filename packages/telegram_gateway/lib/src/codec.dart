@@ -305,6 +305,12 @@ Map<String, Object?> encodePost(Post p) => {
   if (!p.canBeSaved) 'protected': true,
   if (p.signature.isNotEmpty) 'signature': p.signature,
   if (p.isPinned) 'pinned': true,
+  if (p.hasUnreadComments) 'unreadComments': true,
+  if (p.recentCommenters.isNotEmpty)
+    'commenters': [
+      for (final c in p.recentCommenters)
+        {'id': c.id, 'name': c.name, 'photo': _fileOrNull(c.photo)},
+    ],
   if (p.buttons.isNotEmpty)
     'buttons': [
       for (final row in p.buttons)
@@ -451,6 +457,15 @@ Post decodePost(Map<Object?, Object?> m) => Post(
   canBeSaved: m['protected'] != true,
   signature: (m['signature'] as String?) ?? '',
   isPinned: m['pinned'] == true,
+  hasUnreadComments: m['unreadComments'] == true,
+  recentCommenters: [
+    for (final c in (m['commenters'] as List?) ?? const [])
+      Commenter(
+        id: (c as Map)['id'] as int,
+        name: (c['name'] as String?) ?? '',
+        photo: _decodeFileOrNull(c['photo']),
+      ),
+  ],
   buttons: [
     for (final row in (m['buttons'] as List?) ?? const [])
       [

@@ -514,7 +514,7 @@
   },
   "postCommentCount": "{count, plural, =1{{shown} comment} other{{shown} comments}}",
   "@postCommentCount": {
-    "description": "Comments bar under a post. shown is count in short form, e.g. 1.2K.",
+    "description": "Comments bar under a post. shown is the count as it is written, in full.",
     "placeholders": {
       "count": {
         "type": "int"
@@ -523,6 +523,10 @@
         "type": "String"
       }
     }
+  },
+  "postCommentsUnread": "New comments",
+  "@postCommentsUnread": {
+    "description": "Screen-reader label of the dot on the comments bar that marks comments not seen yet."
   },
   "postLeaveComment": "Leave a comment",
   "@postLeaveComment": {
