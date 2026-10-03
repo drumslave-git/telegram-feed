@@ -1084,6 +1084,49 @@ void main() {
   });
 
   test(
+    'clearing the cache removes every file, whatever its age and kind',
+    () async {
+      t.handlers['optimizeStorage'] = (_) => {
+        '@type': 'storageStatistics',
+        'size': 0,
+        'count': 0,
+        'by_chat': <Object?>[],
+      };
+      t.handlers['getStorageStatisticsFast'] = (_) => {
+        '@type': 'storageStatisticsFast',
+        'files_size': 0,
+        'file_count': 0,
+        'database_size': 10,
+        'language_pack_database_size': 0,
+        'log_size': 0,
+      };
+      final after = await g.clearCache();
+      final r = t.sent.firstWhere((r) => r['@type'] == 'optimizeStorage');
+      // TDLib's own limits (-1) would keep whatever was used in the last weeks.
+      expect(
+        (r['size'], r['ttl'], r['count'], r['immunity_delay']),
+        (0, 0, 0, 0),
+      );
+      final kinds = {
+        for (final k in r['file_types'] as List) (k as Map)['@type'],
+      };
+      // The kinds TDLib leaves alone unless they are named.
+      expect(
+        kinds,
+        containsAll([
+          'fileTypeThumbnail',
+          'fileTypeProfilePhoto',
+          'fileTypeSticker',
+          'fileTypeWallpaper',
+          'fileTypePhoto',
+          'fileTypeVideo',
+        ]),
+      );
+      expect(after.filesBytes, 0);
+    },
+  );
+
+  test(
     'messageIdByDate answers 0 when nothing was posted that early',
     () async {
       t.handlers['getChatMessageByDate'] = (r) =>

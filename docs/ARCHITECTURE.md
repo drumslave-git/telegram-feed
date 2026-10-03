@@ -70,7 +70,7 @@ The pure-Dart packages carry most of the tests. `app/` stays thin.
 | Search | `searchHistory`, `searchAllChannels`, `searchThread` |
 | Files | `download`, `fileProgress`, `downloadFrom`, `downloadedPrefix`, `cancelDownload` |
 | Interactions | `availableReactions`, `react`, `saveToSavedMessages`, `deleteFromSavedMessages`, `discussion`, `threadHistory`, `reply`, `comments`, `closeThread` |
-| Account and state | `me`, `storageStats`, `clearCache`, `connection`, `close` |
+| Account and state | `me`, `storageStats`, `clearCache`, `connection`, `close`. `clearCache` calls `optimizeStorage` with every limit at 0 and every file type named: with TDLib's default limits (-1) only files unused for weeks go, and with no types named thumbnails, profile photos, stickers and wallpapers stay, so the cache would not shrink to what `getStorageStatisticsFast` counted |
 
 Implementation:
 

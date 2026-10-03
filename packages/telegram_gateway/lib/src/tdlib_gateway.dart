@@ -1026,11 +1026,33 @@ final class TdlibGateway implements TelegramGateway {
   Future<StorageStats> clearCache() async {
     await _client.call(
       const td.OptimizeStorage(
-        size: -1,
-        ttl: -1,
-        count: -1,
-        immunityDelay: -1,
-        fileTypes: [],
+        // Everything goes, whatever its age: TDLib's default limits (-1) keep what was
+        // used in the last weeks and remove next to nothing.
+        size: 0,
+        ttl: 0,
+        count: 0,
+        immunityDelay: 0,
+        // Every kind the statistics count. Left empty, thumbnails, profile photos,
+        // stickers and wallpapers would stay, and the cache would not shrink to what
+        // the screen promised.
+        fileTypes: [
+          td.FileTypeAnimation(),
+          td.FileTypeAudio(),
+          td.FileTypeDocument(),
+          td.FileTypeLivePhotoVideo(),
+          td.FileTypeNotificationSound(),
+          td.FileTypePhoto(),
+          td.FileTypePhotoStory(),
+          td.FileTypeProfilePhoto(),
+          td.FileTypeSticker(),
+          td.FileTypeThumbnail(),
+          td.FileTypeUnknown(),
+          td.FileTypeVideo(),
+          td.FileTypeVideoNote(),
+          td.FileTypeVideoStory(),
+          td.FileTypeVoiceNote(),
+          td.FileTypeWallpaper(),
+        ],
         chatIds: [],
         excludeChatIds: [],
         returnDeletedFileStatistics: false,
