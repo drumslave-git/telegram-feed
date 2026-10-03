@@ -751,4 +751,81 @@ void main() {
     expect(gw.completers.keys, [6]);
     expect(find.text('Downloading…'), findsOneWidget);
   });
+
+  testWidgets('a file row shows the preview of its file and opens the file on '
+      'a tap', (tester) async {
+    final calls = <MethodCall>[];
+    var opens = true;
+    const app = MethodChannel('tf/app');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(app, (
+      call,
+    ) async {
+      calls.add(call);
+      return opens;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        app,
+        null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      host(
+        DocumentMedia(
+          file: FileRef(id: 40, remoteId: 'f', size: 100, localPath: pngPath),
+          fileName: 'report.pdf',
+          mimeType: 'application/pdf',
+          thumbnail: FileRef(
+            id: 41,
+            remoteId: 't',
+            size: 5,
+            width: 90,
+            height: 90,
+            localPath: pngPath,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    // The preview stands where the paper icon would.
+    expect(find.byType(FileThumbnail), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(FileThumbnail),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.insert_drive_file_outlined), findsNothing);
+
+    await tester.tap(find.text('report.pdf'));
+    await tester.pump();
+    expect(calls.single.method, 'openFile');
+    expect(calls.single.arguments, {
+      'path': pngPath,
+      'mime': 'application/pdf',
+    });
+    expect(find.textContaining('No app on this phone'), findsNothing);
+
+    // No app for the kind of file: the reader is told.
+    opens = false;
+    await tester.tap(find.text('report.pdf'));
+    await tester.pump();
+    expect(find.textContaining('No app on this phone'), findsOneWidget);
+  });
+
+  testWidgets('a file without a preview keeps the paper icon', (tester) async {
+    await tester.pumpWidget(
+      host(
+        DocumentMedia(
+          file: FileRef(id: 42, remoteId: 'f', size: 100, localPath: pngPath),
+          fileName: 'notes.txt',
+          mimeType: 'text/plain',
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byIcon(Icons.insert_drive_file_outlined), findsOneWidget);
+  });
 }

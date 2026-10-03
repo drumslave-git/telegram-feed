@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/media_view.dart';
@@ -221,6 +222,53 @@ void main() {
     expect(find.text('the minutes'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('a mention in the comments opens a followed channel in the app', (
+    tester,
+  ) async {
+    final asked = <Uri>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ThreadScreen(
+          gateway: ThreadGateway(),
+          post: const Post(
+            chatId: -1,
+            messageId: 5,
+            date: 1,
+            text: 'see @harbourtimes',
+            entities: [
+              TextEntity(
+                offset: 4,
+                length: 13,
+                kind: TextEntityKind.link,
+                url: 'https://t.me/harbourtimes',
+              ),
+            ],
+          ),
+          channelTitle: 'News',
+          onOpenTelegramLink: (uri) {
+            asked.add(uri);
+            return true;
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final text = tester.widget<Text>(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Text &&
+            (w.textSpan?.toPlainText() ?? '').contains('@harbourtimes'),
+      ),
+    );
+    final mention = (text.textSpan! as TextSpan).children!
+        .whereType<TextSpan>()
+        .firstWhere((s) => s.text == '@harbourtimes');
+    (mention.recognizer! as TapGestureRecognizer).onTap!();
+    await tester.pump();
+    expect(asked, [Uri.parse('https://t.me/harbourtimes')]);
   });
 
   testWidgets('channel without discussion group', (tester) async {

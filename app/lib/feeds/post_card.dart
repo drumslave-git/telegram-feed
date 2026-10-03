@@ -1639,14 +1639,13 @@ class AlbumMosaic extends StatelessWidget {
 
 /// 1234 → 1.2K, 3 400 000 → 3.4M, as the official app counts views and reactions.
 String formatCount(int n) {
-  String short(double v, String unit) {
-    final s = v >= 100 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
-    return '${s.endsWith('.0') ? s.substring(0, s.length - 2) : s}$unit';
-  }
-
-  if (n >= 1000000) return short(n / 1000000, 'M');
-  if (n >= 1000) return short(n / 1000, 'K');
-  return '$n';
+  // The official app's `formatShortNumber`: thousands become K and millions M, with one
+  // decimal that is cut off, never rounded up, and left out when it is zero.
+  if (n < 1000) return '$n';
+  final unit = n >= 1000000 ? 'M' : 'K';
+  final whole = n >= 1000000 ? n ~/ 1000000 : n ~/ 1000;
+  final tenth = n >= 1000000 ? n % 1000000 ~/ 100000 : n % 1000 ~/ 100;
+  return tenth == 0 ? '$whole$unit' : '$whole.$tenth$unit';
 }
 
 /// The phone's own clock: a reader who set 12 hours sees "7:09 PM", one who set 24

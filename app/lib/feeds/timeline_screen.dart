@@ -2154,7 +2154,7 @@ class TimelineViewState extends State<TimelineView>
   /// post of a channel of this timeline is jumped to in place, and the button at the corner
   /// comes back to the post the link stood in ([from]), as in the official app; any other
   /// channel opens in a timeline of its own.
-  bool _openTelegramLink(Uri uri, {TimelineItem? from}) {
+  bool _openTelegramLink(Uri uri, {TimelineItem? from, bool inPlace = true}) {
     final target = telegramTargetOf(uri);
     if (target == null) return false;
     final username = target.username?.toLowerCase();
@@ -2169,7 +2169,10 @@ class TimelineViewState extends State<TimelineView>
     if (channel == null) return false;
     final t = _timeline;
     final messageId = target.messageId;
-    if (t != null && messageId != null && t.chatIds.contains(channel.chatId)) {
+    if (inPlace &&
+        t != null &&
+        messageId != null &&
+        t.chatIds.contains(channel.chatId)) {
       final loaded = _indexOf(
         t,
         channel.chatId,
@@ -2962,6 +2965,10 @@ class TimelineViewState extends State<TimelineView>
                           : () => Navigator.of(context).push(
                               MaterialPageRoute<void>(
                                 builder: (_) => ThreadScreen(
+                                  // The comments lie over this timeline: a link from
+                                  // them opens a screen of its own, never a jump here.
+                                  onOpenTelegramLink: (uri) =>
+                                      _openTelegramLink(uri, inPlace: false),
                                   gateway: widget.gateway,
                                   post: item.threadPost,
                                   item: item,

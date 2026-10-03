@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -206,11 +206,17 @@ class MediaView extends StatelessWidget {
           gateway: gateway,
           autoLoad: policy.file(file.size),
         ),
-      DocumentMedia(:final file, :final fileName, :final mimeType) =>
+      DocumentMedia(
+        :final file,
+        :final fileName,
+        :final mimeType,
+        :final thumbnail,
+      ) =>
         DocumentView(
           file: file,
           fileName: fileName,
           mimeType: mimeType,
+          thumbnail: thumbnail,
           gateway: gateway,
           autoStart: policy.file(file.size),
         ),
@@ -1115,11 +1121,15 @@ class DocumentView extends StatelessWidget {
     required this.mimeType,
     required this.gateway,
     this.autoStart = false,
+    this.thumbnail,
   });
   final FileRef file;
   final String fileName;
   final String mimeType;
   final TelegramGateway gateway;
+
+  /// Telegram's preview of the file (the first page of a PDF, a picture sent as a file).
+  final FileRef? thumbnail;
 
   /// Loads without a tap: within the file limit of the connection ([AutoDownloadPolicy]).
   final bool autoStart;
@@ -1143,7 +1153,7 @@ class DocumentView extends StatelessWidget {
                     strokeWidth: 2,
                   ),
                 )
-              : const Icon(Icons.insert_drive_file_outlined),
+              : FileThumbnail(thumbnail: thumbnail, gateway: gateway),
         ),
         title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(
@@ -1157,11 +1167,17 @@ class DocumentView extends StatelessWidget {
       ),
       builder: (context, path) => ListTile(
         contentPadding: EdgeInsets.zero,
-        leading: const Icon(Icons.insert_drive_file_outlined),
+        leading: SizedBox.square(
+          dimension: 40,
+          child: FileThumbnail(thumbnail: thumbnail, gateway: gateway),
+        ),
         title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(
           file.size > 0 ? formatBytes(file.size) : l10n.postOnThisDevice,
         ),
+        // A tap opens the file in the app the phone has for it, as in the official app;
+        // the button beside it hands the file to an app of the reader's choice.
+        onTap: () => unawaited(openDownloadedFile(context, path, mimeType)),
         // The app has no viewer of its own for documents; another app opens it.
         trailing: IconButton(
           tooltip: l10n.postOpenWith,
@@ -1174,6 +1190,63 @@ class DocumentView extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// The little picture at the head of a file row: Telegram's preview of the file when it
+/// has one, the paper icon otherwise.
+class FileThumbnail extends StatelessWidget {
+  const FileThumbnail({
+    super.key,
+    required this.thumbnail,
+    required this.gateway,
+    this.iconSize = 24,
+  });
+  final FileRef? thumbnail;
+  final TelegramGateway gateway;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = Icon(Icons.insert_drive_file_outlined, size: iconSize);
+    final file = thumbnail;
+    if (file == null) return icon;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: Downloaded(
+        key: ValueKey(file.id),
+        file: file,
+        gateway: gateway,
+        placeholder: Center(child: icon),
+        builder: (context, path) =>
+            SizedFileImage(path: path, width: file.width, height: file.height),
+      ),
+    );
+  }
+}
+
+/// Opens a downloaded file in the app the phone has for its kind; says so when it has
+/// none.
+Future<void> openDownloadedFile(
+  BuildContext context,
+  String path,
+  String mimeType,
+) async {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final l10n = context.l10n;
+  var opened = false;
+  try {
+    opened =
+        await const MethodChannel('tf/app')
+            .invokeMethod<bool>('openFile', {'path': path, 'mime': mimeType}) ??
+        false;
+  } on PlatformException {
+    opened = false;
+  } on MissingPluginException {
+    opened = false;
+  }
+  if (!opened) {
+    messenger?.showSnackBar(SnackBar(content: Text(l10n.postNoAppForFile)));
   }
 }
 

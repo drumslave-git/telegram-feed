@@ -152,6 +152,7 @@
   "linkBoost": "Зарядити",
   "linkViewChatFolder": "Переглянути папку",
   "linkOpenApp": "Запустити",
+  "postNoAppForFile": "На цьому телефоні немає застосунку, що відкриває цей файл.",
   "postPinned": "Прикріплено",
   "mediaCancelDownload": "Скасувати завантаження",
   "mediaLoadedOf": "{loaded} / {total}",

@@ -453,6 +453,8 @@ class FileRow extends StatelessWidget {
       builder: (context, path) => _fileTile(
         context,
         day: day,
+        onTap: () =>
+            unawaited(openDownloadedFile(context, path, media.mimeType)),
         trailing: IconButton(
           tooltip: context.l10n.postOpenWith,
           icon: const Icon(Icons.open_in_new),
@@ -474,7 +476,14 @@ class FileRow extends StatelessWidget {
   }) {
     return ListTile(
       onTap: onTap,
-      leading: const Icon(Icons.insert_drive_file_outlined, size: 32),
+      leading: SizedBox.square(
+        dimension: 40,
+        child: FileThumbnail(
+          thumbnail: media.thumbnail,
+          gateway: gateway,
+          iconSize: 32,
+        ),
+      ),
       title: Text(media.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         '${formatBytes(media.file.size)} · '

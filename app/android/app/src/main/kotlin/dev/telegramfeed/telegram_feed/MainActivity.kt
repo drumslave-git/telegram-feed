@@ -23,6 +23,7 @@ import java.io.File
 import android.util.Rational
 import android.view.WindowManager
 import androidx.annotation.RequiresApi
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -131,6 +132,34 @@ class MainActivity : FlutterActivity() {
                             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                         }
                         result.success(null)
+                    }
+                    // A downloaded file, opened in the app the phone has for its kind
+                    // (media_view.dart). False when there is none.
+                    "openFile" -> {
+                        val path = call.argument<String>("path")
+                        val mime = call.argument<String>("mime").orEmpty()
+                        if (path == null) {
+                            result.success(false)
+                        } else {
+                            try {
+                                val uri = FileProvider.getUriForFile(
+                                    this,
+                                    "$packageName.files",
+                                    File(path),
+                                )
+                                startActivity(
+                                    Intent(Intent.ACTION_VIEW)
+                                        .setDataAndType(uri, mime.ifEmpty { "*/*" })
+                                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                                )
+                                result.success(true)
+                            } catch (e: ActivityNotFoundException) {
+                                result.success(false)
+                            } catch (e: IllegalArgumentException) {
+                                // A path the provider does not serve.
+                                result.success(false)
+                            }
+                        }
                     }
                     // A vibration longer than any haptic constant (haptics.dart).
                     "buzz" -> {

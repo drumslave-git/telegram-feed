@@ -24,11 +24,16 @@ class ThreadScreen extends StatefulWidget {
     required this.channelTitle,
     this.channelPhoto,
     this.item,
+    this.onOpenTelegramLink,
   });
   final TelegramGateway gateway;
   final Post post;
   final String channelTitle;
   final FileRef? channelPhoto;
+
+  /// Opens a link into Telegram (a mention, a link to a post) inside the app when it
+  /// leads to a channel the account follows; true when it did.
+  final bool Function(Uri uri)? onOpenTelegramLink;
 
   /// The timeline row of [post]; with it the header shows the whole album.
   final TimelineItem? item;
@@ -238,7 +243,9 @@ class _ThreadScreenState extends State<ThreadScreen> {
   Future<void> _openLink(String url) async {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = context.l10n;
-    if (await launchFirst([Uri.tryParse(url)])) return;
+    final uri = Uri.tryParse(url);
+    if (uri != null && (widget.onOpenTelegramLink?.call(uri) ?? false)) return;
+    if (await launchFirst([uri])) return;
     messenger.showSnackBar(
       SnackBar(content: Text(l10n.timelineNoAppForLink(url))),
     );

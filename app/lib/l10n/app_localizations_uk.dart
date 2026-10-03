@@ -582,6 +582,10 @@ class AppLocalizationsUk extends AppLocalizations {
   String get linkOpenApp => 'Запустити';
 
   @override
+  String get postNoAppForFile =>
+      'На цьому телефоні немає застосунку, що відкриває цей файл.';
+
+  @override
   String get postPinned => 'Прикріплено';
 
   @override

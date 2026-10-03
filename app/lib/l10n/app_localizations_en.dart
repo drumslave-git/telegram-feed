@@ -562,6 +562,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get linkOpenApp => 'Launch';
 
   @override
+  String get postNoAppForFile => 'No app on this phone opens this file.';
+
+  @override
   String get postPinned => 'Pinned';
 
   @override

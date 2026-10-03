@@ -1010,6 +1010,12 @@ abstract class AppLocalizations {
   /// **'Launch'**
   String get linkOpenApp;
 
+  /// No description provided for @postNoAppForFile.
+  ///
+  /// In en, this message translates to:
+  /// **'No app on this phone opens this file.'**
+  String get postNoAppForFile;
+
   /// Screen-reader label of the pin icon in the footer of a pinned post.
   ///
   /// In en, this message translates to:

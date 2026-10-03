@@ -388,6 +388,7 @@
   "linkBoost": "Boost",
   "linkViewChatFolder": "View chat list",
   "linkOpenApp": "Launch",
+  "postNoAppForFile": "No app on this phone opens this file.",
   "postPinned": "Pinned",
   "@postPinned": {
     "description": "Screen-reader label of the pin icon in the footer of a pinned post."

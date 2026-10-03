@@ -108,4 +108,17 @@ void main() {
       isNull,
     );
   });
+
+  test('counts are cut to one decimal, never rounded up', () {
+    expect(formatCount(0), '0');
+    expect(formatCount(999), '999');
+    expect(formatCount(1000), '1K');
+    expect(formatCount(1099), '1K');
+    expect(formatCount(1950), '1.9K');
+    expect(formatCount(12345), '12.3K');
+    expect(formatCount(999999), '999.9K');
+    expect(formatCount(1000000), '1M');
+    expect(formatCount(1250000), '1.2M');
+    expect(formatCount(19990000), '19.9M');
+  });
 }
