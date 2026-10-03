@@ -368,6 +368,8 @@ List<Map<String, Object?>> _encodeEntities(List<TextEntity> entities) => [
       'k': e.kind.name,
       'u': e.url,
       'e': e.customEmojiId,
+      if (e.language != null) 'g': e.language,
+      if (e.expandable) 'x': true,
     },
 ];
 
@@ -379,6 +381,8 @@ List<TextEntity> _decodeEntities(Object? list) => [
       kind: TextEntityKind.values.byName(e['k'] as String),
       url: e['u'] as String?,
       customEmojiId: e['e'] as String?,
+      language: e['g'] as String?,
+      expandable: e['x'] == true,
     ),
 ];
 

@@ -82,7 +82,12 @@ class _RenderBubbleText extends RenderBox
   /// Right end of the last line, or null when the footer cannot share that line (the text is
   /// not a paragraph, ends with a line break, or its last line runs right to left).
   double? _lastLineEnd() {
-    final text = _text;
+    // A text with quotes or code in it is a column of words and blocks: its last line is
+    // the last line of the words it ends with, if it ends with words.
+    RenderBox? text = _text;
+    if (text is RenderFlex && text.direction == Axis.vertical) {
+      text = text.lastChild;
+    }
     if (text is! RenderParagraph) return null;
     final length = text.text.toPlainText().length;
     if (length == 0) return 0;
@@ -94,7 +99,11 @@ class _RenderBubbleText extends RenderBox
     if (last.direction == TextDirection.rtl) return null;
     // More than a glyph's height left below the box: it is not on the bottom line, the
     // text ends with an empty one. (Leading alone leaves less than that.)
-    if (text.size.height - last.bottom >= last.bottom - last.top) return null;
+    // The painter's size, not the box's: only its parent may ask the paragraph of a column
+    // for that while the column is being laid out.
+    if (text.textSize.height - last.bottom >= last.bottom - last.top) {
+      return null;
+    }
     return last.right;
   }
 
@@ -110,6 +119,7 @@ class _RenderBubbleText extends RenderBox
     final double height;
     if (end != null &&
         end + _gap + footer.width <= constraints.maxWidth + 0.5) {
+      // A column of blocks is as wide as it may be, and the footer stands inside it.
       width = math.max(text.width, end + _gap + footer.width);
       height = math.max(text.height, footer.height);
     } else {

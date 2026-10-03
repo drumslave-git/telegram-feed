@@ -760,10 +760,19 @@ final class TextEntity {
     required this.kind,
     this.url,
     this.customEmojiId,
+    this.language,
+    this.expandable = false,
   });
   final int offset;
   final int length;
   final TextEntityKind kind;
+
+  /// The programming language of a [TextEntityKind.pre] block, as its author named it;
+  /// null or empty when they named none.
+  final String? language;
+
+  /// A [TextEntityKind.quote] that shows its first lines until the reader opens it.
+  final bool expandable;
 
   /// Target of a [TextEntityKind.link].
   final String? url;
@@ -780,9 +789,19 @@ final class TextEntity {
       other.length == length &&
       other.kind == kind &&
       other.url == url &&
-      other.customEmojiId == customEmojiId;
+      other.customEmojiId == customEmojiId &&
+      other.language == language &&
+      other.expandable == expandable;
   @override
-  int get hashCode => Object.hash(offset, length, kind, url, customEmojiId);
+  int get hashCode => Object.hash(
+    offset,
+    length,
+    kind,
+    url,
+    customEmojiId,
+    language,
+    expandable,
+  );
   @override
   String toString() =>
       'TextEntity($kind $offset+$length${url == null ? '' : ' $url'})';

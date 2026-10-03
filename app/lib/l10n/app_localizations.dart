@@ -932,6 +932,18 @@ abstract class AppLocalizations {
   /// **'MMMM d, y'**
   String get postDayYearPattern;
 
+  /// Screen-reader label of the arrow in a quote that shows only its first lines.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the whole quote'**
+  String get quoteExpand;
+
+  /// No description provided for @quoteCollapse.
+  ///
+  /// In en, this message translates to:
+  /// **'Show less of the quote'**
+  String get quoteCollapse;
+
   /// Screen-reader label of the floating date over a timeline; a tap goes to the first post of that day.
   ///
   /// In en, this message translates to:

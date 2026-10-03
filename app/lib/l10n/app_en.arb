@@ -372,6 +372,11 @@
   "@postDayYearPattern": {
     "description": "intl DateFormat pattern of a day of another year between two days of a chat, e.g. March 3, 2025. Not a sentence: only the order of the fields changes."
   },
+  "quoteExpand": "Show the whole quote",
+  "@quoteExpand": {
+    "description": "Screen-reader label of the arrow in a quote that shows only its first lines."
+  },
+  "quoteCollapse": "Show less of the quote",
   "postDayJumpToStart": "{day}. Go to the start of the day",
   "@postDayJumpToStart": {
     "description": "Screen-reader label of the floating date over a timeline; a tap goes to the first post of that day.",

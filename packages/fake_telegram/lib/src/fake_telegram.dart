@@ -429,7 +429,38 @@ final class FakeTelegram extends TimelineGateway {
     const chat = FakeChats.circuitWeekly;
     return [
       for (var n = 16; n >= 1; n--)
-        if (n == 15)
+        if (n == 13)
+          // A quote, a quote that opens, and code with its language.
+          _post(
+            chat,
+            n,
+            hoursAgo: 6 + (16 - n) * 5,
+            text: _issue13,
+            entities: [
+              TextEntity(
+                offset: _issue13.indexOf('A cell'),
+                length: 'A cell rests better cold.'.length,
+                kind: TextEntityKind.quote,
+              ),
+              TextEntity(
+                offset: _issue13.indexOf('We left'),
+                length:
+                    _issue13.indexOf('The sketch') -
+                    1 -
+                    _issue13.indexOf('We left'),
+                kind: TextEntityKind.quote,
+                expandable: true,
+              ),
+              TextEntity(
+                offset: _issue13.indexOf('void loop'),
+                length: _issue13.length - _issue13.indexOf('void loop'),
+                kind: TextEntityKind.pre,
+                language: 'cpp',
+              ),
+            ],
+            views: 700 + n,
+          )
+        else if (n == 15)
           _post(
             chat,
             n,
@@ -469,6 +500,19 @@ final class FakeTelegram extends TimelineGateway {
           ),
     ];
   }
+
+  static const _issue13 =
+      'Issue 13: a battery that lasts a winter\n'
+      'A cell rests better cold.\n'
+      'We left three boards on the roof from November to March. The one that slept '
+      'between readings was still at 2.9 V in spring, the one that polled every second '
+      'was flat by Christmas, and the third, which woke once a minute, made it to '
+      'February. Sleep is the whole trick.\n'
+      'The sketch that slept:\n'
+      'void loop() {\n'
+      '  read();\n'
+      '  sleep(60);\n'
+      '}';
 
   static const _circuitTopics = [
     'a timer from three parts',

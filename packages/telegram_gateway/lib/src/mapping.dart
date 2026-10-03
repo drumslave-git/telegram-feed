@@ -421,6 +421,12 @@ List<TextEntity> entities(td.FormattedText? t) {
         kind: kind,
         url: isEmoji ? null : mapped.$2,
         customEmojiId: isEmoji ? mapped.$2 : null,
+        language: switch (e.type) {
+          td.TextEntityTypePreCode(:final language) when language.isNotEmpty =>
+            language,
+          _ => null,
+        },
+        expandable: e.type is td.TextEntityTypeExpandableBlockQuote,
       ),
     );
   }

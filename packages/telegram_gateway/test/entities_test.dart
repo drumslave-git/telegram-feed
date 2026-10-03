@@ -112,4 +112,33 @@ void main() {
       ),
     ]);
   });
+
+  test('a code block keeps its language and a quote that it can be opened', () {
+    const text = 'print(1)\nlong quote\nshort quote\nplain block';
+    final post = map.post(
+      _message(text, [
+        _entity(0, 8, 'textEntityTypePreCode', {'language': 'python'}),
+        _entity(9, 10, 'textEntityTypeExpandableBlockQuote'),
+        _entity(20, 11, 'textEntityTypeBlockQuote'),
+        _entity(32, 11, 'textEntityTypePre'),
+      ]),
+    );
+    expect(post.entities, const [
+      TextEntity(
+        offset: 0,
+        length: 8,
+        kind: TextEntityKind.pre,
+        language: 'python',
+      ),
+      TextEntity(
+        offset: 9,
+        length: 10,
+        kind: TextEntityKind.quote,
+        expandable: true,
+      ),
+      TextEntity(offset: 20, length: 11, kind: TextEntityKind.quote),
+      TextEntity(offset: 32, length: 11, kind: TextEntityKind.pre),
+    ]);
+    expect(decodePost(encodePost(post)).entities, post.entities);
+  });
 }

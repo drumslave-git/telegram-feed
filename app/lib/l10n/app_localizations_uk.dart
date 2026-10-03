@@ -543,6 +543,12 @@ class AppLocalizationsUk extends AppLocalizations {
   String get postDayYearPattern => 'd MMMM y';
 
   @override
+  String get quoteExpand => 'Показати всю цитату';
+
+  @override
+  String get quoteCollapse => 'Згорнути цитату';
+
+  @override
   String postDayJumpToStart(String day) {
     return '$day. Перейти до початку дня';
   }

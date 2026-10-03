@@ -523,6 +523,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get postDayYearPattern => 'MMMM d, y';
 
   @override
+  String get quoteExpand => 'Show the whole quote';
+
+  @override
+  String get quoteCollapse => 'Show less of the quote';
+
+  @override
   String postDayJumpToStart(String day) {
     return '$day. Go to the start of the day';
   }

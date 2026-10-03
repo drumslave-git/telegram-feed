@@ -230,6 +230,27 @@ class FormattedTextState extends State<FormattedText> {
     action?.call();
   }
 
+  /// The quotes and code blocks of the text that are drawn as blocks of their own: in the
+  /// order of the text, none inside another (one that is keeps its inline look).
+  static List<TextEntity> blocksOf(List<TextEntity> entities) {
+    final blocks =
+        [
+          for (final e in entities)
+            if (e.kind == TextEntityKind.quote || e.kind == TextEntityKind.pre)
+              e,
+        ]..sort(
+          (a, b) => a.offset != b.offset ? a.offset - b.offset : b.end - a.end,
+        );
+    final out = <TextEntity>[];
+    for (final e in blocks) {
+      if (out.isEmpty || e.offset >= out.last.end) out.add(e);
+    }
+    return out;
+  }
+
+  /// Offsets of the expandable quotes the reader has opened.
+  final _opened = <int>{};
+
   @override
   Widget build(BuildContext context) {
     _disposeRecognizers();
@@ -239,13 +260,92 @@ class FormattedTextState extends State<FormattedText> {
         if (e.length > 0 && e.offset >= 0 && e.end <= text.length) e,
     ];
     if (entities.isEmpty) return Text(text, style: widget.style);
+    final blocks = blocksOf(entities);
+    if (blocks.isEmpty) {
+      return Text.rich(
+        TextSpan(children: _spans(context, entities, 0, text.length)),
+        style: widget.style,
+      );
+    }
+    // Words, block, words: a column. The line break that parts a block from the words
+    // around it is the block's own edge and is not drawn a second time.
+    final children = <Widget>[];
+    void words(
+      int from,
+      int to, {
+      required bool afterBlock,
+      required bool beforeBlock,
+    }) {
+      if (afterBlock && from < to && text[from] == '\n') from++;
+      if (beforeBlock && from < to && text[to - 1] == '\n') to--;
+      if (from >= to) return;
+      children.add(
+        Text.rich(
+          TextSpan(children: _spans(context, entities, from, to)),
+          style: widget.style,
+        ),
+      );
+    }
 
+    var at = 0;
+    for (final block in blocks) {
+      words(at, block.offset, afterBlock: at > 0, beforeBlock: true);
+      var end = block.end;
+      while (end > block.offset && text[end - 1] == '\n') {
+        end--;
+      }
+      final spans = _spans(context, entities, block.offset, end, inside: block);
+      final plain = text.substring(block.offset, end);
+      children.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: block.kind == TextEntityKind.pre
+              ? CodeBlock(
+                  spans: spans,
+                  plain: plain,
+                  language: block.language,
+                  style: widget.style,
+                  canCopy: widget.canCopy,
+                )
+              : QuoteBlock(
+                  spans: spans,
+                  plain: plain,
+                  style: widget.style,
+                  expandable: block.expandable,
+                  open: _opened.contains(block.offset),
+                  onToggle: () => setState(() {
+                    if (!_opened.remove(block.offset)) {
+                      _opened.add(block.offset);
+                    }
+                  }),
+                ),
+        ),
+      );
+      at = block.end;
+    }
+    words(at, text.length, afterBlock: true, beforeBlock: false);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
+    );
+  }
+
+  /// The pieces of the text between [from0] and [to0], each with the styles of all the
+  /// entities that cover it. [inside] is the block the range stands in, which draws itself.
+  List<InlineSpan> _spans(
+    BuildContext context,
+    List<TextEntity> entities,
+    int from0,
+    int to0, {
+    TextEntity? inside,
+  }) {
+    final text = widget.text;
     final scheme = Theme.of(context).colorScheme;
-    final cuts = <int>{0, text.length};
+    final cuts = <int>{from0, to0};
     for (final e in entities) {
-      cuts
-        ..add(e.offset)
-        ..add(e.end);
+      if (e.offset > from0 && e.offset < to0) cuts.add(e.offset);
+      if (e.end > from0 && e.end < to0) cuts.add(e.end);
     }
     final bounds = cuts.toList()..sort();
     final spans = <InlineSpan>[];
@@ -262,6 +362,8 @@ class FormattedTextState extends State<FormattedText> {
       TextEntity? code;
       for (final e in entities) {
         if (e.offset > from || e.end < to) continue;
+        // The block these pieces stand in draws itself around them.
+        if (identical(e, inside)) continue;
         switch (e.kind) {
           case TextEntityKind.bold:
             style = style.copyWith(fontWeight: FontWeight.w700);
@@ -361,7 +463,10 @@ class FormattedTextState extends State<FormattedText> {
       }
       // The end of a monospace block: its own copy button, as in the official app.
       for (final e in entities) {
-        if (e.kind != TextEntityKind.pre || e.end != to || !widget.canCopy) {
+        if (e.kind != TextEntityKind.pre ||
+            e.end != to ||
+            !widget.canCopy ||
+            identical(e, inside)) {
           continue;
         }
         spans.add(
@@ -372,7 +477,205 @@ class FormattedTextState extends State<FormattedText> {
         );
       }
     }
-    return Text.rich(TextSpan(children: spans), style: widget.style);
+    return spans;
+  }
+}
+
+/// The frame of a quote or a code block, as the official app draws them: a tinted,
+/// rounded box with a bar of the accent colour down its left side.
+class _BlockFrame extends StatelessWidget {
+  const _BlockFrame({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: ColoredBox(
+        color: accent.withValues(alpha: 0.1),
+        child: Stack(
+          children: [
+            child,
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 3,
+              child: ColoredBox(color: accent),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A quote in a post. An expandable one that is longer than three lines shows those three
+/// until it is tapped, with an arrow in its corner that says which way it goes.
+class QuoteBlock extends StatelessWidget {
+  const QuoteBlock({
+    super.key,
+    required this.spans,
+    required this.plain,
+    required this.style,
+    this.expandable = false,
+    this.open = false,
+    this.onToggle,
+  });
+  final List<InlineSpan> spans;
+
+  /// The quote's words without their formatting: what its length is measured by.
+  final String plain;
+  final TextStyle style;
+  final bool expandable;
+  final bool open;
+  final VoidCallback? onToggle;
+
+  /// The lines a closed quote shows.
+  static const closedLines = 3;
+
+  static const _padding = EdgeInsets.fromLTRB(11, 5, 26, 5);
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        var long = false;
+        if (expandable) {
+          final painter = TextPainter(
+            text: TextSpan(
+              text: plain,
+              style: DefaultTextStyle.of(context).style.merge(style),
+            ),
+            maxLines: closedLines,
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+          )..layout(maxWidth: constraints.maxWidth - _padding.horizontal);
+          long = painter.didExceedMaxLines;
+          painter.dispose();
+        }
+        final closed = long && !open;
+        final frame = _BlockFrame(
+          child: Stack(
+            children: [
+              Padding(
+                padding: _padding,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Text.rich(
+                    TextSpan(children: spans),
+                    style: style,
+                    maxLines: closed ? closedLines : null,
+                    overflow: closed ? TextOverflow.ellipsis : null,
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 5,
+                right: 6,
+                child: Icon(Icons.format_quote, size: 14, color: accent),
+              ),
+              if (long)
+                Positioned(
+                  bottom: 2,
+                  right: 4,
+                  child: Icon(
+                    open ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                    color: accent,
+                    semanticLabel: open
+                        ? context.l10n.quoteCollapse
+                        : context.l10n.quoteExpand,
+                  ),
+                ),
+            ],
+          ),
+        );
+        if (!long) return frame;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onToggle,
+          child: frame,
+        );
+      },
+    );
+  }
+}
+
+/// A block of code in a post: its language over it when the author named one, the copy
+/// button in its corner, and the code in a monospace face.
+class CodeBlock extends StatelessWidget {
+  const CodeBlock({
+    super.key,
+    required this.spans,
+    required this.plain,
+    required this.style,
+    this.language,
+    this.canCopy = true,
+  });
+  final List<InlineSpan> spans;
+  final String plain;
+  final TextStyle style;
+  final String? language;
+  final bool canCopy;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    final named = language != null && language!.isNotEmpty;
+    final code = Text.rich(
+      TextSpan(children: spans),
+      style: style.copyWith(
+        fontFamily: 'monospace',
+        fontSize: (style.fontSize ?? 16) - 2,
+      ),
+    );
+    return _BlockFrame(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (named)
+            ColoredBox(
+              color: accent.withValues(alpha: 0.1),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(11, 3, 4, 3),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        language!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: accent,
+                        ),
+                      ),
+                    ),
+                    if (canCopy) _CopyBlock(text: plain),
+                  ],
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(11, 5, 6, 5),
+            child: named || !canCopy
+                ? code
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: code),
+                      _CopyBlock(text: plain),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
