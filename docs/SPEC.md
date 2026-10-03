@@ -43,7 +43,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - I create, rename, reorder and delete feeds on the "Feeds" tab. Its "New feed" button creates one, empty or with the channels of a Telegram folder, a drag handle reorders, and a row's menu edits its channels, renames, marks it read or deletes it. A feed is also renamed from its own screen.
 - With no feeds yet, the tab says what a feed is and offers to create one. Until I have a rule it also says once that nothing notifies me without rules, and leads to them.
 - My Telegram chat folders appear as tabs, each listing the folder's channels the way Telegram lists chats (photo, newest post, time, unread count), including channels I joined through a folder invite link.
-- "All channels" lists every joined channel with a search box. Channels I archived in Telegram are left out of it and appear behind an "Archive" row at its top.
+- "All channels" lists every joined channel with a search box. Channels I archived in Telegram are left out of it and appear behind an "Archive" row at its top, which is there also when the list is empty or its search box finds nothing.
 - A long press on a folder tab creates a feed from the folder's channels (a one-time copy) or marks the folder read.
 - Every list of channels tags each channel with the feeds it belongs to.
 - A long press on a channel row, at the point I touched, offers to mark it read, open its info, or add it to one of my feeds; with no feeds yet that makes the first one.
@@ -91,7 +91,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 
 ### Search
 
-- The magnifier on the home screen searches the posts of every channel I follow.
+- The magnifier on the home screen searches the posts of every channel I follow, the archived ones too.
 - The magnifier in a feed or a channel searches all of its channels at once; what the feed hides is not found. Results say how many there are and name the channel, the text and the day; a tap opens the timeline at that post, with arrows and a counter to step through the matches.
 - Chips pick the kind of post: media, links, files, music, voice. A chip works without words.
 - A calendar, and a tap on any day label, jumps to a date. Cancelling the calendar leaves the search open.

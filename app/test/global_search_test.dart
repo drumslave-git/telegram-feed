@@ -45,6 +45,34 @@ void main() {
     await tester.pump(const Duration(seconds: 4));
   }
 
+  testWidgets('a post of an archived channel is found, named and opened', (
+    tester,
+  ) async {
+    gw.histories[-9] = [post(-9, 900, 'the ledger closes')];
+    gw.archived = const [Channel(chatId: -9, title: 'Put Away')];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(db: db, gateway: gw),
+      ),
+    );
+    await settle(tester);
+    await tester.tap(find.byTooltip('Search posts'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'ledger');
+    await tester.pump(const Duration(milliseconds: 400));
+    await settle(tester);
+    expect(find.text('Put Away'), findsOneWidget);
+
+    await tester.tap(find.textContaining('the ledger closes'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.byType(TimelineScreen), findsOneWidget);
+    expect(find.text('That channel is not in your list.'), findsNothing);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await unmount(tester);
+  });
+
   testWidgets('the home screen searches every channel and opens a result', (
     tester,
   ) async {

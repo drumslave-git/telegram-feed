@@ -520,6 +520,38 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('the Archive row stays when every channel is in the archive, and '
+      'when the channel search finds nothing', (tester) async {
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.tap(find.text('All channels'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'no such channel');
+    await tester.pump();
+    expect(find.byType(ChannelTile), findsNothing);
+    expect(find.text('Archive'), findsOneWidget);
+    await unmount(tester);
+
+    final empty = TimelineGateway(const {})
+      ..archived = const [Channel(chatId: -9, title: 'Put Away')];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(db: db, gateway: empty),
+      ),
+    );
+    await settle(tester);
+    await tester.tap(find.text('All channels'));
+    await tester.pumpAndSettle();
+    expect(find.text('Archive'), findsOneWidget);
+    await tester.tap(find.text('Archive'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ChannelTile, 'Put Away'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await unmount(tester);
+  });
+
   testWidgets('a channel row has a menu: read, info, add to a feed', (
     tester,
   ) async {

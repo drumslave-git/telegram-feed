@@ -880,7 +880,8 @@ final class TdlibGateway implements TelegramGateway {
   }) async {
     final r = await _client.call(
       td.SearchMessages(
-        chatList: const td.ChatListMain(),
+        // No chat list: the main list and the archive are both searched.
+        chatList: null,
         query: query,
         offset: offset,
         limit: limit,

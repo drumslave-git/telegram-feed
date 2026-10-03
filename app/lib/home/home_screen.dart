@@ -53,6 +53,9 @@ class _HomeScreenState extends State<HomeScreen>
   Timer? _reload;
   List<Channel> _channels = const [];
 
+  /// The channels of the archive, known once the search over every channel was opened.
+  List<Channel> _archived = const [];
+
   /// False until the first channel list arrived (or failed), so no tab says "No channels"
   /// while they are still loading.
   bool _channelsLoaded = false;
@@ -120,6 +123,18 @@ class _HomeScreenState extends State<HomeScreen>
   void _openSearch() {
     setState(() => _searchOpen = true);
     unawaited(_loadRecent());
+    unawaited(_loadArchived());
+  }
+
+  /// The archived channels, which the search finds posts of as well: their names and
+  /// photos for the results, and the channel itself to open one.
+  Future<void> _loadArchived() async {
+    try {
+      final archived = await widget.gateway.archivedChannels();
+      if (mounted) setState(() => _archived = archived);
+    } on TelegramException {
+      // Their results then show without a name and say why they do not open.
+    }
   }
 
   Future<void> _loadRecent() async {
@@ -180,7 +195,9 @@ class _HomeScreenState extends State<HomeScreen>
     final session = _session;
     if (session == null || index >= session.results.length) return;
     final post = session.results[index];
-    final channel = {for (final c in _channels) c.chatId: c}[post.chatId];
+    final channel = {
+      for (final c in [..._archived, ..._channels]) c.chatId: c,
+    }[post.chatId];
     if (channel == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.homeSearchChannelNotInList)),
@@ -789,7 +806,9 @@ class _HomeScreenState extends State<HomeScreen>
   /// The search over every channel: the bar takes the app bar, the results the screen.
   Widget _searchScaffold() {
     final session = _session;
-    final byId = {for (final c in _channels) c.chatId: c};
+    final byId = {
+      for (final c in [..._archived, ..._channels]) c.chatId: c,
+    };
     return Scaffold(
       appBar: AppBar(
         leading: BackButton(onPressed: _closeSearch),

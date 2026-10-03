@@ -1010,6 +1010,20 @@ void main() {
     );
   });
 
+  test('the search over every channel names no chat list, so the archive is '
+      'searched too', () async {
+    t.handlers['searchMessages'] = (r) => {
+      '@type': 'foundMessages',
+      'total_count': 0,
+      'messages': <Object?>[],
+      'next_offset': '',
+    };
+    await g.searchAllChannels(query: 'ledger');
+    final sent = t.sent.lastWhere((r) => r['@type'] == 'searchMessages');
+    expect(sent['chat_list'], isNull);
+    expect(sent['query'], 'ledger');
+  });
+
   test(
     'messageIdByDate answers 0 when nothing was posted that early',
     () async {

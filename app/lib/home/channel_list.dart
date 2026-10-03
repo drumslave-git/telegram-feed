@@ -92,6 +92,9 @@ class _ChannelListState extends State<ChannelList>
     Widget list = shown.isEmpty
         ? ListView(
             children: [
+              // The way to the archive stays when everything is in it, and when the
+              // search box finds nothing here.
+              ?widget.header,
               Padding(
                 padding: const EdgeInsets.all(32),
                 child: Text(

@@ -4,11 +4,10 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-11.
+**Current phase:** Parity with the official app. **Next task:** Q-12.
 
 ## Defects
 
-- [ ] Q-11 The search over all channels includes archived channels, and the "Archive" row is shown when the list is empty or the channel search finds nothing.
 - [ ] Q-12 Every post that comes on the screen counts a view and refreshes its counter, older posts included.
 - [ ] Q-13 Channels with protected content: Copy text, Share, Save to Saved Messages and Save to gallery are hidden, and the viewer blocks screenshots.
 - [ ] Q-14 A rule notification goes away when its post is read here or in the official app, and "N new posts" is recounted when a notification is swiped away or tapped.

@@ -226,7 +226,7 @@ A timeline row (`PostCard`, `feeds/post_card.dart`) is drawn like a post in the 
 
 Search, date jumps and shared media run over all of a feed's sources as one merged list and obey the feed's filter.
 
-- **Home search.** `searchAllChannels` asks TDLib's `searchMessages` over the main chat list with its channel filter, pages with the token TDLib returns, and drops anything that is not a channel of this account. Results use the rows of the feed search; a tap opens that channel's timeline at the post.
+- **Home search.** `searchAllChannels` asks TDLib's `searchMessages` without a chat list, so the main list and the archive are both searched, with its channel filter; it pages with the token TDLib returns and drops anything that is not a channel of this account. Results use the rows of the feed search; a tap opens that channel's timeline at the post. The home screen loads the archived channels when the search opens, for the names and photos of their results and to open them.
 - **Filter chips.** `SearchFilterChips` sits under both search fields and maps to `HistoryFilter`: Everything, Media, Links, Files, Music, Voice. A chip with no words is a search of its own.
 - **Recent searches.** `RecentSearches` (`search.recent` in `settings`) keeps the last ten queries of the whole app, newest first and without repeats. A query is kept when one of its results is opened, not when it is typed. Both search bars offer them while nothing is typed and can clear them.
 - **Comment search.** `searchThread` calls `searchChatMessages` scoped to the thread, so Telegram finds a comment far above without the app paging the whole thread. The results replace the thread while the field is open.
