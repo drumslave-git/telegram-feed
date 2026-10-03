@@ -254,9 +254,11 @@ final class FakeTelegram extends TimelineGateway {
             'close the east end and build a shorter pier, or replace the whole structure '
             'with a concrete one. The council votes in October.',
         views: 3320,
-        reactions: const [
-          Reaction(emoji: '🤔', count: 12),
-          Reaction(emoji: '❤', count: 4),
+        reactions: [
+          const Reaction(emoji: paidReaction, count: 3),
+          const Reaction(emoji: '🤔', count: 12),
+          const Reaction(emoji: '❤', count: 4),
+          Reaction(emoji: customReaction(_harbourEmoji), count: 7),
         ],
       ),
       _post(
@@ -715,9 +717,29 @@ final class FakeTelegram extends TimelineGateway {
 
   // ---- reactions ----
 
+  /// The custom emoji Harbour Times lets its readers react with.
+  static const _harbourEmoji = '9001';
+
   @override
-  Future<List<String>> availableReactions(int chatId, int messageId) async =>
-      const ['👍', '🔥', '❤', '🤔'];
+  Future<List<String>> availableReactions(int chatId, int messageId) async => [
+    '👍',
+    '🔥',
+    '❤',
+    '🤔',
+    if (chatId == FakeChats.harbourTimes) customReaction(_harbourEmoji),
+  ];
+
+  @override
+  Future<Map<String, StickerMedia>> customEmoji(List<String> ids) async => {
+    if (ids.contains(_harbourEmoji))
+      _harbourEmoji: StickerMedia(
+        file: _file('avatar3.png', 64, 64),
+        format: StickerFormat.webp,
+        width: 64,
+        height: 64,
+        emoji: '🟢',
+      ),
+  };
 
   @override
   Future<void> react(

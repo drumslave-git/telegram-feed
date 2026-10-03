@@ -425,15 +425,36 @@ Comment comment(td.Message m, Sender sender) => Comment(
 
 List<Reaction> reactions(td.MessageReactions? r) => [
   for (final x in r?.reactions ?? const <td.MessageReaction>[])
-    if (x.type case td.ReactionTypeEmoji(:final emoji))
-      Reaction(emoji: emoji, count: x.totalCount, chosen: x.isChosen),
+    if (reactionName(x.type) case final name?)
+      Reaction(emoji: name, count: x.totalCount, chosen: x.isChosen),
 ];
 
-/// Emoji of the reactions a chat allows on a message (custom emoji skipped).
-List<String> availableEmoji(td.AvailableReactions a) => [
+/// What the app calls a reaction (`Reaction.emoji`); null for a kind it does not know.
+String? reactionName(td.ReactionType? type) => switch (type) {
+  td.ReactionTypeEmoji(:final emoji) => emoji,
+  td.ReactionTypeCustomEmoji(:final customEmojiId) => customReaction(
+    '$customEmojiId',
+  ),
+  td.ReactionTypePaid() => paidReaction,
+  _ => null,
+};
+
+/// Telegram's type for a reaction the app can send; null for the paid one.
+td.ReactionType? reactionType(String name) {
+  if (name == paidReaction) return null;
+  final custom = customReactionId(name);
+  if (custom == null) return td.ReactionTypeEmoji(emoji: name);
+  final id = int.tryParse(custom);
+  return id == null ? null : td.ReactionTypeCustomEmoji(customEmojiId: id);
+}
+
+/// The reactions a chat allows on a message, plain and custom emoji, each once: those
+/// Telegram puts on top first. The paid one and those only Premium may send are left out.
+List<String> availableEmoji(td.AvailableReactions a) => {
   for (final r in [...a.topReactions, ...a.popularReactions])
-    if (r.type case td.ReactionTypeEmoji(:final emoji)) emoji,
-];
+    if (!r.needsPremium && r.type is! td.ReactionTypePaid)
+      ?reactionName(r.type),
+}.toList();
 
 /// Plain text plus media for a message content. Only text and captions are exposed, per SPEC.
 (String, Media?) content(td.MessageContent? c) => switch (c) {

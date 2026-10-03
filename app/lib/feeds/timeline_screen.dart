@@ -1721,6 +1721,11 @@ class TimelineViewState extends State<TimelineView>
     final out = <Reaction>[];
     var found = false;
     for (final r in from) {
+      // The paid reaction is beside the one reaction of one's own, not instead of it.
+      if (r.emoji == paidReaction) {
+        out.add(r);
+        continue;
+      }
       final mine = r.emoji == emoji;
       found = found || mine;
       // Removing takes the reader's one away; adding moves it from any other emoji.

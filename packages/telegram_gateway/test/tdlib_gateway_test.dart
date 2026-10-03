@@ -611,9 +611,11 @@ void main() {
     };
     final p = (await g.history(-1001)).single;
     expect(p.views, 5);
-    expect(p.reactions.length, 1);
-    expect(p.reactions.single.emoji, '🔥');
-    expect(p.reactions.single.chosen, isTrue);
+    expect(p.reactions.length, 2);
+    expect(p.reactions.first.emoji, '🔥');
+    expect(p.reactions.first.chosen, isTrue);
+    // A custom emoji is kept under the id of its sticker.
+    expect(p.reactions.last.emoji, customReaction('5'));
 
     t.handlers['addMessageReaction'] = (_) => {'@type': 'ok'};
     t.handlers['removeMessageReaction'] = (_) => {'@type': 'ok'};

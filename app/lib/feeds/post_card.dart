@@ -11,6 +11,7 @@ import 'bubble_text.dart';
 import 'formatted_text.dart';
 import 'link_preview.dart';
 import 'media_view.dart';
+import 'reaction_glyph.dart';
 import 'text_scale.dart';
 
 /// Colours of the chat the official app draws: a tinted backdrop with bubbles on it.
@@ -264,6 +265,7 @@ class PostCard extends StatelessWidget {
               if (availableReactions != null && onReact != null)
                 _ReactionStrip(
                   load: availableReactions!,
+                  gateway: gateway,
                   chosen: {
                     for (final r in reactions ?? item.head.reactions)
                       if (r.chosen) r.emoji,
@@ -956,7 +958,9 @@ class _Bubble extends StatelessWidget {
                     for (final r in reactions)
                       ReactionPill(
                         reaction: r,
-                        onTap: onReact == null
+                        gateway: gateway,
+                        // The paid reaction costs Stars: it is shown, not sent.
+                        onTap: onReact == null || r.emoji == paidReaction
                             ? null
                             : () => onReact!(r.emoji, r.chosen),
                       ),
@@ -1031,16 +1035,33 @@ class PostFooter extends StatelessWidget {
   }
 }
 
-/// An emoji with its count, filled when this account chose it.
+/// A reaction with its count, filled when this account chose it.
 class ReactionPill extends StatelessWidget {
-  const ReactionPill({super.key, required this.reaction, this.onTap});
+  const ReactionPill({
+    super.key,
+    required this.reaction,
+    this.onTap,
+    this.gateway,
+  });
   final Reaction reaction;
   final VoidCallback? onTap;
+
+  /// Loads the sticker of a custom-emoji reaction.
+  final TelegramGateway? gateway;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final chosen = reaction.chosen;
+    // An emoji is a character of the pill's text; a custom emoji and the star are drawn.
+    final plain =
+        reaction.emoji != paidReaction &&
+        customReactionId(reaction.emoji) == null;
+    final style = TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: chosen ? scheme.onPrimary : scheme.primary,
+    );
     // A painted box and a tap, not a Material with an ink well: a post can carry a dozen
     // pills and a screen several posts, and each Material brings focus, hover, ink and
     // semantics layers that make a new row slow to build while the list scrolls.
@@ -1053,15 +1074,28 @@ class ReactionPill extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 32),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: Text(
-            '${reaction.emoji} ${formatCount(reaction.count)}',
-            softWrap: false,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: chosen ? scheme.onPrimary : scheme.primary,
-            ),
-          ),
+          child: plain
+              ? Text(
+                  '${reaction.emoji} ${formatCount(reaction.count)}',
+                  softWrap: false,
+                  style: style,
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ReactionGlyph(
+                      reaction.emoji,
+                      size: 13,
+                      gateway: gateway,
+                      color: chosen ? scheme.onPrimary : null,
+                    ),
+                    Text(
+                      ' ${formatCount(reaction.count)}',
+                      softWrap: false,
+                      style: style,
+                    ),
+                  ],
+                ),
         ),
       ),
     );
@@ -1130,8 +1164,10 @@ class _ReactionStrip extends StatefulWidget {
     required this.load,
     required this.chosen,
     required this.onPick,
+    required this.gateway,
   });
   final Future<List<String>> Function() load;
+  final TelegramGateway gateway;
   final Set<String> chosen;
   final void Function(String emoji, bool remove) onPick;
 
@@ -1190,7 +1226,11 @@ class _ReactionStripState extends State<_ReactionStrip> {
                     child: SizedBox.square(
                       dimension: 44,
                       child: Center(
-                        child: Text(e, style: const TextStyle(fontSize: 26)),
+                        child: ReactionGlyph(
+                          e,
+                          size: 26,
+                          gateway: widget.gateway,
+                        ),
                       ),
                     ),
                   ),

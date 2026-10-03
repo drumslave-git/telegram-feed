@@ -952,23 +952,28 @@ final class TdlibGateway implements TelegramGateway {
     int messageId,
     String emoji, {
     bool remove = false,
-  }) => remove
-      ? _client.call(
-          td.RemoveMessageReaction(
-            chatId: chatId,
-            messageId: messageId,
-            reactionType: td.ReactionTypeEmoji(emoji: emoji),
-          ),
-        )
-      : _client.call(
-          td.AddMessageReaction(
-            chatId: chatId,
-            messageId: messageId,
-            reactionType: td.ReactionTypeEmoji(emoji: emoji),
-            isBig: false,
-            updateRecentReactions: true,
-          ),
-        );
+  }) async {
+    final type = map.reactionType(emoji);
+    // The paid reaction costs Stars, which the app does not spend.
+    if (type == null) return;
+    await (remove
+        ? _client.call(
+            td.RemoveMessageReaction(
+              chatId: chatId,
+              messageId: messageId,
+              reactionType: type,
+            ),
+          )
+        : _client.call(
+            td.AddMessageReaction(
+              chatId: chatId,
+              messageId: messageId,
+              reactionType: type,
+              isBig: false,
+              updateRecentReactions: true,
+            ),
+          ));
+  }
 
   @override
   Future<UserInfo> me() async {

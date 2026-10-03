@@ -667,10 +667,27 @@ final class Reaction {
     required this.count,
     this.chosen = false,
   });
+
+  /// What the reaction is: a plain emoji, a custom emoji as [customReaction] names it, or
+  /// [paidReaction].
   final String emoji;
   final int count;
   final bool chosen;
 }
+
+/// The reaction paid for with Telegram Stars. The app draws it and cannot send it.
+const paidReaction = 'paid';
+
+const _customReactionPrefix = 'custom:';
+
+/// The name of a custom-emoji reaction: the id of its sticker behind a prefix no emoji has.
+String customReaction(String stickerId) => '$_customReactionPrefix$stickerId';
+
+/// The sticker id of a custom-emoji reaction; null for any other reaction.
+String? customReactionId(String reaction) =>
+    reaction.startsWith(_customReactionPrefix)
+    ? reaction.substring(_customReactionPrefix.length)
+    : null;
 
 /// How a stretch of a post's text is set.
 enum TextEntityKind {
