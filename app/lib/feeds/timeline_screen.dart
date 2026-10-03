@@ -2122,7 +2122,33 @@ class TimelineViewState extends State<TimelineView>
               }
               final kept = _rows[id];
               if (kept != null && kept.inputs.same(inputs)) return kept.row;
-              final card = inputs.folded
+              final note = item.head.media;
+              final card = note is ServiceNote
+                  // A service message is a line, not a post; one about a pinned post
+                  // leads to it.
+                  ? ChatPill(
+                      context.l10n.serviceLabel(
+                        note,
+                        channel: _titles[item.chatId] ?? '',
+                        amongOthers: widget.feed != null,
+                      ),
+                      tapLabel: context.l10n.servicePinnedOpen(
+                        _titles[item.chatId] ?? '',
+                      ),
+                      onTap:
+                          note.kind != ServiceKind.pinned ||
+                              note.messageId == 0 ||
+                              _selected.isNotEmpty
+                          ? null
+                          : () => unawaited(
+                              jumpToPost(
+                                chatId: item.chatId,
+                                messageId: note.messageId,
+                                date: item.head.date,
+                              ),
+                            ),
+                    )
+                  : inputs.folded
                   ? MinimizedPost(
                       item: item,
                       channelTitle: _titles[item.chatId] ?? '',

@@ -34,6 +34,19 @@ void main() {
     }
   });
 
+  test('a service line shows only in a feed that shows everything', () {
+    final pin = _post(media: const ServiceNote(ServiceKind.pinned));
+    expect(FeedFilter.none.shownParts([pin]), [pin]);
+    for (final f in const [
+      FeedFilter(media: MediaPresence.withMedia),
+      FeedFilter(media: MediaPresence.textOnly),
+      FeedFilter(kinds: {MediaKind.other}),
+      FeedFilter(minTextLength: 1),
+    ]) {
+      expect(f.shownParts([pin]), isEmpty, reason: '${f.toJson()}');
+    }
+  });
+
   test('media presence', () {
     const media = FeedFilter(media: MediaPresence.withMedia);
     expect(media.allows(_text), isFalse);

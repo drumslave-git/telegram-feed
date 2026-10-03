@@ -3,8 +3,9 @@ import 'dart:ui';
 import 'package:core/core.dart'
     show MediaWords, SyncException, SyncProblem, mediaLabel;
 import 'package:flutter/widgets.dart';
+import 'package:intl/intl.dart';
 import 'package:telegram_gateway/telegram_gateway.dart'
-    show Media, UnsupportedMedia;
+    show Media, ServiceKind, ServiceNote, UnsupportedMedia;
 
 import 'app_localizations.dart';
 
@@ -84,14 +85,53 @@ extension MediaWordsOf on AppLocalizations {
 
   /// One line for what a post without words carries, in a channel list or a reply quote:
   /// content the app does not show is named by its kind.
-  String mediaPreview(Media? media) => switch (media) {
+  String mediaPreview(Media? media, {String channel = ''}) => switch (media) {
     UnsupportedMedia(:final tdType) => unsupportedLabel(tdType),
+    final ServiceNote note => serviceLabel(note, channel: channel),
     null => '',
     _ => mediaLabel(media, mediaWords),
   };
 
-  /// What content the app does not show is called, by TDLib's type (`messagePoll`); the
-  /// type itself where the app has no name for it.
+  /// The words of a service line, as the official app says them. [channel] is named where
+  /// the line stands among other channels' posts ([amongOthers], a feed).
+  String serviceLabel(
+    ServiceNote note, {
+    String channel = '',
+    bool amongOthers = false,
+  }) {
+    // A pin names the channel itself, as the official app's line does.
+    if (note.kind == ServiceKind.pinned) return servicePinned(channel);
+    final words = switch (note.kind) {
+      ServiceKind.pinned => '',
+      ServiceKind.titleChanged => serviceTitleChanged(note.title),
+      ServiceKind.photoChanged => servicePhotoChanged,
+      ServiceKind.photoRemoved => servicePhotoRemoved,
+      ServiceKind.channelCreated => serviceChannelCreated,
+      ServiceKind.liveStarted => serviceLiveStarted,
+      ServiceKind.liveEnded => serviceLiveEnded(
+        formatLength(Duration(seconds: note.seconds)),
+      ),
+      ServiceKind.liveScheduled => serviceLiveScheduled(
+        DateFormat.MMMd(localeName)
+            .add_Hm()
+            .format(DateTime.fromMillisecondsSinceEpoch(note.seconds * 1000)),
+      ),
+      ServiceKind.other => serviceOther,
+    };
+    return channel.isEmpty || !amongOthers
+        ? words
+        : serviceOfChannel(channel, words);
+  }
+
+  /// A length as a clock reads it: 4:05, 1:02:03.
+  static String formatLength(Duration d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    final m = d.inMinutes.remainder(60);
+    final s = d.inSeconds.remainder(60);
+    return d.inHours > 0 ? '${d.inHours}:${two(m)}:${two(s)}' : '$m:${two(s)}';
+  }
+
+  /// What content the app does not show is called, by TDLib's type (`messagePoll`).
   String unsupportedLabel(String tdType) => switch (tdType) {
     'messagePoll' => mediaPoll,
     'messageLocation' => mediaLocation,
@@ -102,7 +142,12 @@ extension MediaWordsOf on AppLocalizations {
     'messageInvoice' => mediaInvoice,
     'messageGiveaway' => mediaGiveaway,
     'messageStory' => mediaStory,
-    _ => tdType.replaceFirst('message', ''),
+    'messageLiveLocation' => mediaLocation,
+    'messageStakeDice' => mediaDice,
+    'messageGiveawayWinners' => mediaGiveaway,
+    'messageChecklist' => mediaChecklist,
+    'messagePaidMedia' => mediaPaidMedia,
+    _ => mediaUnsupported,
   };
 }
 

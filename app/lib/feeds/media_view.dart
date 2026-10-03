@@ -185,6 +185,8 @@ class MediaView extends StatelessWidget {
         label: Text(l10n.unsupportedLabel(tdType)),
         visualDensity: VisualDensity.compact,
       ),
+      // A line of its own in the timeline (`ChatPill`); here only in a reply quote.
+      final ServiceNote note => Text(l10n.mediaPreview(note)),
     };
   }
 }

@@ -215,7 +215,10 @@ class ChannelTile extends StatelessWidget {
               // A post without words is named by what it carries.
               c.lastMessageText.isNotEmpty
                   ? c.lastMessageText
-                  : context.l10n.mediaPreview(c.lastMessageMedia),
+                  : context.l10n.mediaPreview(
+                      c.lastMessageMedia,
+                      channel: c.title,
+                    ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),

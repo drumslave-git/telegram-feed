@@ -49,6 +49,7 @@ String mediaLabel(Media? m, [MediaWords words = const MediaWords()]) =>
       AudioMedia(:final isVoice) => isVoice ? words.voiceMessage : words.audio,
       DocumentMedia(:final fileName) => fileName,
       UnsupportedMedia() => words.post,
+      ServiceNote() => words.post,
       null => words.post,
     };
 

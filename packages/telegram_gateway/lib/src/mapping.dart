@@ -534,9 +534,81 @@ List<String> availableEmoji(td.AvailableReactions a) => [
         thumbnail: thumbRef(document.thumbnail),
       ),
     ),
+  // One emoji that Telegram animates is still a post with that emoji as its text.
+  td.MessageAnimatedEmoji(:final emoji) => (emoji, null),
+  td.MessagePinMessage(:final messageId) => (
+    '',
+    ServiceNote(ServiceKind.pinned, messageId: messageId),
+  ),
+  td.MessageChatChangeTitle(:final title) => (
+    '',
+    ServiceNote(ServiceKind.titleChanged, title: title),
+  ),
+  td.MessageChatChangePhoto() => (
+    '',
+    const ServiceNote(ServiceKind.photoChanged),
+  ),
+  td.MessageChatDeletePhoto() => (
+    '',
+    const ServiceNote(ServiceKind.photoRemoved),
+  ),
+  td.MessageSupergroupChatCreate() => (
+    '',
+    const ServiceNote(ServiceKind.channelCreated),
+  ),
+  td.MessageVideoChatStarted() => (
+    '',
+    const ServiceNote(ServiceKind.liveStarted),
+  ),
+  td.MessageVideoChatEnded(:final duration) => (
+    '',
+    ServiceNote(ServiceKind.liveEnded, seconds: duration),
+  ),
+  td.MessageVideoChatScheduled(:final startDate) => (
+    '',
+    ServiceNote(ServiceKind.liveScheduled, seconds: startDate),
+  ),
   null => ('', null),
-  final other => (_captionOf(other), UnsupportedMedia(other.tdType)),
+  final other when _isContent(other) => (
+    _captionOf(other),
+    UnsupportedMedia(other.tdType),
+  ),
+  _ => ('', const ServiceNote(ServiceKind.other)),
 };
+
+/// Whether [c] is something a channel posted, which the app names when it cannot show it;
+/// every other kind of message is a service message.
+bool _isContent(td.MessageContent c) =>
+    c is td.MessagePoll ||
+    c is td.MessageLocation ||
+    c is td.MessageLiveLocation ||
+    c is td.MessageVenue ||
+    c is td.MessageContact ||
+    c is td.MessageDice ||
+    c is td.MessageStakeDice ||
+    c is td.MessageGame ||
+    c is td.MessageInvoice ||
+    c is td.MessageGiveaway ||
+    c is td.MessageGiveawayWinners ||
+    c is td.MessageStory ||
+    c is td.MessageChecklist ||
+    c is td.MessagePaidMedia ||
+    c is td.MessageRichMessage ||
+    c is td.MessageExpiredPhoto ||
+    c is td.MessageExpiredVideo ||
+    c is td.MessageExpiredVideoNote ||
+    c is td.MessageExpiredVoiceNote ||
+    c is td.MessageUnsupported ||
+    // The kinds the app shows, when Telegram sends one without its file.
+    c is td.MessageText ||
+    c is td.MessagePhoto ||
+    c is td.MessageVideo ||
+    c is td.MessageAnimation ||
+    c is td.MessageVideoNote ||
+    c is td.MessageVoiceNote ||
+    c is td.MessageAudio ||
+    c is td.MessageDocument ||
+    c is td.MessageSticker;
 
 String _captionOf(td.MessageContent c) {
   final caption = c.toJson()['caption'];

@@ -2865,6 +2865,60 @@ class AppLocalizationsUk extends AppLocalizations {
   String get mediaStory => 'Історія';
 
   @override
+  String get mediaChecklist => 'Список задач';
+
+  @override
+  String get mediaPaidMedia => 'Платне медіа';
+
+  @override
+  String get mediaUnsupported => 'Непідтримуваний допис';
+
+  @override
+  String servicePinned(String channel) {
+    return '$channel прикріплює допис';
+  }
+
+  @override
+  String servicePinnedOpen(String channel) {
+    return '$channel прикріплює допис. Відкрити прикріплений допис';
+  }
+
+  @override
+  String serviceTitleChanged(String title) {
+    return 'Канал перейменовано на $title';
+  }
+
+  @override
+  String get servicePhotoChanged => 'Фото каналу змінено';
+
+  @override
+  String get servicePhotoRemoved => 'Фото каналу вилучено';
+
+  @override
+  String get serviceChannelCreated => 'Канал створено';
+
+  @override
+  String get serviceLiveStarted => 'Почалася трансляція';
+
+  @override
+  String serviceLiveEnded(String length) {
+    return 'Трансляцію завершено ($length)';
+  }
+
+  @override
+  String serviceLiveScheduled(String date) {
+    return 'Трансляцію заплановано на $date';
+  }
+
+  @override
+  String get serviceOther => 'Службове повідомлення';
+
+  @override
+  String serviceOfChannel(String channel, String words) {
+    return '$channel: $words';
+  }
+
+  @override
   String get problemSyncNewerVersion =>
       'Файл синхронізації записала новіша версія застосунку. Оновіть застосунок на цьому пристрої.';
 

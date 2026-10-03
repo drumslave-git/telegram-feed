@@ -207,6 +207,13 @@ Map<String, Object?> encodeMedia(Media m) => switch (m) {
       'thumbnail': _fileOrNull(thumbnail),
     },
   UnsupportedMedia(:final tdType) => {'kind': 'unsupported', 'tdType': tdType},
+  ServiceNote(:final kind, :final title, :final messageId, :final seconds) => {
+    'kind': 'service',
+    'service': kind.name,
+    'title': title,
+    'messageId': messageId,
+    'seconds': seconds,
+  },
 };
 
 Media decodeMedia(Map<Object?, Object?> m) => switch (m['kind']) {
@@ -244,6 +251,12 @@ Media decodeMedia(Map<Object?, Object?> m) => switch (m['kind']) {
     thumbnail: _decodeFileOrNull(m['thumbnail']),
   ),
   'unsupported' => UnsupportedMedia(m['tdType'] as String),
+  'service' => ServiceNote(
+    ServiceKind.values.asNameMap()[m['service']] ?? ServiceKind.other,
+    title: m['title'] as String? ?? '',
+    messageId: m['messageId'] as int? ?? 0,
+    seconds: m['seconds'] as int? ?? 0,
+  ),
   final other => throw ArgumentError('unknown media kind $other'),
 };
 

@@ -190,7 +190,11 @@ final class FeedTimeline {
   bool _settle(List<Post> posts) {
     final chatId = posts.first.chatId;
     final shown = filter.shownParts(posts);
-    final minimized = shown.isEmpty && filter.minimize;
+    // A service line the filter leaves out goes; it is never a minimized row.
+    final minimized =
+        shown.isEmpty &&
+        filter.minimize &&
+        posts.any((p) => p.media is! ServiceNote);
     final listed = {for (final p in minimized ? posts : shown) p.messageId};
     for (final p in posts) {
       if (listed.contains(p.messageId)) {

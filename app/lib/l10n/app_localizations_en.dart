@@ -2757,6 +2757,60 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mediaStory => 'Story';
 
   @override
+  String get mediaChecklist => 'Checklist';
+
+  @override
+  String get mediaPaidMedia => 'Paid media';
+
+  @override
+  String get mediaUnsupported => 'Unsupported post';
+
+  @override
+  String servicePinned(String channel) {
+    return '$channel pinned a post';
+  }
+
+  @override
+  String servicePinnedOpen(String channel) {
+    return '$channel pinned a post. Open the pinned post';
+  }
+
+  @override
+  String serviceTitleChanged(String title) {
+    return 'Channel name changed to $title';
+  }
+
+  @override
+  String get servicePhotoChanged => 'Channel photo updated';
+
+  @override
+  String get servicePhotoRemoved => 'Channel photo removed';
+
+  @override
+  String get serviceChannelCreated => 'Channel created';
+
+  @override
+  String get serviceLiveStarted => 'Live stream started';
+
+  @override
+  String serviceLiveEnded(String length) {
+    return 'Live stream ended ($length)';
+  }
+
+  @override
+  String serviceLiveScheduled(String date) {
+    return 'Live stream scheduled on $date';
+  }
+
+  @override
+  String get serviceOther => 'Service message';
+
+  @override
+  String serviceOfChannel(String channel, String words) {
+    return '$channel: $words';
+  }
+
+  @override
   String get problemSyncNewerVersion =>
       'The sync file was written by a newer version of the app. Update this device.';
 

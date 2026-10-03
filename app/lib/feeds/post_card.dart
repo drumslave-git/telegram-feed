@@ -81,11 +81,15 @@ Color peerColor(int id, Brightness brightness) {
 
 /// A centred label floating on the chat backdrop: the day, the beginning of the feed.
 class ChatPill extends StatelessWidget {
-  const ChatPill(this.label, {super.key, this.onTap});
+  const ChatPill(this.label, {super.key, this.onTap, this.tapLabel});
   final String label;
 
-  /// Day pills lead to the calendar; the other pills are labels only.
+  /// Day pills lead to the calendar and the line of a pin to the pinned post; the other
+  /// pills are labels only.
   final VoidCallback? onTap;
+
+  /// What a screen reader says of a pill that can be tapped; a day pill's words when null.
+  final String? tapLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -112,7 +116,7 @@ class ChatPill extends StatelessWidget {
           ? Semantics(header: true, child: pill)
           : Semantics(
               button: true,
-              label: context.l10n.postDayJumpToDate(label),
+              label: tapLabel ?? context.l10n.postDayJumpToDate(label),
               child: GestureDetector(
                 onTap: onTap,
                 behavior: HitTestBehavior.opaque,
@@ -658,7 +662,7 @@ class RepliedPost extends StatelessWidget {
     final photo = reply.photo;
     // What the answered post said, else what it carried, else that it was a post.
     final said = reply.text.isEmpty
-        ? l10n.mediaPreview(reply.media)
+        ? l10n.mediaPreview(reply.media, channel: name)
         : reply.text;
     final block = Material(
       color: accent.withValues(alpha: 0.08),

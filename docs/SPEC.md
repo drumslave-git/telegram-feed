@@ -63,6 +63,8 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - The button to the newest posts counts the unread posts. A tap goes to the "Unread posts" divider while I have not seen it in this visit, then back to the post whose reply quote I tapped, then to the very end.
 - I mark a feed, a folder or a channel read in one action.
 - A post that answers an earlier post shows that post above its text (the quote the author picked, or the beginning of it); a tap takes me there.
+- A channel's service messages (a pinned post, a new name or photo, a live stream) are lines of their own between the posts, worded as in the official app; the line of a pin leads to the pinned post. They are not posts: no rule matches them, and a feed that filters its posts leaves them out.
+- A post that is a single emoji shows that emoji.
 - A forwarded post names the channel it came from; a tap opens the original post when I follow that channel.
 - A post with a link shows the site's card (site, title, description, picture, with a play badge for a video); a tap opens the link.
 - A Telegram link in a post that leads to a channel I follow opens here, at that post. Other links open in the app that handles them.
@@ -169,7 +171,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - Joining or leaving channels, adding channels the account has not joined, editing Telegram's chat folders, muting a channel (rules take that place).
 - Server-side session storage. The app never uploads the Telegram session.
 - Algorithmic ranking of the feed.
-- Polls, quizzes, giveaways, invoices and paid media; they show as unsupported content.
+- Polls, quizzes, giveaways, invoices and paid media; they show as a label that names their kind, or "Unsupported post" for a kind the app has no name for.
 - Selecting part of a post's text (the whole text can be copied).
 - Translating posts, transcribing voice messages, voice-message waveforms.
 - Swiping a channel row to mark it read (the row's menu does it).

@@ -20,6 +20,7 @@ MediaKind? mediaKindOf(Media? m) => switch (m) {
   // A sticker is neither a picture nor a film; a feed of photos should not show one.
   StickerMedia() => MediaKind.other,
   UnsupportedMedia() => MediaKind.other,
+  ServiceNote() => MediaKind.other,
 };
 
 /// What a feed shows of its channels' posts (`feeds.filter_json`). A post a feed hides also
@@ -89,6 +90,8 @@ final class FeedFilter {
   /// The media and length settings, which judge every message by itself.
   bool _content(Post post) {
     final m = post.media;
+    // A service line is not a post: a feed that picks its posts leaves it out.
+    if (m is ServiceNote) return isEmpty;
     if (m == null) {
       if (media == MediaPresence.withMedia) return false;
       return post.text.trim().length >= minTextLength;

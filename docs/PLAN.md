@@ -4,11 +4,10 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-4.
+**Current phase:** Parity with the official app. **Next task:** Q-5.
 
 ## Defects
 
-- [ ] Q-4 Service messages (pinned post, title or photo changed, video chat) are drawn as centred service lines, a single-emoji post shows its emoji, and unsupported content never shows a raw TDLib type name. Check both on the real account first.
 - [ ] Q-5 Custom-emoji and paid reactions are drawn on posts, and the picker offers the channel's custom emoji.
 - [ ] Q-6 Comments show their media: photos, videos, stickers, voice and files.
 - [ ] Q-7 An album raises one rule notification, and sharing an album carries its caption whichever part holds it.

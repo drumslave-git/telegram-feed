@@ -2226,6 +2226,65 @@
   "mediaInvoice": "Invoice",
   "mediaGiveaway": "Giveaway",
   "mediaStory": "Story",
+  "mediaChecklist": "Checklist",
+  "mediaPaidMedia": "Paid media",
+  "mediaUnsupported": "Unsupported post",
+  "servicePinned": "{channel} pinned a post",
+  "@servicePinned": {
+    "placeholders": {
+      "channel": {
+        "type": "String"
+      }
+    }
+  },
+  "servicePinnedOpen": "{channel} pinned a post. Open the pinned post",
+  "@servicePinnedOpen": {
+    "placeholders": {
+      "channel": {
+        "type": "String"
+      }
+    }
+  },
+  "serviceTitleChanged": "Channel name changed to {title}",
+  "@serviceTitleChanged": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "servicePhotoChanged": "Channel photo updated",
+  "servicePhotoRemoved": "Channel photo removed",
+  "serviceChannelCreated": "Channel created",
+  "serviceLiveStarted": "Live stream started",
+  "serviceLiveEnded": "Live stream ended ({length})",
+  "@serviceLiveEnded": {
+    "placeholders": {
+      "length": {
+        "type": "String"
+      }
+    }
+  },
+  "serviceLiveScheduled": "Live stream scheduled on {date}",
+  "@serviceLiveScheduled": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "serviceOther": "Service message",
+  "serviceOfChannel": "{channel}: {words}",
+  "@serviceOfChannel": {
+    "placeholders": {
+      "channel": {
+        "type": "String"
+      },
+      "words": {
+        "type": "String"
+      }
+    }
+  },
   "problemSyncNewerVersion": "The sync file was written by a newer version of the app. Update this device.",
   "problemSyncUnreadable": "The sync file cannot be read: {error}",
   "@problemSyncUnreadable": {

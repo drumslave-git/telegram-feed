@@ -70,6 +70,30 @@ void main() {
     expect(e.evaluate(post(-1, 5, '')), isNull); // media without caption
   });
 
+  test('a service message is not a post: no rule matches it', () {
+    // A rule without a condition notifies about every post.
+    const everyPost = RuleSpec(
+      id: 1,
+      name: 'every',
+      condition: And([]),
+      feedId: 1,
+    );
+    final e = RuleEngine()..update(rules: [everyPost], feeds: oneFeed);
+    expect(e.evaluate(post(-1, 1, '')), isNotNull);
+    expect(
+      e.evaluate(
+        const Post(
+          chatId: -1,
+          messageId: 2,
+          date: 1,
+          text: '',
+          media: ServiceNote(ServiceKind.pinned, messageId: 1),
+        ),
+      ),
+      isNull,
+    );
+  });
+
   test("a rule watches its own feed's channels only", () {
     final e = RuleEngine()
       ..update(

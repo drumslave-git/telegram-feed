@@ -4412,6 +4412,90 @@ abstract class AppLocalizations {
   /// **'Story'**
   String get mediaStory;
 
+  /// No description provided for @mediaChecklist.
+  ///
+  /// In en, this message translates to:
+  /// **'Checklist'**
+  String get mediaChecklist;
+
+  /// No description provided for @mediaPaidMedia.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid media'**
+  String get mediaPaidMedia;
+
+  /// No description provided for @mediaUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsupported post'**
+  String get mediaUnsupported;
+
+  /// No description provided for @servicePinned.
+  ///
+  /// In en, this message translates to:
+  /// **'{channel} pinned a post'**
+  String servicePinned(String channel);
+
+  /// No description provided for @servicePinnedOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'{channel} pinned a post. Open the pinned post'**
+  String servicePinnedOpen(String channel);
+
+  /// No description provided for @serviceTitleChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Channel name changed to {title}'**
+  String serviceTitleChanged(String title);
+
+  /// No description provided for @servicePhotoChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Channel photo updated'**
+  String get servicePhotoChanged;
+
+  /// No description provided for @servicePhotoRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Channel photo removed'**
+  String get servicePhotoRemoved;
+
+  /// No description provided for @serviceChannelCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Channel created'**
+  String get serviceChannelCreated;
+
+  /// No description provided for @serviceLiveStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Live stream started'**
+  String get serviceLiveStarted;
+
+  /// No description provided for @serviceLiveEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Live stream ended ({length})'**
+  String serviceLiveEnded(String length);
+
+  /// No description provided for @serviceLiveScheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Live stream scheduled on {date}'**
+  String serviceLiveScheduled(String date);
+
+  /// No description provided for @serviceOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Service message'**
+  String get serviceOther;
+
+  /// No description provided for @serviceOfChannel.
+  ///
+  /// In en, this message translates to:
+  /// **'{channel}: {words}'**
+  String serviceOfChannel(String channel, String words);
+
   /// No description provided for @problemSyncNewerVersion.
   ///
   /// In en, this message translates to:

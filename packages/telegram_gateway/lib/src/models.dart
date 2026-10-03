@@ -553,6 +553,54 @@ final class LinkPreview {
       '${photo == null ? '' : ', photo'})';
 }
 
+/// What a service message says.
+enum ServiceKind {
+  pinned,
+  titleChanged,
+  photoChanged,
+  photoRemoved,
+  channelCreated,
+  liveStarted,
+  liveEnded,
+  liveScheduled,
+
+  /// A service message the app has no words for.
+  other,
+}
+
+/// A service message: the channel pinned a post, changed its name or photo, started a
+/// live stream. It is a line of its own in the timeline, not a post: no rule matches it.
+final class ServiceNote extends Media {
+  const ServiceNote(
+    this.kind, {
+    this.title = '',
+    this.messageId = 0,
+    this.seconds = 0,
+  });
+  final ServiceKind kind;
+
+  /// The channel's new name ([ServiceKind.titleChanged]).
+  final String title;
+
+  /// The pinned post ([ServiceKind.pinned]); 0 when Telegram does not name it.
+  final int messageId;
+
+  /// How long the live stream ran ([ServiceKind.liveEnded]), or the unix time it is
+  /// scheduled for ([ServiceKind.liveScheduled]).
+  final int seconds;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ServiceNote &&
+      other.kind == kind &&
+      other.title == title &&
+      other.messageId == messageId &&
+      other.seconds == seconds;
+
+  @override
+  int get hashCode => Object.hash(kind, title, messageId, seconds);
+}
+
 /// Content the app does not render yet (polls, stickers, ...); [tdType] names it.
 final class UnsupportedMedia extends Media {
   const UnsupportedMedia(this.tdType);

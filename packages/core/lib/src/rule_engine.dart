@@ -285,6 +285,8 @@ final class RuleEngine {
   /// Evaluates one post; returns the match or null. Pure apart from the clock.
   RuleMatch? evaluate(Post post, {DateTime? now}) {
     if (!_watched.contains(post.chatId)) return null;
+    // A service message (a pin, a new channel photo) is not a post.
+    if (post.media is ServiceNote) return null;
     final text = post.text;
     final hits = [
       for (final r in candidates(post.chatId, now: now))

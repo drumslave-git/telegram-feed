@@ -407,38 +407,62 @@ final class FakeTelegram extends TimelineGateway {
     'soldering without a stand',
   ];
 
+  /// Five posts, and under them the service lines of a young channel and a post that is
+  /// one emoji.
   List<Post> _gazettePosts() {
     const chat = FakeChats.northfieldGazette;
     return [
       _post(
         chat,
-        5,
+        9,
         hoursAgo: 4,
         text: 'Northfield: the library opens late on Thursdays.',
       ),
       _post(
         chat,
-        4,
+        8,
         hoursAgo: 28,
         text: 'Northfield: road works on Mill Street until Friday.',
       ),
       _post(
         chat,
-        3,
+        7,
         hoursAgo: 52,
         text: 'Northfield: the school fair raised 2,400.',
       ),
       _post(
         chat,
-        2,
+        6,
         hoursAgo: 76,
         text: 'Northfield: a new bench by the pond.',
+      ),
+      _post(chat, 5, hoursAgo: 98, text: '🎉'),
+      _post(
+        chat,
+        4,
+        hoursAgo: 99,
+        text: '',
+        media: const ServiceNote(ServiceKind.pinned, messageId: 3),
+      ),
+      _post(
+        chat,
+        3,
+        hoursAgo: 100,
+        text: 'Northfield: the gazette is now on Telegram.',
+      ),
+      _post(
+        chat,
+        2,
+        hoursAgo: 119,
+        text: '',
+        media: const ServiceNote(ServiceKind.photoChanged),
       ),
       _post(
         chat,
         1,
-        hoursAgo: 100,
-        text: 'Northfield: the gazette is now on Telegram.',
+        hoursAgo: 120,
+        text: '',
+        media: const ServiceNote(ServiceKind.channelCreated),
       ),
     ];
   }
