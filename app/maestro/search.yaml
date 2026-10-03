@@ -35,12 +35,23 @@ appId: dev.telegramfeed.telegram_feed
     timeout: 15000
 - tapOn: 'Everything'
 - tapOn: 'Jump to date'
-- assertVisible: 'Cancel'
-- tapOn: 'Cancel'
-# The calendar's fade swallows a tap made while it runs.
+- assertVisible: 'Calendar'
+# A screen's slide swallows a tap made while it runs: each step waits for the screen it
+# leads to.
 - waitForAnimationToEnd
 - tapOn: 'Back'
+- extendedWaitUntil:
+    visible: 'Everything'
+    timeout: 10000
 - waitForAnimationToEnd
+# The field has the focus again and the keyboard is up: it has a "Back" of its own, far
+# below the one of the search bar.
+- tapOn:
+    text: 'Back'
+    above: 'Everything'
+- extendedWaitUntil:
+    visible: 'Edit feed'
+    timeout: 10000
 - tapOn: 'Back'
 - tapOn: 'Search posts'
 - inputText: 'Northfield'
