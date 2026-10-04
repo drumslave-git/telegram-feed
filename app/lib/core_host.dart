@@ -332,6 +332,18 @@ final class CoreHost implements AppHost {
   }
 
   @override
+  Future<void> standDown() async {
+    await dispose();
+    // The service's core, or the one this process spawned: either is still the old
+    // account's. The next host starts its own on the new account's paths.
+    if (Platform.isAndroid) {
+      await _stopService();
+    } else {
+      await _shutdownForeignCore();
+    }
+  }
+
+  @override
   Future<void> dispose() async {
     FlutterForegroundTask.removeTaskDataCallback(_onTaskData);
     await _alerts?.dispose();

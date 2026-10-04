@@ -3998,6 +3998,12 @@ abstract class AppLocalizations {
   /// **'Enter your PIN to change the lock'**
   String get appLockEnterPinToChange;
 
+  /// No description provided for @appLockEnterPasswordToChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your password to change the lock'**
+  String get appLockEnterPasswordToChange;
+
   /// No description provided for @appLockIntroWithPin.
   ///
   /// In en, this message translates to:
@@ -4447,6 +4453,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Preload larger videos'**
   String get dataStoragePreload;
+
+  /// No description provided for @dataStoragePreloadNeedsLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Larger videos are loaded ahead only when this limit is over 2 MB.'**
+  String get dataStoragePreloadNeedsLimit;
 
   /// No description provided for @dataStoragePreloadFooter.
   ///

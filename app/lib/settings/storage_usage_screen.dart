@@ -164,7 +164,10 @@ class _StorageUsageScreenState extends State<StorageUsageScreen> {
                         Text(l10n.dataStorageStatsFailed),
                         const SizedBox(height: 8),
                         TextButton(
-                          onPressed: () => setState(() => _storage = _load()),
+                          // A block: an arrow would hand setState the future.
+                          onPressed: () => setState(() {
+                            _storage = _load();
+                          }),
                           child: Text(l10n.commonTryAgain),
                         ),
                       ],

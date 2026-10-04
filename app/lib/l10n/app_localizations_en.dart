@@ -2454,6 +2454,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appLockEnterPinToChange => 'Enter your PIN to change the lock';
 
   @override
+  String get appLockEnterPasswordToChange =>
+      'Enter your password to change the lock';
+
+  @override
   String get appLockIntroWithPin =>
       'The app asks for this PIN when it has rested. Setting a new one replaces it.';
 
@@ -2799,6 +2803,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dataStoragePreload => 'Preload larger videos';
+
+  @override
+  String get dataStoragePreloadNeedsLimit =>
+      'Larger videos are loaded ahead only when this limit is over 2 MB.';
 
   @override
   String dataStoragePreloadFooter(String size) {

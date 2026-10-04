@@ -179,6 +179,9 @@ class _AudioPlayerSheetState extends State<AudioPlayerSheet> {
   /// Where the finger holds the thumb while it drags; null otherwise.
   double? _scrub;
 
+  /// The sheet is on its way out because the music stopped.
+  bool _closing = false;
+
   AudioSessions get _s => widget.sessions;
 
   late final Listenable _state = Listenable.merge([
@@ -202,11 +205,19 @@ class _AudioPlayerSheetState extends State<AudioPlayerSheet> {
       final l10n = context.l10n;
       final theme = Theme.of(context);
       final track = _s.track.value;
-      // Nothing plays any more: the sheet has nothing to show.
+      // Nothing plays any more: the sheet has nothing to show. It closes itself once,
+      // however many of its notifiers say so, or the screens under it would go as well.
       if (track == null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) Navigator.of(context).maybePop();
-        });
+        if (!_closing) {
+          _closing = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            final route = ModalRoute.of(this.context);
+            if (route != null && route.isActive) {
+              Navigator.of(this.context).removeRoute(route);
+            }
+          });
+        }
         return const SizedBox(height: 120);
       }
       final length = _s.length.inMilliseconds.toDouble();

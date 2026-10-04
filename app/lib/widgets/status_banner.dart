@@ -39,6 +39,12 @@ class StatusBannerHost extends StatefulWidget {
   final VoidCallback onResume;
   final Widget child;
 
+  /// Roughly how much room the banner takes under the header right now, 0 without one:
+  /// what floats in the corner under the header (the round video's window) stays below
+  /// it. An estimate from what the banner holds, since the banner itself is built inside
+  /// each screen's scaffold.
+  static final heightUnderHeader = ValueNotifier<double>(0);
+
   @override
   State<StatusBannerHost> createState() => _StatusBannerHostState();
 }
@@ -47,13 +53,38 @@ enum _Banner { none, reading, paused }
 
 class _StatusBannerHostState extends State<StatusBannerHost> {
   ({_Banner status, bool audio}) _shown = (status: _Banner.none, audio: false);
-  late final AudioSessions _audio = widget.audio ?? AudioSessions.instance;
-  late final Listenable _state = Listenable.merge([
+  late AudioSessions _audio = widget.audio ?? AudioSessions.instance;
+  late Listenable _state = _watched();
+
+  Listenable _watched() => Listenable.merge([
     widget.reading,
     widget.paused,
     _audio.track,
     MediaViewerScreen.showing,
   ]);
+
+  /// Another account took over: its host has notifiers of its own, and the banner has
+  /// to say what holds there, not what held for the account that was left.
+  @override
+  void didUpdateWidget(StatusBannerHost old) {
+    super.didUpdateWidget(old);
+    if (identical(old.reading, widget.reading) &&
+        identical(old.paused, widget.paused) &&
+        identical(old.audio, widget.audio)) {
+      return;
+    }
+    _state.removeListener(_update);
+    _audio = widget.audio ?? AudioSessions.instance;
+    _state = _watched()..addListener(_update);
+    // The banner in place may show the other account's words through its own
+    // listeners: it is put up again.
+    _shown = (status: _Banner.none, audio: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.removeCurrentMaterialBanner();
+      _update();
+    });
+  }
 
   @override
   void initState() {
@@ -89,6 +120,15 @@ class _StatusBannerHostState extends State<StatusBannerHost> {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
     _shown = wanted;
+    StatusBannerHost.heightUnderHeader.value =
+        (wanted.audio ? 52.0 : 0.0) +
+        switch (wanted.status) {
+          _Banner.none => 0.0,
+          // Two lines of words with the button beside them, or under them when the
+          // audio bar shares the banner.
+          _Banner.paused => wanted.audio ? 100.0 : 60.0,
+          _Banner.reading => 112.0,
+        };
     messenger.removeCurrentMaterialBanner();
     if (wanted.audio) {
       messenger.showMaterialBanner(_audioBanner(wanted.status));

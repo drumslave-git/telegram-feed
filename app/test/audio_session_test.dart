@@ -394,6 +394,47 @@ void main() {
     expect(find.byType(AudioPlayerSheet), findsNothing);
   });
 
+  testWidgets('when the music stops the player goes alone, not the screen '
+      'under it', (tester) async {
+    await tester.pumpWidget(host());
+    await tester.pumpAndSettle();
+    // A screen opened over the first one, as a timeline is over the home screen.
+    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+    unawaited(
+      navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('Timeline')),
+            body: const Center(child: Text('posts')),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await sessions.play(
+      const AudioTrack(path: '/a.mp3', label: 'A song', durationSeconds: 30),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(of: find.byType(AudioBar), matching: find.text('A song')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(AudioPlayerSheet), findsOneWidget);
+
+    // Played to its end: the track, the position and the playing flag all change.
+    engine.finish();
+    for (var i = 0; i < 6; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+    await tester.pumpAndSettle();
+    expect(find.byType(AudioPlayerSheet), findsNothing);
+    expect(find.text('posts'), findsOneWidget);
+    expect(find.text('Timeline'), findsOneWidget);
+  });
+
   testWidgets('a tap on the bar of a voice message goes to its post and opens '
       'no player', (tester) async {
     var shown = 0;

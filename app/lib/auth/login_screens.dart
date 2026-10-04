@@ -518,10 +518,20 @@ class _OtherAccountButtonState extends State<OtherAccountButton> {
     final switched = AccountSwitch.of(context)?.onSwitched;
     if (switched == null) return;
     setState(() => _busy = true);
-    await _store!.setActive(other.id);
-    // The account this login was for never logged in: it leaves nothing behind.
-    await _store!.dropNeverLoggedIn();
+    final store = _store!;
+    await store.setActive(other.id);
     await switched();
+    // The account this login was for never logged in: it leaves nothing behind. Only
+    // now, when its core is down and no longer holds its files.
+    await store.dropNeverLoggedIn();
+    // Still here: the account gone back to has no session either. The button then
+    // offers what is left to go to, which may be nothing.
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _other = null;
+    });
+    await _load();
   }
 
   @override

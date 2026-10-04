@@ -638,10 +638,15 @@ class PinPad extends StatelessWidget {
             padding: const EdgeInsets.all(6),
             child: SizedBox.square(
               dimension: _size,
-              child: IconButton(
-                tooltip: context.l10n.commonDelete,
-                icon: const Icon(Icons.backspace_outlined),
-                onPressed: enabled ? onDelete : null,
+              // Named for a screen reader without a tooltip: the lock stands above the
+              // navigator, where there is no overlay for a tooltip to open in.
+              child: Semantics(
+                label: context.l10n.commonDelete,
+                button: true,
+                child: IconButton(
+                  icon: const Icon(Icons.backspace_outlined),
+                  onPressed: enabled ? onDelete : null,
+                ),
               ),
             ),
           ),
@@ -835,7 +840,10 @@ class _AppLockScreenState extends State<AppLockScreen> {
         body: LockScreen(
           lock: _lock,
           auth: widget.auth,
-          title: l10n.appLockEnterPinToChange,
+          // The lock that is set: `_kind` is read from it before this is drawn.
+          title: _kind == LockKind.password
+              ? l10n.appLockEnterPasswordToChange
+              : l10n.appLockEnterPinToChange,
           onUnlocked: () => setState(() => _needsPin = false),
         ),
       );

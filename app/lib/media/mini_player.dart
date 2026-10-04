@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../l10n/l10n.dart';
+import '../widgets/status_banner.dart' show StatusBannerHost;
 import 'audio_session.dart';
 import 'media_viewer.dart';
 import 'video_sessions.dart';
@@ -167,12 +168,18 @@ class _RoundFloatView extends StatelessWidget {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final l10n = context.l10n;
-    return Positioned(
-      // Under the header, out of the way of the newest post.
-      top: media.padding.top + kToolbarHeight + 12,
-      right: 12 + media.padding.right,
-      width: RoundFloat.side,
-      height: RoundFloat.side,
+    return ValueListenableBuilder<double>(
+      valueListenable: StatusBannerHost.heightUnderHeader,
+      builder: (context, banner, child) => AnimatedPositioned(
+        duration: const Duration(milliseconds: 200),
+        // Under the header and under the banner that may stand there (what plays, a
+        // post being read, the pause), out of the way of the newest post.
+        top: media.padding.top + kToolbarHeight + banner + 12,
+        right: 12 + media.padding.right,
+        width: RoundFloat.side,
+        height: RoundFloat.side,
+        child: child!,
+      ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [

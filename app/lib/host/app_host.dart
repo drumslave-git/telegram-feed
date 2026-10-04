@@ -42,6 +42,11 @@ abstract interface class AppHost {
   /// Logs out and wipes everything the app stored (ARCHITECTURE section 10).
   Future<void> logOutAndWipe();
   Future<void> dispose();
+
+  /// Closes the host and takes its core down with it, TDLib and the core's database
+  /// included: another account is about to start, and a core that lived on would go on
+  /// serving the account that was left.
+  Future<void> standDown();
 }
 
 /// Platform setup before `runApp`: registers the foreground task callback.

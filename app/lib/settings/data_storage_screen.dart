@@ -410,7 +410,11 @@ class _SizeSheetState extends State<_SizeSheet> {
                   ? (v) => setState(() => _preload = v)
                   : null,
             ),
-            SettingsFooter(l10n.dataStoragePreloadFooter(formatLimit(size))),
+            SettingsFooter(
+              canPreload
+                  ? l10n.dataStoragePreloadFooter(formatLimit(size))
+                  : l10n.dataStoragePreloadNeedsLimit,
+            ),
           ],
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),

@@ -19,6 +19,9 @@ abstract final class FakeChats {
   static const northfieldGazette = -1003;
   static const wire = -1004;
   static const oldLedger = -1005;
+
+  /// The channel of the lab media, there only while those files are ([FakeTelegram]).
+  static const mediaLab = -1006;
   static const savedMessages = 42;
 }
 
@@ -235,6 +238,7 @@ final class FakeTelegram extends TimelineGateway {
     _similar[gazette.chatId] = [harbour, circuit];
     _similar[wire.chatId] = [harbour];
 
+    _addMediaLab();
     histories[harbour.chatId] = _harbourPosts();
     histories[circuit.chatId] = _circuitPosts();
     histories[gazette.chatId] = _gazettePosts();
@@ -382,6 +386,8 @@ final class FakeTelegram extends TimelineGateway {
     // Everything but the newest three posts of each channel is read already, so a
     // fresh feed opens at an "Unread posts" divider and the counts are small.
     for (final c in channels) {
+      // The lab is read through: it adds nothing to the unread counts.
+      if (c.chatId == FakeChats.mediaLab) continue;
       final h = histories[c.chatId]!;
       readPositions[c.chatId] = h.length > 3 ? h[3].messageId : 0;
     }
@@ -763,6 +769,126 @@ final class FakeTelegram extends TimelineGateway {
   }
 
   /// A post [hoursAgo] hours before [_now]; the id is its place in the channel.
+  /// A channel of longer videos, a round video message, music and voice messages, for
+  /// trying the players by hand. Its files are too large to ship with the app: they are
+  /// made with `tool/lab_media.sh` and pushed into [mediaDirectory] on the emulator, and
+  /// the channel exists only while `lab_long.mp4` is there, so tests and the UI flows,
+  /// which have no such files, see the account without it.
+  void _addMediaLab() {
+    if (!File('$mediaDirectory/lab_long.mp4').existsSync()) return;
+    const chat = FakeChats.mediaLab;
+    channels.add(
+      const Channel(
+        chatId: chat,
+        title: 'Media lab',
+        username: 'medialab',
+        memberCount: 12,
+      ),
+    );
+    _infos[chat] = const ChannelInfo(
+      chatId: chat,
+      description: 'Media for trying the players by hand.',
+      memberCount: 12,
+      inviteLink: 'https://t.me/medialab',
+    );
+    AudioMedia voice(String name) => AudioMedia(
+      file: _file(name, 0, 0),
+      durationSeconds: 6,
+      isVoice: true,
+      mimeType: 'audio/ogg',
+    );
+    AudioMedia song(String name, String title) => AudioMedia(
+      file: _file(name, 0, 0),
+      durationSeconds: 20,
+      title: title,
+      performer: 'The Lab',
+      fileName: name,
+      mimeType: 'audio/mpeg',
+    );
+    final posts = histories[chat] = [
+      _post(
+        chat,
+        9,
+        hoursAgo: 40,
+        text: 'Lab: the newest voice message.',
+        media: voice('lab_voice2.ogg'),
+      ),
+      _post(
+        chat,
+        8,
+        hoursAgo: 41,
+        text: 'Lab: a voice message.',
+        media: voice('lab_voice1.ogg'),
+      ),
+      _post(
+        chat,
+        7,
+        hoursAgo: 42,
+        text: 'Lab: the second song.',
+        media: song('lab_song2.mp3', 'Second song'),
+      ),
+      _post(
+        chat,
+        6,
+        hoursAgo: 43,
+        text: 'Lab: the first song.',
+        media: song('lab_song1.mp3', 'First song'),
+      ),
+      _post(
+        chat,
+        5,
+        hoursAgo: 44,
+        text: '',
+        media: VideoMedia(
+          file: _file('lab_round.mp4', 384, 384),
+          durationSeconds: 20,
+          isVideoNote: true,
+        ),
+      ),
+      _post(
+        chat,
+        4,
+        hoursAgo: 45,
+        text:
+            'Lab: words between the players, so there is something to scroll.',
+      ),
+      _post(
+        chat,
+        3,
+        hoursAgo: 46,
+        text: 'Lab: forty seconds, with bold words and a link in the caption.',
+        entities: const [
+          TextEntity(offset: 25, length: 4, kind: TextEntityKind.bold),
+          TextEntity(
+            offset: 42,
+            length: 4,
+            kind: TextEntityKind.link,
+            url: 'https://t.me/harbourtimes',
+          ),
+        ],
+        media: VideoMedia(
+          file: _file('lab_mid.mp4', 640, 360),
+          durationSeconds: 40,
+          thumbnail: _file('thumb.png', 320, 180),
+        ),
+      ),
+      _post(
+        chat,
+        2,
+        hoursAgo: 47,
+        text: 'Lab: three minutes and twenty seconds.',
+        media: VideoMedia(
+          file: _file('lab_long.mp4', 640, 360),
+          durationSeconds: 200,
+          thumbnail: _file('thumb.png', 320, 180),
+        ),
+      ),
+      _post(chat, 1, hoursAgo: 48, text: 'Lab: media for hands-on checks.'),
+    ];
+    // Everything read: the lab adds nothing to the unread counts.
+    readPositions[chat] = posts.first.messageId;
+  }
+
   Post _post(
     int chatId,
     int messageId, {

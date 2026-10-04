@@ -110,13 +110,23 @@ final class VideoSession extends ChangeNotifier {
       _owner._syncForeground();
     }
     // The place survives the app being closed under the viewer: written as it plays.
-    if (playing && _viewerHolds > 0 && _sinceSaved.elapsed >= _saveEvery) {
+    // Not while the viewer is still taking the video over: where the row happened to
+    // be is not where the viewer left it.
+    if (playing &&
+        _viewerHolds > 0 &&
+        !_entering &&
+        _sinceSaved.elapsed >= saveEvery) {
       _savePlace();
     }
     notifyListeners();
   }
 
-  static const _saveEvery = Duration(seconds: 5);
+  /// How often the place is written while the viewer plays; tests shorten it.
+  @visibleForTesting
+  static Duration saveEvery = const Duration(seconds: 5);
+
+  /// The viewer took the session and has not yet put it where it starts.
+  bool _entering = false;
 
   void _savePlace() {
     final v = _controller?.value;
@@ -142,6 +152,8 @@ final class VideoSession extends ChangeNotifier {
     } else if (fromRow) {
       await c.seekTo(Duration.zero);
     }
+    _entering = false;
+    _sinceSaved.reset();
   }
 
   bool get isPlaying => isReady && _controller!.value.isPlaying;
@@ -214,6 +226,7 @@ final class VideoSession extends ChangeNotifier {
     retain();
     _viewerHolds++;
     if (loop != null) _viewerLoop = loop;
+    if (opening) _entering = true;
     scheduleMicrotask(() async {
       if (_disposed) return;
       if (_muted) await setMuted(false);
@@ -231,8 +244,10 @@ final class VideoSession extends ChangeNotifier {
     _holders--;
     // Handed over between the viewer and the mini player: the other one goes on watching.
     if (--_viewerHolds > 0) return;
-    // Where it is left is where it opens again.
-    _savePlace();
+    // Where it is left is where it opens again; a viewer that went before it got as far
+    // as placing the video left it nowhere.
+    if (!_entering) _savePlace();
+    _entering = false;
     _enterPending = null;
     final backToRow = autoplay && _holders > 0;
     scheduleMicrotask(() async {

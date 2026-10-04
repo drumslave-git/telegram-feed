@@ -59,9 +59,15 @@ class _TelegramFeedAppState extends State<TelegramFeedApp> {
   /// account with no session of its own lands on the login screen.
   Future<void> _switchAccount() async {
     final old = await _host;
-    await old.dispose();
+    // With its core: the core is the account's TDLib and database, and the next host
+    // would attach to it if it were still there.
+    await old.standDown();
     if (!mounted) return;
-    setState(() => _host = _start(null));
+    // A block, not an arrow: an arrow would hand setState the future it assigns, which
+    // Flutter refuses in debug builds, and the switch would never happen.
+    setState(() {
+      _host = _start(null);
+    });
   }
 
   @override

@@ -163,7 +163,7 @@ void main() {
     await type(tester, '432');
     expect(find.text('Wrong PIN'), findsNothing);
     expect(find.bySemanticsLabel('3 of 4 digits entered'), findsOneWidget);
-    await tester.tap(find.byTooltip('Delete'));
+    await tester.tap(find.byIcon(Icons.backspace_outlined));
     await tester.pump();
     expect(find.bySemanticsLabel('2 of 4 digits entered'), findsOneWidget);
 
@@ -422,6 +422,31 @@ void main() {
     await settle(tester);
     expect(find.text('Unofficial Telegram Feed is locked'), findsOneWidget);
     await type(tester, '1234');
+    expect(find.text('Unofficial Telegram Feed is locked'), findsNothing);
+  });
+
+  testWidgets('the lock stands above the navigator, as in the app, and its '
+      'keypad is whole there', (tester) async {
+    await tester.runAsync(() => lock.setPin('1234'));
+    await tester.pumpWidget(
+      MaterialApp(
+        // Where the app puts it: over every route, with no overlay around it.
+        builder: (context, child) => LockGate(lock: lock, child: child!),
+        home: const Scaffold(body: Center(child: Text('the feed'))),
+      ),
+    );
+    await settle(tester);
+    expect(tester.takeException(), isNull);
+    expect(find.byType(PinPad), findsOneWidget);
+    expect(find.byType(ErrorWidget), findsNothing);
+    expect(find.byIcon(Icons.backspace_outlined), findsOneWidget);
+    expect(find.bySemanticsLabel('Delete'), findsOneWidget);
+
+    await type(tester, '12');
+    await tester.tap(find.byIcon(Icons.backspace_outlined));
+    await tester.pump();
+    expect(find.bySemanticsLabel('1 of 4 digits entered'), findsOneWidget);
+    await type(tester, '234');
     expect(find.text('Unofficial Telegram Feed is locked'), findsNothing);
   });
 }

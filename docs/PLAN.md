@@ -30,22 +30,13 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ## Hands-on checks
 
-Built and covered by tests, not yet used on the emulator.
+Built and covered by tests; what is listed here has not been used on the emulator yet. Real Telegram (the spare account) has seen none of the tasks from Q-42 on.
 
 - [ ] V-1 Shared media: pinch the grid from two to nine columns, drag the date scroller, search Files, and "Show in chat" from a channel's info, from the home screen and from a feed's info.
-- [ ] V-2 Run the Maestro flows (all nine) against the newest build.
-- [ ] V-4 App lock: set a four-digit PIN and unlock on the keypad, set a password and unlock with it, lock from the home screen's header, pick "After five hours"; light, dark and Ukrainian.
-- [ ] V-5 Automatic downloads: a voice message loads with files switched off, the size slider moves without steps and names its size, "Preload larger videos" rests at 2 MB or less; light, dark and Ukrainian.
-- [ ] V-6 Accounts in Settings: add a second account, back out of its login and see no row; log in to a second account and see the first as a row with photo, name, phone and unread count; switch by a tap, remove by a long press; run `settings.yaml`; light, dark and Ukrainian.
-- [ ] V-7 Storage usage on the real account: the chart and the rows by kind match what Telegram stores, clearing one kind leaves the others, "Keep media" and the size stops save; after a day with a short time set, old media is gone and loads again on opening; run `settings.yaml`; light, dark and Ukrainian.
-- [ ] V-8 Video in the viewer: a long video opens where it was left, also after the app was closed and from an autoplaying row; a video of up to thirty seconds loops; a longer one returns to its start at its end with the controls shown.
-- [ ] V-9 Viewer: "Show in chat" from a feed, from shared media and from search; "Open in…" for a photo and a downloaded video; the rotate button on a landscape video and the orientation after leaving; the picture following the seek bar on a downloaded video; edge taps in a feed and in an album; a caption with bold, a link to a channel and a web link; light, dark and Ukrainian.
-- [ ] V-10 Holding a finger on a video: 2× and the slide on a short video, rewinding on the left third (the picture walking back), the steps on a video of more than three minutes, sound and speed after lifting; the speed menu's slider and 0.2×.
-- [ ] V-11 Floating player: pinch, throw off both sides, tap for the buttons, double tap on each half, the place and size after reopening. Android's picture-in-picture window: the pause and play button, its icon following the state, on Android 12 or later and on an image older than 12.
-- [ ] V-12 Sound: a voice message plays on to the next one and stops after the newest; music plays on; a video pauses a playing track and closing the viewer, and closing the floating player, plays it on; a track paused by hand stays paused.
-- [ ] V-13 Audio bar: under the header on the home screen, a timeline and Settings, together with the pause line; the tap to the post of a voice message from another screen; the music player (seek, previous, next, repeat, shuffle, the list); the long press on the speed; a voice message at 2× followed by music at 1×; light, dark and Ukrainian.
-- [ ] V-14 Round video message: tap to play, scroll it away slowly and in one fling, the round window, back to the post, the cross, the end of the message; saving an album of pictures and a video to the gallery from the post menu.
-- [ ] V-3 Chat settings: drag the text size slider from 12 to 30 and watch the post under it, in light and dark and in Ukrainian.
+- [ ] V-9 Viewer: "Show in chat" from a feed, from shared media and from search; the picture following the seek bar on a downloaded video; edge taps in a feed and in an album; a caption link to a channel; dark and Ukrainian.
+- [ ] V-11 Floating player: pinch (two fingers, not possible with adb), double tap on each half, the place and size after reopening; Android's picture-in-picture button on an image older than Android 12.
+- [ ] V-12 Sound: a video pauses a playing track and closing the viewer, and closing the floating player, plays it on; a track paused by hand stays paused.
+- [ ] V-13 Audio bar: the tap to the post of a voice message from another screen; previous, next, repeat and shuffle in the player with real music; the long press on the speed; a voice message at 2× followed by music at 1×; dark and Ukrainian.
 
 ## Phase 4 — Extras
 

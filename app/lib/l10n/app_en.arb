@@ -1940,6 +1940,7 @@
   "appLockTimeoutFiveMinutes": "After five minutes",
   "appLockTimeoutHour": "After an hour",
   "appLockEnterPinToChange": "Enter your PIN to change the lock",
+  "appLockEnterPasswordToChange": "Enter your password to change the lock",
   "appLockIntroWithPin": "The app asks for this PIN when it has rested. Setting a new one replaces it.",
   "appLockIntroNoPin": "A PIN keeps the channels you read out of the hands of whoever holds the unlocked phone.",
   "appLockNewPin": "New PIN",
@@ -2141,6 +2142,7 @@
   "dataStorageMaxVideoSize": "Maximum video size",
   "dataStorageMaxFileSize": "Maximum file size",
   "dataStoragePreload": "Preload larger videos",
+  "dataStoragePreloadNeedsLimit": "Larger videos are loaded ahead only when this limit is over 2 MB.",
   "dataStoragePreloadFooter": "The first seconds of videos larger than {size} are loaded ahead, so that they start at once.",
   "@dataStoragePreloadFooter": {
     "placeholders": {

@@ -2554,6 +2554,10 @@ class AppLocalizationsUk extends AppLocalizations {
       'Введіть PIN-код, щоб змінити налаштування блокування';
 
   @override
+  String get appLockEnterPasswordToChange =>
+      'Введіть пароль, щоб змінити налаштування блокування';
+
+  @override
   String get appLockIntroWithPin =>
       'Застосунок запитує цей PIN-код після перерви. Новий PIN-код замінить поточний.';
 
@@ -2900,6 +2904,10 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get dataStoragePreload => 'Підвантажувати більші відео';
+
+  @override
+  String get dataStoragePreloadNeedsLimit =>
+      'Більші відео підвантажуються заздалегідь, лише коли цей ліміт перевищує 2 MB.';
 
   @override
   String dataStoragePreloadFooter(String size) {

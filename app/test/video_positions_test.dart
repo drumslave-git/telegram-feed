@@ -218,6 +218,45 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('the place the row happens to be at when the viewer opens is '
+        'not taken for a place the viewer left', (tester) async {
+      final platform = FakeVideoPlatform.install();
+      // As on a phone, where the row has played for longer than the saving interval
+      // by the time it is tapped: every change of the player may save.
+      VideoSession.saveEvery = Duration.zero;
+      addTearDown(() => VideoSession.saveEvery = const Duration(seconds: 5));
+      final gw = DownloadGateway('unused');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ListView(
+              children: [
+                VideoView(video: _video(100), gateway: gw, autoplay: true),
+                const SizedBox(height: 900),
+              ],
+            ),
+          ),
+        ),
+      );
+      await startUp(tester);
+      await startUp(tester);
+      final session = VideoSessions.of(gw).find(9)!;
+      await tester.runAsync(() => session.seekBy(const Duration(seconds: 30)));
+      platform.log.clear();
+
+      await tester.tap(find.byType(InlineVideo));
+      await tester.pumpAndSettle();
+      await startUp(tester);
+      // Never opened before: from its start, not from where the row was.
+      expect(platform.log, contains('seek 1 0'));
+      expect(platform.log, isNot(contains('seek 1 30')));
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      await startUp(tester);
+      await unmount(tester);
+    });
+
     testWidgets('a long video that autoplays in its row loops there and not '
         'in the viewer, and opens again where the viewer left it', (
       tester,

@@ -44,6 +44,8 @@ final class _Host implements AppHost {
   Future<void> logOutAndWipe() async {}
   @override
   Future<void> dispose() async {}
+  @override
+  Future<void> standDown() async {}
 }
 
 void main() {
