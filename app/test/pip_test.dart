@@ -206,6 +206,29 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('mini player: it follows the finger move for move, also when '
+      'several moves come between two frames', (tester) async {
+    await floating(tester);
+    final before = window(tester);
+    final drag = await tester.startGesture(before.center);
+    // The first move is the one that tells a drag from a tap.
+    await drag.moveBy(const Offset(-30, -30));
+    await tester.pump();
+    final started = window(tester);
+    // A touch screen reports faster than the screen draws.
+    for (var i = 0; i < 5; i++) {
+      await drag.moveBy(const Offset(-20, -30));
+    }
+    await tester.pump();
+    final moved = window(tester);
+    expect(moved.left, closeTo(started.left - 100, 0.5));
+    expect(moved.top, closeTo(started.top - 150, 0.5));
+    await tester.pump(const Duration(milliseconds: 400));
+    await drag.up();
+    await tester.pump();
+    await unmount(tester);
+  });
+
   testWidgets('mini player: thrown off a side it closes; let go short of the '
       'edge it comes back to the side', (tester) async {
     final platform = await floating(tester);

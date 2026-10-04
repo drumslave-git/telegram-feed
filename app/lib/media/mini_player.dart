@@ -413,7 +413,17 @@ class _MiniPlayerViewState extends State<_MiniPlayerView> {
                       _width = next;
                       _at = position - Offset(grown / 2, grown / aspect / 2);
                     } else {
-                      _at = position + d.focalPointDelta;
+                      // From where the window was put last, not from where it was
+                      // drawn last: a finger reports several moves between two
+                      // frames, and each of them counts.
+                      final from = _at ?? position;
+                      _at = Offset(
+                        from.dx + d.focalPointDelta.dx,
+                        (from.dy + d.focalPointDelta.dy).clamp(
+                          bounds.top,
+                          bounds.bottom,
+                        ),
+                      );
                     }
                   }),
                   onScaleEnd: (d) {
