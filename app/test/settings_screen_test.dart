@@ -113,7 +113,7 @@ void main() {
     expect(find.text('AL'), findsOneWidget);
     // Screens, not settings: no switch lives on the first screen any more.
     for (final row in const [
-      'Accounts',
+      'Add an account',
       'Saved Messages',
       'Chat settings',
       'Privacy and security',

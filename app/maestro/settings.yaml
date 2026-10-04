@@ -8,9 +8,7 @@ appId: dev.telegramfeed.telegram_feed
     visible: '(?s)Fixture Account\n.*'
     timeout: 10000
 - assertVisible: '(?s).*@fixture\n.*'
-- tapOn: 'Accounts'
-- assertVisible: '(?s)Add an account\n.*'
-- tapOn: 'Back'
+- assertVisible: 'Add an account'
 - tapOn: 'Saved Messages'
 - extendedWaitUntil:
     visible: '(?s).*A note to myself.*'

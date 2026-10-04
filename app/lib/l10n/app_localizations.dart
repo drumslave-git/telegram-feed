@@ -4070,12 +4070,6 @@ abstract class AppLocalizations {
   /// **'Log out'**
   String get settingsLogOut;
 
-  /// Settings row and title of the screen listing the accounts on this device.
-  ///
-  /// In en, this message translates to:
-  /// **'Accounts'**
-  String get accountsTitle;
-
   /// Settings row that opens Telegram's chat with oneself.
   ///
   /// In en, this message translates to:
@@ -4184,12 +4178,6 @@ abstract class AppLocalizations {
   /// **'Account {id}'**
   String accountsNumbered(int id);
 
-  /// Snackbar when a fifth account is added.
-  ///
-  /// In en, this message translates to:
-  /// **'Four accounts is as many as the app holds.'**
-  String get accountsLimitReached;
-
   /// No description provided for @accountsRemoveTitle.
   ///
   /// In en, this message translates to:
@@ -4202,53 +4190,11 @@ abstract class AppLocalizations {
   /// **'Its session, feeds, rules and cached posts are deleted from this device. The Telegram account itself stays as it is.'**
   String get accountsRemoveText;
 
-  /// No description provided for @accountsLastCannotBeRemoved.
-  ///
-  /// In en, this message translates to:
-  /// **'The last account cannot be removed; log out instead.'**
-  String get accountsLastCannotBeRemoved;
-
-  /// No description provided for @accountsIntro.
-  ///
-  /// In en, this message translates to:
-  /// **'Each account has its own session, feeds and rules on this device. Switching takes the watcher down and brings it up again on the other account.'**
-  String get accountsIntro;
-
-  /// Subtitle of the account the app is on now.
-  ///
-  /// In en, this message translates to:
-  /// **'In use'**
-  String get accountsInUse;
-
-  /// Subtitle of an account the app is not on.
-  ///
-  /// In en, this message translates to:
-  /// **'Tap to switch to it'**
-  String get accountsTapToSwitch;
-
-  /// No description provided for @accountsRemoveTooltip.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove from this device'**
-  String get accountsRemoveTooltip;
-
   /// No description provided for @accountsAdd.
   ///
   /// In en, this message translates to:
   /// **'Add an account'**
   String get accountsAdd;
-
-  /// Subtitle of the disabled Add an account row when four accounts exist.
-  ///
-  /// In en, this message translates to:
-  /// **'Four is as many as the app holds'**
-  String get accountsAddLimit;
-
-  /// No description provided for @accountsAddSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Logs in as another account and switches to it'**
-  String get accountsAddSubtitle;
 
   /// No description provided for @aiSettingsTestOk.
   ///

@@ -2688,9 +2688,6 @@ class AppLocalizationsUk extends AppLocalizations {
   String get settingsLogOut => 'Вийти';
 
   @override
-  String get accountsTitle => 'Акаунти';
-
-  @override
   String get settingsSavedMessages => 'Збережене';
 
   @override
@@ -2754,10 +2751,6 @@ class AppLocalizationsUk extends AppLocalizations {
   }
 
   @override
-  String get accountsLimitReached =>
-      'Застосунок підтримує не більше чотирьох акаунтів.';
-
-  @override
   String accountsRemoveTitle(String name) {
     return 'Видалити $name?';
   }
@@ -2767,31 +2760,7 @@ class AppLocalizationsUk extends AppLocalizations {
       'Його сеанс, стрічки, правила й кешовані дописи буде видалено з цього пристрою. Сам акаунт Telegram залишиться без змін.';
 
   @override
-  String get accountsLastCannotBeRemoved =>
-      'Останній акаунт не можна видалити; натомість вийдіть із нього.';
-
-  @override
-  String get accountsIntro =>
-      'Кожен акаунт має на цьому пристрої власний сеанс, стрічки й правила. Під час перемикання стеження зупиняється й запускається знову вже для іншого акаунта.';
-
-  @override
-  String get accountsInUse => 'Використовується';
-
-  @override
-  String get accountsTapToSwitch => 'Натисніть, щоб перемкнутися';
-
-  @override
-  String get accountsRemoveTooltip => 'Видалити з цього пристрою';
-
-  @override
   String get accountsAdd => 'Додати акаунт';
-
-  @override
-  String get accountsAddLimit => 'Не більше чотирьох акаунтів';
-
-  @override
-  String get accountsAddSubtitle =>
-      'Вхід в інший акаунт і перемикання на нього';
 
   @override
   String get aiSettingsTestOk => 'Працює: модель відповіла правильно.';

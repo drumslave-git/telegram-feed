@@ -33,6 +33,7 @@ class HomeScreen extends StatefulWidget {
     required this.gateway,
     this.actions = const [],
     this.onOpenRules,
+    this.onUnreadChannels,
   });
   final AppDatabase db;
   final TelegramGateway gateway;
@@ -42,6 +43,10 @@ class HomeScreen extends StatefulWidget {
 
   /// Opens the rules overview; the first-run card on the Feeds tab points there.
   final VoidCallback? onOpenRules;
+
+  /// Told how many channels have unread posts, once they are loaded and whenever the
+  /// number changes: what the list of accounts shows of this one.
+  final ValueChanged<int>? onUnreadChannels;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -1208,8 +1213,21 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  int? _reportedUnread;
+
+  /// Hands [HomeScreen.onUnreadChannels] the count of channels with unread posts, once
+  /// the channels are known and whenever the count is another one.
+  void _reportUnread() {
+    if (!_channelsLoaded || _error != null) return;
+    final unread = _unreadChannels(null);
+    if (unread == _reportedUnread) return;
+    _reportedUnread = unread;
+    widget.onUnreadChannels?.call(unread);
+  }
+
   @override
   Widget build(BuildContext context) {
+    _reportUnread();
     if (_searchOpen) {
       // Back closes the search first, as in the official app.
       return PopScope(

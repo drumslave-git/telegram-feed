@@ -13,6 +13,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'ai/semantic_gate.dart';
+import 'host/accounts.dart';
 import 'host/app_host.dart';
 import 'l10n/l10n.dart';
 import 'service/core_service.dart';
@@ -310,6 +311,13 @@ final class CoreHost implements AppHost {
     await const SecureSecretStore().write(AiKeys.apiKeySecret, null);
     await db.wipe();
     await gateway.logOut();
+    // Nothing of the account stays in the list of accounts either.
+    try {
+      final store = AccountStore((await appPaths()).support);
+      await AccountRecorder(store, await store.activeId()).loggedOut();
+    } on Object catch (e) {
+      debugPrint('accounts: logout not recorded: $e');
+    }
   }
 
   @override

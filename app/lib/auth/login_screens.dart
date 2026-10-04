@@ -498,8 +498,10 @@ class _OtherAccountButtonState extends State<OtherAccountButton> {
     try {
       final store = AccountStore((await appPaths()).support);
       final now = await store.load();
+      // One that is logged in, as far as is known: an account that was added and never
+      // logged in is no way back.
       final other = now.accounts
-          .where((a) => a.id != now.active && a.label.isNotEmpty)
+          .where((a) => a.id != now.active && a.loggedIn != false)
           .firstOrNull;
       if (mounted) {
         setState(() {
@@ -517,6 +519,8 @@ class _OtherAccountButtonState extends State<OtherAccountButton> {
     if (switched == null) return;
     setState(() => _busy = true);
     await _store!.setActive(other.id);
+    // The account this login was for never logged in: it leaves nothing behind.
+    await _store!.dropNeverLoggedIn();
     await switched();
   }
 
@@ -529,7 +533,13 @@ class _OtherAccountButtonState extends State<OtherAccountButton> {
       child: TextButton.icon(
         onPressed: _busy ? null : () => unawaited(_use(other)),
         icon: const Icon(Icons.switch_account_outlined),
-        label: Text(context.l10n.loginUseOtherAccount(other.label)),
+        label: Text(
+          context.l10n.loginUseOtherAccount(
+            other.title.isEmpty
+                ? context.l10n.accountsNumbered(other.id)
+                : other.title,
+          ),
+        ),
       ),
     );
   }

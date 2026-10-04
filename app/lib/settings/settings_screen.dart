@@ -11,10 +11,9 @@ import '../home/channel_list.dart' show ChannelAvatar;
 import '../home/log_out.dart';
 import '../host/accounts.dart';
 import '../l10n/l10n.dart';
-import '../service/core_service.dart' show appPaths;
 import '../sync/sync_controller.dart';
 import '../sync/sync_settings_screen.dart';
-import 'accounts_screen.dart';
+import 'account_rows.dart';
 import 'ai_settings_screen.dart';
 import 'chat_settings_screen.dart';
 import 'data_storage_screen.dart';
@@ -39,6 +38,7 @@ class SettingsScreen extends StatefulWidget {
     this.batteryExempt,
     this.onRequestBatteryExemption,
     this.runningInService,
+    this.accounts,
   });
   final AppDatabase db;
   final TelegramGateway gateway;
@@ -59,6 +59,10 @@ class SettingsScreen extends StatefulWidget {
   final Future<void> Function()? onRequestBatteryExemption;
   final bool Function()? runningInService;
 
+  /// The accounts of this device; the app's own store lives beside the databases, and
+  /// tests pass theirs.
+  final AccountStore? accounts;
+
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
@@ -71,31 +75,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final Future<String?> _version = PackageInfo.fromPlatform()
       .then<String?>((i) => 'v${i.version} (${i.buildNumber})')
       .catchError((Object _) => null);
-
-  /// The accounts of this device (H-35). The store lives beside the databases, since it
-  /// says which of them to open.
-  Future<void> _openAccounts() async {
-    final switched = AccountSwitch.of(context)?.onSwitched;
-    final paths = await appPaths();
-    final store = AccountStore(paths.support);
-    // The account in use is named after its profile, so the list tells them apart.
-    try {
-      final me = await _me;
-      final name = '${me.firstName} ${me.lastName}'.trim();
-      final phone = me.phoneNumber.isEmpty ? '' : me.phoneDisplay;
-      final label = [name, phone].where((s) => s.isNotEmpty).join(' · ');
-      if (label.isNotEmpty) {
-        await store.rename((await store.load()).active, label);
-      }
-    } on Object {
-      // Without the profile the list keeps the names it has.
-    }
-    if (!mounted) return;
-    await openSettingsScreen(
-      context,
-      AccountsScreen(store: store, onSwitched: switched),
-    );
-  }
 
   /// The chat with oneself, read like any channel. A feed cannot hold it: it is not a
   /// channel of the account, it is the account's own notepad.
@@ -166,11 +145,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }),
             ),
           ),
-          SettingsLink(
-            icon: Icons.switch_account_outlined,
-            title: l10n.accountsTitle,
-            onTap: () => unawaited(_openAccounts()),
-          ),
+          AccountRows(store: widget.accounts),
           SettingsLink(
             icon: Icons.bookmark_outline,
             title: l10n.settingsSavedMessages,

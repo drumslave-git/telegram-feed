@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'auth/login_screens.dart';
 import 'home/home_screen.dart';
+import 'host/account_record.dart';
 import 'host/accounts.dart';
 import 'host/app_host.dart';
 import 'feeds/text_scale.dart';
@@ -93,7 +94,7 @@ class _TelegramFeedAppState extends State<TelegramFeedApp> {
             ),
             themeMode: themeModeFrom(mode.data),
             // Above the navigator, so every route's media sees the download settings, and
-            // every route reaches the account switch (the Accounts screen is pushed over
+            // every route reaches the account switch (Settings is pushed over
             // the home route, not built inside it).
             builder: (context, child) => AccountSwitch(
               onSwitched: _switchAccount,
@@ -172,38 +173,44 @@ class _Root extends StatelessWidget {
         }
         return AuthGate(
           gateway: h.gateway,
-          child: HomeScreen(
-            db: h.db,
+          // Built once the account is logged in: the list of accounts learns its profile
+          // and follows its unread count.
+          child: AccountRecord(
             gateway: h.gateway,
-            onOpenRules: () => _openRules(context, h),
-            actions: [
-              const LockButton(),
-              PauseButton(paused: h.paused, onChanged: h.setPaused),
-              IconButton(
-                tooltip: context.l10n.commonRules,
-                // A bell, not a list: these rules exist to notify.
-                icon: const Icon(Icons.notifications_active_outlined),
-                onPressed: () => _openRules(context, h),
-              ),
-              IconButton(
-                tooltip: context.l10n.commonSettings,
-                icon: const Icon(Icons.settings_outlined),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => SettingsScreen(
-                      db: h.db,
-                      gateway: h.gateway,
-                      onLogOut: h.logOutAndWipe,
-                      onRestart: h.restart,
-                      sync: h.sync,
-                      batteryExempt: () => h.isBatteryExempt,
-                      onRequestBatteryExemption: h.requestBatteryExemption,
-                      runningInService: () => h.runningInService,
+            builder: (context, onUnread) => HomeScreen(
+              db: h.db,
+              gateway: h.gateway,
+              onUnreadChannels: onUnread,
+              onOpenRules: () => _openRules(context, h),
+              actions: [
+                const LockButton(),
+                PauseButton(paused: h.paused, onChanged: h.setPaused),
+                IconButton(
+                  tooltip: context.l10n.commonRules,
+                  // A bell, not a list: these rules exist to notify.
+                  icon: const Icon(Icons.notifications_active_outlined),
+                  onPressed: () => _openRules(context, h),
+                ),
+                IconButton(
+                  tooltip: context.l10n.commonSettings,
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => SettingsScreen(
+                        db: h.db,
+                        gateway: h.gateway,
+                        onLogOut: h.logOutAndWipe,
+                        onRestart: h.restart,
+                        sync: h.sync,
+                        batteryExempt: () => h.isBatteryExempt,
+                        onRequestBatteryExemption: h.requestBatteryExemption,
+                        runningInService: () => h.runningInService,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

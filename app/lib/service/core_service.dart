@@ -27,13 +27,9 @@ Future<({String support, String tdlib, String db})> appPaths([
   int? accountId,
 ]) async {
   final support = (await getApplicationSupportDirectory()).path;
-  final id = accountId ?? await AccountStore(support).activeId();
-  final suffix = id <= 1 ? '' : '-$id';
-  return (
-    support: support,
-    tdlib: '$support/tdlib$suffix',
-    db: '$support/app$suffix.sqlite',
-  );
+  final store = AccountStore(support);
+  final id = accountId ?? await store.activeId();
+  return (support: support, tdlib: store.tdlibOf(id), db: store.dbOf(id));
 }
 
 /// The core's bootstrap for the account at [p]; the fake build points it at the sample

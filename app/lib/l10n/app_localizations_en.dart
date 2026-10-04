@@ -2588,9 +2588,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsLogOut => 'Log out';
 
   @override
-  String get accountsTitle => 'Accounts';
-
-  @override
   String get settingsSavedMessages => 'Saved Messages';
 
   @override
@@ -2654,10 +2651,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get accountsLimitReached =>
-      'Four accounts is as many as the app holds.';
-
-  @override
   String accountsRemoveTitle(String name) {
     return 'Remove $name?';
   }
@@ -2667,31 +2660,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Its session, feeds, rules and cached posts are deleted from this device. The Telegram account itself stays as it is.';
 
   @override
-  String get accountsLastCannotBeRemoved =>
-      'The last account cannot be removed; log out instead.';
-
-  @override
-  String get accountsIntro =>
-      'Each account has its own session, feeds and rules on this device. Switching takes the watcher down and brings it up again on the other account.';
-
-  @override
-  String get accountsInUse => 'In use';
-
-  @override
-  String get accountsTapToSwitch => 'Tap to switch to it';
-
-  @override
-  String get accountsRemoveTooltip => 'Remove from this device';
-
-  @override
   String get accountsAdd => 'Add an account';
-
-  @override
-  String get accountsAddLimit => 'Four is as many as the app holds';
-
-  @override
-  String get accountsAddSubtitle =>
-      'Logs in as another account and switches to it';
 
   @override
   String get aiSettingsTestOk => 'Works: the model answered correctly.';
