@@ -131,6 +131,43 @@ void main() {
     },
   );
 
+  testWidgets('"Show in chat" on a video closes the viewer as well, however '
+      'long the menu was open', (tester) async {
+    FakeVideoPlatform.install();
+    var shown = 0;
+    final gw = DownloadGateway(pngPath);
+    const video = VideoMedia(
+      file: FileRef(id: 9, remoteId: 'v', size: 5000000),
+      durationSeconds: 30,
+    );
+    await tester.pumpWidget(
+      opener(
+        gw,
+        [video, photo(2)],
+        details: [
+          ViewerDetail(channel: 'A', date: 1, onShowInChat: () => shown++),
+          ViewerDetail(channel: 'A', date: 1, onShowInChat: () => shown++),
+        ],
+      ),
+    );
+    await open(tester);
+    await settle(tester);
+    expect(find.byType(VideoStage), findsOneWidget);
+    await tester.tap(find.byTooltip('More'));
+    await settle(tester);
+    // The menu is read for longer than the controls stay over a playing video: they
+    // wait under it, and the choice is heard.
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pump(const Duration(seconds: 4));
+    await tester.tap(find.text('Show in chat'));
+    await settle(tester);
+    await settle(tester);
+    expect(shown, 1);
+    expect(find.byType(MediaViewerScreen), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await settle(tester);
+  });
+
   testWidgets('"Show in chat" that opens another screen leaves no viewer under '
       'it', (tester) async {
     final gw = DownloadGateway(pngPath);

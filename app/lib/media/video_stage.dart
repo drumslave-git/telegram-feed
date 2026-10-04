@@ -331,6 +331,13 @@ class _VideoStageState extends State<VideoStage> {
       // same service) needs longer than three seconds to reach a control: for them the
       // controls stay until they are tapped away, as a snack bar with an action does.
       if (MediaQuery.accessibleNavigationOf(context)) return;
+      // A menu of the controls is open over the screen (the three dots, the speed): the
+      // controls stay under it. Taken away, they would take the menu's button with
+      // them, and a button that is gone does not hear what was chosen.
+      if (ModalRoute.of(context)?.isCurrent == false) {
+        _scheduleHide();
+        return;
+      }
       setState(() => _controls = false);
     });
   }
