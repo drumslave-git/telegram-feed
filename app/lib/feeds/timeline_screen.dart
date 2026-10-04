@@ -1217,6 +1217,25 @@ class TimelineViewState extends State<TimelineView>
     });
   }
 
+  /// Whether the focus post was already looked for around its own date.
+  bool _focusSought = false;
+
+  /// When a post was posted, asked of Telegram; null when the post is not there.
+  Future<int?> _dateOf(int chatId, int messageId) async {
+    try {
+      final posts = await widget.gateway.history(
+        chatId,
+        fromMessageId: messageId + 1,
+        limit: 1,
+      );
+      return posts.firstOrNull?.messageId == messageId
+          ? posts.first.date
+          : null;
+    } on TelegramException {
+      return null;
+    }
+  }
+
   /// Opens the timeline around one post, the way the official app opens a search result or
   /// a date: every source starts at its newest post up to that moment, the post itself is
   /// the anchor of its own channel, and the list can page both ways from there.
@@ -1667,6 +1686,23 @@ class TimelineViewState extends State<TimelineView>
         bool isFocus(TimelineItem i) =>
             i.allPosts.any((p) => p.messageId == focusMessage);
         index = await search(() => _indexOf(t, focusChat, isFocus));
+        if (index < 0 && !t.anchored && !_focusSought) {
+          // Older than an opening loads (a file from the shared media, a post a link
+          // names): the timeline opens around the post itself, as it does for a search
+          // result. Asked for once: a post that is gone leaves the timeline where it
+          // would have opened.
+          _focusSought = true;
+          final date = await _dateOf(focusChat, focusMessage);
+          if (!mounted) return;
+          if (date != null) {
+            await jumpToPost(
+              chatId: focusChat,
+              messageId: focusMessage,
+              date: date,
+            );
+            return;
+          }
+        }
         if (t.anchored && index >= 0) {
           // One page of newer posts above the post, so it stands in its surroundings and
           // the list does not run on towards the newest end by itself.

@@ -437,6 +437,35 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a focus post far older than an opening loads is opened around '
+      'itself', (tester) async {
+    // Four hundred posts, and the one asked for is among the oldest.
+    gw.histories[-1] = [
+      for (var id = 400; id >= 1; id--) post(-1, id, id * 100, 'post-$id'),
+    ];
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Long');
+      await db.addSource(feed.id, -1, title: 'One');
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(
+          db: db,
+          gateway: gw,
+          feed: feed,
+          focusChatId: -1,
+          focusMessageId: 7,
+        ),
+      ),
+    );
+    for (var i = 0; i < 4; i++) {
+      await settle(tester);
+    }
+    await tester.pumpAndSettle();
+    expect(find.text('post-7'), findsOneWidget);
+    await unmount(tester);
+  });
+
   testWidgets('reactions: pills show counts, tap toggles, the menu adds', (
     tester,
   ) async {
