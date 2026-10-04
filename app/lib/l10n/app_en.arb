@@ -980,6 +980,12 @@
   "@channelsVerified": {
     "description": "Screen reader label of the mark beside a channel Telegram has verified."
   },
+  "channelsMarkAsUnread": "Mark as unread",
+  "channelsMarkedUnread": "Marked as unread",
+  "@channelsMarkedUnread": {
+    "description": "Screen reader label of the empty counter on a channel that is marked as unread."
+  },
+  "channelsMarkUnreadFailed": "Could not mark the channel as unread.",
   "channelsArchive": "Archive",
   "@channelsArchive": {
     "description": "The channels archived in Telegram (a row and a screen title)."

@@ -518,6 +518,75 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a read channel is marked as unread from its row, counts on its '
+      'tab, and loses the mark when marked read or opened', (tester) async {
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.tap(find.text('All channels'));
+    await tester.pumpAndSettle();
+    Finder badgeOn(String tab) => find.descendant(
+      of: find.ancestor(of: find.text(tab), matching: find.byType(Tab)),
+      matching: find.byType(Badge),
+    );
+    Finder inRow(String title, Finder what) => find.descendant(
+      of: find.ancestor(
+        of: find.text(title),
+        matching: find.byType(ChannelTile),
+      ),
+      matching: what,
+    );
+    // One is read: nothing on its row, and Two alone counts on the tab.
+    expect(inRow('One', find.byType(Badge)), findsNothing);
+    expect(
+      find.descendant(of: badgeOn('All channels'), matching: find.text('1')),
+      findsOneWidget,
+    );
+
+    await tester.longPress(find.text('One'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mark as read'), findsNothing);
+    await tester.tap(find.text('Mark as unread'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(gw.markedUnread[-1], isTrue);
+    // An empty counter on the row, and one more channel on the tab.
+    expect(inRow('One', find.byType(Badge)), findsOneWidget);
+    expect(
+      find.descendant(of: badgeOn('All channels'), matching: find.text('2')),
+      findsOneWidget,
+    );
+
+    // Now it offers to be read, which takes the mark off.
+    await tester.longPress(find.text('One'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mark as unread'), findsNothing);
+    await tester.tap(find.text('Mark as read'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(gw.markedUnread[-1], isFalse);
+    expect(inRow('One', find.byType(Badge)), findsNothing);
+
+    // A channel with unread posts is offered "Mark as read" only.
+    await tester.longPress(find.text('Two'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mark as read'), findsOneWidget);
+    expect(find.text('Mark as unread'), findsNothing);
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+
+    // Opening a marked channel takes the mark off as well.
+    await tester.longPress(find.text('One'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mark as unread'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(gw.markedUnread[-1], isTrue);
+    await tester.tap(find.text('One'));
+    await settle(tester);
+    expect(gw.markedUnread[-1], isFalse);
+    await unmount(tester);
+  });
+
   testWidgets('a long press on All channels offers to mark everything read', (
     tester,
   ) async {

@@ -39,8 +39,16 @@ class ChannelsGateway implements TelegramGateway {
         isMuted: c.isMuted,
         isVerified: c.isVerified,
         pinnedLists: c.pinnedLists,
+        isMarkedUnread: markedUnread[c.chatId] ?? c.isMarkedUnread,
       ),
   ];
+
+  /// The channels the app marked as unread, or took the mark off, by chat.
+  final markedUnread = <int, bool>{};
+
+  @override
+  Future<void> markChannelUnread(int chatId, {required bool unread}) async =>
+      markedUnread[chatId] = unread;
   @override
   Stream<PostEvent> get postEvents => posts.stream;
 

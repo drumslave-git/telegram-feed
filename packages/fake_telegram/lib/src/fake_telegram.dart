@@ -1163,6 +1163,7 @@ final class FakeTelegram extends TimelineGateway {
       isMuted: c.chatId == FakeChats.northfieldGazette,
       isVerified: c.chatId == FakeChats.harbourTimes,
       pinnedLists: c.pinnedLists,
+      isMarkedUnread: c.isMarkedUnread,
     );
   }
 

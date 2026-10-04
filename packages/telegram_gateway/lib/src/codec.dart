@@ -97,6 +97,7 @@ Map<String, Object?> encodeChannel(Channel c) => {
     'lastMessageAlbum': c.lastMessageAlbum.map(encodeMedia).toList(),
   if (c.isMuted) 'isMuted': true,
   if (c.isVerified) 'isVerified': true,
+  if (c.isMarkedUnread) 'isMarkedUnread': true,
   if (c.pinnedLists.isNotEmpty) 'pinnedLists': [...c.pinnedLists],
 };
 
@@ -133,6 +134,7 @@ Channel decodeChannel(Map<Object?, Object?> m) => Channel(
   ],
   isMuted: m['isMuted'] == true,
   isVerified: m['isVerified'] == true,
+  isMarkedUnread: m['isMarkedUnread'] == true,
   pinnedLists: ((m['pinnedLists'] as List?) ?? const []).cast<int>().toList(),
 );
 

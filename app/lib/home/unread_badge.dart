@@ -7,6 +7,9 @@ import '../l10n/l10n.dart';
 /// number is printed whole, as the official app prints it.
 class UnreadBadge extends StatelessWidget {
   const UnreadBadge(this.count, {super.key, this.muted = false});
+
+  /// How many are unread; 0 for a channel that is only marked as unread, whose counter
+  /// is drawn empty, as the official app draws it.
   final int count;
 
   /// The channel is muted in Telegram: its counter is grey.
@@ -16,10 +19,12 @@ class UnreadBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Semantics(
-      label: context.l10n.homeUnreadBadge(count),
+      label: count > 0
+          ? context.l10n.homeUnreadBadge(count)
+          : context.l10n.channelsMarkedUnread,
       child: ExcludeSemantics(
         child: Badge(
-          label: Text('$count'),
+          label: Text(count > 0 ? '$count' : ' '),
           backgroundColor: muted ? scheme.outline : scheme.primary,
           textColor: muted ? scheme.surface : scheme.onPrimary,
         ),

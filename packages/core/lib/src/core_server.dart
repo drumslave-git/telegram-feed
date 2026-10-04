@@ -390,6 +390,11 @@ final class CoreServer {
           'totalCount': page.totalCount,
           'nextOffset': page.nextOffset,
         };
+      case 'markChannelUnread':
+        await gateway.markChannelUnread(
+          a['chatId'] as int,
+          unread: a['unread'] as bool,
+        );
       case 'markCommentsViewed':
         await gateway.markCommentsViewed(
           decodeThread(a['thread'] as Map<Object?, Object?>),

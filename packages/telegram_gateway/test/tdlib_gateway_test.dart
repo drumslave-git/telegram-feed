@@ -397,6 +397,35 @@ void main() {
     },
   );
 
+  test('marking a channel as unread toggles Telegram\'s flag, which the '
+      'channel carries', () async {
+    t.handlers['toggleChatIsMarkedAsUnread'] = (_) => {'@type': 'ok'};
+    await g.markChannelUnread(-1001, unread: true);
+    final sent = t.sent.lastWhere(
+      (r) => r['@type'] == 'toggleChatIsMarkedAsUnread',
+    );
+    expect(sent['chat_id'], -1001);
+    expect(sent['is_marked_as_unread'], isTrue);
+
+    t.handlers['loadChats'] = (_) => {
+      '@type': 'error',
+      'code': 404,
+      'message': 'Not Found',
+    };
+    t.handlers['getChats'] = (r) => {
+      '@type': 'chats',
+      'total_count': 1,
+      'chat_ids': [-1001],
+    };
+    t.handlers['getChat'] = (r) => {
+      ...chatJson(-1001, 'News', supergroupId: 1),
+      'is_marked_as_unread': true,
+    };
+    t.handlers['getSupergroup'] = (r) =>
+        supergroupJson(r['supergroup_id'] as int);
+    expect((await g.myChannels()).single.isMarkedUnread, isTrue);
+  });
+
   test('a channel is muted by its own setting, or by the default for '
       'channels', () async {
     Map<String, Object?> chat(

@@ -117,6 +117,7 @@ Channel channel(
   lastMessageAlbum: album ?? [?content(chat.lastMessage?.content).$2],
   isMuted: muted,
   isVerified: sg.verificationStatus?.isVerified ?? false,
+  isMarkedUnread: chat.isMarkedAsUnread,
   pinnedLists: [
     for (final p in chat.positions)
       if (p.isPinned)

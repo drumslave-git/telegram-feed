@@ -867,6 +867,12 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
+  Future<void> markChannelUnread(int chatId, {required bool unread}) =>
+      _client.call(
+        td.ToggleChatIsMarkedAsUnread(chatId: chatId, isMarkedAsUnread: unread),
+      );
+
+  @override
   Future<void> markCommentsViewed(Thread thread, List<int> messageIds) async {
     if (messageIds.isEmpty) return;
     await _client.call(

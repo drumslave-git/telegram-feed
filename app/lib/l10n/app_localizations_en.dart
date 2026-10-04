@@ -1176,6 +1176,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get channelsVerified => 'Verified';
 
   @override
+  String get channelsMarkAsUnread => 'Mark as unread';
+
+  @override
+  String get channelsMarkedUnread => 'Marked as unread';
+
+  @override
+  String get channelsMarkUnreadFailed =>
+      'Could not mark the channel as unread.';
+
+  @override
   String get channelsArchive => 'Archive';
 
   @override

@@ -189,6 +189,8 @@ final class ScriptedGateway implements TelegramGateway {
   @override
   Future<void> markCommentsViewed(Thread thread, List<int> messageIds) async {}
   @override
+  Future<void> markChannelUnread(int chatId, {required bool unread}) async {}
+  @override
   Future<ReportStep> report(
     int chatId,
     List<int> messageIds, {

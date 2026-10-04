@@ -1217,6 +1217,16 @@ class AppLocalizationsUk extends AppLocalizations {
   String get channelsVerified => 'Підтверджено';
 
   @override
+  String get channelsMarkAsUnread => 'Позначити як непрочитане';
+
+  @override
+  String get channelsMarkedUnread => 'Позначено як непрочитане';
+
+  @override
+  String get channelsMarkUnreadFailed =>
+      'Не вдалося позначити канал як непрочитаний.';
+
+  @override
   String get channelsArchive => 'Архів';
 
   @override

@@ -112,6 +112,7 @@ void main() {
         title: 'News',
         isMuted: true,
         isVerified: true,
+        isMarkedUnread: true,
         pinnedLists: [0, 5],
         lastMessageAlbum: [
           PhotoMedia(sizes: [FileRef(id: 1, remoteId: 'a', size: 10)]),
@@ -134,6 +135,12 @@ void main() {
       expect(read.lastMessageAlbum, hasLength(2));
       expect(read.isVerified, isTrue);
       expect(read.pinnedLists, [0, 5]);
+      expect(read.isMarkedUnread, isTrue);
+      // The mark alone comes off; everything else stays.
+      final unmarked = read.withMarkedUnread(false);
+      expect(unmarked.isMarkedUnread, isFalse);
+      expect(unmarked.isVerified, isTrue);
+      expect(unmarked.lastMessageAlbum, hasLength(2));
 
       // A post that arrives becomes the channel's newest; the rest stays.
       final bumped = back.withNewestPost(
@@ -153,6 +160,7 @@ void main() {
       expect(plain.lastMessageAlbum, isEmpty);
       expect(plain.isVerified, isFalse);
       expect(plain.pinnedLists, isEmpty);
+      expect(plain.isMarkedUnread, isFalse);
     },
   );
 

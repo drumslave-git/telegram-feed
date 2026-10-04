@@ -508,13 +508,42 @@ class _HomeScreenState extends State<HomeScreen>
     if (choice == 'read') await _markChannelsRead(folder.channelIds);
   }
 
+  /// Sets Telegram's "marked as unread" on a channel, or takes it off; the row follows at
+  /// once. True when Telegram took it.
+  Future<bool> _markUnread(Channel channel, bool unread) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    try {
+      await widget.gateway.markChannelUnread(channel.chatId, unread: unread);
+    } on TelegramException catch (e) {
+      showTelegramError(messenger, e, what: l10n.channelsMarkUnreadFailed);
+      return false;
+    }
+    final i = _channels.indexWhere((c) => c.chatId == channel.chatId);
+    if (i >= 0 && mounted) {
+      setState(
+        () =>
+            _channels = [..._channels]
+              ..[i] = _channels[i].withMarkedUnread(unread),
+      );
+    }
+    return true;
+  }
+
   /// Everything in these channels counts as read, here and in Telegram.
   Future<void> _markChannelsRead(Iterable<int> chatIds) async {
     final messenger = ScaffoldMessenger.of(context);
-    final moved = await MarkRead(
+    final ids = chatIds.toSet();
+    var moved = await MarkRead(
       db: widget.db,
       gateway: widget.gateway,
-    ).channels(chatIds);
+    ).channels(ids);
+    // A channel that was only marked as unread has no post to read: the mark goes.
+    for (final c in [..._channels]) {
+      if (!ids.contains(c.chatId) || !c.isMarkedUnread) continue;
+      final had = c.unreadCount > 0;
+      if (await _markUnread(c, false) && !had) moved++;
+    }
     if (!mounted) return;
     final l10n = context.l10n;
     messenger.showSnackBar(
@@ -646,7 +675,16 @@ class _HomeScreenState extends State<HomeScreen>
         Offset.zero & overlay.size,
       ),
       items: [
-        menuItem('read', Icons.done_all, l10n.commonMarkAsRead),
+        // One or the other, as in the official app: a channel with something unread, or
+        // marked so, is marked read; a read one can be marked as unread.
+        if (channel.unreadCount > 0 || channel.isMarkedUnread)
+          menuItem('read', Icons.done_all, l10n.commonMarkAsRead)
+        else
+          menuItem(
+            'unread',
+            Icons.mark_chat_unread_outlined,
+            l10n.channelsMarkAsUnread,
+          ),
         menuItem('info', Icons.info_outline, l10n.channelsInfo),
         // Offered with no feeds too: it then makes the first one, which is exactly what
         // a reader who wants this channel in a feed needs.
@@ -657,6 +695,8 @@ class _HomeScreenState extends State<HomeScreen>
     switch (choice) {
       case 'read':
         await _markChannelsRead([channel.chatId]);
+      case 'unread':
+        await _markUnread(channel, true);
       case 'info':
         await Navigator.of(context).push(
           MaterialPageRoute<void>(
@@ -724,12 +764,21 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  void _openChannel(Channel c) => Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) =>
-          TimelineScreen(db: widget.db, gateway: widget.gateway, channel: c),
-    ),
-  );
+  void _openChannel(Channel c) {
+    // Opening a channel takes its "marked as unread" off, as in the official app.
+    if (c.isMarkedUnread) unawaited(_markUnread(c, false));
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TimelineScreen(
+            db: widget.db,
+            gateway: widget.gateway,
+            channel: c,
+          ),
+        ),
+      ),
+    );
+  }
 
   /// The line under a feed's name: how many channels it has, and how many have news.
   /// Short enough to stand beside the counter, the menu and the drag handle on one line.
@@ -996,7 +1045,7 @@ class _HomeScreenState extends State<HomeScreen>
     final inFolder = folder?.channelIds.toSet();
     var channels = 0;
     for (final c in _channels) {
-      if (c.unreadCount <= 0) continue;
+      if (c.unreadCount <= 0 && !c.isMarkedUnread) continue;
       if (inFolder != null && !inFolder.contains(c.chatId)) continue;
       channels++;
     }

@@ -384,7 +384,7 @@ class ChannelTile extends StatelessWidget {
                                 padding: const EdgeInsets.only(left: 6),
                                 child: FeedTags(names: feeds),
                               ),
-                            if (c.unreadCount > 0)
+                            if (c.unreadCount > 0 || c.isMarkedUnread)
                               Padding(
                                 padding: const EdgeInsets.only(left: 8),
                                 child: UnreadBadge(

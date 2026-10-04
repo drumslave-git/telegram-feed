@@ -108,7 +108,12 @@ final class Channel {
     this.isMuted = false,
     this.isVerified = false,
     this.pinnedLists = const [],
+    this.isMarkedUnread = false,
   });
+
+  /// The account marked the channel as unread in Telegram: it counts as unread and its
+  /// row carries an empty counter, though every post is read.
+  final bool isMarkedUnread;
 
   /// Telegram has verified the channel: its name carries the mark.
   final bool isVerified;
@@ -168,6 +173,7 @@ final class Channel {
     isMuted: isMuted,
     isVerified: isVerified,
     pinnedLists: pinnedLists,
+    isMarkedUnread: isMarkedUnread,
   );
 
   /// The same channel once [post] has arrived as its newest: what its row shows until
@@ -189,6 +195,28 @@ final class Channel {
     isMuted: isMuted,
     isVerified: isVerified,
     pinnedLists: pinnedLists,
+    isMarkedUnread: isMarkedUnread,
+  );
+
+  /// The same channel with the mark set or taken off.
+  Channel withMarkedUnread(bool marked) => Channel(
+    chatId: chatId,
+    title: title,
+    username: username,
+    memberCount: memberCount,
+    photo: photo,
+    isMember: isMember,
+    lastMessageId: lastMessageId,
+    lastReadMessageId: lastReadMessageId,
+    unreadCount: unreadCount,
+    lastMessageText: lastMessageText,
+    lastMessageMedia: lastMessageMedia,
+    lastMessageDate: lastMessageDate,
+    lastMessageAlbum: lastMessageAlbum,
+    isMuted: isMuted,
+    isVerified: isVerified,
+    pinnedLists: pinnedLists,
+    isMarkedUnread: marked,
   );
 
   /// The same channel after its read state changed.
@@ -209,6 +237,7 @@ final class Channel {
     isMuted: isMuted,
     isVerified: isVerified,
     pinnedLists: pinnedLists,
+    isMarkedUnread: isMarkedUnread,
   );
 
   @override

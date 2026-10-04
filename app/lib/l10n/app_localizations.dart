@@ -1874,6 +1874,24 @@ abstract class AppLocalizations {
   /// **'Verified'**
   String get channelsVerified;
 
+  /// No description provided for @channelsMarkAsUnread.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as unread'**
+  String get channelsMarkAsUnread;
+
+  /// Screen reader label of the empty counter on a channel that is marked as unread.
+  ///
+  /// In en, this message translates to:
+  /// **'Marked as unread'**
+  String get channelsMarkedUnread;
+
+  /// No description provided for @channelsMarkUnreadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not mark the channel as unread.'**
+  String get channelsMarkUnreadFailed;
+
   /// The channels archived in Telegram (a row and a screen title).
   ///
   /// In en, this message translates to:
