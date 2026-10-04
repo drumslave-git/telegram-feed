@@ -173,16 +173,19 @@ class _PhoneScreenState extends State<PhoneScreen> {
 
   void _onNumber(String text) {
     if (text.trimLeft().startsWith('+')) {
-      // A whole number, pasted or typed with its plus.
-      unawaited(_takeApart(_digitsOf(text)));
+      // A whole number, pasted or typed with its plus. The plus alone says nothing yet.
+      final digits = _digitsOf(text);
+      if (digits.isNotEmpty) unawaited(_takeApart(digits, typed: true));
       return;
     }
     if (_error != null) setState(() => _error = null);
     unawaited(_follow());
   }
 
-  /// Splits a whole number into the calling code and the rest, as Telegram reads it.
-  Future<void> _takeApart(String digits) async {
+  /// Splits a whole number into the calling code and the rest, as Telegram reads it. A
+  /// number [typed] with its plus stays as it is typed until its first digits are a
+  /// country's calling code.
+  Future<void> _takeApart(String digits, {bool typed = false}) async {
     final asked = ++_asked;
     PhoneInfo? info;
     try {
@@ -193,6 +196,7 @@ class _PhoneScreenState extends State<PhoneScreen> {
     if (!mounted || asked != _asked) return;
     final code = info?.callingCode ?? '';
     if (code.isEmpty || !digits.startsWith(code)) {
+      if (typed) return;
       // Not a number Telegram knows the country of: the fields keep what fits.
       _code.text = digits.substring(0, digits.length.clamp(0, 4));
       _setNumber(digits.substring(_code.text.length));
@@ -262,6 +266,11 @@ class _PhoneScreenState extends State<PhoneScreen> {
     final l10n = context.l10n;
     if (_code.text.isEmpty) {
       setState(() => _error = l10n.loginChooseCountry);
+      return;
+    }
+    if (_number.text.trimLeft().startsWith('+')) {
+      // Typed with a plus, and its first digits are no country's code.
+      setState(() => _error = l10n.loginInvalidCountryCode);
       return;
     }
     if (_digitsOf(_number.text).isEmpty) return;

@@ -404,6 +404,40 @@ void main() {
     expect(textOf(tester, 'Phone number'), '67 123 4567');
   });
 
+  testWidgets('a number typed with its plus, digit by digit, is taken apart '
+      'when its first digits are the code of a country', (tester) async {
+    final g = ScriptedGateway();
+    await tester.pumpWidget(app(g));
+    await tester.pump();
+    await tester.pump();
+    Future<void> type(String text) async {
+      await tester.enterText(field('Phone number'), text);
+      await tester.pump();
+      await tester.pump();
+    }
+
+    // The plus alone leaves the phone's own country where it is.
+    await type('+');
+    expect(textOf(tester, 'Code'), '1');
+    // "+3" is no country yet, "+38" neither: the field keeps what is typed.
+    await type('+3');
+    await type('+38');
+    expect(textOf(tester, 'Phone number'), '+38');
+    expect(textOf(tester, 'Code'), '1');
+    // Sent like that, it has no country.
+    await tester.tap(find.text('Send code'));
+    await tester.pumpAndSettle();
+    expect(find.text('Invalid country code'), findsOneWidget);
+    expect(g.calls, isEmpty);
+
+    await type('+380');
+    expect(textOf(tester, 'Code'), '380');
+    expect(textOf(tester, 'Phone number'), '');
+    expect(find.textContaining('Ukraine'), findsOneWidget);
+    await type('67');
+    expect(textOf(tester, 'Phone number'), '67');
+  });
+
   test('digits are written into the pattern Telegram gives', () {
     expect(formatPhoneDigits('671234567', '-- --- ----'), '67 123 4567');
     // What is typed so far, with nothing after its last digit.

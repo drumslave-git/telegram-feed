@@ -6,7 +6,9 @@ appId: dev.telegramfeed.telegram_feed
     visible: 'Log in to Telegram'
     timeout: 10000
 # A whole number typed with its plus: the screen puts the country code where it belongs.
-- tapOn: 'Phone number'
+# The number field has the focus, and its label comes with the hint of how the country
+# writes a number.
+- tapOn: '(?s)Phone number.*'
 - inputText: '+15550100'
 - tapOn: 'Send code'
 - extendedWaitUntil:

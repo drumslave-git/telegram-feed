@@ -24,14 +24,22 @@ appId: dev.telegramfeed.telegram_feed
 - tapOn: 'Back'
 - tapOn: 'Back'
 - tapOn: 'Notifications and sounds'
-- assertVisible: '(?s).*Count unread posts.*'
+# The badge counter's three switches, as in the official app.
+- scrollUntilVisible:
+    element: '(?s).*Count unread posts.*'
+    direction: DOWN
+- assertVisible: 'Show badge icon'
+- assertVisible: 'Include muted channels'
+- scrollUntilVisible:
+    element: '(?s)System notification settings.*'
+    direction: DOWN
 - assertVisible: '(?s).*Watch channels in the background.*'
 - tapOn: '(?s)System notification settings.*'
 - extendedWaitUntil:
     visible: '(?s).*TG Feed.*'
     timeout: 10000
 - back
-- assertVisible: '(?s).*Count unread posts.*'
+- assertVisible: '(?s).*Watch channels in the background.*'
 - tapOn: 'Back'
 - scrollUntilVisible:
     element: 'Data and storage'
