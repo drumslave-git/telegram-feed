@@ -89,8 +89,9 @@ String formatLimit(int bytes) {
 
 /// What loads by itself on one kind of connection, as the official app's "Automatic media
 /// download" has it: a switch for the whole connection, and photos, videos and files, the
-/// last two up to a size. Videos include GIFs and round video messages; files include music
-/// and voice messages. A video that loads by itself also autoplays ([AutoDownloadPolicy]).
+/// last two up to a size. Videos include GIFs and round video messages; files include
+/// music. A voice message is neither: it follows the connection's switch alone
+/// ([AutoDownloadPolicy.voice]). A video that loads by itself also autoplays.
 @immutable
 final class DownloadPreset {
   const DownloadPreset({
@@ -280,6 +281,9 @@ final class AutoDownloadPolicy {
   /// How many bytes of a larger video are loaded ahead: a few seconds of it.
   static const preloadBytes = 2 * _mb;
 
+  /// The largest voice message that loads by itself, as in the official app.
+  static const voiceMaxBytes = 512 * 1024;
+
   /// The preset of the connection the phone is on, if it is on one and it is switched on.
   DownloadPreset? get _current {
     if (!ready) return null;
@@ -304,22 +308,31 @@ final class AutoDownloadPolicy {
         v.file.size <= p.videoMaxBytes;
   }
 
-  /// A document, a song or a voice message within the limit; an unknown size waits.
+  /// A document or a song within the limit; an unknown size waits.
   bool file(int sizeBytes) {
     final p = _current;
     return p != null && p.files && sizeBytes > 0 && sizeBytes <= p.fileMaxBytes;
   }
 
+  /// A voice message of up to [voiceMaxBytes] loads whenever the connection's switch is
+  /// on, whatever the files switch and its limit say, as in the official app; an unknown
+  /// size waits.
+  bool voice(int sizeBytes) =>
+      _current != null && sizeBytes > 0 && sizeBytes <= voiceMaxBytes;
+
   /// Plays muted in its row: it loads by itself and its Autoplay switch is on.
   bool autoplay(VideoMedia v) =>
       video(v) && (v.isAnimation ? autoplayGifs : autoplayVideos);
 
-  /// Too large to load by itself, but its first seconds are loaded ahead.
+  /// Too large to load by itself, but its first seconds are loaded ahead. Only where
+  /// the limit is over [preloadBytes], as in the official app: under a smaller limit the
+  /// part loaded ahead would be more than the reader allowed a whole video.
   bool preload(VideoMedia v) {
     final p = _current;
     return p != null &&
         p.videos &&
         p.preloadLargeVideos &&
+        p.videoMaxBytes > preloadBytes &&
         v.file.size > p.videoMaxBytes;
   }
 

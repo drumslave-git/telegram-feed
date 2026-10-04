@@ -109,7 +109,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - A playing video hides its controls after three seconds; with a screen reader on they stay until I tap them away.
 - A video has a download button in its top left corner that keeps the whole file in Telegram's cache, with progress and cancel. The cells of an album and round video messages have none; their download is in the viewer's menu.
 - A photo that is loading shows Telegram's blurred miniature of itself, a progress ring with a cross that stops the download, and how much has come ("1.2 MB / 3.4 MB"). A stopped download, and a photo that does not load by itself on this connection, wait under a download button with the file's size. A video's poster starts as its blurred miniature too.
-- Automatic downloads are set per connection (mobile data, Wi-Fi, roaming) as in the official app: a switch, Telegram's Low, Medium and High presets, and photos, videos and files with size limits. Larger videos can have their first seconds loaded ahead. A video autoplays when it loads by itself and autoplay for GIFs or videos is on.
+- Automatic downloads are set per connection (mobile data, Wi-Fi, roaming) as in the official app: a switch, Telegram's Low, Medium and High presets, and photos, videos and files with size limits, each set on a slider that goes from 500 KB to 2000 MB without steps. Where the video limit is over 2 MB, larger videos can have their first seconds loaded ahead. A voice message of up to 512 KB loads whenever the connection's switch is on. A video autoplays when it loads by itself and autoplay for GIFs or videos is on.
 
 ### Search
 

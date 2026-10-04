@@ -734,6 +734,8 @@ void main() {
     await tester.pump();
     expect(find.text('Voice message'), findsOneWidget);
     expect(find.text('1:01'), findsOneWidget);
+    // A voice message loads by itself on a connection that loads no files.
+    expect(gw.completers.keys, [5]);
 
     await tester.pumpWidget(
       host(
@@ -746,9 +748,11 @@ void main() {
     );
     await tester.pump();
     expect(find.textContaining('tap to download'), findsOneWidget);
+    // The file waits for a tap.
+    expect(gw.completers.keys, [5]);
     await tester.tap(find.textContaining('tap to download'));
     await tester.pump();
-    expect(gw.completers.keys, [6]);
+    expect(gw.completers.keys, [5, 6]);
     expect(find.text('Downloading…'), findsOneWidget);
   });
 

@@ -429,8 +429,35 @@ void main() {
       of: find.byType(BottomSheet),
       matching: find.byType(Slider),
     );
+    // The slider has no steps: any size between its ends can be set.
+    expect(tester.widget<Slider>(size).divisions, isNull);
+    // At two megabytes or under, nothing is loaded ahead: the switch rests.
     tester.widget<Slider>(size).onChanged!(
-      downloadSizeStep(50 * 1024 * 1024).toDouble(),
+      downloadSizeProgress(2 * 1024 * 1024),
+    );
+    await tester.pump();
+    final preload = find.widgetWithText(
+      SwitchListTile,
+      'Preload larger videos',
+    );
+    expect(tester.widget<SwitchListTile>(preload).onChanged, isNull);
+    expect(tester.widget<SwitchListTile>(preload).value, isFalse);
+    tester.widget<Slider>(size).onChanged!(
+      downloadSizeProgress(7 * 1024 * 1024 + 300 * 1024),
+    );
+    await tester.pump();
+    expect(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('Up to 7.3 MB'),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.widget<SwitchListTile>(preload).onChanged, isNotNull);
+    expect(tester.widget<SwitchListTile>(preload).value, isTrue);
+
+    tester.widget<Slider>(size).onChanged!(
+      downloadSizeProgress(50 * 1024 * 1024),
     );
     await tester.pump();
     expect(

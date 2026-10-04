@@ -205,7 +205,7 @@ class MediaView extends StatelessWidget {
               ? l10n.mediaVoiceMessage
               : [title, performer].where((s) => s.isNotEmpty).join(' – '),
           gateway: gateway,
-          autoLoad: policy.file(file.size),
+          autoLoad: isVoice ? policy.voice(file.size) : policy.file(file.size),
         ),
       DocumentMedia(
         :final file,

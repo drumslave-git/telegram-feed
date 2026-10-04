@@ -308,8 +308,9 @@ class DataUsageSlider extends StatelessWidget {
   }
 }
 
-/// The largest video or file that loads by itself, in fixed steps over the range of the
-/// official app's slider (which moves without steps), and for videos whether the first seconds of larger ones are loaded ahead.
+/// The largest video or file that loads by itself, on a slider that moves without steps
+/// over the official app's range, and for videos whether the first seconds of larger ones
+/// are loaded ahead.
 class _SizeSheet extends StatefulWidget {
   const _SizeSheet({required this.preset, required this.videos});
   final DownloadPreset preset;
@@ -319,50 +320,55 @@ class _SizeSheet extends StatefulWidget {
   State<_SizeSheet> createState() => _SizeSheetState();
 }
 
-/// From 500 KB to 2 GB, finer where the choices matter.
-const downloadSizeSteps = [
-  500 * 1024,
-  1 * 1024 * 1024,
-  2 * 1024 * 1024,
-  3 * 1024 * 1024,
-  5 * 1024 * 1024,
+/// The ends of the size slider: 500 KB and 2000 MB.
+const downloadSizeMin = 500 * 1024;
+const downloadSizeMax = 2000 * 1024 * 1024;
+
+/// Where the quarters of the slider end, as in the official app (`MaxFileSizeCell`): the
+/// first quarter runs to 1 MB, the second to 10 MB, the third to 100 MB and the last to
+/// the largest file, so the small sizes, where the choices matter, get most of the way.
+const _sizeMarks = [
+  downloadSizeMin,
+  1024 * 1024,
   10 * 1024 * 1024,
-  15 * 1024 * 1024,
-  20 * 1024 * 1024,
-  30 * 1024 * 1024,
-  50 * 1024 * 1024,
   100 * 1024 * 1024,
-  200 * 1024 * 1024,
-  300 * 1024 * 1024,
-  500 * 1024 * 1024,
-  1000 * 1024 * 1024,
-  1500 * 1024 * 1024,
-  2000 * 1024 * 1024,
+  downloadSizeMax,
 ];
 
-/// The step nearest to [bytes].
-int downloadSizeStep(int bytes) {
-  var best = 0;
-  for (var i = 1; i < downloadSizeSteps.length; i++) {
-    if ((downloadSizeSteps[i] - bytes).abs() <
-        (downloadSizeSteps[best] - bytes).abs()) {
-      best = i;
-    }
+/// The size at [progress] (0 to 1) of the slider.
+int downloadSizeAt(double progress) {
+  final p = progress.clamp(0.0, 1.0) * (_sizeMarks.length - 1);
+  final quarter = p.floor().clamp(0, _sizeMarks.length - 2);
+  final from = _sizeMarks[quarter];
+  final to = _sizeMarks[quarter + 1];
+  return (from + (to - from) * (p - quarter)).round();
+}
+
+/// Where on the slider (0 to 1) the size [bytes] is.
+double downloadSizeProgress(int bytes) {
+  final size = bytes.clamp(downloadSizeMin, downloadSizeMax);
+  var quarter = 0;
+  while (quarter < _sizeMarks.length - 2 && size >= _sizeMarks[quarter + 1]) {
+    quarter++;
   }
-  return best;
+  final from = _sizeMarks[quarter];
+  final to = _sizeMarks[quarter + 1];
+  return (quarter + (size - from) / (to - from)) / (_sizeMarks.length - 1);
 }
 
 class _SizeSheetState extends State<_SizeSheet> {
-  late int _step = downloadSizeStep(
-    widget.videos ? widget.preset.videoMaxBytes : widget.preset.fileMaxBytes,
-  );
+  late int _size =
+      (widget.videos ? widget.preset.videoMaxBytes : widget.preset.fileMaxBytes)
+          .clamp(downloadSizeMin, downloadSizeMax);
   late bool _preload = widget.preset.preloadLargeVideos;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    final size = downloadSizeSteps[_step];
+    final size = _size;
+    // Loading ahead means something only over a limit larger than what is loaded.
+    final canPreload = size > AutoDownloadPolicy.preloadBytes;
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -391,18 +397,18 @@ class _SizeSheetState extends State<_SizeSheet> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Slider(
-              value: _step.toDouble(),
-              max: (downloadSizeSteps.length - 1).toDouble(),
-              divisions: downloadSizeSteps.length - 1,
-              label: formatLimit(size),
-              onChanged: (v) => setState(() => _step = v.round()),
+              value: downloadSizeProgress(size),
+              semanticFormatterCallback: (v) => formatLimit(downloadSizeAt(v)),
+              onChanged: (v) => setState(() => _size = downloadSizeAt(v)),
             ),
           ),
           if (widget.videos) ...[
             SwitchListTile(
               title: Text(l10n.dataStoragePreload),
-              value: _preload,
-              onChanged: (v) => setState(() => _preload = v),
+              value: _preload && canPreload,
+              onChanged: canPreload
+                  ? (v) => setState(() => _preload = v)
+                  : null,
             ),
             SettingsFooter(l10n.dataStoragePreloadFooter(formatLimit(size))),
           ],

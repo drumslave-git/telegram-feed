@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/media_view.dart';
 import 'package:telegram_feed/media/auto_download.dart';
+import 'package:telegram_feed/settings/data_storage_screen.dart';
 import 'package:telegram_feed/media/video_downloads.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -134,6 +135,69 @@ void main() {
     // Low preloads nothing.
     const roaming = AutoDownloadPolicy(network: NetworkType.roaming);
     expect(roaming.preload(_video(20 * _mb)), isFalse);
+
+    // Under a limit of two megabytes or less nothing is loaded ahead, switch or not:
+    // the part loaded ahead would be more than a whole video may be.
+    final small = AutoDownloadPolicy(
+      network: NetworkType.wifi,
+      wifi: DownloadPreset.high.copyWith(videoMaxBytes: 2 * _mb),
+    );
+    expect(small.preload(_video(20 * _mb)), isFalse);
+    final over = AutoDownloadPolicy(
+      network: NetworkType.wifi,
+      wifi: DownloadPreset.high.copyWith(videoMaxBytes: 2 * _mb + 1),
+    );
+    expect(over.preload(_video(20 * _mb)), isTrue);
+  });
+
+  test('a voice message loads whenever the connection is switched on', () {
+    // Low has files off, and a voice message still loads.
+    const roaming = AutoDownloadPolicy(network: NetworkType.roaming);
+    expect(roaming.file(100 * 1024), isFalse);
+    expect(roaming.voice(100 * 1024), isTrue);
+    // Up to 512 KB, whatever the limit for files is; an unknown size waits.
+    const wifi = AutoDownloadPolicy(network: NetworkType.wifi);
+    expect(wifi.voice(512 * 1024), isTrue);
+    expect(wifi.voice(512 * 1024 + 1), isFalse);
+    expect(wifi.voice(0), isFalse);
+    // The connection's switch off, or no connection: nothing.
+    final off = AutoDownloadPolicy(
+      network: NetworkType.wifi,
+      wifi: DownloadPreset.high.copyWith(enabled: false),
+    );
+    expect(off.voice(100 * 1024), isFalse);
+    const none = AutoDownloadPolicy(network: NetworkType.none);
+    expect(none.voice(100 * 1024), isFalse);
+    const unknown = AutoDownloadPolicy.unknown();
+    expect(unknown.voice(100 * 1024), isFalse);
+  });
+
+  test('the size slider runs from 500 KB to 2000 MB, a quarter of the way for '
+      'each of 1 MB, 10 MB and 100 MB', () {
+    expect(downloadSizeAt(0), 500 * 1024);
+    expect(downloadSizeAt(0.25), _mb);
+    expect(downloadSizeAt(0.5), 10 * _mb);
+    expect(downloadSizeAt(0.75), 100 * _mb);
+    expect(downloadSizeAt(1), 2000 * _mb);
+    // Between the marks every size is there.
+    expect(downloadSizeAt(0.375), 5 * _mb + 512 * 1024);
+    // And a size finds its place again.
+    for (final size in [
+      500 * 1024,
+      700 * 1024,
+      _mb,
+      3 * _mb,
+      15 * _mb,
+      50 * _mb,
+      100 * _mb,
+      1500 * _mb,
+      2000 * _mb,
+    ]) {
+      expect(downloadSizeAt(downloadSizeProgress(size)), size);
+    }
+    // Outside the ends a stored size sits on the nearest end.
+    expect(downloadSizeProgress(1), 0);
+    expect(downloadSizeProgress(4000 * _mb), 1);
   });
 
   group('in the rows', () {
