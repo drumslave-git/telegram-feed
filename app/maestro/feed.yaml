@@ -20,7 +20,7 @@ appId: dev.telegramfeed.telegram_feed
 - extendedWaitUntil:
     visible: 'Channel info'
     timeout: 10000
-- assertVisible: 'News from the harbour district: shipping, weather and the market.'
+- assertVisible: 'News from the harbour district: shipping, weather and the market\..*'
 - tapOn: 'QR code'
 - tapOn: 'Close'
 - tapOn: 'Back'

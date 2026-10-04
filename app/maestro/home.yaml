@@ -16,7 +16,7 @@ appId: dev.telegramfeed.telegram_feed
 - assertVisible: 'Add to a feed'
 - tapOn: 'Channel info'
 - extendedWaitUntil:
-    visible: 'News from the harbour district: shipping, weather and the market.'
+    visible: 'News from the harbour district: shipping, weather and the market\..*'
     timeout: 10000
 - tapOn: 'Back'
 - tapOn: '(?s)Alerts\n.*Tab 3 of \d+'

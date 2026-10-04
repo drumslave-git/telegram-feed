@@ -34,7 +34,8 @@ appId: dev.telegramfeed.telegram_feed
 - tapOn: '(?s)Rules\n.*Tab 2 of 3'
 - assertVisible: 'New rule'
 - tapOn: '(?s)Shared media\n.*Tab 3 of 3'
-- assertVisible: '(?s)Files.*'
+# Only the kinds the feed's channels posted have a tab.
+- assertVisible: '(?s)(Media|Files|Links|Music|Voice|GIFs)\n.*Tab 1 of \d+'
 - tapOn: 'Back'
 - assertVisible: '(?s)Maestro renamed\n.*'
 - tapOn:
