@@ -131,6 +131,54 @@ void main() {
     },
   );
 
+  testWidgets('"Show in chat" that opens another screen leaves no viewer under '
+      'it', (tester) async {
+    final gw = DownloadGateway(pngPath);
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigator,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => MediaViewerScreen.open(
+                context,
+                items: [photo(1)],
+                gateway: gw,
+                details: [
+                  ViewerDetail(
+                    channel: 'A',
+                    date: 1,
+                    // As a feed's shared media does: the feed's timeline comes on.
+                    onShowInChat: () => navigator.currentState!.push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            const Scaffold(body: Text('the timeline')),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await open(tester);
+    expect(MediaViewerScreen.showing.value, 1);
+
+    await tester.tap(find.byTooltip('More'));
+    await settle(tester);
+    await tester.tap(find.text('Show in chat'));
+    await settle(tester);
+    await settle(tester);
+    expect(find.text('the timeline'), findsOneWidget);
+    // Gone from under it too: the banners and the status bar are back.
+    expect(find.byType(MediaViewerScreen, skipOffstage: false), findsNothing);
+    expect(MediaViewerScreen.showing.value, 0);
+  });
+
   testWidgets('a picture that came with no timeline has no "Show in chat", and '
       'a protected one opens nowhere else', (tester) async {
     final gw = DownloadGateway(pngPath);

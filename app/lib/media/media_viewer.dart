@@ -404,8 +404,16 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
       unawaited(launchFirst([Uri.tryParse(url)]));
       return;
     }
-    unawaited(Navigator.of(context).maybePop());
-    open(url);
+    unawaited(_leaveThen(() => open(url)));
+  }
+
+  /// Closes the viewer, then does [next]. In that order and not at once: what follows may
+  /// push a screen, and a pop that is still being asked for when another route comes on
+  /// is given up, which would leave the viewer under that screen, with the status bar
+  /// hidden and the banners held back.
+  Future<void> _leaveThen(VoidCallback next) async {
+    await Navigator.of(context).maybePop();
+    next();
   }
 
   /// Puts the picture or the video of the page in front into the phone's gallery. The file
@@ -557,10 +565,10 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     // behind the dots.
     List<ViewerAction> menu() => [
       if (detail?.onShowInChat case final show?)
-        ViewerAction(l10n.sharedMediaShowInChat, () {
-          unawaited(Navigator.of(context).maybePop());
-          show();
-        }),
+        ViewerAction(
+          l10n.sharedMediaShowInChat,
+          () => unawaited(_leaveThen(show)),
+        ),
       if (!protected)
         ViewerAction(l10n.viewerOpenIn, () => unawaited(_openIn())),
       if (widget.onSave != null && !protected)
