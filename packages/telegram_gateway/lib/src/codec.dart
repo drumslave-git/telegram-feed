@@ -93,6 +93,9 @@ Map<String, Object?> encodeChannel(Channel c) => {
       ? null
       : encodeMedia(c.lastMessageMedia!),
   'lastMessageDate': c.lastMessageDate,
+  if (c.lastMessageAlbum.isNotEmpty)
+    'lastMessageAlbum': c.lastMessageAlbum.map(encodeMedia).toList(),
+  if (c.isMuted) 'isMuted': true,
 };
 
 Map<String, Object?> encodeChatFolder(ChatFolder f) => {
@@ -122,6 +125,11 @@ Channel decodeChannel(Map<Object?, Object?> m) => Channel(
       ? null
       : decodeMedia(m['lastMessageMedia'] as Map<Object?, Object?>),
   lastMessageDate: (m['lastMessageDate'] as int?) ?? 0,
+  lastMessageAlbum: [
+    for (final a in (m['lastMessageAlbum'] as List?) ?? const [])
+      decodeMedia(a as Map<Object?, Object?>),
+  ],
+  isMuted: m['isMuted'] == true,
 );
 
 Map<String, Object?> encodeChannelInfo(ChannelInfo i) => {

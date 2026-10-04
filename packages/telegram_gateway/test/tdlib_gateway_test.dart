@@ -261,6 +261,131 @@ void main() {
     expect(channels.map((c) => c.title), ['News', 'Memes']);
   });
 
+  test('a channel whose newest post closes an album carries every part of it, '
+      'and the words of the album', () async {
+    Map<String, Object?> photo(int id, int file, {String caption = ''}) => {
+      ...messageJson(
+        -1001,
+        id,
+        content: {
+          '@type': 'messagePhoto',
+          'photo': {
+            '@type': 'photo',
+            'sizes': [
+              {
+                '@type': 'photoSize',
+                'type': 'x',
+                'photo': {
+                  '@type': 'file',
+                  'id': file,
+                  'size': 10,
+                  'expected_size': 10,
+                  'remote': {'@type': 'remoteFile', 'id': 'r$file'},
+                },
+                'width': 100,
+                'height': 50,
+              },
+            ],
+          },
+          'caption': {'@type': 'formattedText', 'text': caption},
+        },
+      ),
+      'media_album_id': '900',
+    };
+    t.handlers['loadChats'] = (_) => {
+      '@type': 'error',
+      'code': 404,
+      'message': 'Not Found',
+    };
+    t.handlers['getChats'] = (r) => {
+      '@type': 'chats',
+      'total_count': 1,
+      'chat_ids': [-1001],
+    };
+    t.handlers['getChat'] = (r) => {
+      ...chatJson(-1001, 'News', supergroupId: 1),
+      'last_message': photo(77, 3),
+    };
+    t.handlers['getSupergroup'] = (r) =>
+        supergroupJson(r['supergroup_id'] as int);
+    var asked = 0;
+    t.handlers['getChatHistory'] = (r) {
+      asked++;
+      return {
+        '@type': 'messages',
+        'total_count': 3,
+        'messages': [
+          photo(76, 2),
+          photo(75, 1, caption: 'three views of the quay'),
+          // The post before the album.
+          messageJson(-1001, 74, text: 'older'),
+        ],
+      };
+    };
+
+    final news = (await g.myChannels()).single;
+    expect(news.lastMessageAlbum, hasLength(3));
+    expect(
+      news.lastMessageAlbum.map((m) => (m as PhotoMedia).sizes.single.id),
+      [1, 2, 3],
+    );
+    // The album's words stand on its first part.
+    expect(news.lastMessageText, 'three views of the quay');
+    expect(news.lastMessageMedia, isNull);
+
+    // The same newest post is not asked about again.
+    await g.myChannels();
+    expect(asked, 1);
+  });
+
+  test('a channel is muted by its own setting, or by the default for '
+      'channels', () async {
+    Map<String, Object?> chat(
+      int id, {
+      required bool useDefault,
+      int muteFor = 0,
+    }) => {
+      ...chatJson(id, 'C$id', supergroupId: -id - 1000),
+      'notification_settings': {
+        '@type': 'chatNotificationSettings',
+        'use_default_mute_for': useDefault,
+        'mute_for': muteFor,
+      },
+    };
+    t.handlers['loadChats'] = (_) => {
+      '@type': 'error',
+      'code': 404,
+      'message': 'Not Found',
+    };
+    t.handlers['getChats'] = (r) => {
+      '@type': 'chats',
+      'total_count': 3,
+      'chat_ids': [-1001, -1002, -1003],
+    };
+    t.handlers['getChat'] = (r) => switch (r['chat_id']) {
+      -1001 => chat(-1001, useDefault: false, muteFor: 3600),
+      -1002 => chat(-1002, useDefault: false),
+      _ => chat(-1003, useDefault: true),
+    };
+    t.handlers['getSupergroup'] = (r) =>
+        supergroupJson(r['supergroup_id'] as int);
+    var asked = 0;
+    t.handlers['getScopeNotificationSettings'] = (r) {
+      asked++;
+      expect(
+        (r['scope'] as Map)['@type'],
+        'notificationSettingsScopeChannelChats',
+      );
+      return {'@type': 'scopeNotificationSettings', 'mute_for': 100};
+    };
+
+    final channels = await g.myChannels();
+    expect(channels.map((c) => c.isMuted), [true, false, true]);
+    // A plain post is its own album of one, or of nothing when it is words.
+    expect(channels.first.lastMessageAlbum, isEmpty);
+    expect(asked, 1);
+  });
+
   test(
     'chatFolders keeps the channels of each folder, drops empty ones',
     () async {

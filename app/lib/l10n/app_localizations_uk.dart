@@ -1173,6 +1173,47 @@ class AppLocalizationsUk extends AppLocalizations {
   }
 
   @override
+  String channelsAlbumPhotos(int count) {
+    return '$count фото';
+  }
+
+  @override
+  String channelsAlbumVideos(int count) {
+    return '$count відео';
+  }
+
+  @override
+  String channelsAlbumFiles(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count файлу',
+      many: '$count файлів',
+      few: '$count файли',
+      one: '$count файл',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String channelsAlbumMusic(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count музичного файлу',
+      many: '$count музичних файлів',
+      few: '$count музичні файли',
+      one: '$count музичний файл',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String channelsAlbumMedia(int count) {
+    return '$count медіа';
+  }
+
+  @override
   String get channelsArchive => 'Архів';
 
   @override

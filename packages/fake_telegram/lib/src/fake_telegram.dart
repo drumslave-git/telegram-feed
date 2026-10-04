@@ -263,8 +263,27 @@ final class FakeTelegram extends TimelineGateway {
       ),
       _post(wire.chatId, 1, hoursAgo: 3, text: 'Wire: the bridge is closed.'),
     ];
-    // The archived channel protects its content: nothing of it is copied or saved.
+    // The archived channel protects its content: nothing of it is copied or saved. Its
+    // newest post is an album of two pictures without words.
     histories[FakeChats.oldLedger] = [
+      _post(
+        FakeChats.oldLedger,
+        3,
+        hoursAgo: 800,
+        text: '',
+        albumId: 9,
+        media: PhotoMedia(sizes: [_file('photo2.png', 640, 640)]),
+        canBeSaved: false,
+      ),
+      _post(
+        FakeChats.oldLedger,
+        2,
+        hoursAgo: 800,
+        text: '',
+        albumId: 9,
+        media: PhotoMedia(sizes: [_file('photo1.png', 640, 640)]),
+        canBeSaved: false,
+      ),
       _post(
         FakeChats.oldLedger,
         1,
@@ -1092,9 +1111,22 @@ final class FakeTelegram extends TimelineGateway {
     for (final c in await super.myChannels()) _withNewestPost(c),
   ];
 
+  @override
+  Future<List<Channel>> archivedChannels() async => [
+    for (final c in await super.archivedChannels()) _withNewestPost(c),
+  ];
+
   Channel _withNewestPost(Channel c) {
-    final newest = histories[c.chatId]?.firstOrNull;
+    final history = histories[c.chatId] ?? const <Post>[];
+    final newest = history.firstOrNull;
     if (newest == null) return c;
+    // An album's parts stand together at the newest end, and its words on any of them.
+    final parts = newest.albumId == 0
+        ? [newest]
+        : history.takeWhile((p) => p.albumId == newest.albumId).toList();
+    final words = parts
+        .map((p) => p.text)
+        .firstWhere((t) => t.isNotEmpty, orElse: () => '');
     return Channel(
       chatId: c.chatId,
       title: c.title,
@@ -1105,9 +1137,12 @@ final class FakeTelegram extends TimelineGateway {
       lastMessageId: c.lastMessageId,
       lastReadMessageId: c.lastReadMessageId,
       unreadCount: c.unreadCount,
-      lastMessageText: newest.text,
-      lastMessageMedia: newest.media,
+      lastMessageText: words,
+      lastMessageMedia: words.isEmpty ? newest.media : null,
       lastMessageDate: newest.date,
+      lastMessageAlbum: [for (final p in parts.reversed) ?p.media],
+      // The Gazette is muted in Telegram.
+      isMuted: c.chatId == FakeChats.northfieldGazette,
     );
   }
 

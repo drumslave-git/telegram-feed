@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,7 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../host/haptics.dart';
-import '../feeds/media_view.dart' show Downloaded;
+import '../feeds/media_view.dart' show Downloaded, MediaMiniature, PhotoView;
 import '../feeds/post_card.dart' show formatTime, peerColor;
 import '../l10n/l10n.dart';
 import '../widgets/error_state.dart';
@@ -200,7 +201,19 @@ class ChannelTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final c = channel;
+    final album = c.lastMessageAlbum;
+    final pictures = [
+      for (final media in album)
+        if (media is PhotoMedia || media is VideoMedia) media,
+    ];
+    final words = c.lastMessageText.isNotEmpty;
+    // An album without words says how many it holds and of what; a single post what it
+    // carries.
+    final label = album.length > 1
+        ? albumLabel(album, l10n)
+        : l10n.mediaPreview(c.lastMessageMedia, channel: c.title);
     final tile = ListTile(
       onTap: onTap,
       // Always two lines: the preview line stays even when there is nothing to preview,
@@ -214,17 +227,20 @@ class ChannelTile extends StatelessWidget {
       title: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Row(
         children: [
+          // Up to three pictures of the newest post, as the official app's rows show.
+          for (final media in pictures.take(3))
+            Padding(
+              padding: const EdgeInsets.only(right: 3),
+              child: RowThumbnail(media: media, gateway: gateway),
+            ),
+          if (pictures.isNotEmpty) const SizedBox(width: 2),
           Expanded(
             child: Text(
-              // A post without words is named by what it carries.
-              c.lastMessageText.isNotEmpty
-                  ? c.lastMessageText
-                  : context.l10n.mediaPreview(
-                      c.lastMessageMedia,
-                      channel: c.title,
-                    ),
+              // A post without words is named by what it carries, in the accent colour.
+              words ? c.lastMessageText : label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              style: words ? null : TextStyle(color: theme.colorScheme.primary),
             ),
           ),
           if (feeds.isNotEmpty)
@@ -249,7 +265,7 @@ class ChannelTile extends StatelessWidget {
           if (c.unreadCount > 0)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: UnreadBadge(c.unreadCount),
+              child: UnreadBadge(c.unreadCount, muted: c.isMuted),
             ),
         ],
       ),
@@ -262,6 +278,81 @@ class ChannelTile extends StatelessWidget {
         onMenu!(d.globalPosition);
       },
       child: tile,
+    );
+  }
+}
+
+/// "3 photos", "2 videos", "4 files", "2 music files": what an album holds when all its
+/// parts are of one kind, "5 media" when they are not.
+String albumLabel(List<Media> album, AppLocalizations l10n) {
+  final n = album.length;
+  if (album.every((m) => m is PhotoMedia)) return l10n.channelsAlbumPhotos(n);
+  if (album.every((m) => m is VideoMedia)) return l10n.channelsAlbumVideos(n);
+  if (album.every((m) => m is DocumentMedia)) return l10n.channelsAlbumFiles(n);
+  if (album.every((m) => m is AudioMedia)) return l10n.channelsAlbumMusic(n);
+  return l10n.channelsAlbumMedia(n);
+}
+
+/// A picture of a channel's newest post in its row: a small rounded square. Telegram's
+/// own tiny preview is drawn where the post has one, so a list of channels downloads
+/// nothing for it; a video carries a play mark; covered media stays blurred.
+class RowThumbnail extends StatelessWidget {
+  const RowThumbnail({super.key, required this.media, required this.gateway});
+  final Media media;
+  final TelegramGateway gateway;
+
+  static const side = 20.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final (miniature, covered, smallest) = switch (media) {
+      PhotoMedia(:final miniature, :final cover, :final sizes) => (
+        miniature,
+        cover != MediaCover.none,
+        sizes.isEmpty ? null : sizes.first,
+      ),
+      VideoMedia(:final miniature, :final cover) => (
+        miniature,
+        cover != MediaCover.none,
+        null,
+      ),
+      _ => (null, false, null),
+    };
+    final Widget picture;
+    if (miniature != null && covered) {
+      picture = MediaMiniature(miniature);
+    } else if (miniature != null) {
+      picture = Image.memory(
+        base64Decode(miniature),
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        errorBuilder: (_, _, _) => const ColoredBox(color: Colors.black12),
+      );
+    } else if (smallest != null && !covered) {
+      picture = PhotoView(
+        file: smallest,
+        gateway: gateway,
+        fill: true,
+        radius: 0,
+      );
+    } else {
+      picture = const ColoredBox(color: Colors.black12);
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(3),
+      child: SizedBox.square(
+        dimension: side,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            picture,
+            if (media is VideoMedia)
+              const Center(
+                child: Icon(Icons.play_arrow, size: 14, color: Colors.white),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

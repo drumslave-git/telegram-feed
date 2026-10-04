@@ -1838,6 +1838,36 @@ abstract class AppLocalizations {
   /// **'{channel} added to \"{feed}\".'**
   String channelsAddedToFeed(String channel, String feed);
 
+  /// In a channel row: the newest post is an album of photos without words.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} photo} other{{count} photos}}'**
+  String channelsAlbumPhotos(int count);
+
+  /// No description provided for @channelsAlbumVideos.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} video} other{{count} videos}}'**
+  String channelsAlbumVideos(int count);
+
+  /// No description provided for @channelsAlbumFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} file} other{{count} files}}'**
+  String channelsAlbumFiles(int count);
+
+  /// No description provided for @channelsAlbumMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} music file} other{{count} music files}}'**
+  String channelsAlbumMusic(int count);
+
+  /// In a channel row: the newest post is an album of mixed kinds.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} media'**
+  String channelsAlbumMedia(int count);
+
   /// The channels archived in Telegram (a row and a screen title).
   ///
   /// In en, this message translates to:

@@ -373,9 +373,82 @@ final class TdlibGateway implements TelegramGateway {
           await _client.call(td.GetSupergroup(supergroupId: supergroupId));
       _supergroups[supergroupId] = sg;
       _channelChatIds.add(id);
-      return map.channel(chat, sg);
+      final album = await _albumOf(chat);
+      return map.channel(
+        chat,
+        sg,
+        album: album?.media,
+        albumText: album?.text ?? '',
+        muted: await _isMuted(chat),
+      );
     }
     return null;
+  }
+
+  /// The album a chat's newest message belongs to, by chat, with the id of that message:
+  /// asked once per newest message.
+  final _albums = <int, (int, ({List<Media> media, String text})?)>{};
+
+  /// The parts of the album the newest message of [chat] closes, oldest first, and the
+  /// album's words; null when that message stands alone. The chat list carries one
+  /// message, so the parts before it are read from the history.
+  Future<({List<Media> media, String text})?> _albumOf(td.Chat chat) async {
+    final last = chat.lastMessage;
+    if (last == null || last.mediaAlbumId == 0) return null;
+    final kept = _albums[chat.id];
+    if (kept != null && kept.$1 == last.id) return kept.$2;
+    final parts = <td.Message>[last];
+    try {
+      // An album has ten parts at most.
+      final older = await _client.call(
+        td.GetChatHistory(
+          chatId: chat.id,
+          fromMessageId: last.id,
+          offset: 0,
+          limit: 10,
+          onlyLocal: false,
+        ),
+      );
+      for (final m in older.messages) {
+        if (m.id == last.id) continue;
+        if (m.mediaAlbumId != last.mediaAlbumId) break;
+        parts.add(m);
+      }
+    } on TelegramException {
+      // The newest part alone, as the chat list has it.
+    }
+    final media = <Media>[];
+    var text = '';
+    for (final m in parts.reversed) {
+      final (words, carried) = map.content(m.content);
+      if (carried != null) media.add(carried);
+      if (text.isEmpty) text = words;
+    }
+    final album = media.length > 1 ? (media: media, text: text) : null;
+    _albums[chat.id] = (last.id, album);
+    return album;
+  }
+
+  /// Whether channels are muted where a channel has no setting of its own; asked once and
+  /// again after Telegram says the setting changed.
+  Future<bool>? _channelsMutedByDefault;
+
+  Future<bool> _isMuted(td.Chat chat) async {
+    final settings = chat.notificationSettings;
+    if (settings == null) return false;
+    if (!settings.useDefaultMuteFor) return settings.muteFor > 0;
+    try {
+      return await (_channelsMutedByDefault ??= _client
+          .call(
+            const td.GetScopeNotificationSettings(
+              scope: td.NotificationSettingsScopeChannelChats(),
+            ),
+          )
+          .then((s) => s.muteFor > 0));
+    } on TelegramException {
+      _channelsMutedByDefault = null;
+      return false;
+    }
   }
 
   @override

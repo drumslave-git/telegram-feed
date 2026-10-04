@@ -1124,6 +1124,55 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String channelsAlbumPhotos(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count photos',
+      one: '$count photo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String channelsAlbumVideos(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count videos',
+      one: '$count video',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String channelsAlbumFiles(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files',
+      one: '$count file',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String channelsAlbumMusic(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count music files',
+      one: '$count music file',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String channelsAlbumMedia(int count) {
+    return '$count media';
+  }
+
+  @override
   String get channelsArchive => 'Archive';
 
   @override

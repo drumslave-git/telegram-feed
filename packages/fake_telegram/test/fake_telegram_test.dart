@@ -247,6 +247,17 @@ void main() {
     final newest = (await tg.history(FakeChats.harbourTimes)).first;
     expect(harbour.lastMessageText, newest.text);
     expect(harbour.lastMessageDate, newest.date);
+    expect(harbour.isMuted, isFalse);
+
+    final gazette = (await tg.myChannels()).firstWhere(
+      (c) => c.chatId == FakeChats.northfieldGazette,
+    );
+    expect(gazette.isMuted, isTrue);
+
+    // The archived channel's newest post is an album of two pictures without words.
+    final ledger = (await tg.archivedChannels()).single;
+    expect(ledger.lastMessageAlbum, hasLength(2));
+    expect(ledger.lastMessageText, isEmpty);
   });
 
   test('a post arrives on the wire', () async {

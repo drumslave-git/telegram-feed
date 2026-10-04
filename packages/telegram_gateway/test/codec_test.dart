@@ -104,6 +104,41 @@ void main() {
     },
   );
 
+  test(
+    'a channel keeps the album of its newest post and whether it is muted',
+    () {
+      const c = Channel(
+        chatId: -1,
+        title: 'News',
+        isMuted: true,
+        lastMessageAlbum: [
+          PhotoMedia(sizes: [FileRef(id: 1, remoteId: 'a', size: 10)]),
+          VideoMedia(
+            file: FileRef(id: 2, remoteId: 'b', size: 20),
+            durationSeconds: 5,
+          ),
+        ],
+      );
+      final back = decodeChannel(encodeChannel(c));
+      expect(back.isMuted, isTrue);
+      expect(back.lastMessageAlbum, hasLength(2));
+      expect(back.lastMessageAlbum.first, isA<PhotoMedia>());
+      expect(back.lastMessageAlbum.last, isA<VideoMedia>());
+      // And through a read update.
+      final read = back.withRead(
+        const ReadState(chatId: -1, lastReadMessageId: 5, unreadCount: 0),
+      );
+      expect(read.isMuted, isTrue);
+      expect(read.lastMessageAlbum, hasLength(2));
+
+      final plain = decodeChannel(
+        encodeChannel(const Channel(chatId: -2, title: 'Plain')),
+      );
+      expect(plain.isMuted, isFalse);
+      expect(plain.lastMessageAlbum, isEmpty);
+    },
+  );
+
   test('comments that are gone cross the core boundary', () {
     // What a core hands on after decoding a request: a view, not a list.
     final ids = <Object?>[7, 8].cast<int>();

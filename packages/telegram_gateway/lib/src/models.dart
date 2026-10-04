@@ -104,7 +104,18 @@ final class Channel {
     this.lastMessageText = '',
     this.lastMessageMedia,
     this.lastMessageDate = 0,
+    this.lastMessageAlbum = const [],
+    this.isMuted = false,
   });
+
+  /// Everything the newest post carries, oldest part first: the parts of an album, the one
+  /// picture or file of a single post, nothing for words alone. A channel row draws the
+  /// pictures as thumbnails and names an album by their number.
+  final List<Media> lastMessageAlbum;
+
+  /// The account has muted the channel in Telegram (itself, or all channels by default):
+  /// its unread counter is drawn grey.
+  final bool isMuted;
   final int chatId;
   final String title;
   final String? username;
@@ -144,6 +155,8 @@ final class Channel {
     lastMessageText: lastMessageText,
     lastMessageMedia: lastMessageMedia,
     lastMessageDate: lastMessageDate,
+    lastMessageAlbum: lastMessageAlbum,
+    isMuted: isMuted,
   );
 
   /// The same channel after its read state changed.
@@ -160,6 +173,8 @@ final class Channel {
     lastMessageText: lastMessageText,
     lastMessageMedia: lastMessageMedia,
     lastMessageDate: lastMessageDate,
+    lastMessageAlbum: lastMessageAlbum,
+    isMuted: isMuted,
   );
 
   @override

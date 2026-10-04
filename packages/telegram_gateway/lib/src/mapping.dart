@@ -84,7 +84,13 @@ bool isMemberStatus(td.ChatMemberStatus? s) => switch (s) {
   null => true,
 };
 
-Channel channel(td.Chat chat, td.Supergroup sg) => Channel(
+Channel channel(
+  td.Chat chat,
+  td.Supergroup sg, {
+  List<Media>? album,
+  String albumText = '',
+  bool muted = false,
+}) => Channel(
   chatId: chat.id,
   title: chat.title,
   username: switch (sg.usernames) {
@@ -100,9 +106,16 @@ Channel channel(td.Chat chat, td.Supergroup sg) => Channel(
   lastMessageId: chat.lastMessage?.id ?? 0,
   lastReadMessageId: chat.lastReadInboxMessageId,
   unreadCount: chat.unreadCount,
-  lastMessageText: preview(chat.lastMessage?.content),
-  lastMessageMedia: previewMedia(chat.lastMessage?.content),
+  // An album's words stand on one of its parts, often not the newest one.
+  lastMessageText: albumText.isNotEmpty
+      ? albumText
+      : preview(chat.lastMessage?.content),
+  lastMessageMedia: albumText.isNotEmpty
+      ? null
+      : previewMedia(chat.lastMessage?.content),
   lastMessageDate: chat.lastMessage?.date ?? 0,
+  lastMessageAlbum: album ?? [?content(chat.lastMessage?.content).$2],
+  isMuted: muted,
 );
 
 /// TDLib's filter for a [HistoryFilter]; null searches everything.

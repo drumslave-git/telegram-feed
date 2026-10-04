@@ -934,6 +934,48 @@
       }
     }
   },
+  "channelsAlbumPhotos": "{count, plural, =1{{count} photo} other{{count} photos}}",
+  "@channelsAlbumPhotos": {
+    "description": "In a channel row: the newest post is an album of photos without words.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "channelsAlbumVideos": "{count, plural, =1{{count} video} other{{count} videos}}",
+  "@channelsAlbumVideos": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "channelsAlbumFiles": "{count, plural, =1{{count} file} other{{count} files}}",
+  "@channelsAlbumFiles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "channelsAlbumMusic": "{count, plural, =1{{count} music file} other{{count} music files}}",
+  "@channelsAlbumMusic": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "channelsAlbumMedia": "{count} media",
+  "@channelsAlbumMedia": {
+    "description": "In a channel row: the newest post is an album of mixed kinds.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "channelsArchive": "Archive",
   "@channelsArchive": {
     "description": "The channels archived in Telegram (a row and a screen title)."
