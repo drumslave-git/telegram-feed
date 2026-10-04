@@ -4427,7 +4427,7 @@ abstract class AppLocalizations {
   /// No description provided for @dataStorageTypesFooter.
   ///
   /// In en, this message translates to:
-  /// **'GIFs and round video messages count as videos, music and voice messages as files. A video within the limit also autoplays, if Autoplay is on for it in Data and storage.'**
+  /// **'GIFs and round video messages count as videos, music as files. Voice messages of up to 512 KB load whenever this connection is switched on. A video within the limit also autoplays, if Autoplay is on for it in Data and storage.'**
   String get dataStorageTypesFooter;
 
   /// No description provided for @dataStorageMaxVideoSize.

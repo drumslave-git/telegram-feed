@@ -2789,7 +2789,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dataStorageTypesFooter =>
-      'GIFs and round video messages count as videos, music and voice messages as files. A video within the limit also autoplays, if Autoplay is on for it in Data and storage.';
+      'GIFs and round video messages count as videos, music as files. Voice messages of up to 512 KB load whenever this connection is switched on. A video within the limit also autoplays, if Autoplay is on for it in Data and storage.';
 
   @override
   String get dataStorageMaxVideoSize => 'Maximum video size';
