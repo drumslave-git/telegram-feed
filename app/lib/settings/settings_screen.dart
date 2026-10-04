@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:app_db/app_db.dart';
+import 'package:core/core.dart' show CoreClient;
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
@@ -145,7 +146,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }),
             ),
           ),
-          AccountRows(store: widget.accounts),
+          AccountRows(
+            store: widget.accounts,
+            beforeRemove: (id) async {
+              // A logged-in account is served by the core, which holds its files.
+              if (widget.gateway case final CoreClient core) {
+                await core.dropAccount(id);
+              }
+            },
+          ),
           SettingsLink(
             icon: Icons.bookmark_outline,
             title: l10n.settingsSavedMessages,

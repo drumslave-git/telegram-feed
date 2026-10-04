@@ -22,6 +22,21 @@ import 'src/rule_engine.dart';
 
 export 'src/protocol.dart' show corePortName;
 
+/// Another logged-in account the core serves beside the one in use: where its TDLib
+/// database and files and its app database are. Only sendable values.
+final class OtherAccount {
+  const OtherAccount({
+    required this.id,
+    required this.databaseDirectory,
+    required this.filesDirectory,
+    required this.appDatabasePath,
+  });
+  final int id;
+  final String databaseDirectory;
+  final String filesDirectory;
+  final String appDatabasePath;
+}
+
 /// Everything the core isolate needs to start; only sendable values.
 final class CoreBootstrap {
   const CoreBootstrap({
@@ -37,6 +52,7 @@ final class CoreBootstrap {
     this.libraryPath = 'libtdjson.so',
     this.logVerbosity = 1,
     this.fakeMediaDirectory,
+    this.others = const [],
     this.replyTo,
   });
   final int apiId;
@@ -57,17 +73,91 @@ final class CoreBootstrap {
   /// of TDLib: the fake build.
   final String? fakeMediaDirectory;
 
+  /// The other logged-in accounts: each gets a TDLib client, a rule engine and a server
+  /// of its own in this isolate, so its rules go on notifying while another account is
+  /// in use. Their ports are asked of the main server (`CoreClient.otherAccounts`).
+  final List<OtherAccount> others;
+
   /// Receives the server's `SendPort` once the core is up.
   final SendPort? replyTo;
+
+  /// The same bootstrap for [other]'s data, with no accounts beside it.
+  CoreBootstrap forAccount(OtherAccount other) => CoreBootstrap(
+    apiId: apiId,
+    apiHash: apiHash,
+    databaseDirectory: other.databaseDirectory,
+    filesDirectory: other.filesDirectory,
+    appDatabasePath: other.appDatabasePath,
+    useTestDc: useTestDc,
+    deviceModel: deviceModel,
+    systemVersion: systemVersion,
+    applicationVersion: applicationVersion,
+    libraryPath: libraryPath,
+    logVerbosity: logVerbosity,
+    fakeMediaDirectory: fakeMediaDirectory,
+  );
 }
 
 /// Isolate entry point. Sends the server port to [CoreBootstrap.replyTo].
 ///
-/// The isolate lives for the whole process: `td_receive` may only ever be polled by one
-/// thread, so a logout does not respawn anything. When TDLib closes its client
-/// ([AuthClosed]) a new client and gateway are created here and swapped into the server.
+/// One isolate serves every account: `td_receive` may only ever be polled by one thread,
+/// and the transport's one pump hands each client its own events. A logout does not
+/// respawn anything: when TDLib closes a client ([AuthClosed]) a new client and gateway
+/// are created here and swapped into that account's server.
 @pragma('vm:entry-point')
 Future<void> coreIsolateMain(CoreBootstrap b) async {
+  final others = <int, CoreServer>{};
+  var closing = false;
+  late final CoreServer server;
+  server = await _serve(
+    b,
+    closing: () => closing,
+    accounts: () => {
+      for (final MapEntry(key: id, value: other) in others.entries)
+        id: other.sendPort,
+    },
+    dropAccount: (id) async => others.remove(id)?.shutdown(),
+    onShutdown: () async {
+      // Hand TDLib back: every client closes, so each drops its database lock, then the
+      // receive pump stops, so the next core in this process can start one of its own.
+      closing = true;
+      for (final other in others.values) {
+        await other.shutdown();
+      }
+      await _closeGateway(server.gateway);
+      await FfiTransport.stopReceiving();
+      print('core: handed TDLib back'); // ignore: avoid_print
+    },
+  );
+  for (final other in b.others) {
+    try {
+      late final CoreServer watcher;
+      watcher = await _serve(
+        b.forAccount(other),
+        closing: () => closing || watcher.stopped,
+        onShutdown: () => _closeGateway(watcher.gateway),
+      );
+      others[other.id] = watcher;
+    } on Object catch (e) {
+      // Its rules stay quiet; the account in use is served all the same.
+      print('core: account ${other.id} not served: $e'); // ignore: avoid_print
+    }
+  }
+  b.replyTo?.send(server.sendPort);
+}
+
+Future<void> _closeGateway(TelegramGateway gateway) =>
+    gateway is TdlibGateway ? gateway.closeAndWait() : gateway.close();
+
+/// One account's side of the core: its Telegram client, the rule engine on its app
+/// database, and the server the hosts talk to.
+Future<CoreServer> _serve(
+  CoreBootstrap b, {
+  required bool Function() closing,
+  required Future<void> Function() onShutdown,
+  Map<int, SendPort> Function()? accounts,
+  Future<void> Function(int id)? dropAccount,
+}) async {
   RuleEngine? engine;
   Future<void> Function()? refresh;
   AppDatabase? appDb;
@@ -98,9 +188,7 @@ Future<void> coreIsolateMain(CoreBootstrap b) async {
     };
     await refresh();
   }
-  late final CoreServer server;
-  var closing = false;
-  server = CoreServer(
+  final server = CoreServer(
     await _newGateway(b),
     log: (s) => print(s), // ignore: avoid_print
     engine: engine,
@@ -109,22 +197,12 @@ Future<void> coreIsolateMain(CoreBootstrap b) async {
     onPaused: (p) async {
       await appDb?.setSetting(SettingKeys.rulesPaused, p ? 'true' : 'false');
     },
-    onShutdown: () async {
-      // Hand TDLib back: close the client so it drops the database lock, then stop the
-      // receive pump, so the next core in this process can start one of its own.
-      closing = true;
-      final gateway = server.gateway;
-      if (gateway is TdlibGateway) {
-        await gateway.closeAndWait();
-      } else {
-        await gateway.close();
-      }
-      await FfiTransport.stopReceiving();
-      print('core: handed TDLib back'); // ignore: avoid_print
-    },
+    onShutdown: onShutdown,
+    accounts: accounts,
+    dropAccount: dropAccount,
   );
-  _watchForClose(server, b, () => closing);
-  b.replyTo?.send(server.sendPort);
+  _watchForClose(server, b, closing);
+  return server;
 }
 
 Future<TelegramGateway> _newGateway(CoreBootstrap b) async {
@@ -190,6 +268,7 @@ Future<SendPort> spawnCoreIsolate(CoreBootstrap bootstrap) async {
       libraryPath: bootstrap.libraryPath,
       logVerbosity: bootstrap.logVerbosity,
       fakeMediaDirectory: bootstrap.fakeMediaDirectory,
+      others: bootstrap.others,
       replyTo: reply.sendPort,
     ),
     debugName: 'core',

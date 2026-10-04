@@ -21,6 +21,8 @@ final class CoreServer {
     this.onShutdown,
     this._paused = false,
     this.onPaused,
+    this.accounts,
+    this.dropAccount,
   }) : _gateway = gateway {
     _port.listen(_onMessage);
     _subscribe();
@@ -40,6 +42,14 @@ final class CoreServer {
 
   /// Re-reads rules and watched channels (the host owns the database).
   final Future<void> Function()? onRefresh;
+
+  /// The servers of the other logged-in accounts this core serves, by account id; the
+  /// host asks for them to run those accounts' alerts.
+  final Map<int, SendPort> Function()? accounts;
+
+  /// Stops serving another account and closes its TDLib client, so its files may be
+  /// deleted: the account is being removed from the device.
+  final Future<void> Function(int id)? dropAccount;
 
   /// Hands TDLib back: closes its client and stops its receive pump, so another core may
   /// take over in this process (core handover, ARCHITECTURE 8). Run once, by [shutdown].
@@ -307,6 +317,10 @@ final class CoreServer {
         _watchFile(a['fileId'] as int);
       case 'refresh':
         await onRefresh?.call();
+      case 'accounts':
+        return accounts?.call() ?? const <int, SendPort>{};
+      case 'dropAccount':
+        await dropAccount?.call(a['id'] as int);
       case 'shutdown':
         await shutdown();
       case 'setPaused':

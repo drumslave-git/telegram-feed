@@ -16,7 +16,16 @@ import '../widgets/destructive_button.dart';
 /// the database of this account down and brings the other one's up, so Settings closes
 /// when it happens.
 class AccountRows extends StatefulWidget {
-  const AccountRows({super.key, this.store, this.onSwitched});
+  const AccountRows({
+    super.key,
+    this.store,
+    this.onSwitched,
+    this.beforeRemove,
+  });
+
+  /// Runs before an account's data is deleted: the core lets go of the account, which
+  /// it serves while the account is logged in.
+  final Future<void> Function(int id)? beforeRemove;
 
   /// The app's own lives beside the databases; tests pass theirs.
   final AccountStore? store;
@@ -122,6 +131,11 @@ class _AccountRowsState extends State<AccountRows> {
       ),
     );
     if (!(ok ?? false)) return;
+    try {
+      await widget.beforeRemove?.call(account.id);
+    } on Object catch (e) {
+      debugPrint('accounts: account ${account.id} not let go: $e');
+    }
     await store.remove(account.id);
     await _read();
   }

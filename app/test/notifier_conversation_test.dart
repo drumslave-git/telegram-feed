@@ -75,6 +75,47 @@ void main() {
     expect(shade.of(-1002).title, 'Wire');
   });
 
+  test('the same channel in two accounts has a notification in each, named '
+      'by its account; only the account in use can have its timeline in '
+      'front', () async {
+    final notifier = await start();
+    notifier
+      ..activeAccount = 1
+      ..appOpen = true
+      ..viewing = {chatId};
+    await notifier.show(
+      planFor(10, text: 'mine', account: 1, accountName: 'Ann'),
+    );
+    await notifier.show(
+      planFor(10, text: 'theirs', account: 2, accountName: 'Bob'),
+    );
+    final mine = shade.of(chatId, account: 1);
+    final theirs = shade.of(chatId, account: 2);
+    expect(mine.id, isNot(theirs.id));
+    expect(shade.live, {mine.id, theirs.id});
+    expect(mine.header, 'Ann · r');
+    expect(mine.texts, ['mine']);
+    expect(theirs.header, 'Bob · r');
+    expect(theirs.texts, ['theirs']);
+    // The tap says which account the post is in.
+    expect((mine.opens.account, theirs.opens.account), (1, 2));
+    // The timeline on screen is the first account's: its post does not pop up over
+    // it, the other account's does.
+    expect(mine.channel, 'posts_normal_inapp');
+    expect(theirs.channel, 'posts_normal_popup');
+
+    // Each follows its own read position and keeps its own list.
+    await notifier.cancelRead(chatId, 10, account: 2);
+    expect(shade.cancelled, [theirs.id]);
+    expect(notifier.listed(chatId, account: 1), hasLength(1));
+    expect(notifier.listed(chatId, account: 2), isEmpty);
+
+    // And both are found again after a restart of the host.
+    later();
+    final again = await start();
+    expect(again.listed(chatId, account: 1).single.messageId, 10);
+  });
+
   test('a new post sounds and pops up again; a silent one is added without, '
       'and leaves the notification on its channel', () async {
     final notifier = await start();

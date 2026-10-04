@@ -39,6 +39,18 @@ class TelegramFeedApp extends StatefulWidget {
 class _TelegramFeedAppState extends State<TelegramFeedApp> {
   late Future<AppHost> _host = _start(widget.host);
 
+  @override
+  void initState() {
+    super.initState();
+    AccountSwitch.root = _switchAccount;
+  }
+
+  @override
+  void dispose() {
+    if (AccountSwitch.root == _switchAccount) AccountSwitch.root = null;
+    super.dispose();
+  }
+
   Future<AppHost> _start(Future<AppHost>? given) =>
       (given ?? startAppHost()).then(
         (h) async {

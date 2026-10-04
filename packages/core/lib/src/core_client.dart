@@ -174,6 +174,15 @@ final class CoreClient implements TelegramGateway {
   /// Asks the core to re-read rules and watched channels from the database.
   Future<void> refresh() => _call('refresh');
 
+  /// The servers of the other logged-in accounts the core serves, by account id.
+  Future<Map<int, SendPort>> otherAccounts() async =>
+      ((await _call('accounts')) as Map<Object?, Object?>)
+          .cast<int, SendPort>();
+
+  /// Has the core stop serving another account and close its TDLib client, and waits
+  /// for it: the account's files are about to be deleted.
+  Future<void> dropAccount(int id) => _call('dropAccount', {'id': id});
+
   /// Asks the core to close TDLib and stop its receive pump, and waits for it. Only the
   /// host taking a core down calls this (core handover, ARCHITECTURE 8).
   Future<void> shutdown() async => await _call('shutdown');

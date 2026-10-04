@@ -112,11 +112,13 @@ class FakeShade {
   }
 
   /// The reader swiped a channel's notification away, or tapped it.
-  void swipe(int chatId) => live.remove(NotificationPlan.idForChat(chatId));
+  void swipe(int chatId, {int account = 0}) =>
+      live.remove(NotificationPlan.idForChat(chatId, account));
 
-  /// The newest notification of [chatId].
-  Shown of(int chatId) =>
-      shown.lastWhere((s) => s.id == NotificationPlan.idForChat(chatId));
+  /// The newest notification of [chatId], in [account].
+  Shown of(int chatId, {int account = 0}) => shown.lastWhere(
+    (s) => s.id == NotificationPlan.idForChat(chatId, account),
+  );
 }
 
 /// Keeps the notifications' lists in memory, as the file does across a restart.
@@ -141,6 +143,8 @@ NotificationPlan planFor(
   int? date,
   Media? media,
   bool hidden = false,
+  int account = 0,
+  String accountName = '',
 }) => NotificationPlan.forMatch(
   MatchEvent.of(
     Post(
@@ -154,4 +158,6 @@ NotificationPlan planFor(
   ),
   channelTitle: title,
   hidden: hidden,
+  account: account,
+  accountName: accountName,
 );

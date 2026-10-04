@@ -17,37 +17,127 @@ import 'read_aloud_keys.dart';
 import 'reading_now.dart';
 import 'tts_service.dart';
 
-/// What a rule match becomes: its notification, read-aloud, and the actions on both
-/// (ARCHITECTURE 6.3 and 7). It lives where the plugins can run, beside the core it
-/// listens to: in the service host, or in the app itself while background watching is off.
-final class RuleAlerts {
-  RuleAlerts({
+/// One account whose rule matches become notifications: what its core says, and its own
+/// database, where its rules' channels are named.
+final class AlertAccount {
+  AlertAccount({
     required this.db,
     required this.matches,
     required this.postEvents,
-    required this.pausedChanges,
     required this.history,
-    required this.onReading,
     this.readUpdates = const Stream.empty(),
-    this.onAction,
+    this.id = 0,
+    this.name = '',
     this.pictures,
+    this.gate,
+  });
+
+  /// The account served by the core at [client].
+  AlertAccount.of(
+    CoreClient client, {
+    required AppDatabase db,
+    int id = 0,
+    String name = '',
+  }) : this(
+         db: db,
+         matches: client.matches,
+         postEvents: client.postEvents,
+         readUpdates: client.readUpdates,
+         history: (chatId, {required fromMessageId, required limit}) =>
+             client.history(chatId, fromMessageId: fromMessageId, limit: limit),
+         id: id,
+         name: name,
+         pictures: NotificationPictures(
+           channels: client.myChannels,
+           download: client.download,
+         ),
+       );
+
+  /// `AccountInfo.id`; 0 where the alerts know of one account only (tests).
+  final int id;
+
+  /// The name of its profile, which stands on its notifications while several accounts
+  /// notify.
+  final String name;
+  final AppDatabase db;
+  final Stream<MatchEvent> matches;
+  final Stream<PostEvent> postEvents;
+
+  /// Every change of a channel's read position, here or in the official app.
+  final Stream<ReadState> readUpdates;
+  final Future<List<Post>> Function(
+    int chatId, {
+    required int fromMessageId,
+    required int limit,
+  })
+  history;
+
+  /// Where the channel's photo and a post's picture come from; none in most tests.
+  final NotificationPictures? pictures;
+
+  /// The AI check of its semantic rules; made on the first match unless handed in.
+  SemanticGate? gate;
+
+  /// The channels its rules watch, by id.
+  Map<int, String> titles = const {};
+}
+
+/// What a rule match becomes: its notification, read-aloud, and the actions on both
+/// (ARCHITECTURE 6.3 and 7). It lives where the plugins can run, beside the core it
+/// listens to: in the service host, or in the app itself while background watching is
+/// off. Every logged-in account notifies: the account in use and [others] share the
+/// notifier, the speech queue and the settings of the account in use.
+final class RuleAlerts {
+  RuleAlerts({
+    required this.db,
+    required Stream<MatchEvent> matches,
+    required Stream<PostEvent> postEvents,
+    required this.pausedChanges,
+    required Future<List<Post>> Function(
+      int chatId, {
+      required int fromMessageId,
+      required int limit,
+    })
+    history,
+    required this.onReading,
+    Stream<ReadState> readUpdates = const Stream.empty(),
+    this.onAction,
+    NotificationPictures? pictures,
     Notifier? notifier,
     this.speaker,
-    this.gate,
+    SemanticGate? gate,
+    int account = 0,
+    String accountName = '',
+    this.others = const [],
     Future<bool> Function()? lockSet,
     ReadAloudKeys Function(void Function() onStop)? keys,
     void Function(String)? log,
   }) : _notifier = notifier ?? Notifier(),
        _lockSet = lockSet ?? (() => const AppLock().enabled),
        _makeKeys = keys ?? ((onStop) => ReadAloudKeys(onStop: onStop)),
-       _log = log ?? ((s) => debugPrint('alerts: $s'));
+       _log = log ?? ((s) => debugPrint('alerts: $s')),
+       _main = AlertAccount(
+         db: db,
+         matches: matches,
+         postEvents: postEvents,
+         readUpdates: readUpdates,
+         history: history,
+         id: account,
+         name: accountName,
+         pictures: pictures,
+         gate: gate,
+       );
 
-  /// Alerts on what the core at [client] matches.
+  /// Alerts on what the core at [client] matches, for the account in use, and on what
+  /// the cores of [others] match.
   RuleAlerts.of(
     CoreClient client, {
     required AppDatabase db,
     required void Function(ReadingNow?) onReading,
     Future<void> Function()? onAction,
+    int account = 0,
+    String accountName = '',
+    List<AlertAccount> others = const [],
     void Function(String)? log,
   }) : this(
          db: db,
@@ -63,22 +153,25 @@ final class RuleAlerts {
            channels: client.myChannels,
            download: client.download,
          ),
+         account: account,
+         accountName: accountName,
+         others: others,
          log: log,
        );
 
+  /// The database of the account in use: the sounds, the speech and the language are
+  /// its settings.
   final AppDatabase db;
-  final Stream<MatchEvent> matches;
-  final Stream<PostEvent> postEvents;
   final Stream<bool> pausedChanges;
 
-  /// Every change of a channel's read position, here or in the official app.
-  final Stream<ReadState> readUpdates;
-  final Future<List<Post>> Function(
-    int chatId, {
-    required int fromMessageId,
-    required int limit,
-  })
-  history;
+  /// The account in use, and the other logged-in ones.
+  final AlertAccount _main;
+  final List<AlertAccount> others;
+  late final List<AlertAccount> _accounts = [_main, ...others];
+
+  /// The account [id] names; the one in use where it names none that is known.
+  AlertAccount _accountOf(int id) =>
+      _accounts.firstWhere((a) => a.id == id, orElse: () => _main);
 
   /// The post being read after every change, for the app's banner.
   final void Function(ReadingNow?) onReading;
@@ -86,12 +179,8 @@ final class RuleAlerts {
   /// Runs before a notification's button is acted on.
   final Future<void> Function()? onAction;
 
-  /// Where the channel's photo and a post's picture come from; none in most tests.
-  final NotificationPictures? pictures;
-
-  /// The speech engine and the AI check; the app's own unless a test hands them in.
+  /// The speech engine; the app's own unless a test hands one in.
   final Speaker? speaker;
-  SemanticGate? gate;
 
   final Notifier _notifier;
   final ReadAloudKeys Function(void Function() onStop) _makeKeys;
@@ -100,7 +189,6 @@ final class RuleAlerts {
   final _subs = <StreamSubscription<void>>[];
   TtsService? _tts;
   ReadAloudKeys? _keys;
-  Map<int, String> _titles = const {};
   AppLocalizations _strings = AppLanguage.englishStrings;
 
   /// Recent matched posts so the Listen action can find their text.
@@ -127,6 +215,7 @@ final class RuleAlerts {
 
   Future<void> start(AppLocalizations strings) async {
     _strings = strings;
+    _notifier.activeAccount = _main.id;
     await _notifier.init(sounds: await _sounds(), strings: strings);
     final tts = TtsService(db: db, speaker: speaker ?? FlutterTtsSpeaker());
     try {
@@ -149,41 +238,46 @@ final class RuleAlerts {
     IsolateNameServer.removePortNameMapping(notifierPortName);
     IsolateNameServer.registerPortWithName(_actions.sendPort, notifierPortName);
     _actions.listen(_onNotificationAction);
-    _subs.add(matches.listen(_onMatch));
-    _subs.add(
-      postEvents.listen((e) {
-        if (e is PostsDeleted) {
-          unawaited(_notifier.cancel(e.chatId, e.messageIds));
-        } else if (e is PostEdited) {
-          // The notification of an edited post says what the post says now.
-          final post = e.post;
-          if (_recentTexts.containsKey((post.chatId, post.messageId))) {
-            _remember(post.chatId, post.messageId, post.text);
+    for (final a in _accounts) {
+      _subs.add(a.matches.listen((m) => _onMatch(a, m)));
+      _subs.add(
+        a.postEvents.listen((e) {
+          if (e is PostsDeleted) {
+            unawaited(_notifier.cancel(e.chatId, e.messageIds, account: a.id));
+          } else if (e is PostEdited) {
+            // The notification of an edited post says what the post says now.
+            final post = e.post;
+            if (_recentTexts.containsKey((post.chatId, post.messageId))) {
+              _remember(post.chatId, post.messageId, post.text);
+            }
+            unawaited(
+              _notifier.updateBody(
+                post.chatId,
+                post.messageId,
+                NotificationPlan.bodyOf(post, _strings),
+                account: a.id,
+              ),
+            );
           }
-          unawaited(
-            _notifier.updateBody(
-              post.chatId,
-              post.messageId,
-              NotificationPlan.bodyOf(post, _strings),
-            ),
-          );
-        }
-      }),
-    );
-    // A post that was read needs no notification any more.
-    _subs.add(
-      readUpdates.listen(
-        (r) => unawaited(_notifier.cancelRead(r.chatId, r.lastReadMessageId)),
-      ),
-    );
+        }),
+      );
+      // A post that was read needs no notification any more.
+      _subs.add(
+        a.readUpdates.listen(
+          (r) => unawaited(
+            _notifier.cancelRead(r.chatId, r.lastReadMessageId, account: a.id),
+          ),
+        ),
+      );
+    }
     await reloadTitles();
   }
 
-  Future<void> _onMatch(MatchEvent candidate) async {
+  Future<void> _onMatch(AlertAccount a, MatchEvent candidate) async {
     // AI semantic rules: the model decides before anything is shown. A check that cannot
     // be done skips those rules for this post; keyword rules on it still fire.
-    final check = gate ??= SemanticGate(
-      db: db,
+    final check = a.gate ??= SemanticGate(
+      db: a.db,
       secrets: const SecureSecretStore(),
     );
     final m = await check.resolve(candidate);
@@ -194,19 +288,24 @@ final class RuleAlerts {
       return;
     }
     _log('match ${m.ruleNames} on ${m.post.chatId}/${m.post.messageId}');
-    if (!_titles.containsKey(m.post.chatId)) await reloadTitles();
+    if (!a.titles.containsKey(m.post.chatId)) await reloadTitles();
     final hidden = !unlocked && await _hasLock();
     var plan = NotificationPlan.forMatch(
       m,
-      channelTitle: _titles[m.post.chatId] ?? '',
+      channelTitle: a.titles[m.post.chatId] ?? '',
       strings: _strings,
       hidden: hidden,
+      account: a.id,
+      // Said only while it tells accounts apart.
+      accountName: others.isEmpty ? '' : a.name,
     );
     _remember(m.post.chatId, m.post.messageId, m.post.text);
     // Queued first, so the notification offers Stop from the start.
-    if (m.readAloud) unawaited(_speakPost(m.post.chatId, m.post.messageId));
+    if (m.readAloud) {
+      unawaited(_speakPost(a, m.post.chatId, m.post.messageId));
+    }
     // A notification that hides its post shows neither the channel's face nor a picture.
-    if (pictures case final from? when !hidden) {
+    if (a.pictures case final from? when !hidden) {
       final found = await from.of(m.post);
       plan = plan.copyWith(picture: found.picture, avatar: found.avatar);
     }
@@ -232,6 +331,7 @@ final class RuleAlerts {
   /// before these alerts last started is asked of the core; a remembered one is queued at
   /// once.
   Future<void> _speakPost(
+    AlertAccount a,
     int chatId,
     int messageId, {
     bool next = false,
@@ -240,7 +340,7 @@ final class RuleAlerts {
     if (tts == null) return;
     var text = _recentTexts[(chatId, messageId)];
     if (text == null) {
-      text = await _fetchText(chatId, messageId);
+      text = await _fetchText(a, chatId, messageId);
       if (text == null) {
         _log('no text for $chatId/$messageId');
         return;
@@ -252,16 +352,16 @@ final class RuleAlerts {
     tts.enqueue(
       TtsItem(
         text: text,
-        channelTitle: _titles[chatId],
+        channelTitle: a.titles[chatId],
         key: (chatId, messageId),
       ),
       next: next,
     );
   }
 
-  Future<String?> _fetchText(int chatId, int messageId) async {
+  Future<String?> _fetchText(AlertAccount a, int chatId, int messageId) async {
     try {
-      final posts = await history(
+      final posts = await a.history(
         chatId,
         fromMessageId: messageId + 1,
         limit: 1,
@@ -296,18 +396,34 @@ final class RuleAlerts {
       (final int chatId, final int messageId) => ReadingNow(
         chatId: chatId,
         messageId: messageId,
-        channelTitle: _titles[chatId] ?? '',
+        channelTitle: _titleOf(chatId),
         waiting: tts!.reading.length - 1,
       ),
       _ => null,
     });
   }
 
-  /// The channels the rules watch, by id, read again; returns how many there are.
+  /// The channels the rules watch, by id, read again for every account; returns how
+  /// many there are.
   Future<int> reloadTitles() async {
-    final watched = await db.allWatched();
-    _titles = {for (final w in watched) w.chatId: w.title};
-    return _titles.length;
+    var count = 0;
+    for (final a in _accounts) {
+      try {
+        a.titles = {for (final w in await a.db.allWatched()) w.chatId: w.title};
+        count += a.titles.length;
+      } on Object catch (e) {
+        _log('channels of account ${a.id} not read: $e');
+      }
+    }
+    return count;
+  }
+
+  /// What a channel is called, in whichever account watches it.
+  String _titleOf(int chatId) {
+    for (final a in _accounts) {
+      if (a.titles[chatId] case final title?) return title;
+    }
+    return '';
   }
 
   Future<void> _onNotificationAction(Object? msg) async {
@@ -320,9 +436,10 @@ final class RuleAlerts {
       'on ${ref?.chatId}/${ref?.messageId}',
     );
     if (ref == null) return;
+    final account = _accountOf(ref.account);
     // The posts the channel's notification lists, oldest first; the one of the payload
     // for a notification nothing is known of any more.
-    final listed = switch (_notifier.listed(ref.chatId)) {
+    final listed = switch (_notifier.listed(ref.chatId, account: ref.account)) {
       final posts when posts.isNotEmpty => posts,
       _ => [ref],
     };
@@ -330,12 +447,12 @@ final class RuleAlerts {
     // listed is forgotten.
     if (dismissed) {
       unawaited(_stopPosts(listed));
-      unawaited(_notifier.forget(ref.chatId));
+      unawaited(_notifier.forget(ref.chatId, account: ref.account));
       return;
     }
     // A tap opened the post in the app, and Android took the notification away.
     if (m['type'] == notificationTapped) {
-      unawaited(_notifier.forget(ref.chatId));
+      unawaited(_notifier.forget(ref.chatId, account: ref.account));
       return;
     }
     await onAction?.call();
@@ -351,11 +468,11 @@ final class RuleAlerts {
       // at the head of the queue, so the last one first.
       final first = _tts?.current == null ? wanted.first : null;
       if (first != null) {
-        await _speakPost(first.chatId, first.messageId, next: true);
+        await _speakPost(account, first.chatId, first.messageId, next: true);
       }
       for (final p in wanted.reversed) {
         if (identical(p, first)) continue;
-        await _speakPost(p.chatId, p.messageId, next: true);
+        await _speakPost(account, p.chatId, p.messageId, next: true);
       }
     }
     if (m['actionId'] == actionStop) unawaited(_stopPosts(listed));

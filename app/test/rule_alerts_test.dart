@@ -357,6 +357,159 @@ void main() {
     expect(shade.of(chatId).texts, ['third']);
   });
 
+  test('every logged-in account notifies: the same channel has a notification '
+      'in each account, named by the account, and Listen asks the core of '
+      'that account', () async {
+    final theirDb = AppDatabase(NativeDatabase.memory());
+    addTearDown(theirDb.close);
+    final theirFeed = await theirDb.createFeed('Theirs');
+    await theirDb.addSource(theirFeed.id, chatId, title: 'Wire');
+    final mine = StreamController<MatchEvent>.broadcast();
+    final theirs = StreamController<MatchEvent>.broadcast();
+    final theirReads = StreamController<ReadState>.broadcast();
+    final voice = FakeSpeaker();
+    final both = RuleAlerts(
+      db: db,
+      matches: mine.stream,
+      postEvents: const Stream.empty(),
+      pausedChanges: const Stream.empty(),
+      history: (chatId, {required fromMessageId, required limit}) async => [],
+      onReading: (_) {},
+      speaker: voice,
+      gate: SemanticGate(db: db, secrets: MemorySecrets()),
+      lockSet: () async => false,
+      notifier: Notifier(null, () => now, MemoryStore()),
+      account: 1,
+      accountName: 'Ann',
+      others: [
+        AlertAccount(
+          db: theirDb,
+          matches: theirs.stream,
+          postEvents: const Stream.empty(),
+          readUpdates: theirReads.stream,
+          history: (chatId, {required fromMessageId, required limit}) async => [
+            Post(
+              chatId: chatId,
+              messageId: fromMessageId - 1,
+              date: 1,
+              text: 'asked of their core',
+            ),
+          ],
+          id: 2,
+          name: 'Bob',
+          gate: SemanticGate(db: theirDb, secrets: MemorySecrets()),
+        ),
+      ],
+      log: (_) {},
+    );
+    await both.start(AppLanguage.englishStrings);
+    addTearDown(both.dispose);
+
+    mine.add(match(7, text: 'in mine'));
+    theirs.add(match(8, text: 'in theirs'));
+    await tick();
+    final a = shade.of(chatId, account: 1);
+    final b = shade.of(chatId, account: 2);
+    expect(a.header, 'Ann · macro');
+    expect(a.texts, ['in mine']);
+    expect(b.header, 'Bob · macro');
+    expect(b.texts, ['in theirs']);
+    expect((a.opens.account, b.opens.account), (1, 2));
+
+    // Listen on the other account's notification, as after a restart of the host,
+    // when the words are no longer remembered: they are asked of that account's core.
+    later();
+    final restarted = RuleAlerts(
+      db: db,
+      matches: const Stream.empty(),
+      postEvents: const Stream.empty(),
+      pausedChanges: const Stream.empty(),
+      history: (chatId, {required fromMessageId, required limit}) async => [],
+      onReading: (_) {},
+      speaker: voice,
+      lockSet: () async => false,
+      notifier: Notifier(null, () => now, MemoryStore()),
+      account: 1,
+      others: [
+        AlertAccount(
+          db: theirDb,
+          matches: const Stream.empty(),
+          postEvents: const Stream.empty(),
+          history: (chatId, {required fromMessageId, required limit}) async => [
+            Post(
+              chatId: chatId,
+              messageId: fromMessageId - 1,
+              date: 1,
+              text: 'asked of their core',
+            ),
+          ],
+          id: 2,
+        ),
+      ],
+      log: (_) {},
+    );
+    await both.dispose();
+    await restarted.start(AppLanguage.englishStrings);
+    addTearDown(restarted.dispose);
+    IsolateNameServer.lookupPortByName(notifierPortName)!.send({
+      'actionId': actionListen,
+      'payload': b.payload,
+      'type': NotificationResponseType.selectedNotificationAction.name,
+    });
+    await tick();
+    expect(voice.spoken.single, contains('asked of their core'));
+    await restarted.stopAll();
+  });
+
+  test('a post read in one account leaves that account\'s notification '
+      'only', () async {
+    final theirDb = AppDatabase(NativeDatabase.memory());
+    addTearDown(theirDb.close);
+    final mine = StreamController<MatchEvent>.broadcast();
+    final theirs = StreamController<MatchEvent>.broadcast();
+    final theirReads = StreamController<ReadState>.broadcast();
+    final both = RuleAlerts(
+      db: db,
+      matches: mine.stream,
+      postEvents: const Stream.empty(),
+      pausedChanges: const Stream.empty(),
+      history: (chatId, {required fromMessageId, required limit}) async => [],
+      onReading: (_) {},
+      speaker: FakeSpeaker(),
+      gate: SemanticGate(db: db, secrets: MemorySecrets()),
+      lockSet: () async => false,
+      notifier: Notifier(null, () => now, MemoryStore()),
+      account: 1,
+      accountName: 'Ann',
+      others: [
+        AlertAccount(
+          db: theirDb,
+          matches: theirs.stream,
+          postEvents: const Stream.empty(),
+          readUpdates: theirReads.stream,
+          history: (chatId, {required fromMessageId, required limit}) async =>
+              [],
+          id: 2,
+          name: 'Bob',
+          gate: SemanticGate(db: theirDb, secrets: MemorySecrets()),
+        ),
+      ],
+      log: (_) {},
+    );
+    await both.start(AppLanguage.englishStrings);
+    addTearDown(both.dispose);
+    mine.add(match(7));
+    theirs.add(match(7));
+    await tick();
+    later();
+    theirReads.add(
+      const ReadState(chatId: chatId, lastReadMessageId: 7, unreadCount: 0),
+    );
+    await tick();
+    expect(shade.cancelled, [NotificationPlan.idForChat(chatId, 2)]);
+    expect(shade.live, {NotificationPlan.idForChat(chatId, 1)});
+  });
+
   test('Stop on the banner silences the post', () async {
     matches.add(match(7, readAloud: true));
     await tick();

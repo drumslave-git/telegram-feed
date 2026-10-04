@@ -58,9 +58,18 @@ const notificationTapped = 'tapped';
 
 /// Payload carried by every post notification and its actions.
 final class PostRef {
-  const PostRef(this.chatId, this.messageId, {this.feedId = 0});
+  const PostRef(
+    this.chatId,
+    this.messageId, {
+    this.feedId = 0,
+    this.account = 0,
+  });
   final int chatId;
   final int messageId;
+
+  /// The account the post matched in (`AccountInfo.id`): a tap goes to that account
+  /// first. 0 where it is not said, which stands for the account in use.
+  final int account;
 
   /// The feed of the rule that raised the notification; its post opens there. 0 when not
   /// known.
@@ -70,6 +79,7 @@ final class PostRef {
     'chatId': chatId,
     'messageId': messageId,
     'feedId': feedId,
+    if (account != 0) 'account': account,
   };
 
   String encode() => jsonEncode(toJson());
@@ -82,6 +92,7 @@ final class PostRef {
         m['chatId'] as int,
         m['messageId'] as int,
         feedId: m['feedId'] as int? ?? 0,
+        account: m['account'] as int? ?? 0,
       );
     } on FormatException {
       return null;
@@ -106,7 +117,12 @@ final class NotificationPlan {
     this.hidden = false,
     this.picture,
     this.avatar,
+    this.accountName = '',
   });
+
+  /// The name of the account the post matched in, while several accounts notify: it
+  /// stands on the notification, as in the official app. Empty with one account.
+  final String accountName;
 
   /// The post's own id among the notifications' lines ([idFor]); the notification that
   /// lists it has the channel's ([idForChat]).
@@ -152,6 +168,7 @@ final class NotificationPlan {
     hidden: hidden,
     picture: picture ?? this.picture,
     avatar: avatar ?? this.avatar,
+    accountName: accountName,
   );
 
   /// As the file that keeps the listed posts across a restart holds it ([Notifier]).
@@ -167,6 +184,7 @@ final class NotificationPlan {
     'hidden': hidden,
     'picture': picture,
     'avatar': avatar,
+    'accountName': accountName,
   };
 
   /// Null for what is not a line of a post.
@@ -174,9 +192,10 @@ final class NotificationPlan {
     if (json is! Map) return null;
     try {
       final payload = json['payload'] as String;
-      if (PostRef.decode(payload) == null) return null;
+      final ref = PostRef.decode(payload);
+      if (ref == null) return null;
       return NotificationPlan(
-        id: json['id'] as int,
+        id: idFor(ref.chatId, ref.messageId),
         channelId: json['channelId'] as String,
         title: json['title'] as String,
         body: json['body'] as String,
@@ -187,6 +206,7 @@ final class NotificationPlan {
         hidden: json['hidden'] == true,
         picture: json['picture'] as String?,
         avatar: json['avatar'] as String?,
+        accountName: json['accountName'] as String? ?? '',
       );
     } on TypeError {
       return null;
@@ -237,19 +257,23 @@ final class NotificationPlan {
   };
 
   /// Stable id for a post (so the same post again replaces its line, and read-aloud
-  /// names it).
+  /// names it). Arithmetic, not `Object.hash`, whose result differs from one run of the
+  /// app to the next.
   static int idFor(int chatId, int messageId) =>
-      Object.hash(chatId, messageId) & 0x7fffffff;
+      (chatId * 1000003 ^ messageId).hashCode & 0x7fffffff;
 
-  /// The id of the one notification a channel has.
-  static int idForChat(int chatId) =>
-      (chatId.hashCode & 0x3fffffff) | 0x40000000;
+  /// The id of the one notification a channel has in an account. The same on every run,
+  /// so the notifications Android still shows are found again after a restart.
+  static int idForChat(int chatId, [int account = 0]) =>
+      ((chatId ^ (account * 0x9E3779B1)).hashCode & 0x3fffffff) | 0x40000000;
 
   factory NotificationPlan.forMatch(
     MatchEvent m, {
     required String channelTitle,
     AppLocalizations? strings,
     bool hidden = false,
+    int account = 0,
+    String accountName = '',
   }) {
     final s = strings ?? AppLanguage.englishStrings;
     if (hidden) {
@@ -265,6 +289,7 @@ final class NotificationPlan {
             m.post.chatId,
             m.post.messageId,
             feedId: m.feedId,
+            account: account,
           ).toJson(),
           'when': m.post.date * 1000,
         }),
@@ -285,10 +310,16 @@ final class NotificationPlan {
       rule: rule,
       when: when,
       payload: jsonEncode({
-        ...PostRef(m.post.chatId, m.post.messageId, feedId: m.feedId).toJson(),
+        ...PostRef(
+          m.post.chatId,
+          m.post.messageId,
+          feedId: m.feedId,
+          account: account,
+        ).toJson(),
         'rule': rule,
         'when': when,
       }),
+      accountName: accountName,
     );
   }
 }

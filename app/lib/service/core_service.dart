@@ -15,6 +15,7 @@ import '../credentials.dart';
 import '../host/accounts.dart';
 import '../host/fake_media.dart';
 import '../l10n/l10n.dart';
+import 'account_watch.dart';
 import 'launcher_badge.dart';
 import 'rule_alerts.dart';
 import '../app_name.dart';
@@ -37,6 +38,7 @@ Future<({String support, String tdlib, String db})> appPaths([
 /// media that [installFakeMedia] copied there.
 CoreBootstrap coreBootstrap(
   ({String support, String tdlib, String db}) p, {
+  List<OtherAccount> others = const [],
   SendPort? replyTo,
 }) => CoreBootstrap(
   apiId: tgApiId,
@@ -48,6 +50,7 @@ CoreBootstrap coreBootstrap(
   deviceModel: Platform.isAndroid ? 'Android' : Platform.operatingSystem,
   systemVersion: Platform.operatingSystemVersion,
   fakeMediaDirectory: tgFake ? fakeMediaDirectory(p.support) : null,
+  others: others,
   replyTo: replyTo,
 );
 
@@ -136,6 +139,7 @@ class CoreServiceHandler extends TaskHandler {
   bool _paused = false;
   RuleAlerts? _alerts;
   LauncherBadge? _badge;
+  AccountWatch? _watch;
 
   /// Whether the app is on screen; it may say so before the alerts are up.
   bool _appOpen = false;
@@ -166,7 +170,11 @@ class CoreServiceHandler extends TaskHandler {
     final reply = ReceivePort();
     _core = await Isolate.spawn(
       coreIsolateMain,
-      coreBootstrap(paths, replyTo: reply.sendPort),
+      coreBootstrap(
+        paths,
+        others: await otherAccountsToServe(paths.support),
+        replyTo: reply.sendPort,
+      ),
       debugName: 'core',
     );
     final port = await reply.first as SendPort;
@@ -180,9 +188,17 @@ class CoreServiceHandler extends TaskHandler {
       _paused = p;
       unawaited(_updateNotification());
     });
+    // Every logged-in account notifies: the core serves the others beside this one.
+    final watch = _watch = await AccountWatch.open(
+      _client!,
+      support: paths.support,
+    );
     final alerts = RuleAlerts.of(
       _client!,
       db: _db!,
+      account: watch.activeId,
+      accountName: watch.activeName,
+      others: watch.alerts,
       // The app may not be open, and then nobody listens.
       onReading: (now) =>
           FlutterForegroundTask.sendDataToMain({'reading': now?.encode()}),
@@ -197,7 +213,11 @@ class CoreServiceHandler extends TaskHandler {
     alerts.viewing = _appViewing;
     _alerts = alerts;
     await alerts.start(_strings);
-    _badge = LauncherBadge.of(_client!, db: _db!);
+    _badge = LauncherBadge(
+      db: _db!,
+      channels: watch.channels,
+      changes: watch.changes,
+    );
     await _badge!.start();
     await _updateNotification();
     _log('core up, port registered');
@@ -323,6 +343,7 @@ class CoreServiceHandler extends TaskHandler {
     await _pausedSub?.cancel();
     await _alerts?.dispose();
     await _badge?.dispose();
+    await _watch?.dispose();
     // Give TDLib back before the isolate goes: its client has to drop the database lock
     // and its receive pump has to stop, or the app's own core aborts the process.
     try {

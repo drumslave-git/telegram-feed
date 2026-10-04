@@ -32,8 +32,9 @@ class AccountInfo {
   /// while it has none.
   final String photo;
 
-  /// How many of its channels had unread posts when it was last in use. Only the account
-  /// in use is connected, so this number stands still while another one is.
+  /// How many of its channels have unread posts: counted while it is in use, and for a
+  /// logged-in account that is not, whenever the number on the app's icon is counted
+  /// (`AccountWatch.channels`).
   final int unread;
 
   /// False for an account that was added and has not logged in; null for an account an
@@ -334,6 +335,10 @@ class AccountSwitch extends InheritedWidget {
 
   /// Called once the store's active account has been changed.
   final Future<void> Function() onSwitched;
+
+  /// The same, for what has no widget to ask: a tap on a notification of another
+  /// account. Set by the app's root while it is there.
+  static Future<void> Function()? root;
 
   static AccountSwitch? of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<AccountSwitch>();

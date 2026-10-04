@@ -18,6 +18,7 @@ import 'host/viewing.dart';
 import 'l10n/l10n.dart';
 import 'media/cache_limits.dart';
 import 'media/video_positions.dart';
+import 'service/account_watch.dart';
 import 'service/core_service.dart';
 import 'service/launcher_badge.dart';
 import 'settings/app_lock.dart' show AppLock;
@@ -154,7 +155,9 @@ final class CoreHost implements AppHost {
   }
 
   Future<SendPort> _spawnInProcess() async {
-    final port = await spawnCoreIsolate(coreBootstrap(_paths));
+    final port = await spawnCoreIsolate(
+      coreBootstrap(_paths, others: await otherAccountsToServe(_paths.support)),
+    );
     IsolateNameServer.removePortNameMapping(corePortName);
     IsolateNameServer.registerPortWithName(port, corePortName);
     return port;
@@ -226,18 +229,33 @@ final class CoreHost implements AppHost {
 
   /// The alerts and the badge of a core that runs in this process.
   Future<void> _startOwnAlerts() async {
+    // Every logged-in account notifies: the core serves the others beside this one.
+    final watch = _watch = await AccountWatch.open(
+      _client,
+      support: _paths.support,
+    );
     final alerts = RuleAlerts.of(
       _client,
       db: db,
+      account: watch.activeId,
+      accountName: watch.activeName,
+      others: watch.alerts,
       onReading: (now) => _reading.value = now,
       log: (s) => debugPrint('alerts: $s'),
     );
     _alerts = alerts;
     _languageSetting = await db.setting(SettingKeys.language);
     await alerts.start(AppLanguage.strings(_languageSetting));
-    _badge = LauncherBadge.of(_client, db: db);
+    _badge = LauncherBadge(
+      db: db,
+      channels: watch.channels,
+      changes: watch.changes,
+    );
     await _badge!.start();
   }
+
+  /// The other accounts of a core that runs in this process.
+  AccountWatch? _watch;
 
   /// One move at a time.
   Future<void> _move = Future.value();
@@ -293,6 +311,8 @@ final class CoreHost implements AppHost {
     _alerts = null;
     await _badge?.dispose();
     _badge = null;
+    await _watch?.dispose();
+    _watch = null;
     _reading.value = null;
     // This process's core closes TDLib and stops polling it.
     await _client.shutdown();
@@ -458,6 +478,7 @@ final class CoreHost implements AppHost {
     FlutterForegroundTask.removeTaskDataCallback(_onTaskData);
     await _alerts?.dispose();
     await _badge?.dispose();
+    await _watch?.dispose();
     _lifecycle?.dispose();
     AppLock.locked.removeListener(_onLockChanged);
     Viewing.chats.removeListener(_onLockChanged);
