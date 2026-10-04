@@ -350,6 +350,11 @@ class _VideoStageState extends State<VideoStage> {
     _toggleControls();
   }
 
+  void _onTapWhileLoading() {
+    final at = _lastTapUp;
+    if (at != null) widget.onEdgeTap?.call(at.globalPosition);
+  }
+
   /// While the seek bar is dragged the picture follows it, where the player already
   /// has that part of the video: a part that is still to be downloaded waits for the
   /// finger to lift, so a drag does not send the download from place to place.
@@ -570,8 +575,10 @@ class _VideoStageState extends State<VideoStage> {
         children: [
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTapUp: ready ? (d) => _lastTapUp = d : null,
-            onTap: ready ? _onTap : null,
+            onTapUp: (d) => _lastTapUp = d,
+            // A video that is still loading has no controls to show, but a tap near a
+            // side edge turns the page all the same.
+            onTap: ready ? _onTap : _onTapWhileLoading,
             onDoubleTapDown: ready ? (d) => _lastDoubleTap = d : null,
             onDoubleTap: ready
                 ? () => _onDoubleTap(_lastDoubleTap!, box.maxWidth)

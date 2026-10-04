@@ -254,6 +254,30 @@ void main() {
     expect(find.text('3 of 3'), findsNothing);
   });
 
+  testWidgets('a video that is still loading turns the page on an edge tap '
+      'too', (tester) async {
+    FakeVideoPlatform.install();
+    final gw = DownloadGateway(pngPath);
+    const video = VideoMedia(
+      file: FileRef(id: 9, remoteId: 'v', size: 5000000),
+      durationSeconds: 30,
+    );
+    await tester.pumpWidget(opener(gw, [video, photo(2)]));
+    // Opened, and not given the time to load.
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('1 of 2'), findsOneWidget);
+    final size = tester.getSize(find.byType(MediaViewerScreen));
+    await tester.tapAt(Offset(size.width - 10, size.height / 2));
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 400));
+    await settle(tester);
+    expect(find.text('2 of 2'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await settle(tester);
+  });
+
   testWidgets('where the newest comes first, the left edge goes to the older '
       'picture', (tester) async {
     final gw = DownloadGateway(pngPath);
