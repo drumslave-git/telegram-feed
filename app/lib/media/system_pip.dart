@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../l10n/l10n.dart';
+import 'now_playing.dart';
 import 'video_sessions.dart';
 import 'video_stage.dart';
 
@@ -89,6 +90,7 @@ class _PipHostState extends State<PipHost> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     SystemPip.start();
+    NowPlaying.start();
     SystemPip.active.addListener(_changed);
     VideoSessions.foreground.addListener(_changed);
     WidgetsBinding.instance.addObserver(this);
@@ -128,6 +130,13 @@ class _PipHostState extends State<PipHost> with WidgetsBindingObserver {
     if (l10n != null) {
       SystemPip.playLabel = l10n.playerPlay;
       SystemPip.pauseLabel = l10n.playerPause;
+      NowPlaying.words = (
+        channel: l10n.nowPlayingChannel,
+        play: l10n.playerPlay,
+        pause: l10n.playerPause,
+        previous: l10n.audioPrevious,
+        next: l10n.audioNext,
+      );
     }
     return Stack(
       fit: StackFit.expand,

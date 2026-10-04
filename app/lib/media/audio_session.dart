@@ -95,7 +95,15 @@ class AudioItem {
     required this.isVoice,
     required this.load,
     this.onShow,
+    this.title,
+    this.artist = '',
   });
+
+  /// What Android's player calls it (`NowPlaying`): the piece and who plays it, or
+  /// "Voice message" and the channel it was posted in. Without a [title] the [label]
+  /// stands for it.
+  final String? title;
+  final String artist;
 
   /// Goes to the post it came with, in the timeline that holds it; does nothing once
   /// that timeline is gone.
@@ -186,6 +194,10 @@ class AudioSessions {
 
   AudioEngine? _engine;
 
+  /// A track is being opened and will play in a moment: [playing] is not true yet.
+  bool get starting => _starting;
+  bool _starting = false;
+
   /// The track that is open, playing or paused; null when nothing is.
   final track = ValueNotifier<AudioTrack?>(null);
   final playing = ValueNotifier<bool>(false);
@@ -219,12 +231,18 @@ class AudioSessions {
     await _release();
     final engine = _make();
     _engine = engine;
+    _starting = true;
     speed.value = next.isVoice ? _voiceSpeed : _musicSpeed;
     track.value = next;
     error.value = null;
     position.value = Duration.zero;
     _subs.add(engine.position.listen((p) => position.value = p));
-    _subs.add(engine.playing.listen((p) => playing.value = p));
+    _subs.add(
+      engine.playing.listen((p) {
+        if (p) _starting = false;
+        playing.value = p;
+      }),
+    );
     // Played to its end: nothing is on any more, so the bar goes, as in the official app.
     // The engine itself goes on saying "playing" at the end of a file.
     _subs.add(
@@ -238,6 +256,7 @@ class AudioSessions {
       beforeSound?.call();
       await engine.play();
     } on Object catch (e) {
+      _starting = false;
       error.value = '$e';
       playing.value = false;
     }
@@ -407,6 +426,7 @@ class AudioSessions {
   /// go afterwards.
   Future<void> stop() async {
     _heldForVideo = false;
+    _starting = false;
     track.value = null;
     playing.value = false;
     position.value = Duration.zero;

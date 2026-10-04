@@ -68,6 +68,7 @@ class MainActivity : FlutterActivity() {
         readAloudKeys?.dispose()
         readAloudKeys =
             ReadAloudKeys(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
+        NowPlaying.attach(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         // Do-not-disturb bypass for the urgent channel needs notification policy access, which
         // only a Settings screen can grant; flutter_local_notifications has no API for that.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "tf/notifications")
@@ -391,6 +392,7 @@ class MainActivity : FlutterActivity() {
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         readAloudKeys?.dispose()
         readAloudKeys = null
+        NowPlaying.detach(flutterEngine.dartExecutor.binaryMessenger)
         super.cleanUpFlutterEngine(flutterEngine)
     }
 

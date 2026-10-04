@@ -2974,6 +2974,15 @@ class TimelineViewState extends State<TimelineView>
                 : named,
             durationSeconds: media.durationSeconds,
             isVoice: voice,
+            // As Android's player names it: the piece and who plays it, or the channel.
+            title: voice
+                ? l10n.mediaVoiceMessage
+                : media.title.isEmpty
+                ? null
+                : media.title,
+            artist: voice || media.performer.isEmpty
+                ? _titles[post.chatId] ?? ''
+                : media.performer,
             onShow: () => _showAudioPost(post),
             load: () async {
               final file = media.file.isDownloaded

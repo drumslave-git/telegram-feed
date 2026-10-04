@@ -2392,6 +2392,10 @@
   "@playerSpeed": {
     "description": "Tooltip of the playback speed menu."
   },
+  "nowPlayingChannel": "Playback",
+  "@nowPlayingChannel": {
+    "description": "Name of the Android notification channel of the player's notification, which shows the voice message or music that plays."
+  },
   "audioPrevious": "Previous",
   "audioNext": "Next",
   "audioRepeatOff": "Repeat: off",

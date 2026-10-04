@@ -793,6 +793,7 @@
   "playerPlay": "Відтворити",
   "playerPause": "Пауза",
   "playerSpeed": "Швидкість",
+  "nowPlayingChannel": "Відтворення",
   "audioPrevious": "Попередній",
   "audioNext": "Наступний",
   "audioRepeatOff": "Повтор: вимкнено",

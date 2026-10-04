@@ -4856,6 +4856,12 @@ abstract class AppLocalizations {
   /// **'Speed'**
   String get playerSpeed;
 
+  /// Name of the Android notification channel of the player's notification, which shows the voice message or music that plays.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback'**
+  String get nowPlayingChannel;
+
   /// No description provided for @audioPrevious.
   ///
   /// In en, this message translates to:

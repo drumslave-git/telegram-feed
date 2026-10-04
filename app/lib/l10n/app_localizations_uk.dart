@@ -3168,6 +3168,9 @@ class AppLocalizationsUk extends AppLocalizations {
   String get playerSpeed => 'Швидкість';
 
   @override
+  String get nowPlayingChannel => 'Відтворення';
+
+  @override
   String get audioPrevious => 'Попередній';
 
   @override

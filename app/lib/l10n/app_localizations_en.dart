@@ -3063,6 +3063,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerSpeed => 'Speed';
 
   @override
+  String get nowPlayingChannel => 'Playback';
+
+  @override
   String get audioPrevious => 'Previous';
 
   @override
