@@ -2373,6 +2373,47 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appLockPin => 'PIN';
 
   @override
+  String get appLockPassword => 'Password';
+
+  @override
+  String get appLockNewPassword => 'New password';
+
+  @override
+  String get appLockPasswordAgain => 'Password again';
+
+  @override
+  String get appLockSetPassword => 'Set the password';
+
+  @override
+  String get appLockReplacePassword => 'Replace the password';
+
+  @override
+  String get appLockPasswordSet => 'Password set, the lock is on';
+
+  @override
+  String get appLockPasswordReplaced => 'Password replaced';
+
+  @override
+  String get appLockWrongPassword => 'Wrong password';
+
+  @override
+  String get appLockPinFourDigits => 'A PIN has four digits';
+
+  @override
+  String get appLockPasswordTooShort => 'At least four characters';
+
+  @override
+  String get appLockTimeoutFiveHours => 'After five hours';
+
+  @override
+  String get appLockLockNow => 'Lock the app';
+
+  @override
+  String appLockDigitsEntered(int entered, int total) {
+    return '$entered of $total digits entered';
+  }
+
+  @override
   String get appLockUnlock => 'Unlock';
 
   @override

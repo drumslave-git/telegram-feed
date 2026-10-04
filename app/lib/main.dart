@@ -177,6 +177,7 @@ class _Root extends StatelessWidget {
             gateway: h.gateway,
             onOpenRules: () => _openRules(context, h),
             actions: [
+              const LockButton(),
               PauseButton(paused: h.paused, onChanged: h.setPaused),
               IconButton(
                 tooltip: context.l10n.commonRules,

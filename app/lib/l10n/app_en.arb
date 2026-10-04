@@ -1897,6 +1897,30 @@
   "appLockShowContent": "Show app content in task switcher",
   "appLockShowContentSubtitle": "Off, the task switcher shows a blank card and screenshots are refused while the lock is set",
   "appLockPin": "PIN",
+  "appLockPassword": "Password",
+  "appLockNewPassword": "New password",
+  "appLockPasswordAgain": "Password again",
+  "appLockSetPassword": "Set the password",
+  "appLockReplacePassword": "Replace the password",
+  "appLockPasswordSet": "Password set, the lock is on",
+  "appLockPasswordReplaced": "Password replaced",
+  "appLockWrongPassword": "Wrong password",
+  "appLockPinFourDigits": "A PIN has four digits",
+  "appLockPasswordTooShort": "At least four characters",
+  "appLockTimeoutFiveHours": "After five hours",
+  "appLockLockNow": "Lock the app",
+  "appLockDigitsEntered": "{entered} of {total} digits entered",
+  "@appLockDigitsEntered": {
+    "description": "Screen reader label of the marks over the PIN keypad.",
+    "placeholders": {
+      "entered": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "appLockUnlock": "Unlock",
   "appLockUseBiometrics": "Use fingerprint or face",
   "appLockRemoveTitle": "Remove the lock?",

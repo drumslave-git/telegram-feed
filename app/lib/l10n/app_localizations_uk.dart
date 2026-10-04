@@ -2472,6 +2472,47 @@ class AppLocalizationsUk extends AppLocalizations {
   String get appLockPin => 'PIN-код';
 
   @override
+  String get appLockPassword => 'Пароль';
+
+  @override
+  String get appLockNewPassword => 'Новий пароль';
+
+  @override
+  String get appLockPasswordAgain => 'Повторіть пароль';
+
+  @override
+  String get appLockSetPassword => 'Встановити пароль';
+
+  @override
+  String get appLockReplacePassword => 'Змінити пароль';
+
+  @override
+  String get appLockPasswordSet => 'Пароль встановлено, блокування увімкнено';
+
+  @override
+  String get appLockPasswordReplaced => 'Пароль змінено';
+
+  @override
+  String get appLockWrongPassword => 'Неправильний пароль';
+
+  @override
+  String get appLockPinFourDigits => 'PIN-код має чотири цифри';
+
+  @override
+  String get appLockPasswordTooShort => 'Щонайменше чотири символи';
+
+  @override
+  String get appLockTimeoutFiveHours => 'Через 5 годин';
+
+  @override
+  String get appLockLockNow => 'Заблокувати застосунок';
+
+  @override
+  String appLockDigitsEntered(int entered, int total) {
+    return 'Введено $entered з $total цифр';
+  }
+
+  @override
   String get appLockUnlock => 'Розблокувати';
 
   @override

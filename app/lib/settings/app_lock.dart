@@ -46,6 +46,10 @@ class KeystoreLockStore implements LockStore {
       : _storage.write(key: key, value: value);
 }
 
+/// What the lock's code is: four digits typed on a keypad, or a password of any
+/// characters typed on the keyboard, as the official app's passcode is one or the other.
+enum LockKind { pin, password }
+
 /// The lock of the app itself: a PIN the reader sets, and the device's own fingerprint or
 /// face where they allow it. Private channels are readable by anyone holding the unlocked
 /// phone, which is what this is for (H-34). The PIN is never stored: only a salted hash of
@@ -58,6 +62,14 @@ class AppLock {
   final DateTime Function() _clock;
 
   static const _pinKey = 'lock.pin';
+  static const _kindKey = 'lock.kind';
+
+  /// How many digits a PIN has.
+  static const pinLength = 4;
+
+  /// Counts up when the reader asks for the lock at once (the home screen's button);
+  /// [LockGate] listens.
+  static final lockNow = ValueNotifier<int>(0);
   static const _timeoutKey = 'lock.timeout';
   static const _biometricsKey = 'lock.biometrics';
   static const _showContentKey = 'lock.showContent';
@@ -69,7 +81,7 @@ class AppLock {
   static final changes = ValueNotifier<int>(0);
 
   /// How long the app may rest before it asks again.
-  static const timeouts = <int>[0, 60, 300, 3600];
+  static const timeouts = <int>[0, 60, 300, 3600, 18000];
 
   /// The rest before the lock asks again until the reader picks another: an hour, as the
   /// official app's passcode starts.
@@ -103,10 +115,25 @@ class AppLock {
     await applyToWindow();
   }
 
-  /// Sets (or replaces) the PIN, which turns the lock on.
-  Future<void> setPin(String pin) async {
+  /// What the code is; null for a code an older build set, of which only the hash is
+  /// known. It is learned the first time that code unlocks.
+  Future<LockKind?> get kind async => switch (await _store.read(_kindKey)) {
+    'pin' => LockKind.pin,
+    'password' => LockKind.password,
+    _ => null,
+  };
+
+  /// Four digits are a PIN; anything else is a password.
+  static LockKind kindOf(String code) =>
+      RegExp('^\\d{$pinLength}\$').hasMatch(code)
+      ? LockKind.pin
+      : LockKind.password;
+
+  /// Sets (or replaces) the code, which turns the lock on.
+  Future<void> setPin(String pin, {LockKind? kind}) async {
     final salt = _salt();
     await _store.write(_pinKey, '$salt:${_hash(pin, salt)}');
+    await _store.write(_kindKey, (kind ?? kindOf(pin)).name);
     await _clearTries();
     changes.value++;
     await applyToWindow();
@@ -114,6 +141,7 @@ class AppLock {
 
   Future<void> remove() async {
     await _store.write(_pinKey, null);
+    await _store.write(_kindKey, null);
     await _clearTries();
     changes.value++;
     await applyToWindow();
@@ -127,6 +155,10 @@ class AppLock {
     final parts = stored.split(':');
     if (parts.length == 2 && _hash(pin, parts.first) == parts.last) {
       await _clearTries();
+      // The code of an older build has shown what it is.
+      if (await _store.read(_kindKey) == null) {
+        await _store.write(_kindKey, kindOf(pin).name);
+      }
       return true;
     }
     final tries = (int.tryParse(await _store.read(_triesKey) ?? '') ?? 0) + 1;
@@ -217,15 +249,20 @@ class _LockGateState extends State<LockGate> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AppLock.lockNow.addListener(_lockNow);
     unawaited(_lockIfEnabled());
     unawaited(_lock.applyToWindow());
   }
 
   @override
   void dispose() {
+    AppLock.lockNow.removeListener(_lockNow);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
+
+  /// The button in the home screen's header: the lock comes down at once.
+  void _lockNow() => unawaited(_lockIfEnabled());
 
   Future<void> _lockIfEnabled() async {
     if (await _lock.enabled && mounted) setState(() => _locked = true);
@@ -275,9 +312,13 @@ class _LockGateState extends State<LockGate> with WidgetsBindingObserver {
 /// A PIN is digits only: a field that merely asks for the number keyboard still takes a
 /// pasted word, and the stored hash would then be of something no keypad can retype.
 final _pinDigits = [FilteringTextInputFormatter.digitsOnly];
-const _pinMaxLength = 16;
 
-/// Asks for the PIN, and offers the device's own check where the reader allowed it.
+/// The longest code a field takes: a password, or the PIN of an older build.
+const _codeMaxLength = 64;
+
+/// Asks for the code, and offers the device's own check where the reader allowed it. A
+/// four-digit PIN is typed on a keypad and checked with its fourth digit, as in the
+/// official app; a password is typed in a field and sent.
 class LockScreen extends StatefulWidget {
   const LockScreen({
     super.key,
@@ -299,24 +340,32 @@ class LockScreen extends StatefulWidget {
 }
 
 class _LockScreenState extends State<LockScreen> {
-  final _pin = TextEditingController();
+  final _code = TextEditingController();
+
+  /// The digits of the PIN typed so far on the keypad.
+  String _digits = '';
+
+  /// What the code is; null for one an older build set, and until the store answered.
+  LockKind? _kind;
+  bool _known = false;
   String? _error;
   bool _checking = false;
 
   /// The reader allowed the device's own check; only then is its button shown.
   bool _biometricsAllowed = false;
 
-  /// Seconds the next try still has to wait after too many wrong PINs; 0 when it may be
+  /// Seconds the next try still has to wait after too many wrong codes; 0 when it may be
   /// made.
   int _wait = 0;
   Timer? _waiting;
 
-  /// Counts the wrong PINs of this screen; each gets a field of its own.
+  /// Counts the wrong codes of this screen; each gets a field of its own.
   int _attempt = 0;
 
   @override
   void initState() {
     super.initState();
+    unawaited(_readKind());
     unawaited(_biometrics());
     unawaited(_readWait());
   }
@@ -324,8 +373,17 @@ class _LockScreenState extends State<LockScreen> {
   @override
   void dispose() {
     _waiting?.cancel();
-    _pin.dispose();
+    _code.dispose();
     super.dispose();
+  }
+
+  Future<void> _readKind() async {
+    final kind = await widget.lock.kind;
+    if (!mounted) return;
+    setState(() {
+      _kind = kind;
+      _known = true;
+    });
   }
 
   /// Counts the wait down on the screen, second by second.
@@ -360,24 +418,29 @@ class _LockScreenState extends State<LockScreen> {
       );
       if (ok && mounted) widget.onUnlocked();
     } on Object {
-      // The PIN is always there as the way in.
+      // The code is always there as the way in.
       if (mounted) {
         setState(() => _error = l10n.appLockBiometricsUnavailable);
       }
     }
   }
 
-  Future<void> _check() async {
+  Future<void> _check(String code) async {
     setState(() => _checking = true);
-    final ok = await widget.lock.check(_pin.text);
+    final ok = await widget.lock.check(code);
     if (!mounted) return;
     setState(() {
       _checking = false;
-      _error = ok ? null : context.l10n.appLockWrongPin;
-      // A wrong PIN is typed again from the start, as in the official app. The field is
-      // made anew for that: the keyboard keeps the digits of a field that is only
+      _error = ok
+          ? null
+          : _kind == LockKind.password
+          ? context.l10n.appLockWrongPassword
+          : context.l10n.appLockWrongPin;
+      // A wrong code is typed again from the start, as in the official app. The field is
+      // made anew for that: the keyboard keeps the characters of a field that is only
       // cleared, and would send them again in front of the next ones.
-      _pin.clear();
+      _code.clear();
+      _digits = '';
       if (!ok) _attempt++;
     });
     if (ok) {
@@ -387,13 +450,31 @@ class _LockScreenState extends State<LockScreen> {
     }
   }
 
+  /// A key of the keypad: the fourth digit checks the PIN, as in the official app.
+  void _onDigit(int digit) {
+    if (_checking || _wait > 0 || _digits.length >= AppLock.pinLength) return;
+    setState(() {
+      _digits += '$digit';
+      _error = null;
+    });
+    if (_digits.length == AppLock.pinLength) unawaited(_check(_digits));
+  }
+
+  void _onDelete() {
+    if (_digits.isEmpty || _checking) return;
+    setState(() => _digits = _digits.substring(0, _digits.length - 1));
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    final message = _wait > 0 ? l10n.appLockTooManyTries(_wait) : _error;
+    final password = _kind == LockKind.password;
     return Material(
-      color: Theme.of(context).colorScheme.surface,
+      color: scheme.surface,
       child: Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -405,36 +486,63 @@ class _LockScreenState extends State<LockScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              TextField(
-                key: ValueKey(_attempt),
-                controller: _pin,
-                autofocus: true,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                inputFormatters: _pinDigits,
-                maxLength: _pinMaxLength,
-                textAlign: TextAlign.center,
-                decoration: InputDecoration(
-                  labelText: l10n.appLockPin,
-                  errorText: _wait > 0
-                      ? l10n.appLockTooManyTries(_wait)
-                      : _error,
-                  errorMaxLines: 2,
-                  border: const OutlineInputBorder(),
+              if (!_known)
+                const SizedBox(height: 56)
+              else if (_kind == LockKind.pin) ...[
+                PinDots(entered: _digits.length),
+                // The line keeps its room, so the keypad does not move when it speaks.
+                SizedBox(
+                  height: 44,
+                  child: Center(
+                    child: Text(
+                      message ?? '',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: scheme.error),
+                    ),
+                  ),
                 ),
-                // The keyboard's own key checks the PIN and leaves the field in focus: a
-                // wrong PIN is typed again without another tap.
-                onEditingComplete: () {
-                  if (_wait == 0 && !_checking) unawaited(_check());
-                },
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _checking || _wait > 0
-                    ? null
-                    : () => unawaited(_check()),
-                child: Text(l10n.appLockUnlock),
-              ),
+                PinPad(
+                  onDigit: _onDigit,
+                  onDelete: _onDelete,
+                  enabled: !_checking && _wait == 0,
+                ),
+              ] else ...[
+                TextField(
+                  key: ValueKey(_attempt),
+                  controller: _code,
+                  autofocus: true,
+                  obscureText: true,
+                  // The code of an older build is digits of any length; a password is
+                  // whatever was typed.
+                  keyboardType: password
+                      ? TextInputType.visiblePassword
+                      : TextInputType.number,
+                  inputFormatters: password ? null : _pinDigits,
+                  maxLength: _codeMaxLength,
+                  textAlign: TextAlign.center,
+                  decoration: InputDecoration(
+                    labelText: password
+                        ? l10n.appLockPassword
+                        : l10n.appLockPin,
+                    errorText: message,
+                    errorMaxLines: 2,
+                    counterText: '',
+                    border: const OutlineInputBorder(),
+                  ),
+                  // The keyboard's own key checks the code and leaves the field in focus:
+                  // a wrong one is typed again without another tap.
+                  onEditingComplete: () {
+                    if (_wait == 0 && !_checking) unawaited(_check(_code.text));
+                  },
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: _checking || _wait > 0
+                      ? null
+                      : () => unawaited(_check(_code.text)),
+                  child: Text(l10n.appLockUnlock),
+                ),
+              ],
               if (_biometricsAllowed)
                 TextButton(
                   onPressed: () => unawaited(_biometrics()),
@@ -448,7 +556,147 @@ class _LockScreenState extends State<LockScreen> {
   }
 }
 
-/// The lock's own settings: set or change the PIN, the timeout, and the device check.
+/// The four marks over the keypad: one fills with every digit typed.
+class PinDots extends StatelessWidget {
+  const PinDots({super.key, required this.entered});
+  final int entered;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      label: context.l10n.appLockDigitsEntered(entered, AppLock.pinLength),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < AppLock.pinLength; i++)
+            Container(
+              width: 14,
+              height: 14,
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: i < entered ? scheme.primary : null,
+                border: Border.all(color: scheme.primary, width: 1.5),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The keypad of a PIN: the digits in three columns, zero under the eight, and the key
+/// that takes the last digit back.
+class PinPad extends StatelessWidget {
+  const PinPad({
+    super.key,
+    required this.onDigit,
+    required this.onDelete,
+    this.enabled = true,
+  });
+  final ValueChanged<int> onDigit;
+  final VoidCallback onDelete;
+  final bool enabled;
+
+  static const _size = 68.0;
+
+  Widget _key(BuildContext context, int digit) => Padding(
+    padding: const EdgeInsets.all(6),
+    child: SizedBox.square(
+      dimension: _size,
+      child: FilledButton.tonal(
+        onPressed: enabled ? () => onDigit(digit) : null,
+        style: FilledButton.styleFrom(
+          shape: const CircleBorder(),
+          padding: EdgeInsets.zero,
+        ),
+        child: Text('$digit', style: const TextStyle(fontSize: 26)),
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      for (final row in const [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+      ])
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [for (final digit in row) _key(context, digit)],
+        ),
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(width: _size + 12),
+          _key(context, 0),
+          Padding(
+            padding: const EdgeInsets.all(6),
+            child: SizedBox.square(
+              dimension: _size,
+              child: IconButton(
+                tooltip: context.l10n.commonDelete,
+                icon: const Icon(Icons.backspace_outlined),
+                onPressed: enabled ? onDelete : null,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+/// The lock in the header of the home screen, as the official app has one beside its
+/// title: there while the lock is set, and a tap locks the app at once.
+class LockButton extends StatefulWidget {
+  const LockButton({super.key, this.lock});
+
+  /// Tests hand in their own.
+  final AppLock? lock;
+
+  @override
+  State<LockButton> createState() => _LockButtonState();
+}
+
+class _LockButtonState extends State<LockButton> {
+  bool _enabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    AppLock.changes.addListener(_read);
+    _read();
+  }
+
+  @override
+  void dispose() {
+    AppLock.changes.removeListener(_read);
+    super.dispose();
+  }
+
+  void _read() => unawaited(
+    (widget.lock ?? const AppLock()).enabled.then((enabled) {
+      if (mounted && enabled != _enabled) setState(() => _enabled = enabled);
+    }),
+  );
+
+  @override
+  Widget build(BuildContext context) => !_enabled
+      ? const SizedBox.shrink()
+      : IconButton(
+          tooltip: context.l10n.appLockLockNow,
+          icon: const Icon(Icons.lock_open_outlined),
+          onPressed: () => AppLock.lockNow.value++,
+        );
+}
+
+/// The lock's own settings: set or change the code (a four-digit PIN or a password), the
+/// timeout, and the device check.
 class AppLockScreen extends StatefulWidget {
   const AppLockScreen({super.key, this.lock, this.auth});
   final AppLock? lock;
@@ -463,12 +711,15 @@ class _AppLockScreenState extends State<AppLockScreen> {
   final _pin = TextEditingController();
   final _again = TextEditingController();
   bool _hasPin = false;
+
+  /// What the code being set is: a PIN until the reader picks a password.
+  LockKind _kind = LockKind.pin;
   int _timeout = AppLock.defaultTimeout;
   bool _biometrics = false;
   bool _showContent = false;
   String? _error;
 
-  /// Null until the store answered; then whether the PIN must be entered first. Whoever
+  /// Null until the store answered; then whether the code must be entered first. Whoever
   /// holds the unlocked phone must not be able to change or remove the lock.
   bool? _needsPin;
 
@@ -487,12 +738,14 @@ class _AppLockScreenState extends State<AppLockScreen> {
 
   Future<void> _read({bool first = false}) async {
     final has = await _lock.hasPin();
+    final kind = await _lock.kind;
     final timeout = (await _lock.timeout).inSeconds;
     final biometrics = await _lock.biometrics;
     final showContent = await _lock.showContent;
     if (!mounted) return;
     setState(() {
       _hasPin = has;
+      if (kind != null) _kind = kind;
       _timeout = timeout;
       _biometrics = biometrics;
       _showContent = showContent;
@@ -525,8 +778,15 @@ class _AppLockScreenState extends State<AppLockScreen> {
 
   Future<void> _save() async {
     final l10n = context.l10n;
-    if (_pin.text.length < 4) {
-      setState(() => _error = l10n.appLockTooShort);
+    final password = _kind == LockKind.password;
+    if (password
+        ? _pin.text.length < AppLock.pinLength
+        : _pin.text.length != AppLock.pinLength) {
+      setState(
+        () => _error = password
+            ? l10n.appLockPasswordTooShort
+            : l10n.appLockPinFourDigits,
+      );
       return;
     }
     if (_pin.text != _again.text) {
@@ -534,14 +794,20 @@ class _AppLockScreenState extends State<AppLockScreen> {
       return;
     }
     final replaced = _hasPin;
-    await _lock.setPin(_pin.text);
+    await _lock.setPin(_pin.text, kind: _kind);
     _pin.clear();
     _again.clear();
     if (!mounted) return;
     setState(() => _error = null);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(replaced ? l10n.appLockPinReplaced : l10n.appLockPinSet),
+        content: Text(
+          password
+              ? (replaced
+                    ? l10n.appLockPasswordReplaced
+                    : l10n.appLockPasswordSet)
+              : (replaced ? l10n.appLockPinReplaced : l10n.appLockPinSet),
+        ),
       ),
     );
     await _read();
@@ -552,6 +818,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
         0 => l10n.appLockTimeoutAtOnce,
         60 => l10n.appLockTimeoutMinute,
         300 => l10n.appLockTimeoutFiveMinutes,
+        18000 => l10n.appLockTimeoutFiveHours,
         _ => l10n.appLockTimeoutHour,
       };
 
@@ -578,6 +845,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
 
   Widget _settings(BuildContext context) {
     final l10n = context.l10n;
+    final password = _kind == LockKind.password;
     return Scaffold(
       appBar: AppBar(title: Text(l10n.appLockTitle)),
       body: ListView(
@@ -588,29 +856,68 @@ class _AppLockScreenState extends State<AppLockScreen> {
               _hasPin ? l10n.appLockIntroWithPin : l10n.appLockIntroNoPin,
             ),
           ),
+          // A four-digit PIN, or a password of any characters, as in the official app.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: SegmentedButton<LockKind>(
+              segments: [
+                ButtonSegment(
+                  value: LockKind.pin,
+                  label: Text(l10n.appLockPin),
+                  icon: const Icon(Icons.dialpad),
+                ),
+                ButtonSegment(
+                  value: LockKind.password,
+                  label: Text(l10n.appLockPassword),
+                  icon: const Icon(Icons.password),
+                ),
+              ],
+              selected: {_kind},
+              onSelectionChanged: (s) => setState(() {
+                _kind = s.first;
+                _pin.clear();
+                _again.clear();
+                _error = null;
+              }),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
+              key: ValueKey('code:${_kind.name}'),
               controller: _pin,
               obscureText: true,
-              keyboardType: TextInputType.number,
-              inputFormatters: _pinDigits,
-              maxLength: _pinMaxLength,
+              keyboardType: password
+                  ? TextInputType.visiblePassword
+                  : TextInputType.number,
+              inputFormatters: password ? null : _pinDigits,
+              maxLength: password ? _codeMaxLength : AppLock.pinLength,
               decoration: InputDecoration(
-                labelText: _hasPin ? l10n.appLockNewPin : l10n.appLockPin,
+                labelText: password
+                    ? (_hasPin ? l10n.appLockNewPassword : l10n.appLockPassword)
+                    : (_hasPin ? l10n.appLockNewPin : l10n.appLockPin),
                 errorText: _error,
+                counterText: password ? '' : null,
               ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: TextField(
+              key: ValueKey('again:${_kind.name}'),
               controller: _again,
               obscureText: true,
-              keyboardType: TextInputType.number,
-              inputFormatters: _pinDigits,
-              maxLength: _pinMaxLength,
-              decoration: InputDecoration(labelText: l10n.appLockPinAgain),
+              keyboardType: password
+                  ? TextInputType.visiblePassword
+                  : TextInputType.number,
+              inputFormatters: password ? null : _pinDigits,
+              maxLength: password ? _codeMaxLength : AppLock.pinLength,
+              decoration: InputDecoration(
+                labelText: password
+                    ? l10n.appLockPasswordAgain
+                    : l10n.appLockPinAgain,
+                counterText: password ? '' : null,
+              ),
               onSubmitted: (_) => unawaited(_save()),
             ),
           ),
@@ -621,7 +928,13 @@ class _AppLockScreenState extends State<AppLockScreen> {
                 FilledButton(
                   onPressed: () => unawaited(_save()),
                   child: Text(
-                    _hasPin ? l10n.appLockReplacePin : l10n.appLockSetPin,
+                    password
+                        ? (_hasPin
+                              ? l10n.appLockReplacePassword
+                              : l10n.appLockSetPassword)
+                        : (_hasPin
+                              ? l10n.appLockReplacePin
+                              : l10n.appLockSetPin),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -640,7 +953,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
           ),
           RadioGroup<int>(
             groupValue: _timeout,
-            // Nothing to time out before there is a PIN.
+            // Nothing to time out before there is a code.
             onChanged: (v) {
               if (!_hasPin) return;
               final seconds = v ?? AppLock.defaultTimeout;

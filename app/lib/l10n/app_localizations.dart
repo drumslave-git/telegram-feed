@@ -3842,6 +3842,84 @@ abstract class AppLocalizations {
   /// **'PIN'**
   String get appLockPin;
 
+  /// No description provided for @appLockPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get appLockPassword;
+
+  /// No description provided for @appLockNewPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'New password'**
+  String get appLockNewPassword;
+
+  /// No description provided for @appLockPasswordAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Password again'**
+  String get appLockPasswordAgain;
+
+  /// No description provided for @appLockSetPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the password'**
+  String get appLockSetPassword;
+
+  /// No description provided for @appLockReplacePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace the password'**
+  String get appLockReplacePassword;
+
+  /// No description provided for @appLockPasswordSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Password set, the lock is on'**
+  String get appLockPasswordSet;
+
+  /// No description provided for @appLockPasswordReplaced.
+  ///
+  /// In en, this message translates to:
+  /// **'Password replaced'**
+  String get appLockPasswordReplaced;
+
+  /// No description provided for @appLockWrongPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong password'**
+  String get appLockWrongPassword;
+
+  /// No description provided for @appLockPinFourDigits.
+  ///
+  /// In en, this message translates to:
+  /// **'A PIN has four digits'**
+  String get appLockPinFourDigits;
+
+  /// No description provided for @appLockPasswordTooShort.
+  ///
+  /// In en, this message translates to:
+  /// **'At least four characters'**
+  String get appLockPasswordTooShort;
+
+  /// No description provided for @appLockTimeoutFiveHours.
+  ///
+  /// In en, this message translates to:
+  /// **'After five hours'**
+  String get appLockTimeoutFiveHours;
+
+  /// No description provided for @appLockLockNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock the app'**
+  String get appLockLockNow;
+
+  /// Screen reader label of the marks over the PIN keypad.
+  ///
+  /// In en, this message translates to:
+  /// **'{entered} of {total} digits entered'**
+  String appLockDigitsEntered(int entered, int total);
+
   /// No description provided for @appLockUnlock.
   ///
   /// In en, this message translates to:
