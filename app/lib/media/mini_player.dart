@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../l10n/l10n.dart';
@@ -85,6 +86,138 @@ abstract final class MiniPlayer {
     if (MediaViewerScreen.showing.value == 0) {
       unawaited(AudioSessions.instance.resumeAfterVideo());
     }
+  }
+}
+
+/// A round video message that was playing with its sound when its post scrolled away
+/// goes on in a small round window in the top right corner, as in the official app, and
+/// goes back into its post when that is on the screen again. A tap pauses and plays it,
+/// the cross ends it, and it goes by itself when the message has played to its end.
+abstract final class RoundFloat {
+  static OverlayEntry? _entry;
+  static VideoSession? _session;
+
+  /// How wide the window is.
+  static const side = 120.0;
+
+  static bool get isShowing => _entry != null;
+
+  /// Whether the window shows [session].
+  static bool shows(VideoSession session) => identical(_session, session);
+
+  /// Takes [session] over while its row is out of sight. The window holds the session,
+  /// so it plays on when the row itself is gone.
+  static void show(OverlayState overlay, VideoSession session) {
+    if (shows(session)) return;
+    dismiss();
+    _session = session..retain();
+    session.addListener(_onSession);
+    final entry = _entry = OverlayEntry(
+      builder: (context) => _RoundFloatView(
+        session: session,
+        onClose: () {
+          unawaited(session.pause());
+          dismiss();
+        },
+      ),
+    );
+    // A row that goes while its message plays asks from its `dispose`, where nothing
+    // may be built: the window appears with the next frame then.
+    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.idle) {
+      overlay.insert(entry);
+    } else {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (identical(_entry, entry) && overlay.mounted) overlay.insert(entry);
+      });
+    }
+  }
+
+  /// Played to its end: nothing more to show.
+  static void _onSession() {
+    final v = _session?.controller?.value;
+    if (v == null || !v.isInitialized) return;
+    if (v.duration > Duration.zero &&
+        v.position >= v.duration &&
+        !v.isPlaying) {
+      scheduleMicrotask(dismiss);
+    }
+  }
+
+  /// The window goes; the session lives on if its row holds it.
+  static void dismiss() {
+    final entry = _entry;
+    if (entry == null) return;
+    _entry = null;
+    // It may not have got as far as the screen.
+    if (entry.mounted) entry.remove();
+    entry.dispose();
+    final session = _session;
+    _session = null;
+    session?.removeListener(_onSession);
+    session?.release();
+  }
+}
+
+class _RoundFloatView extends StatelessWidget {
+  const _RoundFloatView({required this.session, required this.onClose});
+  final VideoSession session;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final l10n = context.l10n;
+    return Positioned(
+      // Under the header, out of the way of the newest post.
+      top: media.padding.top + kToolbarHeight + 12,
+      right: 12 + media.padding.right,
+      width: RoundFloat.side,
+      height: RoundFloat.side,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: Semantics(
+              label: l10n.pipFloatingPlayer,
+              button: true,
+              child: GestureDetector(
+                onTap: session.togglePlay,
+                child: Material(
+                  color: Colors.black,
+                  elevation: 8,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: InlineVideo(
+                    session: session,
+                    poster: const SizedBox.expand(),
+                    cover: true,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -6,
+            right: -6,
+            child: Material(
+              color: Colors.black54,
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onClose,
+                child: Tooltip(
+                  message: l10n.commonClose,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(Icons.close, size: 18, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

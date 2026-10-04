@@ -196,6 +196,72 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('an album goes to the gallery whole, its pictures and its video, '
+      'oldest first', (tester) async {
+    final saves = recordSaves(tester);
+    PhotoMedia photo(int id) => PhotoMedia(
+      sizes: [
+        FileRef(
+          id: id,
+          remoteId: 'p$id',
+          size: 68,
+          width: 1,
+          height: 1,
+          localPath: filePath,
+        ),
+      ],
+    );
+    await open(tester, [
+      Post(
+        chatId: -1,
+        messageId: 7,
+        date: 700,
+        albumId: 9,
+        text: 'three of them',
+        media: VideoMedia(
+          file: FileRef(
+            id: 23,
+            remoteId: 'v',
+            size: 68,
+            width: 1,
+            height: 1,
+            localPath: filePath,
+          ),
+          durationSeconds: 5,
+        ),
+      ),
+      Post(
+        chatId: -1,
+        messageId: 6,
+        date: 700,
+        albumId: 9,
+        text: '',
+        media: photo(22),
+      ),
+      Post(
+        chatId: -1,
+        messageId: 5,
+        date: 700,
+        albumId: 9,
+        text: '',
+        media: photo(21),
+      ),
+    ]);
+
+    await menu(tester, 'three of them');
+    await tester.tap(find.text('Save to gallery'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect([for (final s in saves) s['to']], ['gallery', 'gallery', 'gallery']);
+    expect(
+      [for (final s in saves) s['mimeType']],
+      ['image/jpeg', 'image/jpeg', 'video/mp4'],
+    );
+    // Three files, each under a name of its own.
+    expect({for (final s in saves) s['name']}, hasLength(3));
+    await unmount(tester);
+  });
+
   testWidgets('a protected post offers nothing to keep', (tester) async {
     recordSaves(tester);
     await open(tester, [

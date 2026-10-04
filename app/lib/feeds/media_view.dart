@@ -12,6 +12,7 @@ import 'package:visibility_detector/visibility_detector.dart';
 
 import '../l10n/l10n.dart';
 import '../media/audio_session.dart';
+import '../media/mini_player.dart' show RoundFloat;
 import '../media/auto_download.dart';
 import '../media/media_viewer.dart';
 import '../media/video_downloads.dart';
@@ -814,6 +815,7 @@ class _VideoViewState extends State<VideoView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _overlay = Overlay.maybeOf(context, rootOverlay: true);
     final current = ModalRoute.of(context)?.isCurrent ?? true;
     if (current == _routeIsCurrent) return;
     _routeIsCurrent = current;
@@ -882,6 +884,16 @@ class _VideoViewState extends State<VideoView> {
       }
       return;
     }
+    // A round video message that plays with its sound goes on in a round window while
+    // its post is out of sight, and comes back into the post with it.
+    if (widget.video.isVideoNote && !s.muted) {
+      if (visible < 0.2) {
+        _float(s);
+      } else if (visible >= 0.6 && RoundFloat.shows(s)) {
+        RoundFloat.dismiss();
+      }
+      return;
+    }
     if (s.isShared) return;
     if (visible >= 0.6) {
       unawaited(s.play());
@@ -890,9 +902,24 @@ class _VideoViewState extends State<VideoView> {
     }
   }
 
+  /// The app's overlay, kept for the moment the row goes while its message plays.
+  OverlayState? _overlay;
+
+  void _float(VideoSession s) {
+    final overlay = _overlay;
+    if (overlay == null || !s.isPlaying) return;
+    RoundFloat.show(overlay, s);
+  }
+
   @override
   void dispose() {
-    _session?.release();
+    final s = _session;
+    // Scrolled so far that the row itself goes: the message plays on in its window,
+    // which holds the session from here on.
+    if (s != null && widget.video.isVideoNote && !s.muted && _routeIsCurrent) {
+      _float(s);
+    }
+    s?.release();
     super.dispose();
   }
 
