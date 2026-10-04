@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:video_player/video_player.dart';
 
+import 'audio_session.dart';
 import 'media_server.dart';
 import 'video_downloads.dart';
 import 'video_positions.dart';
@@ -174,6 +175,23 @@ final class VideoSession extends ChangeNotifier {
 
   Future<void> pause() async => _controller?.pause();
 
+  /// Whether the video starts over at its end, from now on.
+  Future<void> setLooping(bool looping) async =>
+      _controller?.setLooping(looping);
+
+  /// Starts the video over.
+  Future<void> restart() async => _controller?.seekTo(Duration.zero);
+
+  /// Played to its end and standing there (a video that does not loop).
+  bool get isAtEnd {
+    final v = _controller?.value;
+    return v != null &&
+        v.isInitialized &&
+        v.duration > Duration.zero &&
+        v.position >= v.duration &&
+        !v.isPlaying;
+  }
+
   Future<void> togglePlay() =>
       (_controller?.value.isPlaying ?? false) ? pause() : play();
 
@@ -277,7 +295,24 @@ final class VideoSession extends ChangeNotifier {
 
 /// All running [VideoSession]s of one gateway, by file id.
 final class VideoSessions {
-  VideoSessions(this.gateway) : _server = MediaServer(gateway);
+  VideoSessions(this.gateway) : _server = MediaServer(gateway) {
+    _live.add(this);
+    AudioSessions.beforeSound = quietAll;
+  }
+
+  /// Every account's sessions that exist in this process.
+  static final _live = <VideoSessions>{};
+
+  /// A voice message or music starts: a video that plays with its sound gives the sound
+  /// up. One that autoplays in its row goes on without it; any other pauses.
+  static void quietAll() {
+    for (final all in _live) {
+      for (final s in all._sessions.values.toList()) {
+        if (s._disposed || s.muted || !s.isPlaying) continue;
+        unawaited(s.autoplay ? s.setMuted(true) : s.pause());
+      }
+    }
+  }
 
   static final _instances = Expando<VideoSessions>();
   static VideoSessions of(TelegramGateway gateway) =>

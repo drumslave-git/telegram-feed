@@ -846,11 +846,41 @@ class _VideoViewState extends State<VideoView> {
       setState(() => _adopt(s));
     }
     if (s.muted) {
+      // With its sound it plays once, from its start, as in the official app; what was
+      // playing as sound gives way and comes back when the message is over.
+      unawaited(AudioSessions.instance.pauseForVideo());
+      _soundRun = s..addListener(_onSoundRun);
+      await s.setLooping(false);
+      await s.restart();
       await s.setMuted(false);
       await s.play();
     } else {
       await s.togglePlay();
     }
+  }
+
+  /// The session of a round video message that plays once with its sound; null when
+  /// none does.
+  VideoSession? _soundRun;
+
+  /// The message has played to its end: it goes back to what it was before the tap, a
+  /// silent loop where rows autoplay and a still picture otherwise.
+  void _onSoundRun() {
+    final s = _soundRun;
+    if (s == null || !s.isAtEnd) return;
+    _endSoundRun();
+    unawaited(() async {
+      await s.setMuted(true);
+      await s.setLooping(true);
+      await s.restart();
+      if (mounted && widget.autoplay && _visible >= 0.6) await s.play();
+      await AudioSessions.instance.resumeAfterVideo();
+    }());
+  }
+
+  void _endSoundRun() {
+    _soundRun?.removeListener(_onSoundRun);
+    _soundRun = null;
   }
 
   void _open() {
@@ -914,6 +944,7 @@ class _VideoViewState extends State<VideoView> {
   @override
   void dispose() {
     final s = _session;
+    _endSoundRun();
     // Scrolled so far that the row itself goes: the message plays on in its window,
     // which holds the session from here on.
     if (s != null && widget.video.isVideoNote && !s.muted && _routeIsCurrent) {

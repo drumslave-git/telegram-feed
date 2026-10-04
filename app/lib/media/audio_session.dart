@@ -178,6 +178,10 @@ class AudioSessions {
   /// The app's own; tests make their own instance instead.
   static AudioSessions instance = AudioSessions();
 
+  /// Called before a track starts to sound: the videos set it to silence one that plays
+  /// with its sound, so only one thing is heard at a time.
+  static VoidCallback? beforeSound;
+
   static const speeds = [1.0, 1.5, 2.0];
 
   AudioEngine? _engine;
@@ -231,6 +235,7 @@ class AudioSessions {
     try {
       await engine.open(next.path);
       await engine.setSpeed(speed.value);
+      beforeSound?.call();
       await engine.play();
     } on Object catch (e) {
       error.value = '$e';
@@ -244,6 +249,7 @@ class AudioSessions {
     if (length > Duration.zero && position.value >= length) {
       await seek(Duration.zero);
     }
+    beforeSound?.call();
     await _engine!.play();
   }
 

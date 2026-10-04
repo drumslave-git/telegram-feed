@@ -119,6 +119,8 @@ abstract final class RoundFloat {
         onClose: () {
           unawaited(session.pause());
           dismiss();
+          // What the message silenced plays on.
+          unawaited(AudioSessions.instance.resumeAfterVideo());
         },
       ),
     );
@@ -140,7 +142,14 @@ abstract final class RoundFloat {
     if (v.duration > Duration.zero &&
         v.position >= v.duration &&
         !v.isPlaying) {
-      scheduleMicrotask(dismiss);
+      scheduleMicrotask(() {
+        final over = _session;
+        dismiss();
+        // No row is left to do it: the message goes quiet again, and what it
+        // silenced plays on.
+        unawaited(over?.setMuted(true));
+        unawaited(AudioSessions.instance.resumeAfterVideo());
+      });
     }
   }
 
@@ -172,9 +181,15 @@ class _RoundFloatView extends StatelessWidget {
       valueListenable: StatusBannerHost.heightUnderHeader,
       builder: (context, banner, child) => AnimatedPositioned(
         duration: const Duration(milliseconds: 200),
-        // Under the header and under the banner that may stand there (what plays, a
-        // post being read, the pause), out of the way of the newest post.
-        top: media.padding.top + kToolbarHeight + banner + 12,
+        // Under the header, the row of tabs the home screen has there, and the banner
+        // that may stand under them (what plays, a post being read, the pause): out of
+        // the way of all of them and of the newest post.
+        top:
+            media.padding.top +
+            kToolbarHeight +
+            kTextTabBarHeight +
+            banner +
+            12,
         right: 12 + media.padding.right,
         width: RoundFloat.side,
         height: RoundFloat.side,

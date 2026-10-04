@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/media_view.dart';
+import 'package:telegram_feed/media/audio_session.dart';
 import 'package:telegram_feed/media/mini_player.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import 'audio_session_test.dart' show FakeEngine;
 import 'fake_video_platform.dart';
 import 'media_view_test.dart' show DownloadGateway;
 
@@ -169,6 +171,54 @@ void main() {
     await startUp(tester);
     await startUp(tester);
     expect(RoundFloat.isShowing, isFalse);
+    await unmount(tester);
+  });
+
+  testWidgets('a tap plays a round video once with its sound, from its start, '
+      'and it is quiet again when it is over', (tester) async {
+    final platform = FakeVideoPlatform.install()
+      ..duration = const Duration(seconds: 20);
+    final gw = DownloadGateway('unused');
+    await tester.pumpWidget(list(gw));
+    await startUp(tester);
+    await tester.tap(find.byType(VideoView));
+    await startUp(tester);
+    await startUp(tester);
+    expect(platform.looping[1], isFalse);
+    expect(platform.log, contains('volume 1 1.0'));
+
+    platform.log.clear();
+    platform.finish(1);
+    await startUp(tester);
+    await startUp(tester);
+    // Over: no sound, and a loop again for the next time it plays by itself.
+    expect(platform.log, contains('volume 1 0.0'));
+    expect(platform.looping[1], isTrue);
+    await unmount(tester);
+  });
+
+  testWidgets('a voice message or a song that starts takes the sound from a '
+      'round video that has it', (tester) async {
+    final platform = FakeVideoPlatform.install();
+    final sound = AudioSessions(engine: FakeEngine.new);
+    final gw = DownloadGateway('unused');
+    await tester.pumpWidget(list(gw));
+    await startUp(tester);
+    await tester.tap(find.byType(VideoView));
+    await startUp(tester);
+    await startUp(tester);
+    expect(platform.log, contains('volume 1 1.0'));
+
+    platform.log.clear();
+    await sound.play(
+      const AudioTrack(path: '/a.mp3', label: 'A song', durationSeconds: 30),
+    );
+    await startUp(tester);
+    // The video plays on in its circle, without its sound.
+    expect(platform.log, contains('volume 1 0.0'));
+    expect(platform.log, isNot(contains('pause 1')));
+    // The engine is let go over real turns of the event loop.
+    await tester.runAsync(sound.stop);
     await unmount(tester);
   });
 
