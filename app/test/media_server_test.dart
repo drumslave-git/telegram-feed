@@ -132,10 +132,10 @@ void main() {
     expect(await body, content.sublist(3200));
     pump.cancel();
     expect(gw.aims.first, 3200);
-    expect(
-      gw.have.contains(0),
-      isFalse,
-    ); // nothing before the seek target was fetched first
+    // Nothing before the seek target was fetched first: its block is the first one that
+    // came. (Once the range is served the download goes on from the front, so the front
+    // may well be there by now.)
+    expect(gw.have.first, 3);
   });
 
   test('bytes already on disk are served at once', () async {

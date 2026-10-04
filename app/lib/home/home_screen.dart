@@ -116,6 +116,9 @@ class _HomeScreenState extends State<HomeScreen>
     _tabCtl
       ..removeListener(_onTabChanged)
       ..dispose();
+    for (final c in _tabScroll.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -946,19 +949,71 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  /// What the folder's tab counts, from Telegram's own counter of each channel: its
-  /// unread posts together, or the channels that have any, as the Badge counter switch
-  /// says. The official app's tabs count the chats with unread messages.
-  int _unreadInFolder(ChatFolder folder) {
-    final inFolder = folder.channelIds.toSet();
+  /// What a tab of channels counts: the channels with unread posts, by Telegram's own
+  /// counter of each, as the official app's tabs count the chats with unread messages.
+  /// [folder] is null for All channels.
+  int _unreadChannels(ChatFolder? folder) {
+    final inFolder = folder?.channelIds.toSet();
     var channels = 0;
-    var posts = 0;
     for (final c in _channels) {
-      if (c.unreadCount <= 0 || !inFolder.contains(c.chatId)) continue;
+      if (c.unreadCount <= 0) continue;
+      if (inFolder != null && !inFolder.contains(c.chatId)) continue;
       channels++;
-      posts += c.unreadCount;
     }
-    return _feeds.countPosts ? posts : channels;
+    return channels;
+  }
+
+  /// The scroll position of each tab's list, by the tab's name: a tap on the tab that is
+  /// already open brings its list back to the top, as in the official app.
+  final _tabScroll = <String, ScrollController>{};
+
+  ScrollController _scrollOf(String tab) =>
+      _tabScroll.putIfAbsent(tab, ScrollController.new);
+
+  /// The name of the tab at [index]: Feeds, the folders, All channels.
+  String _tabName(int index) => index == 0
+      ? 'feeds'
+      : index <= _folders.length
+      ? 'folder:${_folders[index - 1].id}'
+      : 'all';
+
+  void _onTabTap(int index) {
+    // The tab bar has moved its controller already: a tap that changes nothing was on
+    // the open tab.
+    if (_tabCtl.indexIsChanging) return;
+    final scroll = _tabScroll[_tabName(index)];
+    if (scroll == null || !scroll.hasClients) return;
+    unawaited(
+      scroll.animateTo(
+        0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      ),
+    );
+  }
+
+  /// The list of a tab, scrolled by the tab's own controller.
+  Widget _tabList(int index, Widget list) => PrimaryScrollController(
+    controller: _scrollOf(_tabName(index)),
+    child: list,
+  );
+
+  /// A long press on All channels: everything is marked read, as the official app offers
+  /// on its tab of all chats.
+  Future<void> _allChannelsMenu(Offset at) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
+    final choice = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        at & Size.zero,
+        Offset.zero & overlay.size,
+      ),
+      items: [menuItem('read', Icons.done_all, context.l10n.homeMarkAllAsRead)],
+    );
+    if (choice == 'read') {
+      await _markChannelsRead([for (final c in _channels) c.chatId]);
+    }
   }
 
   /// The channels the account archived in Telegram, behind a row of their own at the top of
@@ -996,6 +1051,25 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// The label of a tab of channels: its name, and how many of its channels have unread
+  /// posts.
+  Widget _channelsTabLabel(String title, ChatFolder? folder) {
+    final unread = _unreadChannels(folder);
+    return _tabLabel(
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(title),
+          if (unread > 0)
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: UnreadBadge(unread),
+            ),
+        ],
       ),
     );
   }
@@ -1070,6 +1144,7 @@ class _HomeScreenState extends State<HomeScreen>
               Expanded(
                 child: TabBar(
                   controller: _tabCtl,
+                  onTap: _onTabTap,
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
                   labelPadding: EdgeInsets.zero,
@@ -1102,31 +1177,20 @@ class _HomeScreenState extends State<HomeScreen>
                           Haptics.longPress();
                           _folderMenu(f, d.globalPosition);
                         },
-                        child: Tab(
-                          // The switch of the Badge counter lives in the feeds' controller.
-                          child: ListenableBuilder(
-                            listenable: _feeds,
-                            builder: (context, _) {
-                              final unread = _unreadInFolder(f);
-                              return _tabLabel(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(f.title),
-                                    if (unread > 0)
-                                      Padding(
-                                        padding: const EdgeInsets.only(left: 6),
-                                        child: UnreadBadge(unread),
-                                      ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
+                        child: Tab(child: _channelsTabLabel(f.title, f)),
+                      ),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onLongPressStart: (d) {
+                        Haptics.longPress();
+                        unawaited(_allChannelsMenu(d.globalPosition));
+                      },
+                      child: Tab(
+                        child: _channelsTabLabel(
+                          context.l10n.homeTabAllChannels,
+                          null,
                         ),
                       ),
-                    Tab(
-                      child: _tabLabel(Text(context.l10n.homeTabAllChannels)),
                     ),
                   ],
                 ),
@@ -1147,9 +1211,10 @@ class _HomeScreenState extends State<HomeScreen>
       body: TabBarView(
         controller: _tabCtl,
         children: [
-          _feedsTab(),
-          for (final f in _folders) _channelsTab(f),
-          _channelsTab(null),
+          _tabList(0, _feedsTab()),
+          for (final (i, f) in _folders.indexed)
+            _tabList(i + 1, _channelsTab(f)),
+          _tabList(_folders.length + 1, _channelsTab(null)),
         ],
       ),
     );

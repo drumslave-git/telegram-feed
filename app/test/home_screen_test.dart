@@ -215,14 +215,14 @@ void main() {
       expect(find.text('1 of 2 channels with news'), findsOneWidget);
       // A feed without news still names its channels, so its row keeps its height.
       expect(find.text('0 channels'), findsOneWidget);
-      // The badge of the Feeds tab counts Two's seven unread posts; the folder tab has one
-      // of its own (H-14).
+      // The badge of the Feeds tab counts the one channel with unread posts, not its
+      // seven posts; the folder tab has a badge of its own.
       final onFeedsTab = find.descendant(
         of: find.ancestor(of: find.text('Feeds'), matching: find.byType(Tab)),
         matching: find.byType(Badge),
       );
       expect(
-        find.descendant(of: onFeedsTab, matching: find.text('7')),
+        find.descendant(of: onFeedsTab, matching: find.text('1')),
         findsOneWidget,
       );
 
@@ -428,18 +428,21 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('a folder tab counts the unread posts, or the channels with '
-      'unread posts when the switch is off', (tester) async {
+  testWidgets('a tab counts the channels with unread posts, whatever the '
+      'switch says, and All channels has a counter too', (tester) async {
     await tester.pumpWidget(app());
     await settle(tester);
-    // The folder holds Two (7 unread) and One (fully read).
-    final onFolder = find.descendant(
-      of: find.ancestor(of: find.text('Work'), matching: find.byType(Tab)),
+    Finder badgeOn(String tab) => find.descendant(
+      of: find.ancestor(of: find.text(tab), matching: find.byType(Tab)),
       matching: find.byType(Badge),
     );
-    expect(onFolder, findsOneWidget);
+    // The folder holds Two (7 unread) and One (fully read): one channel with news.
     expect(
-      find.descendant(of: onFolder, matching: find.text('7')),
+      find.descendant(of: badgeOn('Work'), matching: find.text('1')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: badgeOn('All channels'), matching: find.text('1')),
       findsOneWidget,
     );
 
@@ -448,9 +451,64 @@ void main() {
     );
     await settle(tester);
     expect(
-      find.descendant(of: onFolder, matching: find.text('1')),
+      find.descendant(of: badgeOn('Work'), matching: find.text('1')),
       findsOneWidget,
     );
+
+    // Read, the channel leaves both counters.
+    gw.readCtl.add(
+      const ReadState(chatId: -2, lastReadMessageId: 200, unreadCount: 0),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(badgeOn('Work'), findsNothing);
+    expect(badgeOn('All channels'), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('a long press on All channels offers to mark everything read', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.longPress(find.text('All channels'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mark all as read'), findsOneWidget);
+    await tester.tap(find.text('Mark all as read'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    // Two had unread posts: Telegram was told its newest post is read.
+    expect(gw.markedViewed[-2], isNotNull);
+    expect(gw.readPositions[-2], 200);
+    await unmount(tester);
+  });
+
+  testWidgets('a tap on the open tab brings its list back to the top', (
+    tester,
+  ) async {
+    // Enough channels for the list to scroll.
+    gw = TimelineGateway(
+      const {},
+      channels: [
+        for (var i = 0; i < 40; i++)
+          Channel(chatId: -100 - i, title: 'Extra $i', lastMessageId: 1),
+      ],
+    );
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.tap(find.text('All channels'));
+    await tester.pumpAndSettle();
+    expect(find.text('Channels you archived in Telegram'), findsOneWidget);
+
+    await tester.drag(find.byType(ChannelList), const Offset(0, -1500));
+    await tester.pumpAndSettle();
+    expect(find.text('Channels you archived in Telegram'), findsNothing);
+
+    // The tab is open already: the tap scrolls, and changes no tab.
+    await tester.tap(find.text('All channels'));
+    await tester.pumpAndSettle();
+    expect(find.text('Channels you archived in Telegram'), findsOneWidget);
+    expect(find.byType(ChannelList), findsOneWidget);
     await unmount(tester);
   });
 

@@ -48,25 +48,23 @@ void main() {
     return c;
   }
 
-  test(
-    'the badge counts unread posts as Telegram does, album parts too',
-    () async {
-      final gw = twoChannels();
-      final feed = await fixtureFeed(
-        db,
-        'F',
-        {-1: 'One', -2: 'Two'},
-        marks: {-1: 6, -2: 3},
-        gateway: gw,
-      );
-      final c = await start(gw);
-      expect(c.countPosts, isTrue);
-      // One: 7 to 10. Two: post 4 and the three parts of the album.
-      expect(c.unreadOf(feed.id), 8);
-      expect(c.unreadChannelsOf(feed.id), 2);
-      expect(c.unreadOnTab, 8);
-    },
-  );
+  test('the badge counts unread posts as Telegram does, album parts too', () async {
+    final gw = twoChannels();
+    final feed = await fixtureFeed(
+      db,
+      'F',
+      {-1: 'One', -2: 'Two'},
+      marks: {-1: 6, -2: 3},
+      gateway: gw,
+    );
+    final c = await start(gw);
+    expect(c.countPosts, isTrue);
+    // One: 7 to 10. Two: post 4 and the three parts of the album.
+    expect(c.unreadOf(feed.id), 8);
+    expect(c.unreadChannelsOf(feed.id), 2);
+    // The tab counts the channels with unread posts, whatever the feeds count.
+    expect(c.unreadOnTab, 2);
+  });
 
   test('reading here or in the official app lowers every feed at once', () async {
     final gw = twoChannels();
@@ -235,10 +233,10 @@ void main() {
     // The read position lives in the gateway, so both feeds share it.
     final b = await fixtureFeed(db, 'B', {-1: 'One'});
     final c = await start(gw);
-    // Posts 7 to 10, in both feeds; the tab counts the channel, not the rows.
+    // Posts 7 to 10, in both feeds; the tab counts the channel, once.
     expect(c.unreadOf(a.id), 4);
     expect(c.unreadOf(b.id), 4);
-    expect(c.unreadOnTab, 4);
+    expect(c.unreadOnTab, 1);
   });
 
   test('the switch off counts channels', () async {
@@ -255,12 +253,13 @@ void main() {
     final c = await start(gw);
     expect(c.countPosts, isFalse);
     expect(c.unreadOf(feed.id), 1);
-    expect(c.unreadOnTab, 1); // feeds with news, not their posts
+    expect(c.unreadOnTab, 1); // the channels with news
 
+    // The switch changes what a feed counts, not what the tab counts.
     await db.setSetting(SettingKeys.countUnreadPosts, 'true');
     await settle();
     expect(c.unreadOf(feed.id), 4);
-    expect(c.unreadOnTab, 4);
+    expect(c.unreadOnTab, 1);
   });
 
   test('a filtered channel never read counts up to the cap', () async {

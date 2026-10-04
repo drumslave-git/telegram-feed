@@ -80,10 +80,10 @@ final class FeedsController extends ChangeNotifier {
   /// Channels of the feed with unread posts, whichever the badge counts.
   int unreadChannelsOf(int feedId) => _channels[feedId] ?? 0;
 
-  /// What the Feeds tab shows, counted per channel and not per feed: a channel that is in
-  /// several feeds would otherwise be counted once for each of them.
-  int get unreadOnTab => _countPosts ? _tabPosts : _tabChannels;
-  int _tabPosts = 0;
+  /// What the Feeds tab shows: the channels with unread posts, each once however many
+  /// feeds hold it. A tab counts channels whatever the Badge counter switch says, as the
+  /// official app's tabs count chats.
+  int get unreadOnTab => _tabChannels;
   int _tabChannels = 0;
 
   Future<void> refreshChannels() async {
@@ -267,7 +267,6 @@ final class FeedsController extends ChangeNotifier {
     }
     _posts = posts;
     _channels = channels;
-    _tabPosts = perChat.values.fold(0, (a, b) => a + b);
     _tabChannels = freshChats.length;
     notifyListeners();
   }

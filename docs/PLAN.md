@@ -4,7 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-48.
+**Current phase:** Parity with the official app. **Next task:** Q-49.
 
 ## Differences from the official app
 
@@ -15,7 +15,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Home, channel info and shared media
 
-- [ ] Q-48 "All channels" is the first tab; a tab's counter counts channels with unread posts; a tap on the active tab scrolls its list to the top; a long press on "All channels" marks everything read.
 - [ ] Q-49 A channel row shows up to three thumbnails of its newest post and "N photos" for an album, with the media label in the accent colour; a muted channel's counter is grey; counters print the whole number.
 - [ ] Q-50 A channel row is 70 dp high with a 52 dp photo and a divider, and shows the verified mark; a new post moves its row at once, animated.
 - [ ] Q-51 A long press on a channel row also offers "Mark as unread".
