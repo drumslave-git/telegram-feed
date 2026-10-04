@@ -402,12 +402,16 @@ final class CoreClient implements TelegramGateway {
     HistoryFilter filter = HistoryFilter.any,
     String offset = '',
     int limit = 30,
+    int minDate = 0,
+    int maxDate = 0,
   }) async {
     final m = (await _call('searchAllChannels', {
       'query': query,
       'filter': filter.name,
       'offset': offset,
       'limit': limit,
+      'minDate': minDate,
+      'maxDate': maxDate,
     })) as Map<Object?, Object?>;
     return GlobalSearchPage(
       posts: [

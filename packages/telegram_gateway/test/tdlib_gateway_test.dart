@@ -1081,6 +1081,14 @@ void main() {
     final sent = t.sent.lastWhere((r) => r['@type'] == 'searchMessages');
     expect(sent['chat_list'], isNull);
     expect(sent['query'], 'ledger');
+    expect(sent['min_date'], 0);
+    expect(sent['max_date'], 0);
+
+    // A span of days travels with the words.
+    await g.searchAllChannels(query: 'ledger', minDate: 1000, maxDate: 1999);
+    final dated = t.sent.lastWhere((r) => r['@type'] == 'searchMessages');
+    expect(dated['min_date'], 1000);
+    expect(dated['max_date'], 1999);
   });
 
   test(

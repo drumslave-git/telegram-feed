@@ -105,6 +105,29 @@ void main() {
     expect(links.posts, hasLength(2));
     final words = await tg.searchAllChannels(query: 'pier');
     expect(words.posts.map((p) => p.chatId).toSet(), {FakeChats.harbourTimes});
+
+    // A span of days keeps what was posted in it; neither words nor a kind finds
+    // nothing, as with Telegram.
+    final found = words.posts.first;
+    expect(
+      (await tg.searchAllChannels(
+        query: 'pier',
+        minDate: found.date,
+        maxDate: found.date,
+      )).posts.map((p) => p.messageId),
+      contains(found.messageId),
+    );
+    expect(
+      (await tg.searchAllChannels(
+        query: 'pier',
+        maxDate: found.date - 1,
+      )).posts.map((p) => p.messageId),
+      isNot(contains(found.messageId)),
+    );
+    expect(
+      (await tg.searchAllChannels(query: '', maxDate: found.date)).posts,
+      isEmpty,
+    );
   });
 
   test(

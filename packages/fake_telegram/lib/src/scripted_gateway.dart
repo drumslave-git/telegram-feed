@@ -257,6 +257,8 @@ class ChannelsGateway implements TelegramGateway {
     HistoryFilter filter = HistoryFilter.any,
     String offset = '',
     int limit = 30,
+    int minDate = 0,
+    int maxDate = 0,
   }) async => const GlobalSearchPage(posts: [], totalCount: 0, nextOffset: '');
   @override
   Future<List<Post>> pinnedPosts(int chatId) async => const [];
@@ -370,12 +372,25 @@ class TimelineGateway extends ChannelsGateway {
     HistoryFilter filter = HistoryFilter.any,
     String offset = '',
     int limit = 30,
+    int minDate = 0,
+    int maxDate = 0,
   }) async {
-    globalQueries.add('$query|$filter|$offset');
+    globalQueries.add(
+      minDate == 0 && maxDate == 0
+          ? '$query|$filter|$offset'
+          : '$query|$filter|$offset|$minDate-$maxDate',
+    );
+    // As TDLib: neither words nor a kind of post is no search at all.
+    if (query.isEmpty && filter == HistoryFilter.any) {
+      return const GlobalSearchPage(posts: [], totalCount: 0, nextOffset: '');
+    }
     final all = [
       for (final posts in histories.values)
         for (final p in posts)
-          if (p.text.toLowerCase().contains(query.toLowerCase())) p,
+          if (p.text.toLowerCase().contains(query.toLowerCase()) &&
+              (minDate == 0 || p.date >= minDate) &&
+              (maxDate == 0 || p.date <= maxDate))
+            p,
     ]..sort((a, b) => b.date.compareTo(a.date));
     // One page, then the end.
     return GlobalSearchPage(

@@ -382,6 +382,8 @@ final class CoreServer {
           filter: HistoryFilter.values.byName(a['filter'] as String),
           offset: a['offset'] as String,
           limit: a['limit'] as int,
+          minDate: (a['minDate'] as int?) ?? 0,
+          maxDate: (a['maxDate'] as int?) ?? 0,
         );
         return {
           'posts': page.posts.map(encodePost).toList(),

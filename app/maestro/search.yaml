@@ -27,10 +27,12 @@ appId: dev.telegramfeed.telegram_feed
 # Words are offered again once they led to a post.
 - tapOn: 'Clear'
 - assertVisible: 'pier'
+# Pictures and videos are a grid of tiles under their number.
 - tapOn: 'Media'
 - extendedWaitUntil:
-    visible: '(?s).*Test pattern from the harbour camera.*'
+    visible: '[0-9]+ posts found'
     timeout: 15000
+- assertNotVisible: '(?s).*Test pattern from the harbour camera.*'
 - tapOn: 'Links'
 - extendedWaitUntil:
     visible: '(?s).*tide tables.*'

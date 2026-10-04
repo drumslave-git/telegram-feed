@@ -788,6 +788,12 @@ abstract class AppLocalizations {
   /// **'Type to search the posts.'**
   String get searchTypeToSearch;
 
+  /// No description provided for @searchNothingFoundPlain.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing found.'**
+  String get searchNothingFoundPlain;
+
   /// No description provided for @searchNothingFound.
   ///
   /// In en, this message translates to:

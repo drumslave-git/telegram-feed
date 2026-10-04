@@ -19,7 +19,19 @@ final class FeedSearch {
     this.feedFilter = FeedFilter.none,
     this.pageSize = 30,
     this.sourceLimit = 30,
+    this.minDate = 0,
+    this.maxDate = 0,
   }) : _sources = [for (final id in chatIds) _Source(id)];
+
+  /// The span of time to search, in unix seconds; 0 for an open end. With [maxDate] every
+  /// source starts at its newest post no later than it, and a source ends where its posts
+  /// get older than [minDate].
+  final int minDate;
+  final int maxDate;
+
+  /// True when a span of time is searched: Telegram's counts are of whole channels then
+  /// and say nothing about it.
+  bool get windowed => minDate > 0 || maxDate > 0;
 
   final TelegramGateway gateway;
 
@@ -51,8 +63,9 @@ final class FeedSearch {
 
   /// Telegram's approximate number of matches over all sources. It counts what the server
   /// matched, so a feed filter can only make the real number smaller; once [exhausted],
-  /// `results.length` is exact.
+  /// `results.length` is exact. -1 while a span of time is searched.
   int get totalCount {
+    if (windowed) return -1;
     var sum = 0;
     for (final s in _sources) {
       if (s.total > 0) sum += s.total;
@@ -62,6 +75,17 @@ final class FeedSearch {
 
   Future<void> _fill(_Source s) async {
     if (s.exhausted || s.buffer.isNotEmpty) return;
+    if (maxDate > 0 && !s.anchored) {
+      s.anchored = true;
+      final newest = await gateway.messageIdByDate(s.chatId, maxDate);
+      // Nothing that old: the channel has no post in the span.
+      if (newest == 0) {
+        s.exhausted = true;
+        return;
+      }
+      // A page holds posts older than its bound, so the bound is just past that post.
+      s.from = newest + 1;
+    }
     final page = await gateway.searchHistory(
       s.chatId,
       query: query,
@@ -70,8 +94,17 @@ final class FeedSearch {
       limit: sourceLimit,
     );
     if (page.totalCount > 0 && s.total == 0) s.total = page.totalCount;
-    s.buffer.addAll(page.posts);
-    if (page.isLast || page.posts.isEmpty) {
+    var past = false;
+    for (final post in page.posts) {
+      if (maxDate > 0 && post.date > maxDate) continue;
+      // Older than the span: so is everything after it.
+      if (minDate > 0 && post.date < minDate) {
+        past = true;
+        break;
+      }
+      s.buffer.add(post);
+    }
+    if (past || page.isLast || page.posts.isEmpty) {
       s.exhausted = true;
     } else {
       s.from = page.nextFromMessageId;
@@ -126,6 +159,9 @@ class _Source {
   /// Where the next request starts; 0 = newest.
   int from = 0;
   int total = 0;
+
+  /// The start inside a span of time has been looked up.
+  bool anchored = false;
   bool exhausted = false;
   final buffer = Queue<Post>();
 }

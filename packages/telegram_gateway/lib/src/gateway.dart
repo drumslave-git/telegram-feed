@@ -125,11 +125,15 @@ abstract interface class TelegramGateway {
 
   /// Searches the posts of every channel the account follows at once (TDLib's own search
   /// over all chats, filtered down to channels). [offset] comes from the previous page.
+  /// [minDate] and [maxDate] (unix seconds, 0 for none) keep the posts of a span of time.
+  /// TDLib answers nothing when there are neither words nor a kind of post.
   Future<GlobalSearchPage> searchAllChannels({
     required String query,
     HistoryFilter filter = HistoryFilter.any,
     String offset = '',
     int limit = 30,
+    int minDate = 0,
+    int maxDate = 0,
   });
 
   /// TDLib's connection, so a screen can say "Connecting..." instead of looking empty.

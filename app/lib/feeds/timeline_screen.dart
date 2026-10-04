@@ -543,6 +543,8 @@ class _TimelineScreenState extends State<TimelineScreen> {
                               onOpen: (i) => unawaited(_openResult(i)),
                               onLoadMore: () => unawaited(_loadMoreResults()),
                               query: _queryCtl.text,
+                              kind: _searchFilter,
+                              searched: session != null,
                               loading: session?.loading ?? false,
                               exhausted: session?.exhausted ?? false,
                               total: session?.total ?? -1,

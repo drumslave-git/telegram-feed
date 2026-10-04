@@ -4,9 +4,11 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../home/channel_list.dart' show ChannelAvatar, formatListDate;
 import '../l10n/l10n.dart';
+import '../media/media_viewer.dart';
 import '../widgets/error_state.dart';
 import 'formatted_text.dart' show foundRanges;
 import 'post_card.dart' show peerColor;
+import 'shared_media.dart' show FileRow, LinkRow, MediaRow, MediaTile;
 
 /// The chips under a search bar: what kind of post to look for, as the official app offers
 /// inside its search. "Everything" is the plain text search.
@@ -15,9 +17,13 @@ class SearchFilterChips extends StatelessWidget {
     super.key,
     required this.filter,
     required this.onChanged,
+    this.leading,
   });
   final HistoryFilter filter;
   final ValueChanged<HistoryFilter> onChanged;
+
+  /// What stands before the kinds: the span of days the search is narrowed to.
+  final Widget? leading;
 
   /// The kinds of post the chips offer, in their order.
   static const _filters = [
@@ -44,6 +50,8 @@ class SearchFilterChips extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     child: Row(
       children: [
+        if (leading != null)
+          Padding(padding: const EdgeInsets.only(right: 6), child: leading),
         for (final f in _filters)
           Padding(
             padding: const EdgeInsets.only(right: 6),
@@ -73,6 +81,8 @@ class SearchResults extends StatelessWidget {
     required this.onOpen,
     required this.onLoadMore,
     this.query = '',
+    this.kind = HistoryFilter.any,
+    this.searched = false,
     this.loading = false,
     this.exhausted = false,
     this.total = -1,
@@ -91,6 +101,13 @@ class SearchResults extends StatelessWidget {
   final void Function(int index) onOpen;
   final VoidCallback onLoadMore;
   final String query;
+
+  /// The kind of post that was looked for. Each kind is listed the way the official app
+  /// lists it: pictures and videos as a grid, files, links and audio as their own rows.
+  final HistoryFilter kind;
+
+  /// A search has run, with words or without (a kind of post, a span of days).
+  final bool searched;
   final bool loading;
   final bool exhausted;
 
@@ -112,6 +129,7 @@ class SearchResults extends StatelessWidget {
     // Nothing typed yet: the words searched for last, as the official app offers them.
     if (results.isEmpty &&
         query.trim().isEmpty &&
+        !searched &&
         recent.isNotEmpty &&
         onRecent != null) {
       return ListView(
@@ -159,56 +177,26 @@ class SearchResults extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Text(
-            query.trim().isEmpty
-                ? l10n.searchTypeToSearch
-                : l10n.searchNothingFound(query),
+            query.trim().isNotEmpty
+                ? l10n.searchNothingFound(query)
+                : searched
+                ? l10n.searchNothingFoundPlain
+                : l10n.searchTypeToSearch,
             textAlign: TextAlign.center,
           ),
         ),
       );
     }
     final found = exhausted || total < 0 ? results.length : total;
+    if (kind != HistoryFilter.any) return _byKind(context, found);
     return ListView.builder(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       // A head row that says how many there are, as the official app does.
       itemCount: results.length + 2,
       itemBuilder: (context, row) {
-        if (row == 0) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Text(
-              l10n.searchPostsFound(found),
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          );
-        }
+        if (row == 0) return _head(context, found);
         final i = row - 1;
-        if (i == results.length) {
-          if (!exhausted && error == null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => onLoadMore());
-          }
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Center(
-              child: exhausted
-                  ? const SizedBox.shrink()
-                  : error != null
-                  ? ErrorState(
-                      what: l10n.searchMoreFailed,
-                      message: error,
-                      compact: true,
-                      onRetry: onLoadMore,
-                    )
-                  : const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-            ),
-          );
-        }
+        if (i == results.length) return _more(context);
         final post = results[i];
         final channel = look(post.chatId);
         return SearchResultTile(
@@ -221,6 +209,154 @@ class SearchResults extends StatelessWidget {
           onTap: () => onOpen(i),
         );
       },
+    );
+  }
+
+  /// How many were found, over the results.
+  Widget _head(BuildContext context, int found) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+    child: Text(
+      context.l10n.searchPostsFound(found),
+      style: Theme.of(context).textTheme.labelMedium
+          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+    ),
+  );
+
+  /// Under the results: the next page on its way, asked for when this is built.
+  Widget _more(BuildContext context) {
+    if (!exhausted && error == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => onLoadMore());
+    }
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Center(
+        child: exhausted
+            ? const SizedBox.shrink()
+            : error != null
+            ? ErrorState(
+                what: context.l10n.searchMoreFailed,
+                message: error,
+                compact: true,
+                onRetry: onLoadMore,
+              )
+            : const SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+      ),
+    );
+  }
+
+  /// The results of a kind of post in that kind's own layout, as the shared media tabs
+  /// draw them. A tap does what the item does (opens the picture, the file, the link,
+  /// plays the audio); a long press goes to the post.
+  Widget _byKind(BuildContext context, int found) {
+    if (kind == HistoryFilter.photoAndVideo) {
+      return CustomScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        slivers: [
+          SliverToBoxAdapter(child: _head(context, found)),
+          SliverPadding(
+            padding: const EdgeInsets.all(2),
+            sliver: SliverGrid.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisSpacing: 2,
+                crossAxisSpacing: 2,
+              ),
+              itemCount: results.length,
+              itemBuilder: (context, i) => GestureDetector(
+                onLongPress: () => onOpen(i),
+                child: MediaTile(
+                  post: results[i],
+                  gateway: gateway,
+                  onTap: () => _openViewer(context, i),
+                ),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(child: _more(context)),
+        ],
+      );
+    }
+    final theme = Theme.of(context);
+    return ListView.builder(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      itemCount: results.length + 2,
+      itemBuilder: (context, row) {
+        if (row == 0) return _head(context, found);
+        final i = row - 1;
+        if (i == results.length) return _more(context);
+        final post = results[i];
+        final media = post.media;
+        final title = look(post.chatId).title;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onLongPress: () => onOpen(i),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Whose it is: the rows of several channels stand under one another.
+              if (title.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: peerColor(post.chatId, theme.brightness),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              if (kind == HistoryFilter.url)
+                LinkRow(post: post)
+              else if (media is DocumentMedia)
+                FileRow(post: post, media: media, gateway: gateway)
+              else
+                MediaRow(post: post, gateway: gateway),
+              const Divider(height: 1),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// The picture or video at [index] in the viewer, which pages through everything that
+  /// was found.
+  void _openViewer(BuildContext context, int index) {
+    final items = <Media>[];
+    final details = <ViewerDetail>[];
+    var initial = 0;
+    for (var i = 0; i < results.length; i++) {
+      final p = results[i];
+      final media = p.media;
+      if (media == null) continue;
+      final shown = MediaViewerScreen.viewable([media]);
+      if (i == index) initial = items.length;
+      items.addAll(shown);
+      details.addAll(
+        List.filled(
+          shown.length,
+          ViewerDetail(
+            channel: look(p.chatId).title,
+            date: p.date,
+            caption: p.text,
+            postKey: '${p.chatId}:${p.messageId}',
+            protected: !p.canBeSaved,
+          ),
+        ),
+      );
+    }
+    if (items.isEmpty) return;
+    MediaViewerScreen.open(
+      context,
+      items: items,
+      gateway: gateway,
+      initialIndex: initial,
+      details: details,
     );
   }
 }
@@ -459,33 +595,64 @@ final class GlobalSearchSession {
     required this.gateway,
     required this.query,
     this.filter = HistoryFilter.any,
-  });
+    this.minDate = 0,
+    this.maxDate = 0,
+    List<int> chatIds = const [],
+  }) : _byChannel =
+           query.trim().isEmpty &&
+               filter == HistoryFilter.any &&
+               (minDate > 0 || maxDate > 0)
+           ? FeedSearch(gateway, chatIds, minDate: minDate, maxDate: maxDate)
+           : null;
   final TelegramGateway gateway;
   final String query;
   final HistoryFilter filter;
 
-  final results = <Post>[];
+  /// The span of days searched, in unix seconds; 0 for an open end.
+  final int minDate;
+  final int maxDate;
+
+  /// A span of days with neither words nor a kind of post: Telegram's search over all
+  /// chats answers nothing to that, so the channels are read one by one and merged.
+  final FeedSearch? _byChannel;
+
+  final _found = <Post>[];
+  List<Post> get results => _byChannel?.results ?? _found;
   String _offset = '';
   bool exhausted = false;
   bool loading = false;
   String? error;
   int _total = 0;
 
-  /// Telegram's estimate while more can come, the exact number once it cannot.
-  int get total => exhausted ? results.length : _total;
+  /// Telegram's estimate while more can come, the exact number once it cannot; -1 where
+  /// it gives none.
+  int get total => exhausted
+      ? results.length
+      : _byChannel != null
+      ? -1
+      : _total;
 
   /// Loads the next page. True when the screen should rebuild.
   Future<bool> loadMore() async {
     if (loading || exhausted) return false;
     loading = true;
     try {
+      final byChannel = _byChannel;
+      if (byChannel != null) {
+        await byChannel.loadMore();
+        error = null;
+        exhausted = byChannel.exhausted;
+        return true;
+      }
       final page = await gateway.searchAllChannels(
         query: query,
         filter: filter,
         offset: _offset,
+        minDate: minDate,
+        maxDate: maxDate,
       );
       error = null;
-      results.addAll(page.posts);
+      _found.addAll(page.posts);
       if (page.totalCount >= 0) _total = page.totalCount;
       _offset = page.nextOffset;
       if (page.nextOffset.isEmpty) exhausted = true;

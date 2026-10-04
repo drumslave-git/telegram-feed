@@ -298,6 +298,7 @@
   "searchRecent": "Recent searches",
   "searchFailed": "Could not search.",
   "searchTypeToSearch": "Type to search the posts.",
+  "searchNothingFoundPlain": "Nothing found.",
   "searchNothingFound": "Nothing found for \"{query}\".",
   "@searchNothingFound": {
     "placeholders": {

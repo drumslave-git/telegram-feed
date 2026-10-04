@@ -436,6 +436,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchTypeToSearch => 'Type to search the posts.';
 
   @override
+  String get searchNothingFoundPlain => 'Nothing found.';
+
+  @override
   String searchNothingFound(String query) {
     return 'Nothing found for \"$query\".';
   }

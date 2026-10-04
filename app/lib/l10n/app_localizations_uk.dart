@@ -454,6 +454,9 @@ class AppLocalizationsUk extends AppLocalizations {
   String get searchTypeToSearch => 'Введіть запит, щоб шукати дописи.';
 
   @override
+  String get searchNothingFoundPlain => 'Нічого не знайдено.';
+
+  @override
   String searchNothingFound(String query) {
     return 'За запитом «$query» нічого не знайдено.';
   }

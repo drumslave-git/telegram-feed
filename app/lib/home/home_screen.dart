@@ -9,6 +9,7 @@ import '../feeds/feed_editor_screen.dart';
 import '../feeds/feeds_screen.dart' show FeedsController;
 import '../feeds/mark_read.dart';
 import '../feeds/recent_searches.dart';
+import '../feeds/search_dates.dart';
 import '../feeds/timeline_search.dart';
 import '../feeds/timeline_screen.dart';
 import 'channel_info_screen.dart';
@@ -76,6 +77,9 @@ class _HomeScreenState extends State<HomeScreen>
   GlobalSearchSession? _session;
   HistoryFilter _searchFilter = HistoryFilter.any;
   List<String> _recent = const [];
+
+  /// The span of days the search is narrowed to, picked from what the typed words offer.
+  DateSpan? _date;
 
   @override
   void initState() {
@@ -150,7 +154,22 @@ class _HomeScreenState extends State<HomeScreen>
       _searchOpen = false;
       _session = null;
       _searchFilter = HistoryFilter.any;
+      _date = null;
     });
+  }
+
+  /// A typed date was picked: it leaves the field and becomes the span that is searched,
+  /// as in the official app.
+  void _pickDate(DateSpan span) {
+    _debounce?.cancel();
+    _queryCtl.clear();
+    setState(() => _date = span);
+    unawaited(_startSearch(''));
+  }
+
+  void _clearDate() {
+    setState(() => _date = null);
+    unawaited(_startSearch(_queryCtl.text));
   }
 
   void _setSearchFilter(HistoryFilter filter) {
@@ -165,12 +184,15 @@ class _HomeScreenState extends State<HomeScreen>
       const Duration(milliseconds: 300),
       () => unawaited(_startSearch(value)),
     );
+    // What the words may mean as a date is offered as they are typed.
+    setState(() {});
   }
 
   Future<void> _startSearch(String value) async {
     final query = value.trim();
     // A kind of post on its own is a search too: "every file of my channels".
-    if (query.isEmpty && _searchFilter == HistoryFilter.any) {
+    final date = _date;
+    if (query.isEmpty && _searchFilter == HistoryFilter.any && date == null) {
       setState(() => _session = null);
       return;
     }
@@ -178,6 +200,11 @@ class _HomeScreenState extends State<HomeScreen>
       gateway: widget.gateway,
       query: query,
       filter: _searchFilter,
+      minDate: date?.minDate ?? 0,
+      maxDate: date?.maxDate ?? 0,
+      chatIds: [
+        for (final c in [..._channels, ..._archived]) c.chatId,
+      ],
     );
     setState(() => _session = session);
     await session.loadMore();
@@ -810,6 +837,17 @@ class _HomeScreenState extends State<HomeScreen>
     final byId = {
       for (final c in [..._archived, ..._channels]) c.chatId: c,
     };
+    final l10n = context.l10n;
+    final date = _date;
+    // The days the typed words may mean, offered until one is picked.
+    final spans = date != null
+        ? const <DateSpan>[]
+        : dateSpans(
+            _queryCtl.text,
+            today: l10n.postDayToday,
+            yesterday: l10n.postDayYesterday,
+            locale: l10n.localeName == 'en' ? 'en_US' : l10n.localeName,
+          );
     return Scaffold(
       appBar: AppBar(
         leading: BackButton(onPressed: _closeSearch),
@@ -840,30 +878,66 @@ class _HomeScreenState extends State<HomeScreen>
           child: SearchFilterChips(
             filter: _searchFilter,
             onChanged: _setSearchFilter,
+            leading: date == null
+                ? null
+                : InputChip(
+                    avatar: const Icon(Icons.calendar_today, size: 16),
+                    label: Text(date.label),
+                    onDeleted: _clearDate,
+                  ),
           ),
         ),
       ),
-      body: SearchResults(
-        results: session?.results ?? const [],
-        gateway: widget.gateway,
-        look: (chatId) =>
-            (title: byId[chatId]?.title ?? '', photo: byId[chatId]?.photo),
-        onOpen: _openResult,
-        onLoadMore: () => unawaited(_loadMoreResults()),
-        query: _queryCtl.text,
-        loading: session?.loading ?? false,
-        exhausted: session?.exhausted ?? false,
-        total: session?.total ?? -1,
-        error: session?.error,
-        recent: _recent,
-        onRecent: (words) {
-          _queryCtl.text = words;
-          unawaited(_startSearch(words));
-        },
-        onClearRecent: () async {
-          await RecentSearches(widget.db).clear();
-          if (mounted) setState(() => _recent = const []);
-        },
+      body: Column(
+        children: [
+          if (spans.isNotEmpty)
+            SizedBox(
+              height: 48,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                children: [
+                  for (final span in spans)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: ActionChip(
+                        avatar: const Icon(Icons.calendar_today, size: 16),
+                        label: Text(span.label),
+                        onPressed: () => _pickDate(span),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: SearchResults(
+              results: session?.results ?? const [],
+              gateway: widget.gateway,
+              look: (chatId) => (
+                title: byId[chatId]?.title ?? '',
+                photo: byId[chatId]?.photo,
+              ),
+              onOpen: _openResult,
+              onLoadMore: () => unawaited(_loadMoreResults()),
+              query: _queryCtl.text,
+              kind: _searchFilter,
+              searched: session != null,
+              loading: session?.loading ?? false,
+              exhausted: session?.exhausted ?? false,
+              total: session?.total ?? -1,
+              error: session?.error,
+              recent: _recent,
+              onRecent: (words) {
+                _queryCtl.text = words;
+                unawaited(_startSearch(words));
+              },
+              onClearRecent: () async {
+                await RecentSearches(widget.db).clear();
+                if (mounted) setState(() => _recent = const []);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

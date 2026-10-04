@@ -178,6 +178,8 @@ final class ScriptedGateway implements TelegramGateway {
     HistoryFilter filter = HistoryFilter.any,
     String offset = '',
     int limit = 30,
+    int minDate = 0,
+    int maxDate = 0,
   }) async => const GlobalSearchPage(posts: [], totalCount: 0, nextOffset: '');
   @override
   Future<List<Post>> pinnedPosts(int chatId) async => const [];

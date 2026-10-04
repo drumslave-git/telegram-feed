@@ -131,6 +131,47 @@ void main() {
     expect(tab.results.map((p) => p.messageId), [49]);
   });
 
+  test(
+    'a span of time keeps what was posted in it, with or without words',
+    () async {
+      final g = HistoryGateway({
+        -1: [
+          p(-1, 50, 500, text: 'rain in Berlin'),
+          p(-1, 40, 300, text: 'sun'),
+          p(-1, 30, 100, text: 'rain again'),
+        ],
+        -2: [
+          p(-2, 60, 400, text: 'RAIN over Prague'),
+          p(-2, 20, 50, text: 'clouds'),
+        ],
+        // Everything this channel has is newer than the span.
+        -3: [p(-3, 70, 900, text: 'rain later')],
+      });
+      // No words: everything of the span, merged.
+      final all = FeedSearch(g, [-1, -2, -3], minDate: 100, maxDate: 400);
+      await all.loadMore();
+      expect(all.results.map((p) => p.messageId), [60, 40, 30]);
+      expect(all.exhausted, isTrue);
+      // Telegram counts whole channels, which says nothing about a span.
+      expect(all.totalCount, -1);
+
+      final words = FeedSearch(
+        g,
+        [-1, -2, -3],
+        query: 'rain',
+        minDate: 100,
+        maxDate: 450,
+      );
+      await words.loadMore();
+      expect(words.results.map((p) => p.messageId), [60, 30]);
+
+      // An open start: everything up to the date.
+      final upTo = FeedSearch(g, [-1, -2], maxDate: 100);
+      await upTo.loadMore();
+      expect(upTo.results.map((p) => p.messageId), [30, 20]);
+    },
+  );
+
   test('a deleted post leaves the results', () async {
     final g = HistoryGateway({
       -1: [p(-1, 50, 500, text: 'rain'), p(-1, 40, 400, text: 'rain')],

@@ -1140,6 +1140,8 @@ final class TdlibGateway implements TelegramGateway {
     HistoryFilter filter = HistoryFilter.any,
     String offset = '',
     int limit = 30,
+    int minDate = 0,
+    int maxDate = 0,
   }) async {
     final r = await _client.call(
       td.SearchMessages(
@@ -1150,8 +1152,8 @@ final class TdlibGateway implements TelegramGateway {
         limit: limit,
         filter: map.searchFilter(filter),
         chatTypeFilter: const td.SearchMessagesChatTypeFilterChannel(),
-        minDate: 0,
-        maxDate: 0,
+        minDate: minDate,
+        maxDate: maxDate,
       ),
     );
     // Channels the account left, or chats that are not channels at all, are not ours.

@@ -959,12 +959,16 @@ final class FakeTelegram extends TimelineGateway {
     HistoryFilter filter = HistoryFilter.any,
     String offset = '',
     int limit = 30,
+    int minDate = 0,
+    int maxDate = 0,
   }) async {
     final page = await super.searchAllChannels(
       query: query,
       filter: filter,
       offset: offset,
       limit: limit,
+      minDate: minDate,
+      maxDate: maxDate,
     );
     final kept = page.posts
         .where((p) => p.chatId != FakeChats.savedMessages && _passes(p, filter))

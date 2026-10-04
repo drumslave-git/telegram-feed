@@ -115,6 +115,7 @@
   "searchRecent": "Недавні пошуки",
   "searchFailed": "Не вдалося виконати пошук.",
   "searchTypeToSearch": "Введіть запит, щоб шукати дописи.",
+  "searchNothingFoundPlain": "Нічого не знайдено.",
   "searchNothingFound": "За запитом «{query}» нічого не знайдено.",
   "searchPostsFound": "{count, plural, one{Знайдено {count} допис} few{Знайдено {count} дописи} many{Знайдено {count} дописів} other{Знайдено {count} допису}}",
   "searchMoreFailed": "Не вдалося завантажити інші результати.",
