@@ -1006,13 +1006,27 @@ class _HoldHint extends StatelessWidget {
 /// The slider on top of the speed menu: any speed from the slowest to the fastest, with
 /// the speed it stands on beside it. The video follows it while it is dragged.
 class SpeedSlider extends StatefulWidget {
-  const SpeedSlider({super.key, required this.speed, required this.onChanged});
+  const SpeedSlider({
+    super.key,
+    required this.speed,
+    required this.onChanged,
+    this.min = slowest,
+    this.max = fastest,
+    this.label = speedLabel,
+    this.color = Colors.white,
+  });
   final double speed;
   final ValueChanged<double> onChanged;
 
-  /// The ends of the slider, as the official menu's.
-  static const min = 0.2;
-  static const max = 2.5;
+  /// The ends of the slider; a video's are the official menu's.
+  final double min;
+  final double max;
+  static const slowest = 0.2;
+  static const fastest = 2.5;
+
+  /// How the speed beside the slider is written, and in what colour.
+  final String Function(double speed) label;
+  final Color color;
 
   /// The speeds the menu names under the slider.
   static const choices = [0.2, 0.5, 1.0, 1.5, 2.0];
@@ -1022,7 +1036,7 @@ class SpeedSlider extends StatefulWidget {
 }
 
 class _SpeedSliderState extends State<SpeedSlider> {
-  late double _speed = widget.speed.clamp(SpeedSlider.min, SpeedSlider.max);
+  late double _speed = widget.speed.clamp(widget.min, widget.max);
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -1033,10 +1047,10 @@ class _SpeedSliderState extends State<SpeedSlider> {
         SizedBox(
           width: 150,
           child: Slider(
-            min: SpeedSlider.min,
-            max: SpeedSlider.max,
+            min: widget.min,
+            max: widget.max,
             value: _speed,
-            semanticFormatterCallback: speedLabel,
+            semanticFormatterCallback: widget.label,
             onChanged: (v) {
               // In tenths, as the label says it.
               final speed = (v * 10).round() / 10;
@@ -1049,9 +1063,9 @@ class _SpeedSliderState extends State<SpeedSlider> {
         SizedBox(
           width: 36,
           child: Text(
-            speedLabel(_speed),
+            widget.label(_speed),
             textAlign: TextAlign.end,
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: widget.color),
           ),
         ),
       ],

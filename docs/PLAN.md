@@ -4,7 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-59.
+**Current phase:** Parity with the official app. **Next task:** Q-60.
 
 ## Differences from the official app
 
@@ -12,7 +12,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Media
 
-- [ ] Q-59 The audio bar sits under the header; a tap opens a player (seek, speed, previous and next, repeat and shuffle, the playlist) for music and goes to the post for a voice message; a long press on the speed offers 0.5× to 2× and a slider; voice and music keep separate speeds.
 - [ ] Q-74 Voice messages and music show on the lock screen and in a notification, and answer the headset's buttons.
 - [ ] Q-60 Save to gallery takes the whole album; a round video that scrolls away keeps playing in a floating window.
 
@@ -45,6 +44,7 @@ Built and covered by tests, not yet used on the emulator.
 - [ ] V-10 Holding a finger on a video: 2× and the slide on a short video, rewinding on the left third (the picture walking back), the steps on a video of more than three minutes, sound and speed after lifting; the speed menu's slider and 0.2×.
 - [ ] V-11 Floating player: pinch, throw off both sides, tap for the buttons, double tap on each half, the place and size after reopening. Android's picture-in-picture window: the pause and play button, its icon following the state, on Android 12 or later and on an image older than 12.
 - [ ] V-12 Sound: a voice message plays on to the next one and stops after the newest; music plays on; a video pauses a playing track and closing the viewer, and closing the floating player, plays it on; a track paused by hand stays paused.
+- [ ] V-13 Audio bar: under the header on the home screen, a timeline and Settings, together with the pause line; the tap to the post of a voice message from another screen; the music player (seek, previous, next, repeat, shuffle, the list); the long press on the speed; a voice message at 2× followed by music at 1×; light, dark and Ukrainian.
 - [ ] V-3 Chat settings: drag the text size slider from 12 to 30 and watch the post under it, in light and dark and in Ukrainian.
 
 ## Phase 4 — Extras

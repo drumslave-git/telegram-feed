@@ -4,16 +4,21 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/l10n.dart';
+import '../media/audio_bar.dart';
+import '../media/audio_session.dart';
 import '../media/media_viewer.dart' show MediaViewerScreen;
 import '../service/reading_now.dart';
 
 /// Keeps a banner under the header of every screen while a post is read aloud (Stop, Stop
-/// and clear queue) or while notifications are paused (Resume). It is the app's
-/// [ScaffoldMessenger]'s material banner, which every screen's [Scaffold] shows below its
-/// app bar. Reading wins while both hold: Listen still reads during a pause. The words
-/// follow the state without the banner being shown again; it comes and goes only when
-/// what it is about changes. The full-screen viewer has the whole screen, so the banner
-/// waits under it.
+/// and clear queue), while notifications are paused (Resume), and while a voice message
+/// or music plays (the [AudioBar], as the official app keeps its player bar under the
+/// header). It is the app's [ScaffoldMessenger]'s material banner, which every screen's
+/// [Scaffold] shows below its app bar; there is one such banner at a time, so the audio
+/// bar and the line about reading or the pause share it, the bar on top. Reading wins
+/// over the pause while both hold: Listen still reads during a pause. The words follow
+/// the state without the banner being shown again; it comes and goes only when what it
+/// is about changes. The full-screen viewer has the whole screen, so the banner waits
+/// under it.
 class StatusBannerHost extends StatefulWidget {
   const StatusBannerHost({
     super.key,
@@ -22,7 +27,11 @@ class StatusBannerHost extends StatefulWidget {
     required this.onStop,
     required this.onResume,
     required this.child,
+    this.audio,
   });
+
+  /// The app's one sound; tests hand in their own.
+  final AudioSessions? audio;
 
   final ValueListenable<ReadingNow?> reading;
   final ValueListenable<bool> paused;
@@ -37,10 +46,12 @@ class StatusBannerHost extends StatefulWidget {
 enum _Banner { none, reading, paused }
 
 class _StatusBannerHostState extends State<StatusBannerHost> {
-  _Banner _shown = _Banner.none;
+  ({_Banner status, bool audio}) _shown = (status: _Banner.none, audio: false);
+  late final AudioSessions _audio = widget.audio ?? AudioSessions.instance;
   late final Listenable _state = Listenable.merge([
     widget.reading,
     widget.paused,
+    _audio.track,
     MediaViewerScreen.showing,
   ]);
 
@@ -57,11 +68,18 @@ class _StatusBannerHostState extends State<StatusBannerHost> {
     super.dispose();
   }
 
-  _Banner get _wanted {
-    if (MediaViewerScreen.showing.value > 0) return _Banner.none;
-    if (widget.reading.value != null) return _Banner.reading;
-    if (widget.paused.value) return _Banner.paused;
-    return _Banner.none;
+  ({_Banner status, bool audio}) get _wanted {
+    if (MediaViewerScreen.showing.value > 0) {
+      return (status: _Banner.none, audio: false);
+    }
+    return (
+      status: widget.reading.value != null
+          ? _Banner.reading
+          : widget.paused.value
+          ? _Banner.paused
+          : _Banner.none,
+      audio: _audio.track.value != null,
+    );
   }
 
   void _update() {
@@ -72,7 +90,11 @@ class _StatusBannerHostState extends State<StatusBannerHost> {
     if (messenger == null) return;
     _shown = wanted;
     messenger.removeCurrentMaterialBanner();
-    switch (wanted) {
+    if (wanted.audio) {
+      messenger.showMaterialBanner(_audioBanner(wanted.status));
+      return;
+    }
+    switch (wanted.status) {
       case _Banner.none:
         break;
       case _Banner.reading:
@@ -81,6 +103,89 @@ class _StatusBannerHostState extends State<StatusBannerHost> {
         messenger.showMaterialBanner(_pausedBanner());
     }
   }
+
+  /// The audio bar, and under it the line about reading or the pause when one holds.
+  MaterialBanner _audioBanner(_Banner status) => MaterialBanner(
+    padding: EdgeInsets.zero,
+    leadingPadding: EdgeInsets.zero,
+    minActionBarHeight: 0,
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ValueListenableBuilder<AudioTrack?>(
+          valueListenable: _audio.track,
+          // The track changes under the bar as the queue plays on.
+          builder: (context, track, _) => track == null
+              ? const SizedBox(height: 52)
+              : AudioBar(track: track, sessions: _audio),
+        ),
+        if (status == _Banner.reading)
+          _line(
+            Icons.record_voice_over_outlined,
+            ValueListenableBuilder<ReadingNow?>(
+              valueListenable: widget.reading,
+              builder: (context, now, _) => Text(
+                readingLine(now, context.l10n),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            [
+              TextButton(
+                onPressed: () => widget.onStop(clear: false),
+                child: Builder(
+                  builder: (context) => Text(context.l10n.bannerStop),
+                ),
+              ),
+              TextButton(
+                onPressed: () => widget.onStop(clear: true),
+                child: Builder(
+                  builder: (context) =>
+                      Text(context.l10n.bannerStopAndClearQueue),
+                ),
+              ),
+            ],
+          ),
+        if (status == _Banner.paused)
+          _line(
+            Icons.notifications_off_outlined,
+            Builder(builder: (context) => Text(context.l10n.bannerPaused)),
+            [
+              TextButton(
+                onPressed: widget.onResume,
+                child: Builder(
+                  builder: (context) => Text(context.l10n.bannerResume),
+                ),
+              ),
+            ],
+          ),
+      ],
+    ),
+    // A banner must have one; the bar carries its own buttons.
+    actions: const [SizedBox.shrink()],
+  );
+
+  /// A line of the shared banner: what it is about, and its buttons under the words.
+  Widget _line(IconData icon, Widget words, List<Widget> actions) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(icon),
+            const SizedBox(width: 16),
+            Expanded(child: words),
+          ],
+        ),
+        Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: Wrap(children: actions),
+        ),
+      ],
+    ),
+  );
 
   MaterialBanner _readingBanner() => MaterialBanner(
     leading: const Icon(Icons.record_voice_over_outlined),

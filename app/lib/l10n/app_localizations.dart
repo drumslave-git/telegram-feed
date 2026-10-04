@@ -4844,6 +4844,60 @@ abstract class AppLocalizations {
   /// **'Speed'**
   String get playerSpeed;
 
+  /// No description provided for @audioPrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous'**
+  String get audioPrevious;
+
+  /// No description provided for @audioNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get audioNext;
+
+  /// No description provided for @audioRepeatOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat: off'**
+  String get audioRepeatOff;
+
+  /// No description provided for @audioRepeatAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat: the whole list'**
+  String get audioRepeatAll;
+
+  /// No description provided for @audioRepeatOne.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat: this track'**
+  String get audioRepeatOne;
+
+  /// No description provided for @audioShuffleOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Shuffle: on'**
+  String get audioShuffleOn;
+
+  /// No description provided for @audioShuffleOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Shuffle: off'**
+  String get audioShuffleOff;
+
+  /// Screen reader hint of the audio bar's words while music plays.
+  ///
+  /// In en, this message translates to:
+  /// **'Opens the player'**
+  String get audioOpenPlayer;
+
+  /// Screen reader hint of the audio bar's words while a voice message plays.
+  ///
+  /// In en, this message translates to:
+  /// **'Goes to the post'**
+  String get audioShowPost;
+
   /// Tooltip of the audio bar's close button, which stops playback.
   ///
   /// In en, this message translates to:

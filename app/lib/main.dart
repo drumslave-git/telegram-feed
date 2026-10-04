@@ -10,7 +10,6 @@ import 'host/accounts.dart';
 import 'host/app_host.dart';
 import 'feeds/text_scale.dart';
 import 'l10n/l10n.dart';
-import 'media/audio_bar.dart';
 import 'media/auto_download.dart';
 import 'media/system_pip.dart';
 import 'notifications/open_post.dart';
@@ -118,7 +117,7 @@ class _TelegramFeedAppState extends State<TelegramFeedApp> {
                               onResume: () =>
                                   unawaited(snap.data!.setPaused(false)),
                               // Under every screen while a voice message or a song plays.
-                              child: AudioBarHost(child: child!),
+                              child: child!,
                             ),
                           ),
                         ),

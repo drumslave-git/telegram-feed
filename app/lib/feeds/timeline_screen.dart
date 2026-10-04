@@ -2909,6 +2909,23 @@ class TimelineViewState extends State<TimelineView>
     super.dispose();
   }
 
+  /// The audio bar's way back to the post of the voice message that plays: every screen
+  /// opened over this timeline goes, and the timeline goes to the post.
+  void _showAudioPost(Post post) {
+    if (!mounted) return;
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      Navigator.of(context).popUntil((r) => r == route || r.isFirst);
+    }
+    unawaited(
+      jumpToPost(
+        chatId: post.chatId,
+        messageId: post.messageId,
+        date: post.date,
+      ),
+    );
+  }
+
   /// The voice messages, or the music, of the posts the timeline holds, oldest first:
   /// what plays on when one of them ends, as the official app plays on down the chat.
   List<AudioItem> _audioItems({required bool voice}) {
@@ -2933,6 +2950,7 @@ class TimelineViewState extends State<TimelineView>
                 : named,
             durationSeconds: media.durationSeconds,
             isVoice: voice,
+            onShow: () => _showAudioPost(post),
             load: () async {
               final file = media.file.isDownloaded
                   ? media.file

@@ -3055,6 +3055,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerSpeed => 'Speed';
 
   @override
+  String get audioPrevious => 'Previous';
+
+  @override
+  String get audioNext => 'Next';
+
+  @override
+  String get audioRepeatOff => 'Repeat: off';
+
+  @override
+  String get audioRepeatAll => 'Repeat: the whole list';
+
+  @override
+  String get audioRepeatOne => 'Repeat: this track';
+
+  @override
+  String get audioShuffleOn => 'Shuffle: on';
+
+  @override
+  String get audioShuffleOff => 'Shuffle: off';
+
+  @override
+  String get audioOpenPlayer => 'Opens the player';
+
+  @override
+  String get audioShowPost => 'Goes to the post';
+
+  @override
   String get audioStop => 'Stop';
 
   @override

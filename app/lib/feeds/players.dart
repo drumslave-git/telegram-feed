@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../l10n/l10n.dart';
+import '../media/audio_bar.dart' show AudioSpeedButton;
 import '../media/audio_session.dart';
 import 'media_view.dart' show formatDuration;
 
@@ -138,15 +139,8 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                     '${formatDuration(length.inSeconds)}',
                     style: const TextStyle(fontSize: 12),
                   ),
-                  ValueListenableBuilder<double>(
-                    valueListenable: _sessions.speed,
-                    builder: (context, speed, _) => TextButton(
-                      onPressed: () => unawaited(_sessions.nextSpeed()),
-                      child: Text(
-                        '${speed == speed.roundToDouble() ? speed.toStringAsFixed(0) : speed}x',
-                      ),
-                    ),
-                  ),
+                  // The speed of what plays: of this row's kind once it is the one.
+                  AudioSpeedButton(sessions: _sessions),
                 ],
               ),
             );

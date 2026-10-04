@@ -2390,6 +2390,21 @@
   "@playerSpeed": {
     "description": "Tooltip of the playback speed menu."
   },
+  "audioPrevious": "Previous",
+  "audioNext": "Next",
+  "audioRepeatOff": "Repeat: off",
+  "audioRepeatAll": "Repeat: the whole list",
+  "audioRepeatOne": "Repeat: this track",
+  "audioShuffleOn": "Shuffle: on",
+  "audioShuffleOff": "Shuffle: off",
+  "audioOpenPlayer": "Opens the player",
+  "@audioOpenPlayer": {
+    "description": "Screen reader hint of the audio bar's words while music plays."
+  },
+  "audioShowPost": "Goes to the post",
+  "@audioShowPost": {
+    "description": "Screen reader hint of the audio bar's words while a voice message plays."
+  },
   "audioStop": "Stop",
   "@audioStop": {
     "description": "Tooltip of the audio bar's close button, which stops playback."

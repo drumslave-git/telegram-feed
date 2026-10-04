@@ -94,7 +94,12 @@ class AudioItem {
     required this.durationSeconds,
     required this.isVoice,
     required this.load,
+    this.onShow,
   });
+
+  /// Goes to the post it came with, in the timeline that holds it; does nothing once
+  /// that timeline is gone.
+  final VoidCallback? onShow;
 
   /// Telegram's id of the file.
   final int id;
@@ -125,7 +130,8 @@ class AudioQueue extends InheritedWidget {
 
 /// The one sound of the app. Voice messages and music play through it, so a post that
 /// scrolls away keeps playing (H-20) and a bar can say what is on, and only one thing is
-/// ever heard at a time. Speeds are the official app's: 1×, 1.5×, 2×.
+/// ever heard at a time. The speed button goes round the official app's 1×, 1.5× and
+/// 2×; voice messages and music each keep the speed they were given.
 class AudioSessions {
   AudioSessions({AudioEngine Function()? engine, math.Random? random})
     : _make = engine ?? JustAudioEngine.new,
@@ -147,6 +153,27 @@ class AudioSessions {
 
   /// A video took the sound away from a track that was playing ([pauseForVideo]).
   bool _heldForVideo = false;
+
+  /// The speed voice messages play at, and the speed of music: a podcast listened to
+  /// at 2× does not make the next song run.
+  double _voiceSpeed = 1;
+  double _musicSpeed = 1;
+
+  /// What the track that plays stands among, oldest first.
+  List<AudioItem> get queue => _queue;
+
+  /// The queue's entry of the track that plays; null when it came with no queue.
+  AudioItem? get currentItem {
+    final id = track.value?.id;
+    if (id == null) return null;
+    for (final item in _queue) {
+      if (item.id == id) return item;
+    }
+    return null;
+  }
+
+  /// Plays another entry of the queue, as a tap in the player's list asks for.
+  Future<void> playItem(AudioItem item) => _playItem(item);
 
   /// The app's own; tests make their own instance instead.
   static AudioSessions instance = AudioSessions();
@@ -188,6 +215,7 @@ class AudioSessions {
     await _release();
     final engine = _make();
     _engine = engine;
+    speed.value = next.isVoice ? _voiceSpeed : _musicSpeed;
     track.value = next;
     error.value = null;
     position.value = Duration.zero;
@@ -349,13 +377,24 @@ class AudioSessions {
     await _engine?.seek(to);
   }
 
-  /// The next speed of [speeds], round and round, as the official app's button does.
+  /// The next speed of [speeds], round and round, as the official app's button does. A
+  /// speed that is none of them goes to the first.
   Future<double> nextSpeed() async {
     final i = speeds.indexOf(speed.value);
     final next = speeds[(i + 1) % speeds.length];
-    speed.value = next;
-    await _engine?.setSpeed(next);
+    await setSpeed(next);
     return next;
+  }
+
+  /// Any speed, for the kind of track that plays; the other kind keeps its own.
+  Future<void> setSpeed(double to) async {
+    if (track.value?.isVoice ?? false) {
+      _voiceSpeed = to;
+    } else {
+      _musicSpeed = to;
+    }
+    speed.value = to;
+    await _engine?.setSpeed(to);
   }
 
   /// Stops, and forgets what was playing: the bar goes away at once, and the engine is let

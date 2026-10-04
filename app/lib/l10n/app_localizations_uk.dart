@@ -3160,6 +3160,33 @@ class AppLocalizationsUk extends AppLocalizations {
   String get playerSpeed => 'Швидкість';
 
   @override
+  String get audioPrevious => 'Попередній';
+
+  @override
+  String get audioNext => 'Наступний';
+
+  @override
+  String get audioRepeatOff => 'Повтор: вимкнено';
+
+  @override
+  String get audioRepeatAll => 'Повтор: увесь список';
+
+  @override
+  String get audioRepeatOne => 'Повтор: цей трек';
+
+  @override
+  String get audioShuffleOn => 'Перемішування: увімкнено';
+
+  @override
+  String get audioShuffleOff => 'Перемішування: вимкнено';
+
+  @override
+  String get audioOpenPlayer => 'Відкриває програвач';
+
+  @override
+  String get audioShowPost => 'Переходить до допису';
+
+  @override
   String get audioStop => 'Зупинити';
 
   @override
