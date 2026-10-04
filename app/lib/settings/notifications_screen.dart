@@ -14,7 +14,7 @@ class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({
     super.key,
     required this.db,
-    this.onRestart,
+    this.onBackground,
     this.batteryExempt,
     this.onRequestBatteryExemption,
     this.runningInService,
@@ -22,9 +22,9 @@ class NotificationsScreen extends StatefulWidget {
   });
   final AppDatabase db;
 
-  /// Starts the app afresh; background watching changes where the core runs, which only
-  /// a new start can do. Null where the host cannot (tests).
-  final Future<void> Function()? onRestart;
+  /// Turns background watching on or off, which moves the core between the service and
+  /// the app. Null where there is no host to do it (tests): the setting alone is saved.
+  final Future<void> Function(bool on)? onBackground;
 
   /// Whether Android lets the app ignore battery optimisation, and the ask for it; the
   /// banner about it belongs here as well as on the rules screens. Null where the
@@ -80,47 +80,37 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (mounted && enabled != null) setState(() => _enabled = enabled!);
   }
 
-  /// Background watching moves the core between the service and the app, which a fresh
-  /// start does; the user decides when.
+  /// Background watching moves the core between the service and the app, at once.
   Future<void> _setBackground(bool on) async {
-    await db.setSetting(SettingKeys.backgroundWatching, on ? 'true' : 'false');
-    final restart = widget.onRestart;
-    if (restart == null || !mounted) return;
-    final now = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        final l10n = context.l10n;
-        return AlertDialog(
-          title: Text(l10n.notificationSettingsRestartTitle),
-          content: Text(
-            on
-                ? l10n.notificationSettingsRestartStartsWatching
-                : l10n.notificationSettingsRestartStopsWatching,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(l10n.commonLater),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(l10n.notificationSettingsRestartNow),
-            ),
-          ],
-        );
-      },
-    );
-    if (now ?? false) {
-      await restart();
-    } else if (mounted) {
-      // "Later": the setting is saved but the core still runs where it did, and the
-      // screen says so instead of leaving the switch to lie about it.
-      setState(() => _restartDue = true);
+    final move = widget.onBackground;
+    if (move == null) {
+      await db.setSetting(
+        SettingKeys.backgroundWatching,
+        on ? 'true' : 'false',
+      );
+      return;
+    }
+    if (_moving) return;
+    _moving = true;
+    try {
+      await move(on);
+    } finally {
+      _moving = false;
+    }
+    // Android did not start the service: the switch says what runs.
+    if (on && mounted && widget.runningInService?.call() == false) {
+      await db.setSetting(SettingKeys.backgroundWatching, 'false');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.notificationSettingsBackgroundFailed),
+        ),
+      );
     }
   }
 
-  /// Whether the running mode and the saved setting have drifted apart.
-  bool _restartDue = false;
+  /// The core is on its way between the service and the app.
+  bool _moving = false;
 
   @override
   Widget build(BuildContext context) {
@@ -188,41 +178,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             stream: db.watchSetting(SettingKeys.backgroundWatching),
             builder: (context, snap) {
               final on = snap.data != 'false';
-              // Either the reader answered "Later", or the core simply runs in the
-              // other mode: the switch would otherwise say one thing while the app
-              // does another.
-              final due =
-                  _restartDue ||
-                  (widget.runningInService != null &&
-                      widget.runningInService!() != on);
-              return Column(
-                children: [
-                  SwitchListTile(
-                    title: Text(l10n.notificationSettingsWatchInBackground),
-                    subtitle: Text(
-                      l10n.notificationSettingsWatchInBackgroundSubtitle,
-                    ),
-                    value: on,
-                    onChanged: (v) => unawaited(_setBackground(v)),
-                  ),
-                  if (due)
-                    MaterialBanner(
-                      leading: const Icon(Icons.restart_alt),
-                      content: Text(
-                        on
-                            ? l10n.notificationSettingsRestartStartsWatching
-                            : l10n.notificationSettingsRestartDueStopsWatching,
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: widget.onRestart == null
-                              ? null
-                              : () => unawaited(widget.onRestart!()),
-                          child: Text(l10n.notificationSettingsRestartNow),
-                        ),
-                      ],
-                    ),
-                ],
+              return SwitchListTile(
+                title: Text(l10n.notificationSettingsWatchInBackground),
+                subtitle: Text(
+                  l10n.notificationSettingsWatchInBackgroundSubtitle,
+                ),
+                value: on,
+                onChanged: (v) => unawaited(_setBackground(v)),
               );
             },
           ),

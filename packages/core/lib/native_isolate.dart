@@ -129,7 +129,13 @@ Future<void> coreIsolateMain(CoreBootstrap b) async {
 
 Future<TelegramGateway> _newGateway(CoreBootstrap b) async {
   final fake = b.fakeMediaDirectory;
-  if (fake != null) return FakeTelegram(mediaDirectory: fake);
+  if (fake != null) {
+    return FakeTelegram(
+      mediaDirectory: fake,
+      // Kept with the account, as TDLib keeps its session.
+      sessionFile: '${b.databaseDirectory}/fake_session',
+    );
+  }
   final transport = await FfiTransport.create(
     libraryPath: b.libraryPath,
     logVerbosity: b.logVerbosity,

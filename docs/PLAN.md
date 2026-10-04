@@ -20,7 +20,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 ### Login, accounts and settings
 
 - [ ] Q-67 Login: a country picker with the code and number in separate, formatted fields; "Is this the correct number?"; one box per digit of the code, sent when full; a countdown before the code can be sent again; a flood wait says how long.
-- [ ] Q-71 Turning background watching on or off applies without restarting the app.
 
 ## Hands-on checks
 

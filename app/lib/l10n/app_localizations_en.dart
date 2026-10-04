@@ -2235,24 +2235,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationSettingsTitle => 'Notifications and sounds';
 
   @override
-  String get notificationSettingsRestartTitle => 'Restart the app?';
-
-  @override
-  String get notificationSettingsRestartStartsWatching =>
-      'Watching in the background starts when the app starts again.';
-
-  @override
-  String get notificationSettingsRestartStopsWatching =>
-      'The permanent notification goes away when the app starts again.';
-
-  @override
-  String get notificationSettingsRestartDueStopsWatching =>
-      'The permanent notification goes when the app starts again.';
-
-  @override
-  String get notificationSettingsRestartNow => 'Restart now';
-
-  @override
   String get notificationSettingsBlocked =>
       'Android blocks this app\'s notifications, so no rule can notify you.';
 
@@ -2287,7 +2269,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationSettingsWatchInBackgroundSubtitle =>
-      'Rules keep running while the app is closed. Off removes the permanent notification, and rules then only notify while the app is open. The app restarts to apply it.';
+      'Rules keep running while the app is closed. Off removes the permanent notification, and rules then only notify while the app is open.';
+
+  @override
+  String get notificationSettingsBackgroundFailed =>
+      'Android did not start background watching. Rules notify while the app is open.';
 
   @override
   String get notificationSettingsSystemSettings =>

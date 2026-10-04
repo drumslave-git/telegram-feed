@@ -36,8 +36,9 @@ abstract interface class AppHost {
   Future<bool> get isBatteryExempt;
   Future<void> requestBatteryExemption();
 
-  /// Closes the core and starts the app afresh, for a change of background watching.
-  Future<void> restart();
+  /// Turns background watching on or off and moves the core to where it then runs;
+  /// [runningInService] says afterwards whether it does.
+  Future<void> setBackgroundWatching(bool on);
 
   /// Logs out and wipes everything the app stored (ARCHITECTURE section 10).
   Future<void> logOutAndWipe();

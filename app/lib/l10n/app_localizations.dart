@@ -3620,36 +3620,6 @@ abstract class AppLocalizations {
   /// **'Notifications and sounds'**
   String get notificationSettingsTitle;
 
-  /// No description provided for @notificationSettingsRestartTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Restart the app?'**
-  String get notificationSettingsRestartTitle;
-
-  /// No description provided for @notificationSettingsRestartStartsWatching.
-  ///
-  /// In en, this message translates to:
-  /// **'Watching in the background starts when the app starts again.'**
-  String get notificationSettingsRestartStartsWatching;
-
-  /// No description provided for @notificationSettingsRestartStopsWatching.
-  ///
-  /// In en, this message translates to:
-  /// **'The permanent notification goes away when the app starts again.'**
-  String get notificationSettingsRestartStopsWatching;
-
-  /// Banner shown while background watching is off but the app has not restarted yet.
-  ///
-  /// In en, this message translates to:
-  /// **'The permanent notification goes when the app starts again.'**
-  String get notificationSettingsRestartDueStopsWatching;
-
-  /// No description provided for @notificationSettingsRestartNow.
-  ///
-  /// In en, this message translates to:
-  /// **'Restart now'**
-  String get notificationSettingsRestartNow;
-
   /// No description provided for @notificationSettingsBlocked.
   ///
   /// In en, this message translates to:
@@ -3713,8 +3683,14 @@ abstract class AppLocalizations {
   /// No description provided for @notificationSettingsWatchInBackgroundSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Rules keep running while the app is closed. Off removes the permanent notification, and rules then only notify while the app is open. The app restarts to apply it.'**
+  /// **'Rules keep running while the app is closed. Off removes the permanent notification, and rules then only notify while the app is open.'**
   String get notificationSettingsWatchInBackgroundSubtitle;
+
+  /// Message when the foreground service could not be started after the switch was turned on.
+  ///
+  /// In en, this message translates to:
+  /// **'Android did not start background watching. Rules notify while the app is open.'**
+  String get notificationSettingsBackgroundFailed;
 
   /// No description provided for @notificationSettingsSystemSettings.
   ///

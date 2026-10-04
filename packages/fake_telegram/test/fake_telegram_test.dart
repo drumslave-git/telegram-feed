@@ -287,6 +287,35 @@ void main() {
     },
   );
 
+  test('with a session file the login outlives the core, as TDLib keeps its '
+      'session; logging out ends it', () async {
+    final dir = Directory.systemTemp.createTempSync('fake_session');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final session = '${dir.path}/account/fake_session';
+    FakeTelegram start() => FakeTelegram(
+      mediaDirectory: dir.path,
+      sessionFile: session,
+      arrivalEvery: null,
+    );
+
+    final first = start();
+    expect(await first.authState.first, isA<AuthWaitPhoneNumber>());
+    await first.setPhoneNumber('+15550001111');
+    await first.checkCode(fakeLoginCode);
+    expect(await first.authState.first, isA<AuthReady>());
+    await first.close();
+
+    // The core starts again on the same account.
+    final second = start();
+    expect(await second.authState.first, isA<AuthReady>());
+    await second.logOut();
+    await second.close();
+
+    final third = start();
+    expect(await third.authState.first, isA<AuthWaitPhoneNumber>());
+    await third.close();
+  });
+
   test('a post arrives on the wire', () async {
     final added = tg.postEvents.first;
     tg.arriveOnWire();

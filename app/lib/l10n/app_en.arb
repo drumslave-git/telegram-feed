@@ -1815,14 +1815,6 @@
     "description": "A male voice, followed by its number, e.g. Male 2 · GB."
   },
   "notificationSettingsTitle": "Notifications and sounds",
-  "notificationSettingsRestartTitle": "Restart the app?",
-  "notificationSettingsRestartStartsWatching": "Watching in the background starts when the app starts again.",
-  "notificationSettingsRestartStopsWatching": "The permanent notification goes away when the app starts again.",
-  "notificationSettingsRestartDueStopsWatching": "The permanent notification goes when the app starts again.",
-  "@notificationSettingsRestartDueStopsWatching": {
-    "description": "Banner shown while background watching is off but the app has not restarted yet."
-  },
-  "notificationSettingsRestartNow": "Restart now",
   "notificationSettingsBlocked": "Android blocks this app's notifications, so no rule can notify you.",
   "notificationSettingsTurnOn": "Turn them on",
   "@notificationSettingsTurnOn": {
@@ -1842,7 +1834,11 @@
   "notificationSettingsCountFooter": "The app's icon carries the number of unread posts of your channels, on home screens that show numbers. That number and the badges of the feeds and of the folder tabs count the unread posts. Off, they count the channels that have unread posts.",
   "notificationSettingsBackground": "Background",
   "notificationSettingsWatchInBackground": "Watch channels in the background",
-  "notificationSettingsWatchInBackgroundSubtitle": "Rules keep running while the app is closed. Off removes the permanent notification, and rules then only notify while the app is open. The app restarts to apply it.",
+  "notificationSettingsWatchInBackgroundSubtitle": "Rules keep running while the app is closed. Off removes the permanent notification, and rules then only notify while the app is open.",
+  "notificationSettingsBackgroundFailed": "Android did not start background watching. Rules notify while the app is open.",
+  "@notificationSettingsBackgroundFailed": {
+    "description": "Message when the foreground service could not be started after the switch was turned on."
+  },
   "notificationSettingsSystemSettings": "System notification settings",
   "notificationSettingsNoSoundPicker": "No sound picker: {message}",
   "@notificationSettingsNoSoundPicker": {

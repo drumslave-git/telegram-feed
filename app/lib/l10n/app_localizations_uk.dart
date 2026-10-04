@@ -2331,24 +2331,6 @@ class AppLocalizationsUk extends AppLocalizations {
   String get notificationSettingsTitle => 'Сповіщення та звуки';
 
   @override
-  String get notificationSettingsRestartTitle => 'Перезапустити застосунок?';
-
-  @override
-  String get notificationSettingsRestartStartsWatching =>
-      'Стеження у фоні почнеться після перезапуску застосунку.';
-
-  @override
-  String get notificationSettingsRestartStopsWatching =>
-      'Постійне сповіщення зникне після перезапуску застосунку.';
-
-  @override
-  String get notificationSettingsRestartDueStopsWatching =>
-      'Постійне сповіщення зникне після перезапуску застосунку.';
-
-  @override
-  String get notificationSettingsRestartNow => 'Перезапустити зараз';
-
-  @override
   String get notificationSettingsBlocked =>
       'Android блокує сповіщення цього застосунку, тож жодне правило не може вас сповістити.';
 
@@ -2385,7 +2367,11 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get notificationSettingsWatchInBackgroundSubtitle =>
-      'Правила працюють, навіть коли застосунок закрито. Якщо вимкнути, постійне сповіщення зникне, а правила сповіщатимуть лише тоді, коли застосунок відкрито. Зміна набуде чинності після перезапуску застосунку.';
+      'Правила працюють, навіть коли застосунок закрито. Якщо вимкнути, постійне сповіщення зникне, а правила сповіщатимуть лише тоді, коли застосунок відкрито.';
+
+  @override
+  String get notificationSettingsBackgroundFailed =>
+      'Android не запустив стеження у фоні. Правила сповіщають, поки застосунок відкрито.';
 
   @override
   String get notificationSettingsSystemSettings =>

@@ -34,9 +34,13 @@ final class FakeTelegram extends TimelineGateway {
   FakeTelegram({
     required this.mediaDirectory,
     bool loggedIn = false,
+    this.sessionFile,
     this.arrivalEvery = const Duration(seconds: 30),
     DateTime? now,
-  }) : _auth = loggedIn ? const AuthReady() : const AuthWaitPhoneNumber(),
+  }) : _auth =
+           loggedIn || (sessionFile != null && File(sessionFile).existsSync())
+           ? const AuthReady()
+           : const AuthWaitPhoneNumber(),
        _now = now ?? DateTime.now(),
        super({}, channels: [], folders: []) {
     _build();
@@ -46,6 +50,11 @@ final class FakeTelegram extends TimelineGateway {
   }
 
   final String mediaDirectory;
+
+  /// Stands for the session TDLib keeps in its database: the file is there while the
+  /// account is logged in, so a core that starts again on the same account comes up
+  /// logged in, as a real one does. Null keeps the login in memory only.
+  final String? sessionFile;
   final Duration? arrivalEvery;
   final DateTime _now;
   Timer? _arrivals;
@@ -64,7 +73,26 @@ final class FakeTelegram extends TimelineGateway {
 
   void _setAuth(AuthState s) {
     _auth = s;
+    _keepSession(s);
     _authCtl.add(s);
+  }
+
+  void _keepSession(AuthState s) {
+    final path = sessionFile;
+    if (path == null) return;
+    try {
+      final file = File(path);
+      if (s is AuthReady) {
+        file
+          ..createSync(recursive: true)
+          ..writeAsStringSync('');
+      } else if ((s is AuthLoggingOut || s is AuthClosed) &&
+          file.existsSync()) {
+        file.deleteSync();
+      }
+    } on FileSystemException {
+      // Without the file the login lasts as long as this core.
+    }
   }
 
   /// The phone number the login entered, for assertions.

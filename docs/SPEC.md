@@ -157,7 +157,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - While the app watches channels for me it keeps a permanent "Watching N channels" notification with a Pause action. That is what lets rules notify me when the app is closed.
 - That notification makes no sound. Whether it has a status-bar icon, and where it sits in the shade, depends on the phone.
 - Notifications and sounds has a row that opens Android's notification settings of the app, where I can turn that notification off. Watching goes on without it.
-- I can turn background watching off. The permanent notification then goes away and rules only notify me while the app is open. Changing it offers to restart the app, which applies it; the choice stays on this device.
+- I can turn background watching off. The permanent notification then goes away and rules only notify me while the app is open. The switch applies at once, in both directions, and I stay on the screen I am on; the choice stays on this device. Where Android does not start the background service, the switch goes back and says so.
 - When Android blocks the app's notifications, Notifications and sounds says so at its top and opens the setting that turns them on.
 
 ### Read aloud

@@ -39,7 +39,7 @@ final class _Host implements AppHost {
   @override
   Future<void> requestBatteryExemption() async {}
   @override
-  Future<void> restart() async {}
+  Future<void> setBackgroundWatching(bool on) async {}
   @override
   Future<void> logOutAndWipe() async {}
   @override

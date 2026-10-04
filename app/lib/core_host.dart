@@ -7,7 +7,6 @@ import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:core/native_isolate.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
@@ -78,10 +77,8 @@ final class CoreHost implements AppHost {
   @override
   bool get runningInService => _inService;
 
-  /// Where the core runs is settled here. The core cannot move between the service and the
-  /// app while it is up (TDLib is polled by one isolate per engine group,
-  /// `native_isolate.dart`), so a change of background watching takes effect when the app
-  /// starts again; [restart] does that on request.
+  /// Where the core runs is settled here, by the background watching setting: under the
+  /// foreground service, or in this process. [setBackgroundWatching] moves it later.
   Future<void> _connect() async {
     final background =
         await db.setting(SettingKeys.backgroundWatching) != 'false';
@@ -207,17 +204,7 @@ final class CoreHost implements AppHost {
       FlutterForegroundTask.addTaskDataCallback(_onTaskData);
       FlutterForegroundTask.sendDataToTask(askReading);
     } else {
-      final alerts = RuleAlerts.of(
-        _client,
-        db: db,
-        onReading: (now) => _reading.value = now,
-        log: (s) => debugPrint('alerts: $s'),
-      );
-      _alerts = alerts;
-      _languageSetting = await db.setting(SettingKeys.language);
-      await alerts.start(AppLanguage.strings(_languageSetting));
-      _badge = LauncherBadge.of(_client, db: db);
-      await _badge!.start();
+      await _startOwnAlerts();
     }
     // Posts that match while the app is on screen do not pop up over it.
     _lifecycle = AppLifecycleListener(onStateChange: _sendAppOpen);
@@ -235,6 +222,96 @@ final class CoreHost implements AppHost {
     );
     _phoneLanguage = _PhoneLanguage(_sendLanguage);
     WidgetsBinding.instance.addObserver(_phoneLanguage!);
+  }
+
+  /// The alerts and the badge of a core that runs in this process.
+  Future<void> _startOwnAlerts() async {
+    final alerts = RuleAlerts.of(
+      _client,
+      db: db,
+      onReading: (now) => _reading.value = now,
+      log: (s) => debugPrint('alerts: $s'),
+    );
+    _alerts = alerts;
+    _languageSetting = await db.setting(SettingKeys.language);
+    await alerts.start(AppLanguage.strings(_languageSetting));
+    _badge = LauncherBadge.of(_client, db: db);
+    await _badge!.start();
+  }
+
+  /// One move at a time.
+  Future<void> _move = Future.value();
+
+  /// Turns background watching on or off, at once: the setting is saved and the core
+  /// moves under the foreground service, or out of it into this process. TDLib is polled
+  /// by one isolate at a time (`native_isolate.dart`), so the core that runs is shut down
+  /// first and the other one started on the same database; the client is bound to the
+  /// new one ([CoreClient.rebind]), so the screens keep the gateway they have. Where
+  /// Android does not start the service the core comes back into this process, and
+  /// [runningInService] says so.
+  @override
+  Future<void> setBackgroundWatching(bool on) {
+    final done = _move.then((_) async {
+      await db.setSetting(
+        SettingKeys.backgroundWatching,
+        on ? 'true' : 'false',
+      );
+      if (!Platform.isAndroid || on == _inService) return;
+      _client.hold();
+      if (on) {
+        await _moveToService();
+      } else {
+        await _moveToApp();
+      }
+      // The new core is told again what the old one knew of the app.
+      _paused.value = await _client.isPaused();
+      _appOpen = null;
+      _languageSent = null;
+      _sendLanguage();
+      _sendAppOpen(
+        WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
+      );
+    });
+    _move = done.catchError((Object e) {
+      debugPrint('core: move failed: $e');
+    });
+    return done;
+  }
+
+  Future<void> _moveToApp() async {
+    FlutterForegroundTask.removeTaskDataCallback(_onTaskData);
+    _reading.value = null;
+    // The service goes, and its core hands TDLib back before it does.
+    await _stopService();
+    await _client.rebind(await _spawnInProcess());
+    _inService = false;
+    await _startOwnAlerts();
+  }
+
+  Future<void> _moveToService() async {
+    await _alerts?.dispose();
+    _alerts = null;
+    await _badge?.dispose();
+    _badge = null;
+    _reading.value = null;
+    // This process's core closes TDLib and stops polling it.
+    await _client.shutdown();
+    IsolateNameServer.removePortNameMapping(corePortName);
+    SendPort? port;
+    final language = await db.setting(SettingKeys.language);
+    if (await startCoreService(AppLanguage.strings(language))) {
+      port = await _waitForPort(const Duration(seconds: 15));
+    }
+    if (port == null) {
+      debugPrint('core: the service did not come up; back in this process');
+      await _client.rebind(await _spawnInProcess());
+      await _startOwnAlerts();
+      return;
+    }
+    await _client.rebind(port);
+    _inService = true;
+    FlutterForegroundTask.addTaskDataCallback(_onTaskData);
+    FlutterForegroundTask.sendDataToTask(askReading);
   }
 
   AppLifecycleListener? _lifecycle;
@@ -333,14 +410,6 @@ final class CoreHost implements AppHost {
     _subs.add(db.watchSourceChanges().listen((_) => refresh()));
     // Feed filters decide which posts may notify (ARCHITECTURE 5.8).
     _subs.add(db.watchFeeds().skip(1).listen((_) => refresh()));
-  }
-
-  /// Starts the app afresh: the core goes down first, from the service or from this
-  /// process, so TDLib is closed; the new process then settles where the core runs.
-  @override
-  Future<void> restart() async {
-    if (Platform.isAndroid) await _stopService();
-    await const MethodChannel('tf/app').invokeMethod<void>('restart');
   }
 
   /// Battery optimisation: without the exemption Android kills the service after a while.

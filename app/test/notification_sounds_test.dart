@@ -150,13 +150,21 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  testWidgets('turning background watching off offers a restart', (
-    tester,
-  ) async {
-    var restarts = 0;
+  testWidgets('turning background watching off or on moves the core at once, '
+      'with no question and no restart', (tester) async {
+    final moves = <bool>[];
+    var inService = true;
     await tester.pumpWidget(
       MaterialApp(
-        home: NotificationsScreen(db: db, onRestart: () async => restarts++),
+        home: NotificationsScreen(
+          db: db,
+          onBackground: (on) async {
+            moves.add(on);
+            await db.setSetting(SettingKeys.backgroundWatching, '$on');
+            inService = on;
+          },
+          runningInService: () => inService,
+        ),
       ),
     );
     await tester.pump();
@@ -167,15 +175,71 @@ void main() {
     // Found at the very edge of the screen: a little further, so the tap lands on it.
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -200));
     await tester.pump();
+    Future<void> flip() async {
+      await tester.tap(find.text('Watch channels in the background'));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 40)),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    SwitchListTile tile() => tester.widget<SwitchListTile>(
+      find.widgetWithText(SwitchListTile, 'Watch channels in the background'),
+    );
+
+    await flip();
+    expect(moves, [false]);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(MaterialBanner), findsNothing);
+    expect(tile().value, isFalse);
+
+    await flip();
+    expect(moves, [false, true]);
+    expect(tile().value, isTrue);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 30)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('where Android does not start the service the switch goes back '
+      'and says so', (tester) async {
+    await tester.runAsync(
+      () => db.setSetting(SettingKeys.backgroundWatching, 'false'),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NotificationsScreen(
+          db: db,
+          // Saved, but the core stays in the app.
+          onBackground: (on) =>
+              db.setSetting(SettingKeys.backgroundWatching, '$on'),
+          runningInService: () => false,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('Watch channels in the background'),
+      200,
+    );
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -200));
+    await tester.pump();
     await tester.tap(find.text('Watch channels in the background'));
     await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 40)),
+      () => Future<void>.delayed(const Duration(milliseconds: 60)),
     );
-    await tester.pumpAndSettle();
-    expect(find.text('Restart the app?'), findsOneWidget);
-    await tester.tap(find.text('Restart now'));
-    await tester.pumpAndSettle();
-    expect(restarts, 1);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(
+      find.text(
+        'Android did not start background watching. Rules notify while the '
+        'app is open.',
+      ),
+      findsOneWidget,
+    );
     expect(
       await tester.runAsync(() => db.setting(SettingKeys.backgroundWatching)),
       'false',

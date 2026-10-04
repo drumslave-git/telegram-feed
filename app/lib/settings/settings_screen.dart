@@ -34,7 +34,7 @@ class SettingsScreen extends StatefulWidget {
     required this.onLogOut,
     this.secrets = const SecureSecretStore(),
     this.sync,
-    this.onRestart,
+    this.onBackground,
     this.batteryExempt,
     this.onRequestBatteryExemption,
     this.runningInService,
@@ -50,8 +50,8 @@ class SettingsScreen extends StatefulWidget {
   /// Drive sync; the entry is hidden when the host has none (tests).
   final SyncController? sync;
 
-  /// Starts the app afresh, which a change of background watching needs.
-  final Future<void> Function()? onRestart;
+  /// Turns background watching on or off, which moves the core.
+  final Future<void> Function(bool on)? onBackground;
 
   /// Handed on to Notifications and sounds: whether Android lets the app keep watching
   /// in the background, and where the core runs right now.
@@ -170,7 +170,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => _open(
               NotificationsScreen(
                 db: db,
-                onRestart: widget.onRestart,
+                onBackground: widget.onBackground,
                 batteryExempt: widget.batteryExempt,
                 onRequestBatteryExemption: widget.onRequestBatteryExemption,
                 runningInService: widget.runningInService,

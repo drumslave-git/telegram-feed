@@ -205,7 +205,7 @@ class _Root extends StatelessWidget {
                         db: h.db,
                         gateway: h.gateway,
                         onLogOut: h.logOutAndWipe,
-                        onRestart: h.restart,
+                        onBackground: h.setBackgroundWatching,
                         sync: h.sync,
                         batteryExempt: () => h.isBatteryExempt,
                         onRequestBatteryExemption: h.requestBatteryExemption,

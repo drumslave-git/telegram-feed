@@ -217,14 +217,6 @@ class MainActivity : FlutterActivity() {
                             result.success(null)
                         }
                     }
-                    "restart" -> {
-                        result.success(null)
-                        startActivity(
-                            Intent(this, RestartActivity::class.java)
-                                .putExtra(RestartActivity.EXTRA_PID, android.os.Process.myPid())
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                        )
-                    }
                     else -> result.notImplemented()
                 }
             }
