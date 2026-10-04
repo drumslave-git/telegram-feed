@@ -19,7 +19,82 @@ const _seekStep = Duration(seconds: 10);
 
 /// How long after a seek's last tap the next one still adds a step.
 const _streakWindow = Duration(milliseconds: 700);
-const _holdSpeed = 2.0;
+
+/// A speed as the player says it: "2×", "0.5×", "1.3×".
+String speedLabel(double speed) {
+  final rounded = (speed * 10).round() / 10;
+  return rounded == rounded.roundToDouble()
+      ? '${rounded.round()}×'
+      : '${rounded.toStringAsFixed(1)}×';
+}
+
+/// What a held finger does to the video, as in the official app (`VideoPlayerRewinder`
+/// and, for a video of more than three minutes, `OldVideoPlayerRewinder`).
+///
+/// Up to three minutes: the hold starts at 2×, or rewinds at 2× when it begins on the
+/// left third, and a slide to the side changes the speed, 40 px for one whole step;
+/// under 0.4× the video turns round and runs backwards, from 1.5× back to 6×, and
+/// forwards it goes up to 10×.
+///
+/// Over three minutes: the right third runs forwards at 4×, then 7×, then 13×, a step
+/// every two seconds, the left third rewinds at 3×, 6× and 12×, and the middle does
+/// nothing.
+class HoldSeek {
+  HoldSeek.short({required double x, required double width})
+    : long = false,
+      forward = x > width / 3,
+      _x = x {
+    _value = forward ? 2.0 : _valueOf(-2.0);
+  }
+
+  HoldSeek.long({required this.forward}) : long = true, _x = 0;
+
+  /// Too short to seek in by holding.
+  static const minDuration = Duration(seconds: 8);
+
+  /// From here on a video is sought in steps.
+  static const longDuration = Duration(minutes: 3);
+
+  /// How far the finger slides for one whole step of speed.
+  static const slidePerStep = 40.0;
+
+  /// How long a step of a long video lasts.
+  static const stepEvery = Duration(seconds: 2);
+
+  static const _forwardSteps = [4.0, 7.0, 13.0];
+  static const _rewindSteps = [3.0, 6.0, 12.0];
+
+  final bool long;
+
+  /// Which way it began; a short video's slide can turn it round.
+  final bool forward;
+  double _x;
+  double _value = 0;
+  int _step = 0;
+
+  static double _valueOf(double speed) => speed < -1.5 ? speed + 1.9 : speed;
+
+  /// The finger moved to [x]: only a short video follows it.
+  void slideTo(double x) {
+    if (long) return;
+    _value += (x - _x) / slidePerStep;
+    _x = x;
+  }
+
+  /// The next step of a long video; false when it is at its last.
+  bool nextStep() {
+    if (!long || _step >= _forwardSteps.length - 1) return false;
+    _step++;
+    return true;
+  }
+
+  /// How fast the video runs, negative when it runs backwards.
+  double get speed {
+    if (long) return forward ? _forwardSteps[_step] : -_rewindSteps[_step];
+    final v = _value < 0.4 ? _value - 1.9 : _value;
+    return v.clamp(-6.0, 10.0);
+  }
+}
 
 /// The height of the row with the scrubber, which the caption stays above.
 const _barHeight = 48.0;
@@ -162,8 +237,17 @@ class _VideoStageState extends State<VideoStage> {
   final _transform = TransformationController();
   bool _zoomed = false;
 
-  /// The speed to go back to while a held finger plays at 2×; null when none is held.
-  double? _speedBeforeHold;
+  /// The seek of a held finger; null when none is held.
+  HoldSeek? _hold;
+
+  /// The speed to go back to when the finger lifts, and whether the video played.
+  double _speedBeforeHold = 1;
+  bool _playedBeforeHold = false;
+
+  /// Where a hold that rewinds stands; null while it runs forwards.
+  Duration? _holdBack;
+  Timer? _holdTicker;
+  int _holdTicks = 0;
 
   VideoSession get _s => widget.session;
 
@@ -198,8 +282,10 @@ class _VideoStageState extends State<VideoStage> {
     _hide?.cancel();
     _streakEnd?.cancel();
     _transform.dispose();
-    final before = _speedBeforeHold;
-    if (before != null) unawaited(_s.controller?.setPlaybackSpeed(before));
+    _holdTicker?.cancel();
+    if (_hold != null) {
+      unawaited(_s.controller?.setPlaybackSpeed(_speedBeforeHold));
+    }
     if (_turned) {
       _turned = false;
       // The device decides again.
@@ -337,18 +423,103 @@ class _VideoStageState extends State<VideoStage> {
     }
   }
 
-  void _holdStart() {
+  /// A finger is held on the picture at [x] of [width]: the video runs faster, or
+  /// backwards, until it lifts ([HoldSeek]). Not while the picture is zoomed, where a
+  /// held finger is about to drag it, and not on a video too short to seek in.
+  void _holdStart(double x, double width) {
     final c = _s.controller;
-    if (c == null || !c.value.isPlaying || _speedBeforeHold != null) return;
-    setState(() => _speedBeforeHold = c.value.playbackSpeed);
-    unawaited(c.setPlaybackSpeed(_holdSpeed));
+    if (c == null || !c.value.isInitialized || _hold != null || _zoomed) return;
+    final duration = c.value.duration;
+    if (duration < HoldSeek.minDuration) return;
+    final HoldSeek hold;
+    if (duration > HoldSeek.longDuration) {
+      final side = _sideOf(Offset(x, 0), width);
+      if (side == 0) return;
+      hold = HoldSeek.long(forward: side > 0);
+    } else {
+      hold = HoldSeek.short(x: x, width: width);
+    }
+    _speedBeforeHold = c.value.playbackSpeed;
+    _playedBeforeHold = c.value.isPlaying;
+    _holdBack = null;
+    _holdTicks = 0;
+    setState(() => _hold = hold);
+    _applyHold(c);
+    _holdTicker = Timer.periodic(_holdTick, (_) => _onHoldTick());
+  }
+
+  static const _holdTick = Duration(milliseconds: 100);
+
+  void _holdMove(double x) {
+    final hold = _hold;
+    final c = _s.controller;
+    if (hold == null || c == null || hold.long) return;
+    final before = hold.speed;
+    hold.slideTo(x);
+    if (hold.speed == before) return;
+    setState(() {});
+    _applyHold(c);
+  }
+
+  /// Makes the player do what the hold says: run at its speed, or stand still while the
+  /// stage walks it backwards.
+  void _applyHold(VideoPlayerController c) {
+    final speed = _hold!.speed;
+    if (speed > 0) {
+      final back = _holdBack;
+      _holdBack = null;
+      if (back != null) unawaited(c.seekTo(back));
+      unawaited(c.setPlaybackSpeed(speed * _speedBeforeHold));
+      if (!c.value.isPlaying) unawaited(_s.play());
+    } else if (_holdBack == null) {
+      _holdBack = c.value.position;
+      unawaited(c.setPlaybackSpeed(_speedBeforeHold));
+      unawaited(_s.pause());
+    }
+  }
+
+  void _onHoldTick() {
+    final hold = _hold;
+    final c = _s.controller;
+    if (hold == null || c == null || !mounted) return;
+    _holdTicks++;
+    // A long video goes a step faster every two seconds.
+    final perStep =
+        HoldSeek.stepEvery.inMilliseconds ~/ _holdTick.inMilliseconds;
+    if (hold.long && _holdTicks % perStep == 0 && hold.nextStep()) {
+      setState(() {});
+      if (hold.speed > 0) _applyHold(c);
+    }
+    final back = _holdBack;
+    if (back == null) return;
+    // Backwards: the place moves, and the player is sent after it every few ticks, as
+    // often as it can keep up with.
+    var to = back - _holdTick * (-hold.speed * _speedBeforeHold);
+    if (to < Duration.zero) to = Duration.zero;
+    _holdBack = to;
+    if (to == Duration.zero) {
+      _holdEnd();
+    } else if (_holdTicks % (hold.long ? 4 : 2) == 0) {
+      unawaited(c.seekTo(to));
+    }
   }
 
   void _holdEnd() {
-    final before = _speedBeforeHold;
-    if (before == null) return;
-    setState(() => _speedBeforeHold = null);
-    unawaited(_s.controller?.setPlaybackSpeed(before));
+    if (_hold == null) return;
+    _holdTicker?.cancel();
+    _holdTicker = null;
+    final c = _s.controller;
+    final back = _holdBack;
+    _holdBack = null;
+    setState(() => _hold = null);
+    if (c == null) return;
+    if (back != null) unawaited(c.seekTo(back));
+    // The video goes on as it was before the finger came down. Last, the speed: it is
+    // what the hold changed first.
+    if (_playedBeforeHold != c.value.isPlaying) {
+      unawaited(_playedBeforeHold ? _s.play() : _s.pause());
+    }
+    unawaited(c.setPlaybackSpeed(_speedBeforeHold));
   }
 
   /// One more step towards [direction]. A seek counts from where it began, not from the
@@ -405,7 +576,12 @@ class _VideoStageState extends State<VideoStage> {
             onDoubleTap: ready
                 ? () => _onDoubleTap(_lastDoubleTap!, box.maxWidth)
                 : null,
-            onLongPressStart: ready ? (_) => _holdStart() : null,
+            onLongPressStart: ready
+                ? (d) => _holdStart(d.localPosition.dx, box.maxWidth)
+                : null,
+            onLongPressMoveUpdate: ready
+                ? (d) => _holdMove(d.localPosition.dx)
+                : null,
             onLongPressEnd: ready ? (_) => _holdEnd() : null,
             onLongPressCancel: ready ? _holdEnd : null,
             child: InteractiveViewer(
@@ -440,7 +616,8 @@ class _VideoStageState extends State<VideoStage> {
                 seconds: _seekStep.inSeconds * streak.steps,
               ),
             ),
-          if (_speedBeforeHold != null) const IgnorePointer(child: _HoldHint()),
+          if (_hold case final hold?)
+            IgnorePointer(child: _HoldHint(speed: hold.speed)),
           // The words of the post go with the controls: a tap takes both off the picture.
           // They lie under the bar, so that the band behind them never covers its slider.
           if (widget.caption.isNotEmpty && (!ready || _controls))
@@ -574,11 +751,22 @@ class _VideoStageState extends State<VideoStage> {
                     icon: const Icon(Icons.speed, color: Colors.white),
                     initialValue: v.playbackSpeed,
                     onSelected: c.setPlaybackSpeed,
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(value: 0.5, child: Text('0.5×')),
-                      PopupMenuItem(value: 1.0, child: Text('1×')),
-                      PopupMenuItem(value: 1.5, child: Text('1.5×')),
-                      PopupMenuItem(value: 2.0, child: Text('2×')),
+                    itemBuilder: (context) => [
+                      // Any speed between the slowest and the fastest, as the
+                      // official menu's slider; the video follows the drag.
+                      PopupMenuItem(
+                        enabled: false,
+                        padding: EdgeInsets.zero,
+                        child: SpeedSlider(
+                          speed: v.playbackSpeed,
+                          onChanged: c.setPlaybackSpeed,
+                        ),
+                      ),
+                      for (final speed in SpeedSlider.choices)
+                        PopupMenuItem(
+                          value: speed,
+                          child: Text(speedLabel(speed)),
+                        ),
                     ],
                   ),
                 ),
@@ -776,9 +964,11 @@ class _Scrim extends StatelessWidget {
   );
 }
 
-/// Shown at the top while a held finger plays the video faster.
+/// Shown at the top while a held finger runs the video faster or backwards: the speed,
+/// and which way.
 class _HoldHint extends StatelessWidget {
-  const _HoldHint();
+  const _HoldHint({required this.speed});
+  final double speed;
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -791,15 +981,80 @@ class _HoldHint extends StatelessWidget {
           color: Colors.black54,
           borderRadius: BorderRadius.circular(20),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('2×', style: TextStyle(color: Colors.white)),
-            SizedBox(width: 4),
-            Icon(Icons.fast_forward, color: Colors.white, size: 18),
+            if (speed < 0) ...[
+              const Icon(Icons.fast_rewind, color: Colors.white, size: 18),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              speedLabel(speed.abs()),
+              style: const TextStyle(color: Colors.white),
+            ),
+            if (speed >= 0) ...[
+              const SizedBox(width: 4),
+              const Icon(Icons.fast_forward, color: Colors.white, size: 18),
+            ],
           ],
         ),
       ),
+    ),
+  );
+}
+
+/// The slider on top of the speed menu: any speed from the slowest to the fastest, with
+/// the speed it stands on beside it. The video follows it while it is dragged.
+class SpeedSlider extends StatefulWidget {
+  const SpeedSlider({super.key, required this.speed, required this.onChanged});
+  final double speed;
+  final ValueChanged<double> onChanged;
+
+  /// The ends of the slider, as the official menu's.
+  static const min = 0.2;
+  static const max = 2.5;
+
+  /// The speeds the menu names under the slider.
+  static const choices = [0.2, 0.5, 1.0, 1.5, 2.0];
+
+  @override
+  State<SpeedSlider> createState() => _SpeedSliderState();
+}
+
+class _SpeedSliderState extends State<SpeedSlider> {
+  late double _speed = widget.speed.clamp(SpeedSlider.min, SpeedSlider.max);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(right: 12),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 150,
+          child: Slider(
+            min: SpeedSlider.min,
+            max: SpeedSlider.max,
+            value: _speed,
+            semanticFormatterCallback: speedLabel,
+            onChanged: (v) {
+              // In tenths, as the label says it.
+              final speed = (v * 10).round() / 10;
+              if (speed == _speed) return;
+              setState(() => _speed = speed);
+              widget.onChanged(speed);
+            },
+          ),
+        ),
+        SizedBox(
+          width: 36,
+          child: Text(
+            speedLabel(_speed),
+            textAlign: TextAlign.end,
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      ],
     ),
   );
 }
