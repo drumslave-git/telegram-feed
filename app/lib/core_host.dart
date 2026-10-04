@@ -16,6 +16,7 @@ import 'ai/semantic_gate.dart';
 import 'host/accounts.dart';
 import 'host/app_host.dart';
 import 'l10n/l10n.dart';
+import 'media/cache_limits.dart';
 import 'service/core_service.dart';
 import 'service/notification_plan.dart';
 import 'service/reading_now.dart';
@@ -39,6 +40,9 @@ final class CoreHost implements AppHost {
     final host = CoreHost._(db, paths);
     await host._connect();
     host._forwardChanges();
+    // TDLib keeps the limits of its cache; the reader's are handed to it once the
+    // account is logged in, and again whenever one changes.
+    host._subs.addAll(CacheLimits.follow(db, host.gateway));
     await host._followReadingAndPause();
     unawaited(host.sync.start());
     return host;

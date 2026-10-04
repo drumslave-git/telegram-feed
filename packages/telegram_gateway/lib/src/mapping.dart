@@ -71,6 +71,70 @@ StorageStats storageStats(td.StorageStatisticsFast s) => StorageStats(
   databaseBytes: s.databaseSize,
 );
 
+/// The kind the storage screen counts a TDLib file type as.
+StorageKind storageKindOf(td.FileType? type) => switch (type) {
+  td.FileTypePhoto() ||
+  td.FileTypePhotoStory() ||
+  td.FileTypeSelfDestructingPhoto() => StorageKind.photos,
+  td.FileTypeVideo() ||
+  td.FileTypeAnimation() ||
+  td.FileTypeVideoNote() ||
+  td.FileTypeVideoStory() ||
+  td.FileTypeLivePhotoVideo() ||
+  td.FileTypeSelfDestructingVideo() ||
+  td.FileTypeSelfDestructingVideoNote() ||
+  td.FileTypeSelfDestructingLivePhotoVideo() => StorageKind.videos,
+  td.FileTypeDocument() => StorageKind.files,
+  td.FileTypeAudio() => StorageKind.music,
+  td.FileTypeVoiceNote() ||
+  td.FileTypeSelfDestructingVoiceNote() => StorageKind.voice,
+  td.FileTypeSticker() => StorageKind.stickers,
+  td.FileTypeProfilePhoto() => StorageKind.profilePhotos,
+  _ => StorageKind.other,
+};
+
+/// The TDLib file types a clearing of [kind] names. Secret and self-destructing files
+/// are in none: a channel has none of them.
+List<td.FileType> fileTypesOf(StorageKind kind) => switch (kind) {
+  StorageKind.photos => const [td.FileTypePhoto(), td.FileTypePhotoStory()],
+  StorageKind.videos => const [
+    td.FileTypeAnimation(),
+    td.FileTypeLivePhotoVideo(),
+    td.FileTypeVideo(),
+    td.FileTypeVideoNote(),
+    td.FileTypeVideoStory(),
+  ],
+  StorageKind.files => const [td.FileTypeDocument()],
+  StorageKind.music => const [td.FileTypeAudio()],
+  StorageKind.voice => const [td.FileTypeVoiceNote()],
+  StorageKind.stickers => const [td.FileTypeSticker()],
+  StorageKind.profilePhotos => const [td.FileTypeProfilePhoto()],
+  StorageKind.other => const [
+    td.FileTypeNotificationSound(),
+    td.FileTypeThumbnail(),
+    td.FileTypeUnknown(),
+    td.FileTypeWallpaper(),
+  ],
+};
+
+/// TDLib's statistics summed over the chats into one slice per kind, largest first.
+List<StorageSlice> storageByKind(td.StorageStatistics s) {
+  final bytes = <StorageKind, int>{};
+  final count = <StorageKind, int>{};
+  for (final chat in s.byChat) {
+    for (final t in chat.byFileType) {
+      final kind = storageKindOf(t.fileType);
+      bytes[kind] = (bytes[kind] ?? 0) + t.size;
+      count[kind] = (count[kind] ?? 0) + t.count;
+    }
+  }
+  return [
+    for (final kind in StorageKind.values)
+      if ((count[kind] ?? 0) > 0)
+        StorageSlice(kind, bytes: bytes[kind]!, count: count[kind]!),
+  ]..sort((a, b) => b.bytes.compareTo(a.bytes));
+}
+
 /// Chat id of a supergroup / channel as TDLib derives it.
 int chatIdOfSupergroup(int supergroupId) => -1000000000000 - supergroupId;
 

@@ -1376,6 +1376,39 @@ final class StorageStats {
   int get totalBytes => filesBytes + databaseBytes;
 }
 
+/// The kinds of cached file the storage screen tells apart, as the official app's chart
+/// does. GIFs and round video messages are videos; thumbnails, wallpapers and whatever
+/// has no kind of its own are [other].
+enum StorageKind {
+  photos,
+  videos,
+  files,
+  music,
+  voice,
+  stickers,
+  profilePhotos,
+  other,
+}
+
+/// What the files of one [kind] take in TDLib's cache.
+final class StorageSlice {
+  const StorageSlice(this.kind, {required this.bytes, required this.count});
+  final StorageKind kind;
+  final int bytes;
+  final int count;
+
+  @override
+  bool operator ==(Object other) =>
+      other is StorageSlice &&
+      other.kind == kind &&
+      other.bytes == bytes &&
+      other.count == count;
+  @override
+  int get hashCode => Object.hash(kind, bytes, count);
+  @override
+  String toString() => 'StorageSlice(${kind.name}, $bytes B, $count)';
+}
+
 /// Error returned by Telegram / TDLib for a request.
 final class TelegramException implements Exception {
   const TelegramException(this.code, this.message);

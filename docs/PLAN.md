@@ -38,7 +38,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 ### Login, accounts and settings
 
 - [ ] Q-67 Login: a country picker with the code and number in separate, formatted fields; "Is this the correct number?"; one box per digit of the code, sent when full; a countdown before the code can be sent again; a flood wait says how long.
-- [ ] Q-69 Cached media is removed after a set time (channels: one week until changed) and above a set cache size; storage usage shows a chart by kind of file and clears by kind.
 - [ ] Q-71 Turning background watching on or off applies without restarting the app.
 
 ## Hands-on checks
@@ -50,6 +49,7 @@ Built and covered by tests, not yet used on the emulator.
 - [ ] V-4 App lock: set a four-digit PIN and unlock on the keypad, set a password and unlock with it, lock from the home screen's header, pick "After five hours"; light, dark and Ukrainian.
 - [ ] V-5 Automatic downloads: a voice message loads with files switched off, the size slider moves without steps and names its size, "Preload larger videos" rests at 2 MB or less; light, dark and Ukrainian.
 - [ ] V-6 Accounts in Settings: add a second account, back out of its login and see no row; log in to a second account and see the first as a row with photo, name, phone and unread count; switch by a tap, remove by a long press; run `settings.yaml`; light, dark and Ukrainian.
+- [ ] V-7 Storage usage on the real account: the chart and the rows by kind match what Telegram stores, clearing one kind leaves the others, "Keep media" and the size stops save; after a day with a short time set, old media is gone and loads again on opening; run `settings.yaml`; light, dark and Ukrainian.
 - [ ] V-3 Chat settings: drag the text size slider from 12 to 30 and watch the post under it, in light and dark and in Ukrainian.
 
 ## Phase 4 — Extras

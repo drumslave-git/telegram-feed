@@ -802,6 +802,30 @@ StorageStats decodeStorage(Map<Object?, Object?> m) => StorageStats(
   databaseBytes: m['databaseBytes'] as int,
 );
 
+List<Object?> encodeStorageSlices(List<StorageSlice> slices) => [
+  for (final s in slices)
+    {'kind': s.kind.name, 'bytes': s.bytes, 'count': s.count},
+];
+
+List<StorageSlice> decodeStorageSlices(List<Object?> list) => [
+  for (final m in list.cast<Map<Object?, Object?>>())
+    StorageSlice(
+      StorageKind.values.byName(m['kind'] as String),
+      bytes: m['bytes'] as int,
+      count: m['count'] as int,
+    ),
+];
+
+List<String>? encodeStorageKinds(Set<StorageKind>? kinds) =>
+    kinds == null ? null : [for (final k in kinds) k.name];
+
+Set<StorageKind>? decodeStorageKinds(Object? list) => list == null
+    ? null
+    : {
+        for (final k in (list as List).cast<String>())
+          StorageKind.values.byName(k),
+      };
+
 Map<String, Object?> encodeFileProgress(FileProgress p) => {
   'fileId': p.fileId,
   'downloaded': p.downloaded,

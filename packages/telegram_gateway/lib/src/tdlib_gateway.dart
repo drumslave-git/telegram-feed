@@ -1500,9 +1500,51 @@ final class TdlibGateway implements TelegramGateway {
       map.storageStats(await _client.call(const td.GetStorageStatisticsFast()));
 
   @override
-  Future<StorageStats> clearCache() async {
+  Future<List<StorageSlice>> storageByKind() async => map.storageByKind(
+    // No chats apart: the screen shows kinds, and every chat's files are summed anyway.
+    await _client.call(const td.GetStorageStatistics(chatLimit: 0)),
+  );
+
+  /// A limit TDLib's cleaner never reaches: ten years for the age (the option is 32 bits
+  /// wide), and the widest the options take for the size, in kilobytes, and the count.
+  static const _never = 10 * 365 * 24 * 60 * 60;
+  static const _noLimit = 0x7fffffff;
+
+  @override
+  Future<void> setCacheLimits({
+    required int keepSeconds,
+    required int maxBytes,
+  }) async {
+    Future<void> set(String name, td.OptionValue value) =>
+        _client.call(td.SetOption(name: name, value: value));
+    await set(
+      'storage_max_time_from_last_access',
+      td.OptionValueInteger(value: keepSeconds > 0 ? keepSeconds : _never),
+    );
+    // In kilobytes (`FileGcParameters`).
+    await set(
+      'storage_max_files_size',
+      td.OptionValueInteger(
+        value: maxBytes > 0 ? (maxBytes ~/ 1024).clamp(1, _noLimit) : _noLimit,
+      ),
+    );
+    // TDLib also counts files, 40000 unless told otherwise; the official app has no
+    // such limit.
+    await set(
+      'storage_max_file_count',
+      const td.OptionValueInteger(value: _noLimit),
+    );
+    // The cleaner itself: about once a day while it is on.
+    await set(
+      'use_storage_optimizer',
+      td.OptionValueBoolean(value: keepSeconds > 0 || maxBytes > 0),
+    );
+  }
+
+  @override
+  Future<StorageStats> clearCache({Set<StorageKind>? kinds}) async {
     await _client.call(
-      const td.OptimizeStorage(
+      td.OptimizeStorage(
         // Everything goes, whatever its age: TDLib's default limits (-1) keep what was
         // used in the last weeks and remove next to nothing.
         size: 0,
@@ -1513,25 +1555,11 @@ final class TdlibGateway implements TelegramGateway {
         // stickers and wallpapers would stay, and the cache would not shrink to what
         // the screen promised.
         fileTypes: [
-          td.FileTypeAnimation(),
-          td.FileTypeAudio(),
-          td.FileTypeDocument(),
-          td.FileTypeLivePhotoVideo(),
-          td.FileTypeNotificationSound(),
-          td.FileTypePhoto(),
-          td.FileTypePhotoStory(),
-          td.FileTypeProfilePhoto(),
-          td.FileTypeSticker(),
-          td.FileTypeThumbnail(),
-          td.FileTypeUnknown(),
-          td.FileTypeVideo(),
-          td.FileTypeVideoNote(),
-          td.FileTypeVideoStory(),
-          td.FileTypeVoiceNote(),
-          td.FileTypeWallpaper(),
+          for (final kind in kinds ?? StorageKind.values)
+            ...map.fileTypesOf(kind),
         ],
-        chatIds: [],
-        excludeChatIds: [],
+        chatIds: const [],
+        excludeChatIds: const [],
         returnDeletedFileStatistics: false,
         chatLimit: 0,
       ),

@@ -188,6 +188,14 @@ abstract final class SettingKeys {
   /// default true.
   static const autoplay = 'media.autoplay';
 
+  /// Cached media that was not used for this many seconds is removed by itself; '0' keeps
+  /// it for good, and a week until the reader changes it. Of this phone, not synced.
+  static const cacheKeepSeconds = 'cache.keepSeconds';
+
+  /// The size in bytes over which the longest unused cached media is removed; '0', and
+  /// until the reader changes it, no limit. Of this phone, not synced.
+  static const cacheMaxBytes = 'cache.maxBytes';
+
   /// The same for GIFs; 'true' | 'false', default true.
   static const autoplayGifs = 'media.autoplayGifs';
 

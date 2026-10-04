@@ -2163,17 +2163,6 @@
   },
   "dataStorageClearText": "Pictures, videos and files load again from Telegram when you open them.",
   "dataStorageStatsFailed": "Telegram did not say how much it stores.",
-  "dataStorageTelegramCache": "Telegram's cache",
-  "dataStorageCachedFiles": "Cached files",
-  "dataStorageFileCount": "{count, plural, other{{count} files}}",
-  "@dataStorageFileCount": {
-    "description": "How many files Telegram's cache holds.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "dataStorageDatabase": "Database",
   "dataStorageClearing": "Clearing…",
   "dataStorageClearCache": "Clear cache ({size})",
@@ -2185,6 +2174,37 @@
     }
   },
   "dataStorageClearFooter": "Pictures, videos and files are loaded again from Telegram when you open them. Your feeds, rules and read positions stay.",
+  "storageKindVoice": "Voice messages",
+  "storageKindStickers": "Stickers",
+  "storageKindProfilePhotos": "Profile photos",
+  "storageKindOther": "Other",
+  "@storageKindOther": {
+    "description": "Kind of cached file in the storage chart: thumbnails, wallpapers and whatever has no kind of its own."
+  },
+  "storageEmpty": "Nothing is cached",
+  "storageAutoRemove": "Auto-remove cached media",
+  "storageKeepMedia": "Keep media",
+  "@storageKeepMedia": {
+    "description": "Row and dialog title: how long cached media stays on the phone."
+  },
+  "storageKeepDay": "1 day",
+  "storageKeepTwoDays": "2 days",
+  "storageKeepWeek": "1 week",
+  "storageKeepMonth": "1 month",
+  "storageKeepForever": "Forever",
+  "storageKeepDays": "{count, plural, =1{1 day} other{{count} days}}",
+  "@storageKeepDays": {
+    "description": "A time to keep cached media that is none of the choices.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "storageKeepFooter": "Photos, videos and other files that were not used for this long are removed from this phone. They stay in Telegram and load again when you open them.",
+  "storageMaxSize": "Maximum cache size",
+  "storageNoLimit": "No limit",
+  "storageMaxSizeFooter": "Once the cache is larger than this, the media that was not used for the longest time is removed.",
   "syncAtTime": "at {time}",
   "@syncAtTime": {
     "description": "When the last sync ran today, e.g. 'at 14:32'; follows 'Last synced'.",

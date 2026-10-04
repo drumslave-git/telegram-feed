@@ -4478,24 +4478,6 @@ abstract class AppLocalizations {
   /// **'Telegram did not say how much it stores.'**
   String get dataStorageStatsFailed;
 
-  /// No description provided for @dataStorageTelegramCache.
-  ///
-  /// In en, this message translates to:
-  /// **'Telegram\'s cache'**
-  String get dataStorageTelegramCache;
-
-  /// No description provided for @dataStorageCachedFiles.
-  ///
-  /// In en, this message translates to:
-  /// **'Cached files'**
-  String get dataStorageCachedFiles;
-
-  /// How many files Telegram's cache holds.
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, other{{count} files}}'**
-  String dataStorageFileCount(int count);
-
   /// No description provided for @dataStorageDatabase.
   ///
   /// In en, this message translates to:
@@ -4519,6 +4501,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pictures, videos and files are loaded again from Telegram when you open them. Your feeds, rules and read positions stay.'**
   String get dataStorageClearFooter;
+
+  /// No description provided for @storageKindVoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice messages'**
+  String get storageKindVoice;
+
+  /// No description provided for @storageKindStickers.
+  ///
+  /// In en, this message translates to:
+  /// **'Stickers'**
+  String get storageKindStickers;
+
+  /// No description provided for @storageKindProfilePhotos.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile photos'**
+  String get storageKindProfilePhotos;
+
+  /// Kind of cached file in the storage chart: thumbnails, wallpapers and whatever has no kind of its own.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get storageKindOther;
+
+  /// No description provided for @storageEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing is cached'**
+  String get storageEmpty;
+
+  /// No description provided for @storageAutoRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-remove cached media'**
+  String get storageAutoRemove;
+
+  /// Row and dialog title: how long cached media stays on the phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep media'**
+  String get storageKeepMedia;
+
+  /// No description provided for @storageKeepDay.
+  ///
+  /// In en, this message translates to:
+  /// **'1 day'**
+  String get storageKeepDay;
+
+  /// No description provided for @storageKeepTwoDays.
+  ///
+  /// In en, this message translates to:
+  /// **'2 days'**
+  String get storageKeepTwoDays;
+
+  /// No description provided for @storageKeepWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'1 week'**
+  String get storageKeepWeek;
+
+  /// No description provided for @storageKeepMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'1 month'**
+  String get storageKeepMonth;
+
+  /// No description provided for @storageKeepForever.
+  ///
+  /// In en, this message translates to:
+  /// **'Forever'**
+  String get storageKeepForever;
+
+  /// A time to keep cached media that is none of the choices.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day} other{{count} days}}'**
+  String storageKeepDays(int count);
+
+  /// No description provided for @storageKeepFooter.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos, videos and other files that were not used for this long are removed from this phone. They stay in Telegram and load again when you open them.'**
+  String get storageKeepFooter;
+
+  /// No description provided for @storageMaxSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum cache size'**
+  String get storageMaxSize;
+
+  /// No description provided for @storageNoLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'No limit'**
+  String get storageNoLimit;
+
+  /// No description provided for @storageMaxSizeFooter.
+  ///
+  /// In en, this message translates to:
+  /// **'Once the cache is larger than this, the media that was not used for the longest time is removed.'**
+  String get storageMaxSizeFooter;
 
   /// When the last sync ran today, e.g. 'at 14:32'; follows 'Last synced'.
   ///

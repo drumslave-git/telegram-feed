@@ -40,8 +40,9 @@ appId: dev.telegramfeed.telegram_feed
 - assertVisible: '(?s).*Mobile data.*'
 - tapOn: '(?s)Storage usage.*'
 - extendedWaitUntil:
-    visible: '(?s)Cached files.*'
+    visible: 'Clear cache.*'
     timeout: 10000
+- assertVisible: 'Auto-remove cached media'
 - tapOn: 'Back'
 - tapOn: 'Back'
 - scrollUntilVisible:

@@ -300,7 +300,23 @@ final class FakeGateway implements TelegramGateway {
   Future<StorageStats> storageStats() async =>
       const StorageStats(filesBytes: 0, fileCount: 0, databaseBytes: 0);
   @override
-  Future<StorageStats> clearCache() => storageStats();
+  Future<List<StorageSlice>> storageByKind() async => const [
+    StorageSlice(StorageKind.videos, bytes: 5000, count: 2),
+    StorageSlice(StorageKind.profilePhotos, bytes: 60, count: 6),
+  ];
+  @override
+  Future<StorageStats> clearCache({Set<StorageKind>? kinds}) {
+    calls.add('clear:${kinds?.map((k) => k.name).join(',')}');
+    return storageStats();
+  }
+
+  @override
+  Future<void> setCacheLimits({
+    required int keepSeconds,
+    required int maxBytes,
+  }) async {
+    calls.add('limits:$keepSeconds:$maxBytes');
+  }
 }
 
 void main() {
@@ -335,6 +351,22 @@ void main() {
         await late.close();
       },
     );
+
+    test('the cache by kind, a clearing of some kinds and the cache limits '
+        'cross the port', () async {
+      expect(await client.storageByKind(), const [
+        StorageSlice(StorageKind.videos, bytes: 5000, count: 2),
+        StorageSlice(StorageKind.profilePhotos, bytes: 60, count: 6),
+      ]);
+      await client.clearCache(kinds: {StorageKind.photos, StorageKind.voice});
+      await client.clearCache();
+      await client.setCacheLimits(keepSeconds: 604800, maxBytes: 5 << 30);
+      expect(gw.calls, [
+        'clear:photos,voice',
+        'clear:null',
+        'limits:604800:${5 << 30}',
+      ]);
+    });
 
     test('calls, results and typed errors round-trip', () async {
       await client.setPhoneNumber('+1');

@@ -267,7 +267,14 @@ final class HistoryGateway implements TelegramGateway {
   Future<StorageStats> storageStats() async =>
       const StorageStats(filesBytes: 0, fileCount: 0, databaseBytes: 0);
   @override
-  Future<StorageStats> clearCache() => storageStats();
+  Future<List<StorageSlice>> storageByKind() async => const [];
+  @override
+  Future<StorageStats> clearCache({Set<StorageKind>? kinds}) => storageStats();
+  @override
+  Future<void> setCacheLimits({
+    required int keepSeconds,
+    required int maxBytes,
+  }) async {}
 }
 
 Post p(int chat, int id, int date, {int album = 0, String? text}) => Post(

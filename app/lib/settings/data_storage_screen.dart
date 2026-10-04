@@ -8,7 +8,7 @@ import '../media/auto_download.dart';
 import '../feeds/media_view.dart' show formatBytes;
 import '../l10n/l10n.dart';
 import 'settings_tiles.dart';
-import '../widgets/destructive_button.dart';
+import 'storage_usage_screen.dart';
 
 /// What the app keeps on the phone and what it loads by itself: the official app's Data
 /// and Storage, with the automatic downloads per connection and the Autoplay switches
@@ -28,7 +28,7 @@ class _DataStorageScreenState extends State<DataStorageScreen> {
   Future<void> _openStorage() async {
     await openSettingsScreen(
       context,
-      StorageUsageScreen(gateway: widget.gateway),
+      StorageUsageScreen(gateway: widget.gateway, db: widget.db),
     );
     // The cache may have been cleared there.
     if (mounted) {
@@ -569,125 +569,4 @@ class _AllPresets extends StatelessWidget {
       ),
     ),
   );
-}
-
-/// Telegram's cache on this phone and the button that empties it.
-class StorageUsageScreen extends StatefulWidget {
-  const StorageUsageScreen({super.key, required this.gateway});
-  final TelegramGateway gateway;
-
-  @override
-  State<StorageUsageScreen> createState() => _StorageUsageScreenState();
-}
-
-class _StorageUsageScreenState extends State<StorageUsageScreen> {
-  late Future<StorageStats> _storage = widget.gateway.storageStats();
-  bool _clearing = false;
-
-  Future<void> _clearCache(int bytes) async {
-    final l10n = context.l10n;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.dataStorageClearTitle(formatBytes(bytes))),
-        content: Text(l10n.dataStorageClearText),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(l10n.commonCancel),
-          ),
-          DestructiveButton(
-            onPressed: () => Navigator.pop(context, true),
-            label: l10n.commonClear,
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    setState(() => _clearing = true);
-    try {
-      final stats = await widget.gateway.clearCache();
-      setState(() {
-        _storage = Future.value(stats);
-      });
-    } on TelegramException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Telegram: ${e.message}')));
-      }
-    } finally {
-      if (mounted) setState(() => _clearing = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return Scaffold(
-      appBar: AppBar(title: Text(l10n.dataStorageStorageUsage)),
-      body: FutureBuilder<StorageStats>(
-        future: _storage,
-        builder: (context, snap) {
-          final s = snap.data;
-          if (s == null) {
-            return Center(
-              child: snap.hasError
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(l10n.dataStorageStatsFailed),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: () => setState(
-                            () => _storage = widget.gateway.storageStats(),
-                          ),
-                          child: Text(l10n.commonTryAgain),
-                        ),
-                      ],
-                    )
-                  : const CircularProgressIndicator(),
-            );
-          }
-          return ListView(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                child: Text(
-                  formatBytes(s.totalBytes),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-              ),
-              SettingsHeader(l10n.dataStorageTelegramCache),
-              ListTile(
-                leading: const Icon(Icons.perm_media_outlined),
-                title: Text(l10n.dataStorageCachedFiles),
-                subtitle: Text(l10n.dataStorageFileCount(s.fileCount)),
-                trailing: Text(formatBytes(s.filesBytes)),
-              ),
-              ListTile(
-                leading: const Icon(Icons.dns_outlined),
-                title: Text(l10n.dataStorageDatabase),
-                trailing: Text(formatBytes(s.databaseBytes)),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: FilledButton.tonal(
-                  onPressed: _clearing
-                      ? null
-                      : () => unawaited(_clearCache(s.filesBytes)),
-                  child: Text(
-                    _clearing
-                        ? l10n.dataStorageClearing
-                        : l10n.dataStorageClearCache(formatBytes(s.filesBytes)),
-                  ),
-                ),
-              ),
-              SettingsFooter(l10n.dataStorageClearFooter),
-            ],
-          );
-        },
-      ),
-    );
-  }
 }

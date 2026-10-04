@@ -253,8 +253,21 @@ abstract interface class TelegramGateway {
   /// Size of TDLib's file cache and database.
   Future<StorageStats> storageStats();
 
-  /// Deletes cached files not currently in use; returns the stats afterwards.
-  Future<StorageStats> clearCache();
+  /// TDLib's file cache by kind of file, largest first; kinds with no files are left
+  /// out. TDLib walks its files for this, so it takes longer than [storageStats].
+  Future<List<StorageSlice>> storageByKind();
+
+  /// Deletes cached files not currently in use, of [kinds] or of every kind; returns the
+  /// stats afterwards.
+  Future<StorageStats> clearCache({Set<StorageKind>? kinds});
+
+  /// Has TDLib remove cached media by itself: files not used for [keepSeconds], and the
+  /// longest unused ones while the cache is over [maxBytes]. 0 means no limit of that
+  /// sort; with both at 0 nothing is removed by itself.
+  Future<void> setCacheLimits({
+    required int keepSeconds,
+    required int maxBytes,
+  });
 
   Future<void> close();
 }

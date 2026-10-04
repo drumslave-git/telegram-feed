@@ -919,8 +919,46 @@ final class FakeTelegram extends TimelineGateway {
     );
   }
 
+  /// The sample files by what their names say they are.
+  static StorageKind _kindOf(String name) {
+    final dot = name.lastIndexOf('.');
+    return switch (dot < 0 ? '' : name.substring(dot + 1).toLowerCase()) {
+      'jpg' || 'jpeg' || 'png' || 'webp' => StorageKind.photos,
+      'mp4' || 'webm' || 'gif' => StorageKind.videos,
+      'mp3' || 'm4a' || 'flac' => StorageKind.music,
+      'ogg' || 'oga' || 'opus' => StorageKind.voice,
+      'tgs' => StorageKind.stickers,
+      _ => StorageKind.files,
+    };
+  }
+
   @override
-  Future<StorageStats> clearCache() => storageStats();
+  Future<List<StorageSlice>> storageByKind() async {
+    final bytes = <StorageKind, int>{};
+    final count = <StorageKind, int>{};
+    for (final entry in _files.entries) {
+      final path = _pathOf(entry.key);
+      if (path == null) continue;
+      final kind = _kindOf(entry.value);
+      bytes[kind] = (bytes[kind] ?? 0) + File(path).lengthSync();
+      count[kind] = (count[kind] ?? 0) + 1;
+    }
+    return [
+      for (final kind in StorageKind.values)
+        if ((count[kind] ?? 0) > 0)
+          StorageSlice(kind, bytes: bytes[kind]!, count: count[kind]!),
+    ]..sort((a, b) => b.bytes.compareTo(a.bytes));
+  }
+
+  /// The sample media are the account itself here: nothing is deleted.
+  @override
+  Future<StorageStats> clearCache({Set<StorageKind>? kinds}) => storageStats();
+
+  @override
+  Future<void> setCacheLimits({
+    required int keepSeconds,
+    required int maxBytes,
+  }) async {}
 
   // ---- channels ----
 

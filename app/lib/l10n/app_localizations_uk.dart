@@ -2923,25 +2923,6 @@ class AppLocalizationsUk extends AppLocalizations {
       'Telegram не повідомив, скільки даних зберігає.';
 
   @override
-  String get dataStorageTelegramCache => 'Кеш Telegram';
-
-  @override
-  String get dataStorageCachedFiles => 'Кешовані файли';
-
-  @override
-  String dataStorageFileCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count файлу',
-      many: '$count файлів',
-      few: '$count файли',
-      one: '$count файл',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String get dataStorageDatabase => 'База даних';
 
   @override
@@ -2955,6 +2936,69 @@ class AppLocalizationsUk extends AppLocalizations {
   @override
   String get dataStorageClearFooter =>
       'Зображення, відео та файли знову завантажаться з Telegram, коли ви їх відкриєте. Ваші стрічки, правила й позиції читання залишаться.';
+
+  @override
+  String get storageKindVoice => 'Голосові повідомлення';
+
+  @override
+  String get storageKindStickers => 'Стікери';
+
+  @override
+  String get storageKindProfilePhotos => 'Фото профілів';
+
+  @override
+  String get storageKindOther => 'Інше';
+
+  @override
+  String get storageEmpty => 'Кеш порожній';
+
+  @override
+  String get storageAutoRemove => 'Автовидалення кешованих медіа';
+
+  @override
+  String get storageKeepMedia => 'Зберігати медіа';
+
+  @override
+  String get storageKeepDay => '1 день';
+
+  @override
+  String get storageKeepTwoDays => '2 дні';
+
+  @override
+  String get storageKeepWeek => '1 тиждень';
+
+  @override
+  String get storageKeepMonth => '1 місяць';
+
+  @override
+  String get storageKeepForever => 'Завжди';
+
+  @override
+  String storageKeepDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count дня',
+      many: '$count днів',
+      few: '$count дні',
+      one: '$count день',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get storageKeepFooter =>
+      'Фото, відео та інші файли, якими не користувалися протягом цього часу, видаляються з цього телефона. Вони залишаються в Telegram і завантажаться знову, коли ви їх відкриєте.';
+
+  @override
+  String get storageMaxSize => 'Максимальний розмір кешу';
+
+  @override
+  String get storageNoLimit => 'Без обмежень';
+
+  @override
+  String get storageMaxSizeFooter =>
+      'Коли кеш перевищує цей розмір, видаляються медіа, якими не користувалися найдовше.';
 
   @override
   String syncAtTime(String time) {

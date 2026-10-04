@@ -353,7 +353,19 @@ class ChannelsGateway implements TelegramGateway {
   Future<StorageStats> storageStats() async =>
       const StorageStats(filesBytes: 0, fileCount: 0, databaseBytes: 0);
   @override
-  Future<StorageStats> clearCache() => storageStats();
+  Future<List<StorageSlice>> storageByKind() async => const [];
+  @override
+  Future<StorageStats> clearCache({Set<StorageKind>? kinds}) => storageStats();
+
+  /// Every pair of limits the app has set, in order.
+  final cacheLimits = <({int keepSeconds, int maxBytes})>[];
+  @override
+  Future<void> setCacheLimits({
+    required int keepSeconds,
+    required int maxBytes,
+  }) async {
+    cacheLimits.add((keepSeconds: keepSeconds, maxBytes: maxBytes));
+  }
 }
 
 /// The gateway with histories: it pages [histories] like TDLib does (older posts from a

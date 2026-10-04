@@ -526,8 +526,24 @@ final class CoreClient implements TelegramGateway {
       decodeStorage((await _call('storageStats')) as Map<Object?, Object?>);
 
   @override
-  Future<StorageStats> clearCache() async =>
-      decodeStorage((await _call('clearCache')) as Map<Object?, Object?>);
+  Future<List<StorageSlice>> storageByKind() async =>
+      decodeStorageSlices((await _call('storageByKind')) as List<Object?>);
+
+  @override
+  Future<StorageStats> clearCache({Set<StorageKind>? kinds}) async =>
+      decodeStorage(
+        (await _call('clearCache', {'kinds': encodeStorageKinds(kinds)}))
+            as Map<Object?, Object?>,
+      );
+
+  @override
+  Future<void> setCacheLimits({
+    required int keepSeconds,
+    required int maxBytes,
+  }) => _call('setCacheLimits', {
+    'keepSeconds': keepSeconds,
+    'maxBytes': maxBytes,
+  });
 
   /// Detaches from the server; the core keeps running for other clients.
   @override

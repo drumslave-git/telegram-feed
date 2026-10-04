@@ -453,8 +453,17 @@ final class CoreServer {
         return encodeUser(await gateway.me());
       case 'storageStats':
         return encodeStorage(await gateway.storageStats());
+      case 'storageByKind':
+        return encodeStorageSlices(await gateway.storageByKind());
       case 'clearCache':
-        return encodeStorage(await gateway.clearCache());
+        return encodeStorage(
+          await gateway.clearCache(kinds: decodeStorageKinds(a['kinds'])),
+        );
+      case 'setCacheLimits':
+        await gateway.setCacheLimits(
+          keepSeconds: a['keepSeconds'] as int,
+          maxBytes: a['maxBytes'] as int,
+        );
       default:
         throw TelegramException(-1, 'unknown method $method');
     }

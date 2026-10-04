@@ -2822,22 +2822,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Telegram did not say how much it stores.';
 
   @override
-  String get dataStorageTelegramCache => 'Telegram\'s cache';
-
-  @override
-  String get dataStorageCachedFiles => 'Cached files';
-
-  @override
-  String dataStorageFileCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count files',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String get dataStorageDatabase => 'Database';
 
   @override
@@ -2851,6 +2835,67 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get dataStorageClearFooter =>
       'Pictures, videos and files are loaded again from Telegram when you open them. Your feeds, rules and read positions stay.';
+
+  @override
+  String get storageKindVoice => 'Voice messages';
+
+  @override
+  String get storageKindStickers => 'Stickers';
+
+  @override
+  String get storageKindProfilePhotos => 'Profile photos';
+
+  @override
+  String get storageKindOther => 'Other';
+
+  @override
+  String get storageEmpty => 'Nothing is cached';
+
+  @override
+  String get storageAutoRemove => 'Auto-remove cached media';
+
+  @override
+  String get storageKeepMedia => 'Keep media';
+
+  @override
+  String get storageKeepDay => '1 day';
+
+  @override
+  String get storageKeepTwoDays => '2 days';
+
+  @override
+  String get storageKeepWeek => '1 week';
+
+  @override
+  String get storageKeepMonth => '1 month';
+
+  @override
+  String get storageKeepForever => 'Forever';
+
+  @override
+  String storageKeepDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get storageKeepFooter =>
+      'Photos, videos and other files that were not used for this long are removed from this phone. They stay in Telegram and load again when you open them.';
+
+  @override
+  String get storageMaxSize => 'Maximum cache size';
+
+  @override
+  String get storageNoLimit => 'No limit';
+
+  @override
+  String get storageMaxSizeFooter =>
+      'Once the cache is larger than this, the media that was not used for the longest time is removed.';
 
   @override
   String syncAtTime(String time) {

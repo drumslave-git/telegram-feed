@@ -1347,6 +1347,123 @@ void main() {
     },
   );
 
+  test('clearing some kinds names only their file types', () async {
+    t.handlers['optimizeStorage'] = (_) => {
+      '@type': 'storageStatistics',
+      'size': 0,
+      'count': 0,
+      'by_chat': <Object?>[],
+    };
+    t.handlers['getStorageStatisticsFast'] = (_) => {
+      '@type': 'storageStatisticsFast',
+      'files_size': 5,
+      'file_count': 1,
+      'database_size': 10,
+      'language_pack_database_size': 0,
+      'log_size': 0,
+    };
+    await g.clearCache(kinds: {StorageKind.videos, StorageKind.voice});
+    final r = t.sent.firstWhere((r) => r['@type'] == 'optimizeStorage');
+    expect(
+      {for (final k in r['file_types'] as List) (k as Map)['@type']},
+      {
+        // GIFs and round video messages are videos.
+        'fileTypeAnimation',
+        'fileTypeLivePhotoVideo',
+        'fileTypeVideo',
+        'fileTypeVideoNote',
+        'fileTypeVideoStory',
+        'fileTypeVoiceNote',
+      },
+    );
+  });
+
+  test('the cache by kind sums the chats, largest kind first, and leaves out '
+      'the kinds with no files', () async {
+    Map<String, Object?> type(String name, int size, int count) => {
+      '@type': 'storageStatisticsByFileType',
+      'file_type': {'@type': name},
+      'size': size,
+      'count': count,
+    };
+    t.handlers['getStorageStatistics'] = (_) => {
+      '@type': 'storageStatistics',
+      'size': 0,
+      'count': 0,
+      'by_chat': [
+        {
+          '@type': 'storageStatisticsByChat',
+          'chat_id': -1001,
+          'size': 0,
+          'count': 0,
+          'by_file_type': [
+            type('fileTypePhoto', 300, 3),
+            type('fileTypeVideo', 5000, 1),
+            type('fileTypeAnimation', 700, 2),
+            type('fileTypeThumbnail', 40, 4),
+          ],
+        },
+        {
+          '@type': 'storageStatisticsByChat',
+          'chat_id': 0,
+          'size': 0,
+          'count': 0,
+          'by_file_type': [
+            type('fileTypePhoto', 200, 1),
+            type('fileTypeVoiceNote', 90, 1),
+            type('fileTypeProfilePhoto', 60, 6),
+            type('fileTypeWallpaper', 10, 1),
+            type('fileTypeDocument', 0, 0),
+          ],
+        },
+      ],
+    };
+    final slices = await g.storageByKind();
+    expect(t.sent.last['chat_limit'], 0);
+    expect(slices, const [
+      StorageSlice(StorageKind.videos, bytes: 5700, count: 3),
+      StorageSlice(StorageKind.photos, bytes: 500, count: 4),
+      StorageSlice(StorageKind.voice, bytes: 90, count: 1),
+      StorageSlice(StorageKind.profilePhotos, bytes: 60, count: 6),
+      StorageSlice(StorageKind.other, bytes: 50, count: 5),
+    ]);
+  });
+
+  test("the cache limits become the options of TDLib's own cleaner", () async {
+    t.handlers['setOption'] = (_) => {'@type': 'ok'};
+    // TDLib takes a 64-bit integer as a string.
+    Object? plain(Object? v) => v is String ? int.parse(v) : v;
+    Map<String, Object?> options() => {
+      for (final r in t.sent.where((r) => r['@type'] == 'setOption'))
+        r['name'] as String: plain((r['value'] as Map)['value']),
+    };
+
+    // A week and five gigabytes: the size goes in kilobytes.
+    await g.setCacheLimits(
+      keepSeconds: 7 * 86400,
+      maxBytes: 5 * 1024 * 1024 * 1024,
+    );
+    expect(options(), {
+      'storage_max_time_from_last_access': 7 * 86400,
+      'storage_max_files_size': 5 * 1024 * 1024,
+      // No limit on the number of files, which TDLib would put at 40000.
+      'storage_max_file_count': 0x7fffffff,
+      'use_storage_optimizer': true,
+    });
+
+    // Only an age: the size is out of reach, and the cleaner still runs.
+    t.sent.clear();
+    await g.setCacheLimits(keepSeconds: 86400, maxBytes: 0);
+    expect(options()['storage_max_files_size'], 0x7fffffff);
+    expect(options()['use_storage_optimizer'], isTrue);
+
+    // Neither: the cleaner is off.
+    t.sent.clear();
+    await g.setCacheLimits(keepSeconds: 0, maxBytes: 0);
+    expect(options()['use_storage_optimizer'], isFalse);
+    expect(options()['storage_max_time_from_last_access'], 10 * 365 * 86400);
+  });
+
   test(
     'messageIdByDate answers 0 when nothing was posted that early',
     () async {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_db/app_db.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/main.dart' show themeModeFrom;
 import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_feed/media/auto_download.dart';
+import 'package:telegram_feed/media/cache_limits.dart';
 import 'package:telegram_feed/settings/chat_settings_screen.dart';
 import 'package:telegram_feed/settings/data_storage_screen.dart';
 import 'package:telegram_feed/settings/notifications_screen.dart';
@@ -13,6 +16,7 @@ import 'package:telegram_feed/settings/privacy_screen.dart';
 import 'package:telegram_feed/settings/read_aloud_screen.dart';
 import 'package:telegram_feed/feeds/media_view.dart' show formatBytes;
 import 'package:telegram_feed/settings/settings_screen.dart';
+import 'package:telegram_feed/settings/storage_usage_screen.dart';
 import 'package:telegram_feed/widgets/destructive_button.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
@@ -36,9 +40,25 @@ class SettingsGateway extends ChannelsGateway {
     fileCount: files,
     databaseBytes: 512 * 1024,
   );
+
+  /// Two megabytes of videos and one of photos, until they are cleared.
+  late var kinds = <StorageSlice>[
+    const StorageSlice(StorageKind.videos, bytes: 2 * 1024 * 1024, count: 1),
+    const StorageSlice(StorageKind.photos, bytes: 1024 * 1024, count: 2),
+  ];
   @override
-  Future<StorageStats> clearCache() {
-    files = 0;
+  Future<List<StorageSlice>> storageByKind() async => kinds;
+
+  /// What each clearing named: null for everything.
+  final cleared = <Set<StorageKind>?>[];
+  @override
+  Future<StorageStats> clearCache({Set<StorageKind>? kinds}) {
+    cleared.add(kinds);
+    this.kinds = [
+      for (final s in this.kinds)
+        if (kinds != null && !kinds.contains(s.kind)) s,
+    ];
+    files = this.kinds.fold(0, (sum, s) => sum + s.bytes) ~/ (1024 * 1024);
     return storageStats();
   }
 }
@@ -306,21 +326,148 @@ void main() {
     await tester.tap(find.text('Storage usage'));
     await tester.pumpAndSettle();
     await settle(tester);
-    expect(find.text('3 files'), findsOneWidget);
+    // A chart of what is ticked, and a row per kind with its share and its size.
+    final chart = find.byType(StorageChart);
+    expect(tester.widget<StorageChart>(chart).label, '3.0 MB');
+    expect(tester.widget<StorageChart>(chart).slices.map((s) => s.kind), [
+      StorageKind.videos,
+      StorageKind.photos,
+    ]);
+    expect(find.text('Videos  66.7%'), findsOneWidget);
+    expect(find.text('2.0 MB'), findsOneWidget);
+    expect(find.text('Photos  33.3%'), findsOneWidget);
+    expect(find.text('1.0 MB'), findsOneWidget);
+    // A kind with no files has no row.
+    expect(find.textContaining('Music'), findsNothing);
     expect(find.text('512 KB'), findsOneWidget);
-    await tester.tap(find.text('Clear cache (3.0 MB)'));
+
+    // Unticking a kind takes it out of the chart and out of what is cleared.
+    await tester.tap(find.byKey(const ValueKey('kind-photos')));
+    await tester.pump();
+    expect(tester.widget<StorageChart>(chart).label, '2.0 MB');
+    expect(
+      tester.widget<StorageChart>(chart).slices.single.kind,
+      StorageKind.videos,
+    );
+    await tester.tap(find.text('Clear cache (2.0 MB)'));
     await tester.pumpAndSettle();
     // It asks first, naming how much goes.
-    expect(find.text('Clear 3.0 MB of cache?'), findsOneWidget);
+    expect(find.text('Clear 2.0 MB of cache?'), findsOneWidget);
     await tester.tap(find.text('Clear'));
     await settle(tester);
-    expect(find.text('0 files'), findsOneWidget);
+    await settle(tester);
+    expect(gw.cleared, [
+      {StorageKind.videos},
+    ]);
+    expect(find.textContaining('Videos'), findsNothing);
+    expect(find.text('Photos  100.0%'), findsOneWidget);
+
+    // With every kind ticked the whole cache goes, the kinds without a row included.
+    await tester.tap(find.text('Clear cache (1.0 MB)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Clear'));
+    await settle(tester);
+    await settle(tester);
+    expect(gw.cleared.last, isNull);
+    expect(find.text('Nothing is cached'), findsOneWidget);
+    expect(find.text('Clear cache (0 B)'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Clear cache (0 B)'),
+          )
+          .onPressed,
+      isNull,
+    );
+
     // Back on Data and storage, the row says what is left.
     await tester.pageBack();
     await tester.pumpAndSettle();
     await settle(tester);
     expect(find.text('512 KB'), findsOneWidget);
     await unmount(tester);
+  });
+
+  testWidgets('storage usage: cached media is kept a week until another time '
+      'is picked, and the cache has no size limit until one is', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(StorageUsageScreen(gateway: gw, db: db)));
+    await settle(tester);
+    expect(find.text('Auto-remove cached media'), findsOneWidget);
+    expect(find.text('1 week'), findsOneWidget);
+
+    await tester.tap(find.text('Keep media'));
+    await tester.pumpAndSettle();
+    for (final choice in ['1 day', '2 days', '1 month', 'Forever']) {
+      expect(find.text(choice), findsOneWidget);
+    }
+    await tester.tap(find.text('1 month'));
+    await tester.pumpAndSettle();
+    await settle(tester);
+    await tester.runAsync(
+      () async => expect(
+        await db.setting(SettingKeys.cacheKeepSeconds),
+        '${30 * 86400}',
+      ),
+    );
+    expect(find.text('1 month'), findsOneWidget);
+
+    // The size: a stop per choice, the last one no limit, where it stands at first.
+    expect(find.text('Maximum cache size'), findsOneWidget);
+    for (final stop in ['2 GB', '5 GB', '16 GB', '32 GB', 'No limit']) {
+      expect(find.text(stop), findsOneWidget);
+    }
+    final size = find.descendant(
+      of: find.byType(StopSlider),
+      matching: find.byType(Slider),
+    );
+    expect(tester.widget<Slider>(size).value, 4);
+    tester.widget<Slider>(size).onChanged!(1);
+    await settle(tester);
+    await tester.runAsync(
+      () async => expect(
+        await db.setting(SettingKeys.cacheMaxBytes),
+        '${5 * 1024 * 1024 * 1024}',
+      ),
+    );
+    expect(tester.widget<Slider>(size).value, 1);
+    await unmount(tester);
+  });
+
+  testWidgets('the cache limits go to Telegram when the account is logged in '
+      'and whenever one changes', (tester) async {
+    late List<StreamSubscription<void>> subs;
+    await tester.runAsync(() async {
+      subs = CacheLimits.follow(db, gw);
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+    });
+    // Nothing stored: a week, and no limit on the size.
+    expect(gw.cacheLimits, [(keepSeconds: 7 * 86400, maxBytes: 0)]);
+
+    await tester.runAsync(() async {
+      await db.setSetting(SettingKeys.cacheKeepSeconds, '0');
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      await db.setSetting(
+        SettingKeys.cacheMaxBytes,
+        '${2 * 1024 * 1024 * 1024}',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      for (final s in subs) {
+        await s.cancel();
+      }
+    });
+    expect(gw.cacheLimits.skip(1), [
+      (keepSeconds: 0, maxBytes: 0),
+      (keepSeconds: 0, maxBytes: 2 * 1024 * 1024 * 1024),
+    ]);
+    // What cannot be read is the default, never a guess.
+    expect(CacheLimits.keepOf('soon'), 7 * 86400);
+    expect(CacheLimits.keepOf('-5'), 7 * 86400);
+    expect(CacheLimits.maxBytesOf(null), 0);
   });
 
   Future<DownloadPreset> stored(WidgetTester tester, Connection c) async =>
