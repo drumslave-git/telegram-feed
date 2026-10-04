@@ -4,7 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-61.
+**Current phase:** Parity with the official app. **Next task:** Q-65.
 
 ## Differences from the official app
 
@@ -15,7 +15,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Notifications
 
-- [ ] Q-61 One notification per channel that lists its matched posts as a conversation, with the channel's photo and the post's picture; captioned media is marked with 🖼, 📹, 🎬 or 📎.
 - [ ] Q-65 The launcher icon shows the number of unread posts, with the official app's three badge switches.
 - [ ] Q-66 Every logged-in account notifies, with the account's name on the notification.
 

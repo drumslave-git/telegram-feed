@@ -841,7 +841,6 @@
   "servicePaused": "Призупинено: правила не перевіряються",
   "serviceWatching": "{count, plural, one{Стеження за {count} каналом} few{Стеження за {count} каналами} many{Стеження за {count} каналами} other{Стеження за {count} каналу}}",
   "notifyNewPost": "Новий допис",
-  "notifyNewPosts": "{count, plural, one{{count} новий допис} few{{count} нові дописи} many{{count} нових дописів} other{{count} нового допису}}",
   "notifyListen": "Слухати",
   "notifyStop": "Зупинити",
   "notifyChannelSilent": "Тихі дописи",

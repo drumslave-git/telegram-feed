@@ -5144,12 +5144,6 @@ abstract class AppLocalizations {
   /// **'New post'**
   String get notifyNewPost;
 
-  /// Group summary of a channel's rule notifications.
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{1 new post} other{{count} new posts}}'**
-  String notifyNewPosts(int count);
-
   /// Notification action that reads the post aloud.
   ///
   /// In en, this message translates to:

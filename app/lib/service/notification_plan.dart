@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:core/core.dart';
-import 'package:telegram_gateway/telegram_gateway.dart' show Post;
+import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../app_name.dart';
 import '../l10n/l10n.dart';
@@ -51,8 +51,9 @@ Map<String, Object> appOpenMessage(
 /// (the background action isolate has no other way to reach it).
 const notifierPortName = 'telegram_feed.notifier';
 
-/// The `type` under which the app tells that port that a notification was tapped: Android
-/// takes it out of the shade, and "N new posts" of its channel has to follow.
+/// The `type` under which the app tells that port that a notification was tapped, or
+/// its "Open in Telegram": Android takes it out of the shade, and what it listed is
+/// forgotten.
 const notificationTapped = 'tapped';
 
 /// Payload carried by every post notification and its actions.
@@ -90,7 +91,8 @@ final class PostRef {
   }
 }
 
-/// What to post for a match: pure, so it can be unit-tested without the plugin.
+/// What a match adds to its channel's notification: one line of the conversation the
+/// notification lists. Pure, so it can be unit-tested without the plugin.
 final class NotificationPlan {
   const NotificationPlan({
     required this.id,
@@ -99,16 +101,29 @@ final class NotificationPlan {
     required this.body,
     this.rule = '',
     this.when,
-    required this.groupKey,
-    required this.summaryId,
     required this.payload,
     this.quiet = false,
     this.hidden = false,
+    this.picture,
+    this.avatar,
   });
+
+  /// The post's own id among the notifications' lines ([idFor]); the notification that
+  /// lists it has the channel's ([idForChat]).
   final int id;
   final String channelId;
   final String title;
   final String body;
+
+  /// The post's picture, as a content uri Android's notification shade may read: shown
+  /// under the post's line. Null for a post without one, or one that could not be had.
+  final String? picture;
+
+  /// The channel's photo as a round picture in a file: the face of the conversation.
+  final String? avatar;
+
+  /// The post this line stands for.
+  PostRef get ref => PostRef.decode(payload)!;
 
   /// The channel has sounded as often as it may for now ([Notifier.soundLimit]): this
   /// post is shown without sound and without a pop-up, whatever its rule's priority.
@@ -118,45 +133,101 @@ final class NotificationPlan {
   /// it, neither the channel nor the words nor the rule, and has no buttons.
   final bool hidden;
 
-  /// The same notification with other words (its post was edited), or made [quiet].
-  NotificationPlan copyWith({String? body, bool? quiet}) => NotificationPlan(
+  /// The same line with other words (its post was edited), made [quiet], or with its
+  /// pictures.
+  NotificationPlan copyWith({
+    String? body,
+    bool? quiet,
+    String? picture,
+    String? avatar,
+  }) => NotificationPlan(
     id: id,
     channelId: channelId,
     title: title,
     body: body ?? this.body,
     rule: rule,
     when: when,
-    groupKey: groupKey,
-    summaryId: summaryId,
     payload: payload,
     quiet: quiet ?? this.quiet,
     hidden: hidden,
+    picture: picture ?? this.picture,
+    avatar: avatar ?? this.avatar,
   );
 
-  /// What a post's notification says: its words in one line, cut at 240 letters, or
-  /// what it carries when it has no words.
+  /// As the file that keeps the listed posts across a restart holds it ([Notifier]).
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'channelId': channelId,
+    'title': title,
+    'body': body,
+    'rule': rule,
+    'when': when,
+    'payload': payload,
+    'quiet': quiet,
+    'hidden': hidden,
+    'picture': picture,
+    'avatar': avatar,
+  };
+
+  /// Null for what is not a line of a post.
+  static NotificationPlan? fromJson(Object? json) {
+    if (json is! Map) return null;
+    try {
+      final payload = json['payload'] as String;
+      if (PostRef.decode(payload) == null) return null;
+      return NotificationPlan(
+        id: json['id'] as int,
+        channelId: json['channelId'] as String,
+        title: json['title'] as String,
+        body: json['body'] as String,
+        rule: json['rule'] as String? ?? '',
+        when: json['when'] as int?,
+        payload: payload,
+        quiet: json['quiet'] == true,
+        hidden: json['hidden'] == true,
+        picture: json['picture'] as String?,
+        avatar: json['avatar'] as String?,
+      );
+    } on TypeError {
+      return null;
+    }
+  }
+
+  /// What a post's line says: its words in one line, cut at 240 letters, or what it
+  /// carries when it has no words. A caption is marked with what it is the caption of,
+  /// as the official app marks it.
   static String bodyOf(Post post, AppLocalizations s) {
+    final captioned = post.text.trim().isNotEmpty;
     final text =
-        (post.albumId != 0 && post.text.trim().isEmpty
+        (post.albumId != 0 && !captioned
                 // An album without a caption is named as one, not by its first picture.
                 ? s.mediaAlbum
                 : postLabel(post, s.mediaWords))
             .replaceAll(RegExp(r'\s+'), ' ')
             .trim();
-    return text.length > 240 ? '${text.substring(0, 240)}…' : text;
+    final cut = text.length > 240 ? '${text.substring(0, 240)}…' : text;
+    return captioned ? '${markOf(post.media)}$cut' : cut;
   }
+
+  /// The mark before the caption of a picture, a video, a GIF or a file.
+  static String markOf(Media? media) => switch (media) {
+    PhotoMedia() => '🖼 ',
+    VideoMedia(isVideoNote: true) => '',
+    VideoMedia(isAnimation: true) => '🎬 ',
+    VideoMedia() => '📹 ',
+    DocumentMedia() => '📎 ',
+    _ => '',
+  };
 
   /// The rule that matched, shown as Android's sub-text beside the app's name: with
   /// several rules on one feed the shade would otherwise not say which one fired.
   final String rule;
 
-  /// The time the notification shows, in milliseconds: the post's own, so posting it
-  /// again with another button keeps its time and its place in the shade.
+  /// The time of the post, in milliseconds: its line shows it, and the notification
+  /// shows that of its newest post.
   final int? when;
-  final String groupKey;
-  final int summaryId;
 
-  /// A [PostRef], with the rule and the time beside it for [restore].
+  /// A [PostRef], with the rule and the time beside it.
   final String payload;
 
   static String channelFor(RulePriority p) => switch (p) {
@@ -165,12 +236,13 @@ final class NotificationPlan {
     RulePriority.urgent => channelUrgent,
   };
 
-  /// Stable notification id for a post (so a repeat show replaces, and cancel finds it).
+  /// Stable id for a post (so the same post again replaces its line, and read-aloud
+  /// names it).
   static int idFor(int chatId, int messageId) =>
       Object.hash(chatId, messageId) & 0x7fffffff;
 
-  /// Ids for group summaries live in a separate range keyed by chat.
-  static int summaryIdFor(int chatId) =>
+  /// The id of the one notification a channel has.
+  static int idForChat(int chatId) =>
       (chatId.hashCode & 0x3fffffff) | 0x40000000;
 
   factory NotificationPlan.forMatch(
@@ -187,8 +259,6 @@ final class NotificationPlan {
         title: appName,
         body: s.notifyNewPost,
         when: m.post.date * 1000,
-        groupKey: 'chat-${m.post.chatId}',
-        summaryId: summaryIdFor(m.post.chatId),
         // Which post it is, for the tap that opens it; no rule's name beside it.
         payload: jsonEncode({
           ...PostRef(
@@ -214,45 +284,11 @@ final class NotificationPlan {
       body: body,
       rule: rule,
       when: when,
-      groupKey: 'chat-${m.post.chatId}',
-      summaryId: summaryIdFor(m.post.chatId),
       payload: jsonEncode({
         ...PostRef(m.post.chatId, m.post.messageId, feedId: m.feedId).toJson(),
         'rule': rule,
         'when': when,
       }),
-    );
-  }
-
-  /// The plan of a notification Android still shows, from what Android reports of it: for
-  /// one posted before the service last started, so its button can change like any other
-  /// one's. [androidChannelId] is the channel it was posted on. Null when the payload is
-  /// not a post's.
-  static NotificationPlan? restore({
-    required int id,
-    required String androidChannelId,
-    required String title,
-    required String body,
-    required String groupKey,
-    required String payload,
-  }) {
-    final ref = PostRef.decode(payload);
-    if (ref == null) return null;
-    final extra = jsonDecode(payload) as Map<String, Object?>;
-    return NotificationPlan(
-      id: id,
-      channelId: androidChannelId.startsWith(channelUrgent)
-          ? channelUrgent
-          : androidChannelId.startsWith(channelSilent)
-          ? channelSilent
-          : channelNormal,
-      title: title,
-      body: body,
-      rule: extra['rule'] as String? ?? '',
-      when: extra['when'] as int?,
-      groupKey: groupKey,
-      summaryId: summaryIdFor(ref.chatId),
-      payload: payload,
     );
   }
 }

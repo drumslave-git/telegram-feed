@@ -1,150 +1,114 @@
-import 'package:core/core.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/service/notifier.dart';
-import 'package:telegram_gateway/telegram_gateway.dart';
 
-/// A notification goes when its post is read, and "N new posts" follows whatever leaves
-/// the shade: a post read, swiped away or tapped.
+import 'notifier_harness.dart';
+
+/// Posts that were read or deleted leave their channel's notification, which goes with
+/// the last of them.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  const channel = MethodChannel('dexterous.com/flutter/local_notifications');
   const chatId = -1001;
-  final summaryId = NotificationPlan.summaryIdFor(chatId);
+  final chatNotification = NotificationPlan.idForChat(chatId);
 
-  NotificationPlan planFor(int messageId, {int chat = chatId}) =>
-      NotificationPlan.forMatch(
-        MatchEvent.of(
-          Post(chatId: chat, messageId: messageId, date: 1, text: 'post'),
-          const [
-            MatchedRule(
-              name: 'r',
-              priority: RulePriority.normal,
-              readAloud: false,
-            ),
-          ],
-        ),
-        channelTitle: 'News',
-      );
+  late FakeShade shade;
+  late MemoryStore store;
+  late DateTime now;
 
-  /// What Android shows: every notification posted and not cancelled since.
-  late Map<int, Map<Object?, Object?>> shade;
-  late List<int> cancelled;
+  void later() => now = now.add(const Duration(minutes: 5));
+
+  Future<Notifier> start() async {
+    final notifier = Notifier(null, () => now, store);
+    await notifier.init();
+    return notifier;
+  }
 
   setUp(() {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    AndroidFlutterLocalNotificationsPlugin.registerWith();
-    shade = {};
-    cancelled = [];
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          switch (call.method) {
-            case 'initialize':
-              return true;
-            case 'hasNotificationPolicyAccess':
-              return false;
-            case 'getActiveNotifications':
-              return shade.values.toList();
-            case 'show':
-              final m = call.arguments as Map;
-              final specifics = m['platformSpecifics'] as Map;
-              shade[m['id'] as int] = {
-                'id': m['id'],
-                'title': m['title'],
-                'body': m['body'],
-                // Android reports the tag of a notification it shows, never its payload.
-                'tag': (m['platformSpecifics'] as Map)['tag'],
-                'groupKey': specifics['groupKey'],
-                'channelId': specifics['channelId'],
-              };
-            case 'cancel':
-              final id = (call.arguments as Map)['id'] as int;
-              cancelled.add(id);
-              shade.remove(id);
-          }
-          return null;
-        });
+    shade = FakeShade()..install();
+    store = MemoryStore();
+    now = DateTime(2026, 10, 4, 12);
   });
 
-  tearDown(() {
-    debugDefaultTargetPlatformOverride = null;
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null);
-  });
+  tearDown(() => shade.remove());
 
-  String? summaryBody() => shade[summaryId]?['body'] as String?;
-
-  test('posts read up to a point lose their notifications', () async {
-    final notifier = Notifier();
-    await notifier.init();
-    final a = planFor(5 << 20);
-    final b = planFor(6 << 20);
-    final c = planFor(7 << 20);
-    final other = planFor(5 << 20, chat: -2002);
-    for (final p in [a, b, c, other]) {
-      await notifier.show(p);
+  test('posts read up to a point leave the list without a sound; the '
+      'notification goes with the last one', () async {
+    final notifier = await start();
+    for (final id in [10, 11, 12]) {
+      await notifier.show(planFor(id, text: 'p$id'));
+      later();
     }
-    expect(summaryBody(), '3 new posts');
 
-    // Read up to the second post, here or in the official app.
-    await notifier.cancelRead(chatId, 6 << 20);
-    expect(shade.containsKey(a.id), isFalse);
-    expect(shade.containsKey(b.id), isFalse);
-    expect(shade.containsKey(c.id), isTrue);
-    expect(summaryBody(), '1 new post');
-    // Another channel's post with the same id stays.
-    expect(shade.containsKey(other.id), isTrue);
+    await notifier.cancelRead(chatId, 11);
+    expect(shade.shown.last.texts, ['p12']);
+    expect(shade.shown.last.alerts, isFalse);
+    expect(shade.shown.last.opens.messageId, 12);
+    expect(shade.cancelled, isEmpty);
 
-    // The last one read takes the summary along.
-    await notifier.cancelRead(chatId, 7 << 20);
-    expect(shade.containsKey(c.id), isFalse);
-    expect(shade.containsKey(summaryId), isFalse);
+    await notifier.cancelRead(chatId, 12);
+    expect(shade.cancelled, [chatNotification]);
+    expect(shade.live, isEmpty);
+    expect(notifier.listed(chatId), isEmpty);
+
+    // The next post starts a new list.
+    await notifier.show(planFor(13, text: 'p13'));
+    expect(shade.shown.last.texts, ['p13']);
+  });
+
+  test('a read position that passes no listed post changes nothing', () async {
+    final notifier = await start();
+    await notifier.show(planFor(10));
+    final count = shade.shown.length;
+    await notifier.cancelRead(chatId, 9);
+    await notifier.cancelRead(-1002, 99);
+    expect(shade.shown, hasLength(count));
+    expect(shade.cancelled, isEmpty);
+  });
+
+  test('a deleted post leaves the list; the last one takes the notification '
+      'down', () async {
+    final notifier = await start();
+    await notifier.show(planFor(10, text: 'stays'));
+    later();
+    await notifier.show(planFor(11, text: 'deleted'));
+    later();
+
+    await notifier.cancel(chatId, [11, 99]);
+    expect(shade.shown.last.texts, ['stays']);
+    expect(shade.shown.last.alerts, isFalse);
+
+    await notifier.cancel(chatId, [10]);
+    expect(shade.cancelled, [chatNotification]);
+  });
+
+  test('a notification from before the notifier started loses its read posts '
+      'as well', () async {
+    final before = await start();
+    await before.show(planFor(10, text: 'old'));
+    later();
+    await before.show(planFor(11, text: 'not so old'));
+    later();
+
+    final after = await start();
+    await after.cancelRead(chatId, 10);
+    expect(shade.shown.last.texts, ['not so old']);
+    await after.cancelRead(chatId, 11);
+    expect(shade.cancelled, [chatNotification]);
   });
 
   test(
-    'a notification from before this notifier started goes as well',
+    'nothing is posted again for a notification the reader swiped away',
     () async {
-      final earlier = Notifier();
-      await earlier.init();
-      final a = planFor(5 << 20);
-      await earlier.show(a);
-
-      // The service restarted: a new notifier that has shown nothing itself.
-      final notifier = Notifier();
-      await notifier.init();
-      await notifier.cancelRead(chatId, 5 << 20);
-      expect(shade, isEmpty);
+      final notifier = await start();
+      await notifier.show(planFor(10));
+      later();
+      await notifier.show(planFor(11));
+      later();
+      shade.swipe(chatId);
+      final count = shade.shown.length;
+      await notifier.cancelRead(chatId, 10);
+      await notifier.cancel(chatId, [11]);
+      expect(shade.shown, hasLength(count));
+      expect(shade.cancelled, isEmpty);
     },
   );
-
-  test('a read position that passes no shown post changes nothing', () async {
-    final notifier = Notifier();
-    await notifier.init();
-    await notifier.show(planFor(5 << 20));
-    final before = cancelled.length;
-    await notifier.cancelRead(chatId, 4 << 20);
-    expect(cancelled.length, before);
-    expect(summaryBody(), '1 new post');
-  });
-
-  test('a post swiped away or tapped is counted out of the summary', () async {
-    final notifier = Notifier();
-    await notifier.init();
-    final a = planFor(5 << 20);
-    final b = planFor(6 << 20);
-    await notifier.show(a);
-    await notifier.show(b);
-    expect(summaryBody(), '2 new posts');
-
-    // Android took one away; the notifier hears of it and recounts.
-    shade.remove(a.id);
-    await notifier.recount(chatId, gone: {a.id});
-    expect(summaryBody(), '1 new post');
-
-    shade.remove(b.id);
-    await notifier.recount(chatId, gone: {b.id});
-    expect(shade.containsKey(summaryId), isFalse);
-  });
 }

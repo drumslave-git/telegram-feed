@@ -70,16 +70,16 @@ void main() {
 
   test('a Ukrainian count takes the form of its number', () {
     final uk = lookupAppLocalizations(const Locale('uk'));
-    expect(uk.notifyNewPosts(1), '1 новий допис');
-    expect(uk.notifyNewPosts(3), '3 нові дописи');
-    expect(uk.notifyNewPosts(5), '5 нових дописів');
-    expect(uk.notifyNewPosts(11), '11 нових дописів');
-    expect(uk.notifyNewPosts(21), '21 новий допис');
-    expect(uk.notifyNewPosts(22), '22 нові дописи');
+    expect(uk.timelineNewPosts(1), '1 новий допис');
+    expect(uk.timelineNewPosts(3), '3 нові дописи');
+    expect(uk.timelineNewPosts(5), '5 нових дописів');
+    expect(uk.timelineNewPosts(11), '11 нових дописів');
+    expect(uk.timelineNewPosts(21), '21 новий допис');
+    expect(uk.timelineNewPosts(22), '22 нові дописи');
     expect(uk.serviceWatching(21), 'Стеження за 21 каналом');
     final en = lookupAppLocalizations(const Locale('en'));
-    expect(en.notifyNewPosts(1), '1 new post');
-    expect(en.notifyNewPosts(21), '21 new posts');
+    expect(en.timelineNewPosts(1), '1 new post');
+    expect(en.timelineNewPosts(21), '21 new posts');
   });
 
   test('the language is the setting, or the phone\'s while it says System', () {

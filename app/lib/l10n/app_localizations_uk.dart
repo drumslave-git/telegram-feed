@@ -3338,19 +3338,6 @@ class AppLocalizationsUk extends AppLocalizations {
   String get notifyNewPost => 'Новий допис';
 
   @override
-  String notifyNewPosts(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count нового допису',
-      many: '$count нових дописів',
-      few: '$count нові дописи',
-      one: '$count новий допис',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String get notifyListen => 'Слухати';
 
   @override

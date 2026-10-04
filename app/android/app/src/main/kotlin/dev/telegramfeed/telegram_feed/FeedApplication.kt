@@ -7,8 +7,8 @@ import com.pravera.flutter_foreground_task.FlutterForegroundTaskStarter
 import io.flutter.embedding.engine.FlutterEngine
 
 /**
- * Gives the foreground service's Flutter engine, where read-aloud runs, the app's own
- * channels. Android starts that service without an activity after a reboot or an update, so
+ * Gives the foreground service's Flutter engine, where read-aloud runs and the
+ * notifications are made, the app's own channels. Android starts that service without an activity after a reboot or an update, so
  * this is done for every engine the service makes, not in [MainActivity].
  */
 class FeedApplication : Application() {
@@ -17,11 +17,19 @@ class FeedApplication : Application() {
         FlutterForegroundTaskPlugin.addTaskLifecycleListener(
             object : FlutterForegroundTaskLifecycleListener {
                 private var keys: ReadAloudKeys? = null
+                private var pictures: NotificationPictures? = null
 
                 override fun onEngineCreate(flutterEngine: FlutterEngine?) {
                     keys?.dispose()
                     keys = flutterEngine?.let {
                         ReadAloudKeys(this@FeedApplication, it.dartExecutor.binaryMessenger)
+                    }
+                    pictures?.dispose()
+                    pictures = flutterEngine?.let {
+                        NotificationPictures(
+                            this@FeedApplication,
+                            it.dartExecutor.binaryMessenger,
+                        )
                     }
                 }
 
@@ -34,6 +42,8 @@ class FeedApplication : Application() {
                 override fun onEngineWillDestroy() {
                     keys?.dispose()
                     keys = null
+                    pictures?.dispose()
+                    pictures = null
                 }
             },
         )

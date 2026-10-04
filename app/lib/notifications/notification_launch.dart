@@ -38,15 +38,16 @@ final class NotificationLaunch {
   Future<void> _onResponse(NotificationResponse r) async {
     final ref = PostRef.decode(r.payload);
     if (ref == null) return;
+    // Handled by the service host.
+    if (r.actionId == actionListen || r.actionId == actionStop) return;
+    // The tap, or "Open in Telegram", took the notification out of the shade; whoever
+    // posts them forgets what it listed.
+    IsolateNameServer.lookupPortByName(notifierPortName)
+        ?.send({'type': notificationTapped, 'payload': r.payload});
     if (r.actionId == actionOpenTelegram) {
       await openInTelegram(host.db, ref);
       return;
     }
-    // Handled by the service host.
-    if (r.actionId == actionListen || r.actionId == actionStop) return;
-    // The tap took the notification out of the shade; whoever posts them recounts.
-    IsolateNameServer.lookupPortByName(notifierPortName)
-        ?.send({'type': notificationTapped, 'payload': r.payload});
     await openPost(host, ref);
   }
 }

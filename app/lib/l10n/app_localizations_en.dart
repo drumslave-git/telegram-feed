@@ -3231,17 +3231,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifyNewPost => 'New post';
 
   @override
-  String notifyNewPosts(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count new posts',
-      one: '1 new post',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String get notifyListen => 'Listen';
 
   @override

@@ -1,8 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../l10n/l10n.dart';
 import 'notification_plan.dart';
@@ -15,15 +18,76 @@ export 'notification_plan.dart';
 /// initialises last would decide it.
 const notificationIcon = 'ic_stat_feed';
 
-/// Posts notifications for rule matches. Lives in the service host isolate (plugins with
+/// Where the notifications' lists of posts are kept, so that a restart of their host
+/// does not forget what Android still shows.
+abstract interface class ListedStore {
+  Future<String?> read();
+  Future<void> write(String json);
+}
+
+/// A file among the app's own. Where there is none to be had (a test, a platform without
+/// the directory) nothing is kept.
+class ListedFile implements ListedStore {
+  const ListedFile();
+
+  Future<File> _file() async => File(
+    '${(await getApplicationSupportDirectory()).path}/notifications_listed.json',
+  );
+
+  @override
+  Future<String?> read() async {
+    try {
+      final file = await _file();
+      return file.existsSync() ? await file.readAsString() : null;
+    } on Object {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> write(String json) async {
+    try {
+      await (await _file()).writeAsString(json, flush: true);
+    } on Object catch (e) {
+      debugPrint('notifier: list not kept: $e');
+    }
+  }
+}
+
+/// What one channel's notification holds.
+class _Listed {
+  /// The matched posts it lists, oldest first.
+  final posts = <NotificationPlan>[];
+
+  /// The Android channel it was posted on last.
+  String androidChannel = channelSilent;
+
+  /// Whether its button is Stop.
+  bool stop = false;
+
+  /// When it was posted last: Android may not list it yet a moment later.
+  DateTime? postedAt;
+}
+
+/// Posts notifications for rule matches: one per channel, which lists the channel's
+/// matched posts as a conversation. Lives in the service host isolate (plugins with
 /// platform callbacks cannot run in the core isolate, spike P0-2).
 final class Notifier {
-  Notifier([FlutterLocalNotificationsPlugin? plugin, DateTime Function()? now])
-    : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
-      _now = now ?? DateTime.now;
+  Notifier([
+    FlutterLocalNotificationsPlugin? plugin,
+    DateTime Function()? now,
+    ListedStore? store,
+  ]) : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+       _now = now ?? DateTime.now,
+       _store = store ?? const ListedFile();
 
   final FlutterLocalNotificationsPlugin _plugin;
   final DateTime Function() _now;
+  final ListedStore _store;
+
+  /// How many posts a notification lists; Android keeps no more of a conversation, and
+  /// an older post leaves the list.
+  static const maxListed = 25;
 
   /// How often one channel may sound and pop up within [soundWindow], as the official
   /// app's default for a chat: twice in three minutes. Further posts of it are shown
@@ -44,19 +108,23 @@ final class Notifier {
     return true;
   }
 
-  /// The last post shown per chat; only its title and channel are reused, to re-post that
-  /// chat's group summary after a cancellation.
-  final _lastPerChat = <int, NotificationPlan>{};
+  /// The notifications by channel: what each lists, where and with which button.
+  final _chats = <int, _Listed>{};
 
-  /// Post notifications by id and whether each offers Stop, so a change of the button
-  /// posts the same notification again. Bounded like the service's remembered texts.
-  final _shown = <int, ({NotificationPlan plan, bool reading})>{};
-
-  /// Notification ids whose post is being read or waits to be read.
+  /// Ids ([NotificationPlan.idFor]) of the posts being read or waiting to be read.
   Set<int> _reading = const {};
 
-  /// Button changes run one after the other, each towards the latest [_reading].
-  Future<void> _buttons = Future.value();
+  /// Whatever changes a notification runs one after the other: a post that matches
+  /// while another is being shown must find that one in the list.
+  Future<void> _turn = Future.value();
+
+  Future<void> _inTurn(Future<void> Function() work) {
+    final done = _turn.then((_) => work());
+    _turn = done.catchError((Object e) {
+      debugPrint('notifier: $e');
+    });
+    return done;
+  }
 
   /// Sound and vibration the reader chose per priority (H-33). Android fixes a channel's
   /// sound when it is created, so a change means a channel under a new id and the old one
@@ -109,7 +177,64 @@ final class Notifier {
     await _createSilentChannel(android);
     _actual[channelSilent] = channelSilent;
     await setSounds(sounds);
+    await _inTurn(() async {
+      await _load();
+      await _dropGone();
+    });
   }
+
+  /// What the notifications listed when the host last ran.
+  Future<void> _load() async {
+    final kept = await _store.read();
+    if (kept == null) return;
+    try {
+      final chats = jsonDecode(kept) as Map<String, Object?>;
+      for (final MapEntry(key: chat, value: v) in chats.entries) {
+        final m = v as Map<String, Object?>;
+        final listed = _Listed()
+          ..androidChannel = m['channel'] as String
+          ..stop = m['stop'] == true;
+        for (final p in m['posts'] as List) {
+          if (NotificationPlan.fromJson(p) case final plan?) {
+            listed.posts.add(plan);
+          }
+        }
+        if (listed.posts.isNotEmpty) _chats[int.parse(chat)] = listed;
+      }
+    } on Object catch (e) {
+      debugPrint('notifier: kept list unreadable: $e');
+    }
+  }
+
+  Future<void> _save() => _store.write(
+    jsonEncode({
+      for (final MapEntry(key: chat, value: listed) in _chats.entries)
+        '$chat': {
+          'channel': listed.androidChannel,
+          'stop': listed.stop,
+          'posts': [for (final p in listed.posts) p.toJson()],
+        },
+    }),
+  );
+
+  /// Forgets the notifications Android no longer shows: swiped away, tapped, or cleared
+  /// with the others. One posted a moment ago stays: Android may not list it yet.
+  Future<void> _dropGone() async {
+    if (_chats.isEmpty) return;
+    final active = await _active();
+    if (active == null) return;
+    final live = {for (final n in active) n.id};
+    final now = _now();
+    final before = _chats.length;
+    _chats.removeWhere((chatId, listed) {
+      if (live.contains(NotificationPlan.idForChat(chatId))) return false;
+      final at = listed.postedAt;
+      return at == null || now.difference(at).abs() > _listedWithin;
+    });
+    if (_chats.length != before) await _save();
+  }
+
+  static const _listedWithin = Duration(seconds: 2);
 
   Future<void> _createSilentChannel(
     AndroidFlutterLocalNotificationsPlugin android,
@@ -313,70 +438,122 @@ final class Notifier {
     return (inApp ? _actualInApp : _actual)[plan.channelId] ?? plan.channelId;
   }
 
-  /// Shows a post. One already queued for reading aloud offers Stop from the start. A
-  /// post of a channel that has just sounded [soundLimit] times is shown quietly.
-  Future<void> show(NotificationPlan asked) async {
-    final chat = PostRef.decode(asked.payload)?.chatId;
-    final plan =
-        asked.channelId == channelSilent || chat == null || _maySound(chat)
+  /// The priority an Android channel stands for.
+  static String _planChannelOf(String androidChannel) =>
+      androidChannel.startsWith(channelUrgent)
+      ? channelUrgent
+      : androidChannel.startsWith(channelSilent)
+      ? channelSilent
+      : channelNormal;
+
+  /// Adds a post to its channel's notification, which is shown with it as its newest
+  /// line and sounds and pops up as the post's rule says. A post of a channel that has
+  /// just sounded [soundLimit] times, and one of a silent rule, is added quietly.
+  Future<void> show(NotificationPlan asked) => _inTurn(() async {
+    final ref = PostRef.decode(asked.payload);
+    if (ref == null) return;
+    final chatId = ref.chatId;
+    final plan = asked.channelId == channelSilent || _maySound(chatId)
         ? asked
         : asked.copyWith(quiet: true);
-    final channelId = await _channelOf(plan);
-    await _post(plan, channelId, reading: _reading.contains(plan.id));
-    final chatId = PostRef.decode(plan.payload)?.chatId;
-    if (chatId != null) _lastPerChat[chatId] = plan;
-    final live = await _liveInGroup(plan.groupKey, plan.summaryId);
-    // The post just shown counts even when Android has not listed it yet.
-    live.add(plan.id);
-    await _showSummary(plan, channelId, live.length);
-  }
+    await _dropGone();
+    final shownBefore = _chats.containsKey(chatId);
+    final listed = _chats.putIfAbsent(chatId, _Listed.new);
+    listed.posts
+      // The same post again takes the place of its line.
+      ..removeWhere((p) => p.id == plan.id)
+      ..add(plan)
+      ..sort((a, b) => a.ref.messageId.compareTo(b.ref.messageId));
+    if (listed.posts.length > maxListed) {
+      listed.posts.removeRange(0, listed.posts.length - maxListed);
+    }
+    final alerts = plan.channelId != channelSilent && !plan.quiet;
+    // A post that makes no sound leaves the notification on the channel it is on: put
+    // on the silent one, a notification that popped up would sink among the silent ones.
+    if (alerts || !shownBefore) listed.androidChannel = await _channelOf(plan);
+    await _post(chatId, alert: alerts);
+  });
 
-  /// Posts a post's notification, first or again. Posted again it keeps its time and
-  /// makes no sound: only the button differs, Stop while the post is read and Listen
-  /// otherwise. Neither button takes the notification away.
-  Future<void> _post(
-    NotificationPlan plan,
-    String channelId, {
-    required bool reading,
-  }) async {
+  /// Posts a channel's notification, first or again: the conversation of its matched
+  /// posts under the channel's name and photo, each post with its time and its picture.
+  /// Posted again without [alert] it makes no sound and does not pop up: a line was
+  /// edited or went, or the button changed, Stop while one of its posts is read and
+  /// Listen otherwise. A tap opens the oldest post it lists.
+  Future<void> _post(int chatId, {required bool alert}) async {
+    final listed = _chats[chatId];
+    if (listed == null || listed.posts.isEmpty) return;
+    final posts = listed.posts;
+    final newest = posts.last;
+    // Named by the channel once one of its posts was shown openly.
+    final named = posts.lastWhere((p) => !p.hidden, orElse: () => newest);
+    final avatar = posts
+        .lastWhere((p) => !p.hidden && p.avatar != null, orElse: () => newest)
+        .avatar;
+    final reading = posts.any((p) => _reading.contains(p.id));
+    final channelId = listed.androidChannel;
+    final priority = _planChannelOf(channelId);
+    Person sender(NotificationPlan p) => p.hidden
+        ? Person(name: p.title, key: 'hidden')
+        : Person(
+            name: named.title,
+            key: 'chat$chatId',
+            icon: avatar == null ? null : BitmapFilePathAndroidIcon(avatar),
+          );
     await _plugin.show(
-      id: plan.id,
-      title: plan.title,
-      body: plan.body,
-      payload: plan.payload,
+      id: NotificationPlan.idForChat(chatId),
+      title: named.title,
+      body: newest.body,
+      payload: posts.first.payload,
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           channelId,
-          // What Android gives back of a notification it shows: the tag, not the payload.
-          // So the tag says which post this is.
-          tag: plan.payload,
           // A readable name: were the channel ever created from here, Android's own
           // settings would otherwise list "posts_normal_k3f9".
           channelNameOf(
-            plan.channelId,
+            priority,
             inApp: _isInApp(channelId),
             strings: _strings,
           ),
           icon: notificationIcon,
-          subText: plan.rule.isEmpty ? null : plan.rule,
-          importance: _importanceOf(
-            plan.quiet ? channelSilent : plan.channelId,
-            channelId,
-          ),
-          priority: _priorityOf(
-            plan.quiet ? channelSilent : plan.channelId,
-            channelId,
-          ),
-          groupKey: plan.groupKey,
-          when: plan.when,
-          onlyAlertOnce: true,
-          // Swiping it away reaches the service host, which stops reading the post; a
+          largeIcon: avatar == null ? null : FilePathAndroidBitmap(avatar),
+          // The rule of the newest post, so the shade says why it is here.
+          subText: newest.rule.isEmpty ? null : newest.rule,
+          importance: _importanceOf(priority, channelId),
+          priority: _priorityOf(priority, channelId),
+          when: newest.when,
+          onlyAlertOnce: !alert,
+          // Swiping it away reaches the service host, which stops reading its posts; a
           // tap or a cancellation is not reported.
           dismissIsolate: NotificationDismissedIsolate.background,
-          styleInformation: BigTextStyleInformation(plan.body),
+          styleInformation: MessagingStyleInformation(
+            sender(named),
+            // Android's header has no sub-text for a conversation; its title stands
+            // there instead.
+            conversationTitle: newest.rule.isEmpty ? null : newest.rule,
+            groupConversation: false,
+            messages: [
+              for (final p in posts)
+                Message(
+                  p.body,
+                  DateTime.fromMillisecondsSinceEpoch(p.when ?? 0),
+                  sender(p),
+                ),
+              // The picture of the newest post, under its words: Android draws a
+              // line's picture in place of its words, and only as many lines as fit,
+              // so the older posts stay words.
+              if (newest.picture case final picture?)
+                Message(
+                  newest.body,
+                  DateTime.fromMillisecondsSinceEpoch(newest.when ?? 0),
+                  sender(newest),
+                  dataMimeType: 'image/jpeg',
+                  dataUri: picture,
+                ),
+            ],
+          ),
           // The button that changes comes last, so the other one never moves. A
-          // notification that hides its post has none: Listen would say it aloud.
-          actions: plan.hidden
+          // notification that hides a post has none: Listen would say it aloud.
+          actions: posts.any((p) => p.hidden)
               ? const []
               : [
                   AndroidNotificationAction(
@@ -400,71 +577,57 @@ final class Notifier {
         ),
       ),
     );
-    _shown.remove(plan.id);
-    _shown[plan.id] = (plan: plan, reading: reading);
-    if (_shown.length > 200) _shown.remove(_shown.keys.first);
+    listed
+      ..stop = reading
+      ..postedAt = _now();
+    await _save();
   }
 
-  /// The post of a notification was edited: the notification says the new words, where
-  /// it is still shown. Posted again it makes no sound and keeps its time and place.
-  /// Rules are not asked again: an edit neither raises nor takes back a notification.
-  Future<void> updateBody(int chatId, int messageId, String body) async {
-    final id = NotificationPlan.idFor(chatId, messageId);
-    final shown = _shown[id];
-    // A notification that hides its post goes on hiding it.
-    if (shown == null || shown.plan.hidden || shown.plan.body == body) return;
-    final active = await _active();
-    // Dismissed or opened meanwhile: it stays gone.
-    if (active != null && !active.any((n) => n.id == id)) {
-      _shown.remove(id);
-      return;
-    }
-    final plan = shown.plan.copyWith(body: body);
-    await _post(plan, await _channelOf(plan), reading: shown.reading);
-    if (_lastPerChat[chatId]?.id == id) _lastPerChat[chatId] = plan;
-  }
+  /// The posts a channel's notification lists, oldest first: what its Listen reads and
+  /// its Stop stops.
+  List<PostRef> listed(int chatId) => [
+    for (final p in _chats[chatId]?.posts ?? const <NotificationPlan>[]) p.ref,
+  ];
 
-  /// The posts being read or waiting to be read, by notification id: their notifications
-  /// offer Stop, the others Listen. A notification the reader dismissed or opened stays
-  /// gone.
+  /// A listed post was edited: its line says the new words, where the notification is
+  /// still shown. Posted again it makes no sound. Rules are not asked again: an edit
+  /// neither raises nor takes back a notification.
+  Future<void> updateBody(int chatId, int messageId, String body) =>
+      _inTurn(() async {
+        final id = NotificationPlan.idFor(chatId, messageId);
+        bool changes() {
+          final at = _chats[chatId]?.posts.indexWhere((p) => p.id == id) ?? -1;
+          if (at < 0) return false;
+          final line = _chats[chatId]!.posts[at];
+          // A line that hides its post goes on hiding it.
+          return !line.hidden && line.body != body;
+        }
+
+        if (!changes()) return;
+        // Dismissed or opened meanwhile: it stays gone.
+        await _dropGone();
+        if (!changes()) return;
+        final posts = _chats[chatId]!.posts;
+        final at = posts.indexWhere((p) => p.id == id);
+        posts[at] = posts[at].copyWith(body: body);
+        await _post(chatId, alert: false);
+      });
+
+  /// The posts being read or waiting to be read ([NotificationPlan.idFor]): the
+  /// notifications that list one of them offer Stop, the others Listen. A notification
+  /// the reader dismissed or opened stays gone.
   Future<void> setReading(Set<int> ids) {
     _reading = ids;
-    return _buttons = _buttons.then((_) => _applyReading()).catchError((
-      Object e,
-    ) {
+    return _inTurn(() async {
+      bool wants(_Listed l) => l.posts.any((p) => _reading.contains(p.id));
+      if (_chats.values.every((l) => l.stop == wants(l))) return;
+      await _dropGone();
+      for (final MapEntry(key: chatId, value: l) in [..._chats.entries]) {
+        if (l.stop != wants(l)) await _post(chatId, alert: false);
+      }
+    }).catchError((Object e) {
       debugPrint('notifier: button change failed: $e');
     });
-  }
-
-  Future<void> _applyReading() async {
-    final active = await _active();
-    if (active == null) return;
-    final live = {for (final n in active) n.id};
-    // Notifications posted before the service last started are known from Android.
-    for (final n in active) {
-      final id = n.id;
-      if (id == null || _shown.containsKey(id) || !_reading.contains(id)) {
-        continue;
-      }
-      final plan = NotificationPlan.restore(
-        id: id,
-        androidChannelId: n.channelId ?? '',
-        title: n.title ?? '',
-        body: n.body ?? '',
-        groupKey: n.groupKey ?? '',
-        payload: _payloadOf(n),
-      );
-      if (plan != null) _shown[id] = (plan: plan, reading: false);
-    }
-    for (final MapEntry(key: id, value: s) in [..._shown.entries]) {
-      final want = _reading.contains(id);
-      if (s.reading == want) continue;
-      if (!live.contains(id)) {
-        _shown.remove(id);
-        continue;
-      }
-      await _post(s.plan, await _channelOf(s.plan), reading: want);
-    }
   }
 
   /// What Android shows of this app; null where it cannot say (below Android 6.0).
@@ -479,146 +642,34 @@ final class Notifier {
     }
   }
 
-  /// Group summary per channel so several posts collapse into one row. Only the posts
-  /// alert: the pop-up shows the new post with its buttons, not the whole group, and a
-  /// summary posted again after a cancellation makes no sound.
-  Future<void> _showSummary(
-    NotificationPlan plan,
-    String channelId,
-    int count,
-  ) => _summary(
-    summaryId: plan.summaryId,
-    title: plan.title,
-    groupKey: plan.groupKey,
-    planChannel: plan.channelId,
-    androidChannel: channelId,
-    count: count,
-  );
+  /// Takes deleted posts out of their channel's notification (ARCHITECTURE 6.2); the
+  /// notification goes with its last post.
+  Future<void> cancel(int chatId, List<int> messageIds) =>
+      _unlist(chatId, (ref) => messageIds.contains(ref.messageId));
 
-  Future<void> _summary({
-    required int summaryId,
-    required String title,
-    required String groupKey,
-    required String planChannel,
-    required String androidChannel,
-    required int count,
-  }) => _plugin.show(
-    id: summaryId,
-    title: title,
-    body: _strings.notifyNewPosts(count),
-    notificationDetails: NotificationDetails(
-      android: AndroidNotificationDetails(
-        androidChannel,
-        androidChannel,
-        icon: notificationIcon,
-        importance: _importanceOf(planChannel, androidChannel),
-        priority: _priorityOf(planChannel, androidChannel),
-        groupKey: groupKey,
-        setAsGroupSummary: true,
-        groupAlertBehavior: GroupAlertBehavior.children,
-      ),
-    ),
-  );
+  /// Takes the posts of [chatId] up to [upToMessageId] out of its notification: they
+  /// were read, here or in the official app.
+  Future<void> cancelRead(int chatId, int upToMessageId) =>
+      _unlist(chatId, (ref) => ref.messageId <= upToMessageId);
 
-  /// Ids of a group's post notifications that Android still holds, the summary excluded.
-  ///
-  /// The summary's count is asked of Android rather than tallied: posts the user swiped
-  /// away, tapped or had deleted must not keep inflating "N new posts".
-  Future<Set<int>> _liveInGroup(String groupKey, int summaryId) async => {
-    // Where Android cannot say, the count covers the post being shown alone.
-    for (final n in await _active() ?? const <ActiveNotification>[])
-      if (n.groupKey == groupKey && n.id != null && n.id != summaryId) n.id!,
-  };
+  Future<void> _unlist(int chatId, bool Function(PostRef) gone) =>
+      _inTurn(() async {
+        if (!(_chats[chatId]?.posts.any((p) => gone(p.ref)) ?? false)) return;
+        await _dropGone();
+        final listed = _chats[chatId];
+        if (listed == null) return;
+        listed.posts.removeWhere((p) => gone(p.ref));
+        if (listed.posts.isNotEmpty) return _post(chatId, alert: false);
+        _chats.remove(chatId);
+        await _plugin.cancel(id: NotificationPlan.idForChat(chatId));
+        await _save();
+      });
 
-  /// Drops notifications for deleted posts (ARCHITECTURE 6.2: cancel on delete), and keeps
-  /// the group summary honest: it goes when the last post of its channel does.
-  Future<void> cancel(int chatId, List<int> messageIds) async {
-    final gone = <int>{};
-    // A notification is cancelled under the tag it was posted with.
-    final tags = {
-      for (final n in await _active() ?? const <ActiveNotification>[])
-        if (n.id != null) n.id!: n.tag,
-    };
-    for (final id in messageIds) {
-      final notificationId = NotificationPlan.idFor(chatId, id);
-      final tag = _shown[notificationId]?.plan.payload ?? tags[notificationId];
-      _shown.remove(notificationId);
-      gone.add(notificationId);
-      await _plugin.cancel(id: notificationId, tag: tag);
-    }
-    await recount(chatId, gone: gone);
-  }
-
-  /// Takes away the notifications of the posts of [chatId] up to [upToMessageId]: they
-  /// were read, here or in the official app. Android is asked which ones it shows, so
-  /// notifications from before this notifier started go as well.
-  Future<void> cancelRead(int chatId, int upToMessageId) async {
-    final active = await _active();
-    if (active == null) return;
-    final gone = <int>{};
-    for (final n in active) {
-      final id = n.id;
-      if (id == null || n.groupKey != _groupOf(chatId)) continue;
-      final ref = PostRef.decode(_payloadOf(n));
-      if (ref == null ||
-          ref.chatId != chatId ||
-          ref.messageId > upToMessageId) {
-        continue;
-      }
-      _shown.remove(id);
-      gone.add(id);
-      await _plugin.cancel(id: id, tag: n.tag);
-    }
-    if (gone.isNotEmpty) await recount(chatId, gone: gone);
-  }
-
-  static String _groupOf(int chatId) => 'chat-$chatId';
-
-  /// The payload of a notification Android shows: its tag, which carries it; the payload
-  /// itself where a platform reports one.
-  static String _payloadOf(ActiveNotification n) => n.tag ?? n.payload ?? '';
-
-  /// Sets "N new posts" of a channel's group to what Android still shows of it, after a
-  /// post left the shade: deleted, read, swiped away or tapped. [gone] names notifications
-  /// that were cancelled a moment ago and Android may still list. The summary goes with
-  /// the last post.
-  Future<void> recount(int chatId, {Set<int> gone = const {}}) async {
-    final active = await _active();
-    if (active == null) return;
-    final summaryId = NotificationPlan.summaryIdFor(chatId);
-    ActiveNotification? summary;
-    final live = <ActiveNotification>[];
-    for (final n in active) {
-      if (n.groupKey != _groupOf(chatId) || n.id == null) continue;
-      if (n.id == summaryId) {
-        summary = n;
-      } else if (!gone.contains(n.id)) {
-        live.add(n);
-      }
-    }
-    final last = _lastPerChat[chatId];
-    if (live.isEmpty) {
-      _lastPerChat.remove(chatId);
-      if (summary != null || last != null) await _plugin.cancel(id: summaryId);
-      return;
-    }
-    // The channel the group is on: the summary's, as Android reports it, or that of a
-    // post still there.
-    final androidChannel =
-        summary?.channelId ?? live.first.channelId ?? channelSilent;
-    await _summary(
-      summaryId: summaryId,
-      title: last?.title ?? summary?.title ?? live.first.title ?? '',
-      groupKey: _groupOf(chatId),
-      planChannel: androidChannel.startsWith(channelUrgent)
-          ? channelUrgent
-          : androidChannel.startsWith(channelSilent)
-          ? channelSilent
-          : channelNormal,
-      androidChannel: androidChannel,
-      count: live.length,
-    );
-  }
+  /// The notification of [chatId] left the shade: swiped away, tapped, or opened in
+  /// Telegram. What it listed is forgotten, so the next post starts a new list.
+  Future<void> forget(int chatId) => _inTurn(() async {
+    if (_chats.remove(chatId) != null) await _save();
+  });
 }
 
 /// Entry point for action taps and swipes. For background actions and swipes Android starts

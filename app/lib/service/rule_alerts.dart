@@ -11,6 +11,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import '../ai/semantic_gate.dart';
 import '../l10n/l10n.dart';
 import '../settings/app_lock.dart' show AppLock;
+import 'notification_pictures.dart';
 import 'notifier.dart';
 import 'read_aloud_keys.dart';
 import 'reading_now.dart';
@@ -29,6 +30,7 @@ final class RuleAlerts {
     required this.onReading,
     this.readUpdates = const Stream.empty(),
     this.onAction,
+    this.pictures,
     Notifier? notifier,
     this.speaker,
     this.gate,
@@ -57,6 +59,10 @@ final class RuleAlerts {
              client.history(chatId, fromMessageId: fromMessageId, limit: limit),
          onReading: onReading,
          onAction: onAction,
+         pictures: NotificationPictures(
+           channels: client.myChannels,
+           download: client.download,
+         ),
          log: log,
        );
 
@@ -80,6 +86,9 @@ final class RuleAlerts {
   /// Runs before a notification's button is acted on.
   final Future<void> Function()? onAction;
 
+  /// Where the channel's photo and a post's picture come from; none in most tests.
+  final NotificationPictures? pictures;
+
   /// The speech engine and the AI check; the app's own unless a test hands them in.
   final Speaker? speaker;
   SemanticGate? gate;
@@ -96,6 +105,10 @@ final class RuleAlerts {
 
   /// Recent matched posts so the Listen action can find their text.
   final _recentTexts = <(int, int), String>{};
+
+  /// The posts that were read aloud or queued for it: Listen on a notification reads
+  /// the posts it lists that are not among them.
+  final _spoken = <(int, int)>{};
 
   /// Whether the app is on screen: posts that match then do not pop up over it.
   set appOpen(bool open) => _notifier.appOpen = open;
@@ -182,15 +195,21 @@ final class RuleAlerts {
     }
     _log('match ${m.ruleNames} on ${m.post.chatId}/${m.post.messageId}');
     if (!_titles.containsKey(m.post.chatId)) await reloadTitles();
-    final plan = NotificationPlan.forMatch(
+    final hidden = !unlocked && await _hasLock();
+    var plan = NotificationPlan.forMatch(
       m,
       channelTitle: _titles[m.post.chatId] ?? '',
       strings: _strings,
-      hidden: !unlocked && await _hasLock(),
+      hidden: hidden,
     );
     _remember(m.post.chatId, m.post.messageId, m.post.text);
     // Queued first, so the notification offers Stop from the start.
     if (m.readAloud) unawaited(_speakPost(m.post.chatId, m.post.messageId));
+    // A notification that hides its post shows neither the channel's face nor a picture.
+    if (pictures case final from? when !hidden) {
+      final found = await from.of(m.post);
+      plan = plan.copyWith(picture: found.picture, avatar: found.avatar);
+    }
     await _notifier.show(plan);
   }
 
@@ -228,6 +247,8 @@ final class RuleAlerts {
       }
       _remember(chatId, messageId, text);
     }
+    _spoken.add((chatId, messageId));
+    if (_spoken.length > 400) _spoken.remove(_spoken.first);
     tts.enqueue(
       TtsItem(
         text: text,
@@ -254,8 +275,8 @@ final class RuleAlerts {
     }
   }
 
-  /// A post's notification offers Stop while the post is read or waits to be, the app's
-  /// banner names the post being read, and volume down stops it all.
+  /// A channel's notification offers Stop while one of its posts is read or waits to be,
+  /// the app's banner names the post being read, and volume down stops it all.
   void _onReadingChanged(Set<Object> keys) {
     unawaited(_keys?.watch(keys.isNotEmpty));
     unawaited(
@@ -299,27 +320,52 @@ final class RuleAlerts {
       'on ${ref?.chatId}/${ref?.messageId}',
     );
     if (ref == null) return;
-    final id = NotificationPlan.idFor(ref.chatId, ref.messageId);
-    // A post swiped away is not read any more, as with its Stop, and its channel's
-    // "N new posts" counts one fewer.
+    // The posts the channel's notification lists, oldest first; the one of the payload
+    // for a notification nothing is known of any more.
+    final listed = switch (_notifier.listed(ref.chatId)) {
+      final posts when posts.isNotEmpty => posts,
+      _ => [ref],
+    };
+    // A notification swiped away is not read any more, as with its Stop, and what it
+    // listed is forgotten.
     if (dismissed) {
-      unawaited(_tts?.stop((ref.chatId, ref.messageId)));
-      unawaited(_notifier.recount(ref.chatId, gone: {id}));
+      unawaited(_stopPosts(listed));
+      unawaited(_notifier.forget(ref.chatId));
       return;
     }
     // A tap opened the post in the app, and Android took the notification away.
     if (m['type'] == notificationTapped) {
-      unawaited(_notifier.recount(ref.chatId, gone: {id}));
+      unawaited(_notifier.forget(ref.chatId));
       return;
     }
     await onAction?.call();
     if (m['actionId'] == actionListen) {
-      unawaited(_speakPost(ref.chatId, ref.messageId, next: true));
+      // The listed posts that were not read yet, oldest first; all of them when every
+      // one was.
+      final unheard = [
+        for (final p in listed)
+          if (!_spoken.contains((p.chatId, p.messageId))) p,
+      ];
+      final wanted = unheard.isEmpty ? listed : unheard;
+      // With nothing being read the first one starts at once. The others are each put
+      // at the head of the queue, so the last one first.
+      final first = _tts?.current == null ? wanted.first : null;
+      if (first != null) {
+        await _speakPost(first.chatId, first.messageId, next: true);
+      }
+      for (final p in wanted.reversed) {
+        if (identical(p, first)) continue;
+        await _speakPost(p.chatId, p.messageId, next: true);
+      }
     }
-    if (m['actionId'] == actionStop) {
-      unawaited(_tts?.stop((ref.chatId, ref.messageId)));
-    }
+    if (m['actionId'] == actionStop) unawaited(_stopPosts(listed));
     // Taps and "Open in Telegram" are handled by the app (notification_launch.dart).
+  }
+
+  Future<void> _stopPosts(List<PostRef> posts) async {
+    for (final p in posts) {
+      await _tts?.stop((p.chatId, p.messageId));
+    }
   }
 
   /// Stops reading one post; the next waiting one follows.

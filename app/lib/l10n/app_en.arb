@@ -2567,15 +2567,6 @@
   "@notifyNewPost": {
     "description": "Title of a rule notification whose channel has no name."
   },
-  "notifyNewPosts": "{count, plural, =1{1 new post} other{{count} new posts}}",
-  "@notifyNewPosts": {
-    "description": "Group summary of a channel's rule notifications.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "notifyListen": "Listen",
   "@notifyListen": {
     "description": "Notification action that reads the post aloud."

@@ -142,14 +142,14 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - A rule can request read-aloud.
 - A rule can have a schedule: active on selected weekdays between two times.
 - A rule can be switched off without deleting it.
-- A matching new post raises a notification that opens the post in the feed of the rule and names the rule that fired. When several rules match, the highest priority wins, and read-aloud happens if any matching rule asks for it.
+- A channel has one notification, which lists its matching posts as a conversation, oldest first, under the channel's name and photo; each line is a post's words in short, and the newest post shows its picture under its line. A caption is marked with what it is the caption of: 🖼 a picture, 📹 a video, 🎬 a GIF, 📎 a file. The notification names the rule of its newest post. A new matching post is added to it and sounds and pops up as its rule says. A tap opens the oldest post it lists, in the feed of that post's rule. When several rules match a post, the highest priority wins, and read-aloud happens if any matching rule asks for it.
 - Android has to allow notifications at all; the app asks for that when I save my first rule, not before I have logged in.
 - An album raises one notification, matched by its caption; without a caption it says "Album".
 - Posts that match no rule raise no notification. The app does not replicate Telegram's own per-chat notifications.
 - Rules match post text and media captions. Edited posts are not matched again.
 - I test a rule against the recent posts of its channels to see what it would have matched. The result says how many posts and channels it checked.
 - A bell-with-slash button in the home screen's header pauses every rule: nothing notifies me and nothing is read aloud until I press it again, also after the app or the phone restarts. Pausing stops the post being read and clears the queue. While paused, the button is red and a banner under the header of every screen says so, with "Resume". The permanent notification's Pause and Resume are the same switch.
-- Posts from the same channel collapse into one group whose "N new posts" counts only the ones still in the shade. A post deleted in Telegram takes its notification with it, and so does a post I read, here or in the official app.
+- A post deleted in Telegram leaves its channel's notification, and so does a post I read, here or in the official app; the notification goes with its last post. A notification I swiped away or opened starts a new list with the next matching post.
 
 ### Background watching
 
@@ -162,8 +162,8 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 ### Read aloud
 
 - When a rule with read-aloud fires, the app speaks "New post in <channel>" followed by the post text, also with the screen off. The words the app adds are in the post's language when the app has it (English or Ukrainian), otherwise in the interface language.
-- Every rule notification carries a "Listen" action that speaks the post on demand. While its post is being read or waits to be read, the action is "Stop" instead, which silences that post only; the next waiting post is read. Neither action takes the notification away.
-- Swiping a post's notification away stops that post the way its Stop does. "Clear all" in the shade stops every post it clears.
+- Every rule notification carries a "Listen" action, which reads the posts it lists that were not read aloud yet, oldest first, and all of them when every one was. While one of its posts is being read or waits to be read, the action is "Stop" instead, which silences the posts of that notification; a waiting post of another channel is read next. Neither action takes the notification away.
+- Swiping a notification away stops its posts the way its Stop does. "Clear all" in the shade stops every post it clears.
 - Volume down stops the post being read and clears the queue, also with the screen off or locked; that press does not lower the volume. Volume up still raises it. A headset's pause button does the same as volume down. When nothing is read, the keys work as usual.
 - While a post is read aloud, a banner under the header of every screen names its channel and how many posts wait after it, with "Stop" (this post; the next one follows) and "Stop and clear queue" (this post and every waiting one).
 - The app detects the post's language and picks a matching voice.

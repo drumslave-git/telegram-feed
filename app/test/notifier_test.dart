@@ -44,9 +44,12 @@ void main() {
     expect(plan.channelId, channelUrgent);
     expect(plan.title, 'News');
     expect(plan.body, 'Breaking: rate cut');
-    expect(plan.groupKey, 'chat--1001');
     expect(plan.id, NotificationPlan.idFor(-1001, 5 << 20));
-    expect(plan.summaryId, isNot(plan.id));
+    expect(NotificationPlan.idForChat(-1001), isNot(plan.id));
+    expect(
+      NotificationPlan.idForChat(-1001),
+      isNot(NotificationPlan.idForChat(-1002)),
+    );
     expect(PostRef.decode(plan.payload)!.messageId, 5 << 20);
     expect(
       NotificationPlan.forMatch(

@@ -1,27 +1,30 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:app_db/app_db.dart';
 import 'package:core/core.dart';
 import 'package:drift/native.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/ai/semantic_gate.dart';
 import 'package:telegram_feed/l10n/l10n.dart';
+import 'package:telegram_feed/service/notification_pictures.dart';
 import 'package:telegram_feed/service/notifier.dart';
 import 'package:telegram_feed/service/reading_now.dart';
 import 'package:telegram_feed/service/rule_alerts.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import 'notifier_harness.dart';
 import 'semantic_gate_test.dart' show MemorySecrets;
 import 'tts_service_test.dart' show FakeSpeaker;
 
-/// A match becomes a notification and, when a rule asks, speech, wherever the alerts run:
-/// in the service host, or in the app while background watching is off.
+/// A match becomes a line of its channel's notification and, when a rule asks, speech,
+/// wherever the alerts run: in the service host, or in the app while background watching
+/// is off.
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-  const channel = MethodChannel('dexterous.com/flutter/local_notifications');
+  final binding = TestWidgetsFlutterBinding.ensureInitialized();
+  const pictureChannel = MethodChannel('tf/notificationPictures');
   const chatId = -1001;
 
   late AppDatabase db;
@@ -30,14 +33,30 @@ void main() {
   late StreamController<PostEvent> posts;
   late StreamController<bool> paused;
   late StreamController<ReadState> reads;
-  late Map<int, Map<Object?, Object?>> shade;
+  late FakeShade shade;
   late List<ReadingNow?> reading;
-  late List<({int id, String title, String body})> shown;
-  late List<int> cancelled;
   late RuleAlerts alerts;
+  late DateTime now;
 
-  MatchEvent match(int messageId, {bool readAloud = false}) => MatchEvent.of(
-    Post(chatId: chatId, messageId: messageId, date: 1, text: 'rates cut'),
+  /// Whether the app has a lock.
+  var hasLock = false;
+
+  /// The files the pictures were asked to download.
+  late List<int> downloaded;
+
+  MatchEvent match(
+    int messageId, {
+    bool readAloud = false,
+    String text = 'rates cut',
+    Media? media,
+  }) => MatchEvent.of(
+    Post(
+      chatId: chatId,
+      messageId: messageId,
+      date: messageId,
+      text: text,
+      media: media,
+    ),
     [
       MatchedRule(
         name: 'macro',
@@ -47,56 +66,37 @@ void main() {
     ],
   );
 
-  /// Whether the app has a lock, and how many buttons each notification was shown with.
-  var hasLock = false;
-  var buttons = <int, int>{};
-
   Future<void> tick() => Future<void>.delayed(const Duration(milliseconds: 20));
 
+  /// Minutes pass: Android lists what was posted, and the channel may sound again.
+  void later() => now = now.add(const Duration(minutes: 5));
+
+  /// A button of the channel's notification, a swipe or a tap, as the service host
+  /// hears of it.
+  Future<void> respond({String? action, String? type}) async {
+    IsolateNameServer.lookupPortByName(notifierPortName)!.send({
+      'actionId': action,
+      'payload': shade.of(chatId).payload,
+      'type': type ?? NotificationResponseType.selectedNotificationAction.name,
+    });
+    await tick();
+  }
+
   setUp(() async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    AndroidFlutterLocalNotificationsPlugin.registerWith();
     hasLock = false;
-    buttons = {};
-    shown = [];
-    cancelled = [];
-    shade = {};
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          switch (call.method) {
-            case 'initialize':
-              return true;
-            case 'hasNotificationPolicyAccess':
-              return false;
-            case 'getActiveNotifications':
-              return shade.values.toList();
-            case 'getNotificationChannels':
-              return <Object?>[];
-            case 'show':
-              final m = call.arguments as Map;
-              shown.add((
-                id: m['id'] as int,
-                title: m['title'] as String? ?? '',
-                body: m['body'] as String? ?? '',
-              ));
-              buttons[m['id'] as int] =
-                  ((m['platformSpecifics'] as Map)['actions'] as List?)
-                      ?.length ??
-                  0;
-              shade[m['id'] as int] = {
-                'id': m['id'],
-                'title': m['title'],
-                // Android reports the tag of a notification it shows, never its payload.
-                'tag': (m['platformSpecifics'] as Map)['tag'],
-                'groupKey': (m['platformSpecifics'] as Map)['groupKey'],
-                'channelId': (m['platformSpecifics'] as Map)['channelId'],
-              };
-            case 'cancel':
-              cancelled.add((call.arguments as Map)['id'] as int);
-              shade.remove((call.arguments as Map)['id']);
-          }
-          return null;
-        });
+    downloaded = [];
+    now = DateTime(2026, 10, 4, 12);
+    shade = FakeShade()..install();
+    binding.defaultBinaryMessenger.setMockMethodCallHandler(pictureChannel, (
+      call,
+    ) async {
+      final path = call.arguments as String;
+      return switch (call.method) {
+        'avatar' => '$path.round.png',
+        'share' => 'content://files$path',
+        _ => null,
+      };
+    });
     db = AppDatabase(NativeDatabase.memory());
     final feed = await db.createFeed('News');
     await db.addSource(feed.id, chatId, title: 'Wire');
@@ -124,6 +124,27 @@ void main() {
       speaker: speaker,
       gate: SemanticGate(db: db, secrets: MemorySecrets()),
       lockSet: () async => hasLock,
+      notifier: Notifier(null, () => now, MemoryStore()),
+      pictures: NotificationPictures(
+        channels: () async => const [
+          Channel(
+            chatId: chatId,
+            title: 'Wire',
+            photo: FileRef(id: 50, remoteId: 'photo', size: 1),
+          ),
+        ],
+        download: (file) async {
+          downloaded.add(file.id);
+          return FileRef(
+            id: file.id,
+            remoteId: file.remoteId,
+            size: file.size,
+            localPath: '/tdlib/${file.id}',
+            width: file.width,
+            height: file.height,
+          );
+        },
+      ),
       log: (_) {},
     );
     await alerts.start(AppLanguage.englishStrings);
@@ -132,9 +153,11 @@ void main() {
   tearDown(() async {
     await alerts.dispose();
     await db.close();
-    debugDefaultTargetPlatformOverride = null;
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null);
+    shade.remove();
+    binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      pictureChannel,
+      null,
+    );
   });
 
   test('with a lock set and the app not open and unlocked, a notification says '
@@ -142,69 +165,124 @@ void main() {
     hasLock = true;
     matches.add(match(7));
     await tick();
-    final id = NotificationPlan.idFor(chatId, 7);
-    final hidden = shown.firstWhere((s) => s.id == id);
-    // Neither the channel nor the words, and no button that would say them aloud.
+    final hidden = shade.of(chatId);
+    // Neither the channel nor the words nor its face, and no button that would say
+    // them aloud.
     expect(
       (hidden.title, hidden.body),
       ('Unofficial Telegram Feed', 'New post'),
     );
-    expect(buttons[id], 0);
+    expect(hidden.texts, ['New post']);
+    expect(hidden.buttons, isEmpty);
+    expect(hidden.avatar, isNull);
+    expect(downloaded, isEmpty);
     // The tap still knows which post it is; the rule's name is not in it.
-    final tag = shade[id]!['tag'] as String;
-    expect(PostRef.decode(tag)!.messageId, 7);
-    expect(tag, isNot(contains('macro')));
+    expect(hidden.opens.messageId, 7);
+    expect(hidden.payload, isNot(contains('macro')));
 
     // An edit of that post does not uncover it.
+    final count = shade.shown.length;
     posts.add(
       PostEdited(
         Post(chatId: chatId, messageId: 7, date: 1, text: 'rates cut twice'),
       ),
     );
     await tick();
-    expect(shown.where((s) => s.id == id).map((s) => s.body).toSet(), {
-      'New post',
-    });
+    expect(shade.shown, hasLength(count));
 
-    // The app on screen and past its lock: the post is shown as it is.
+    // The app on screen and past its lock: a post is shown as it is, in a notification
+    // of its own once the hidden one is gone.
+    shade.swipe(chatId);
+    later();
     alerts.unlocked = true;
     matches.add(match(8));
     await tick();
-    final open = shown.firstWhere(
-      (s) => s.id == NotificationPlan.idFor(chatId, 8),
-    );
+    final open = shade.of(chatId);
     expect((open.title, open.body), ('Wire', 'rates cut'));
-    expect(buttons[NotificationPlan.idFor(chatId, 8)], 2);
+    expect(open.texts, ['rates cut']);
+    expect(open.buttons, hasLength(2));
 
-    // Behind the lock again, or gone from the screen: hidden again.
+    // Behind the lock again, or gone from the screen: the next line says nothing.
     alerts.unlocked = false;
+    later();
     matches.add(match(9));
     await tick();
-    expect(
-      shown.firstWhere((s) => s.id == NotificationPlan.idFor(chatId, 9)).body,
-      'New post',
-    );
+    expect(shade.of(chatId).texts, ['rates cut', 'New post']);
+    expect(shade.of(chatId).buttons, isEmpty);
   });
 
   test('without a lock a notification shows its post whether the app is open '
       'or not', () async {
     matches.add(match(7));
     await tick();
-    expect(
-      shown.firstWhere((s) => s.id == NotificationPlan.idFor(chatId, 7)).body,
-      'rates cut',
-    );
+    expect(shade.of(chatId).body, 'rates cut');
   });
 
   test('a match is shown under its channel, and not spoken unasked', () async {
     matches.add(match(7));
     await tick();
-    final post = shown.firstWhere(
-      (s) => s.id == NotificationPlan.idFor(chatId, 7),
-    );
+    final post = shade.of(chatId);
     expect((post.title, post.body), ('Wire', 'rates cut'));
     expect(speaker.spoken, isEmpty);
     expect(reading, isEmpty);
+  });
+
+  test("the notification carries the channel's photo, cut round, and the "
+      "post's picture in a size that fills it", () async {
+    const sizes = [
+      FileRef(id: 1, remoteId: 's', size: 1, width: 90, height: 60),
+      FileRef(id: 2, remoteId: 'm', size: 1, width: 800, height: 533),
+      FileRef(id: 3, remoteId: 'l', size: 1, width: 1280, height: 853),
+    ];
+    matches.add(
+      match(
+        7,
+        text: 'the bridge',
+        media: const PhotoMedia(sizes: sizes),
+      ),
+    );
+    await tick();
+    final shown = shade.of(chatId);
+    expect(shown.avatar, '/tdlib/50.round.png');
+    expect(shown.lines.first.text, '🖼 the bridge');
+    expect(shown.lines.last.picture, 'content://files/tdlib/2');
+    expect(downloaded.toSet(), {50, 2});
+
+    // A picture under a spoiler stays under it: the newest post shows none, and the
+    // older one is words now.
+    later();
+    matches.add(
+      match(
+        8,
+        text: 'covered',
+        media: const PhotoMedia(sizes: sizes, cover: MediaCover.spoiler),
+      ),
+    );
+    await tick();
+    expect(shade.of(chatId).texts, ['🖼 the bridge', '🖼 covered']);
+    expect(shade.of(chatId).lines.map((l) => l.picture).toSet(), {null});
+    expect(downloaded.toSet(), {50, 2});
+  });
+
+  test('a picture that does not come in time is left out, and the '
+      'notification is shown without it', () async {
+    final slow = NotificationPictures(
+      channels: () async => const [],
+      download: (file) => Completer<FileRef>().future,
+      patience: const Duration(milliseconds: 30),
+    );
+    final found = await slow.of(
+      Post(
+        chatId: chatId,
+        messageId: 1,
+        date: 1,
+        text: '',
+        media: const PhotoMedia(
+          sizes: [FileRef(id: 1, remoteId: 'r', size: 1, width: 800)],
+        ),
+      ),
+    );
+    expect((found.avatar, found.picture), (null, null));
   });
 
   test('a read-aloud match is spoken, and the banner hears of it', () async {
@@ -214,9 +292,69 @@ void main() {
     expect(reading.last, isA<ReadingNow>());
     expect((reading.last!.chatId, reading.last!.messageId), (chatId, 7));
     expect(reading.last!.channelTitle, 'Wire');
+    // Its channel's notification offers Stop meanwhile.
+    expect(shade.of(chatId).buttons.last, actionStop);
     speaker.finish();
     await tick();
     expect(reading.last, isNull);
+    expect(shade.of(chatId).buttons.last, actionListen);
+  });
+
+  test('Listen reads the posts the notification lists that were not read yet, '
+      'oldest first; Stop stops them all', () async {
+    matches.add(match(7, readAloud: true, text: 'first'));
+    await tick();
+    speaker.finish();
+    await tick();
+    later();
+    matches.add(match(8, text: 'second'));
+    await tick();
+    later();
+    matches.add(match(9, text: 'third'));
+    await tick();
+    expect(speaker.spoken, hasLength(1));
+
+    await respond(action: actionListen);
+    expect(speaker.spoken.last, contains('second'));
+    expect(reading.last!.waiting, 1);
+    expect(shade.of(chatId).buttons.last, actionStop);
+    speaker.finish();
+    await tick();
+    expect(speaker.spoken.last, contains('third'));
+    expect(speaker.spoken, hasLength(3));
+
+    // Stop: the one being read, and with it whatever of this channel waits.
+    await respond(action: actionListen);
+    await respond(action: actionStop);
+    expect(reading.last, isNull);
+    expect(shade.of(chatId).buttons.last, actionListen);
+    final spoken = speaker.spoken.length;
+
+    // Every listed post was read: Listen reads them all again.
+    await respond(action: actionListen);
+    expect(speaker.spoken, hasLength(spoken + 1));
+    expect(speaker.spoken.last, contains('first'));
+    expect(reading.last!.waiting, 2);
+    await alerts.stopAll();
+  });
+
+  test('a notification swiped away is not read any more, and what it listed is '
+      'forgotten; so is that of a tapped one', () async {
+    matches.add(match(7, readAloud: true, text: 'first'));
+    await tick();
+    shade.swipe(chatId);
+    await respond(type: NotificationResponseType.notificationDismissed.name);
+    expect(reading.last, isNull);
+
+    matches.add(match(8, text: 'second'));
+    await tick();
+    expect(shade.of(chatId).texts, ['second']);
+
+    shade.swipe(chatId);
+    await respond(type: notificationTapped);
+    matches.add(match(9, text: 'third'));
+    await tick();
+    expect(shade.of(chatId).texts, ['third']);
   });
 
   test('Stop on the banner silences the post', () async {
@@ -239,27 +377,51 @@ void main() {
     expect(speaker.spoken, hasLength(1));
   });
 
-  test(
-    'a post read here or in the official app loses its notification',
-    () async {
-      matches
-        ..add(match(7))
-        ..add(match(8));
-      await tick();
-      reads.add(
-        const ReadState(chatId: chatId, lastReadMessageId: 7, unreadCount: 1),
-      );
-      await tick();
-      expect(cancelled, contains(NotificationPlan.idFor(chatId, 7)));
-      expect(cancelled, isNot(contains(NotificationPlan.idFor(chatId, 8))));
-    },
-  );
+  test('an edited post changes its line', () async {
+    matches.add(match(7, text: 'The bridge is closed.'));
+    await tick();
+    later();
+    posts.add(
+      PostEdited(
+        Post(
+          chatId: chatId,
+          messageId: 7,
+          date: 7,
+          text: 'The bridge is open again.',
+        ),
+      ),
+    );
+    await tick();
+    expect(shade.of(chatId).texts, ['The bridge is open again.']);
+    expect(shade.of(chatId).alerts, isFalse);
+  });
 
-  test('a deleted post takes its notification along', () async {
+  test('a post read here or in the official app leaves its notification, '
+      'which goes with the last one', () async {
+    matches
+      ..add(match(7, text: 'first'))
+      ..add(match(8, text: 'second'));
+    await tick();
+    later();
+    reads.add(
+      const ReadState(chatId: chatId, lastReadMessageId: 7, unreadCount: 1),
+    );
+    await tick();
+    expect(shade.of(chatId).texts, ['second']);
+    expect(shade.cancelled, isEmpty);
+    reads.add(
+      const ReadState(chatId: chatId, lastReadMessageId: 8, unreadCount: 0),
+    );
+    await tick();
+    expect(shade.cancelled, [NotificationPlan.idForChat(chatId)]);
+  });
+
+  test('a deleted post takes its line along', () async {
     matches.add(match(7));
     await tick();
+    later();
     posts.add(const PostsDeleted(chatId: chatId, messageIds: [7]));
     await tick();
-    expect(cancelled, contains(NotificationPlan.idFor(chatId, 7)));
+    expect(shade.cancelled, [NotificationPlan.idForChat(chatId)]);
   });
 }

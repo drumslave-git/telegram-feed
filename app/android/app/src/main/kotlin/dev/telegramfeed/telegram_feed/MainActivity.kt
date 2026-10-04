@@ -63,12 +63,18 @@ class MainActivity : FlutterActivity() {
     /** Read-aloud runs in this engine while background watching is off (rule_alerts.dart). */
     private var readAloudKeys: ReadAloudKeys? = null
 
+    /** And so are the notifications made. */
+    private var notificationPictures: NotificationPictures? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         readAloudKeys?.dispose()
         readAloudKeys =
             ReadAloudKeys(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         NowPlaying.attach(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
+        notificationPictures?.dispose()
+        notificationPictures =
+            NotificationPictures(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         // Do-not-disturb bypass for the urgent channel needs notification policy access, which
         // only a Settings screen can grant; flutter_local_notifications has no API for that.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "tf/notifications")
@@ -393,6 +399,8 @@ class MainActivity : FlutterActivity() {
         readAloudKeys?.dispose()
         readAloudKeys = null
         NowPlaying.detach(flutterEngine.dartExecutor.binaryMessenger)
+        notificationPictures?.dispose()
+        notificationPictures = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 

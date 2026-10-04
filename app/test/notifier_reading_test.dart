@@ -1,146 +1,98 @@
 import 'dart:isolate';
 import 'dart:ui';
 
-import 'package:core/core.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/service/notifier.dart';
-import 'package:telegram_gateway/telegram_gateway.dart';
 
-/// A post being read aloud offers Stop in place of Listen; neither button takes the
-/// notification away, and a change of button changes nothing else.
+import 'notifier_harness.dart';
+
+/// A channel's notification offers Stop while one of the posts it lists is read or waits
+/// to be, and Listen otherwise.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  const channel = MethodChannel('dexterous.com/flutter/local_notifications');
   const chatId = -1001;
 
-  NotificationPlan planFor(int messageId) => NotificationPlan.forMatch(
-    MatchEvent.of(
-      Post(chatId: chatId, messageId: messageId, date: 1700000000, text: 'x'),
-      const [
-        MatchedRule(
-          name: 'rates',
-          priority: RulePriority.normal,
-          readAloud: true,
-        ),
-      ],
-    ),
-    channelTitle: 'News',
-  );
+  late FakeShade shade;
+  late MemoryStore store;
+  late DateTime now;
 
-  /// What Android reports as still showing.
-  late List<Map<dynamic, dynamic>> live;
+  void later() => now = now.add(const Duration(minutes: 5));
 
-  /// Post notifications as posted, summaries left out.
-  late List<Map<dynamic, dynamic>> posted;
+  Future<Notifier> start() async {
+    final notifier = Notifier(null, () => now, store);
+    await notifier.init();
+    return notifier;
+  }
 
-  Map<dynamic, dynamic> androidOf(Map<dynamic, dynamic> shown) =>
-      shown['platformSpecifics'] as Map<dynamic, dynamic>;
-  List<String> buttonsOf(Map<dynamic, dynamic> shown) => [
-    for (final a in androidOf(shown)['actions'] as List)
-      (a as Map)['id'] as String,
-  ];
+  int idOf(int messageId) => NotificationPlan.idFor(chatId, messageId);
 
   setUp(() {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    AndroidFlutterLocalNotificationsPlugin.registerWith();
-    live = [];
-    posted = [];
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          switch (call.method) {
-            case 'initialize':
-              return true;
-            case 'hasNotificationPolicyAccess':
-              return false;
-            case 'getActiveNotifications':
-              return live;
-            case 'show':
-              final m = call.arguments as Map;
-              if (androidOf(m)['setAsGroupSummary'] != true) posted.add(m);
-          }
-          return null;
-        });
+    shade = FakeShade()..install();
+    store = MemoryStore();
+    now = DateTime(2026, 10, 4, 12);
   });
 
-  tearDown(() {
-    debugDefaultTargetPlatformOverride = null;
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null);
+  tearDown(() => shade.remove());
+
+  test('Listen turns into Stop while a listed post is read, and back; '
+      'nothing else changes and nothing sounds', () async {
+    final notifier = await start();
+    await notifier.show(planFor(10, text: 'a'));
+    later();
+    await notifier.show(planFor(11, text: 'b'));
+    later();
+    final before = shade.shown.last;
+    expect(before.buttons, [actionOpenTelegram, actionListen]);
+
+    await notifier.setReading({idOf(11)});
+    var last = shade.shown.last;
+    expect(last.buttons, [actionOpenTelegram, actionStop]);
+    expect(last.alerts, isFalse);
+    expect(last.texts, before.texts);
+    expect(last.channel, before.channel);
+    expect(last.when, before.when);
+
+    // The next post of the queue is of the same notification: nothing to change.
+    final count = shade.shown.length;
+    await notifier.setReading({idOf(10)});
+    expect(shade.shown, hasLength(count));
+
+    await notifier.setReading({});
+    last = shade.shown.last;
+    expect(last.buttons, [actionOpenTelegram, actionListen]);
+    expect(last.alerts, isFalse);
   });
 
-  Map<dynamic, dynamic> activeOf(NotificationPlan p) => {
-    'id': p.id,
-    'groupKey': p.groupKey,
-    'channelId': channelNormal,
-    'title': p.title,
-    'body': p.body,
-    // Android reports the tag of a notification it shows, never its payload.
-    'tag': p.payload,
-  };
-
-  test('Listen turns into Stop and back; nothing else changes', () async {
-    final notifier = Notifier();
-    await notifier.init();
-    final plan = planFor(5 << 20);
-    await notifier.show(plan);
-    live = [activeOf(plan)];
-    expect(buttonsOf(posted.last), [actionOpenTelegram, actionListen]);
-    final listen = (androidOf(posted.last)['actions'] as List).last as Map;
-    expect(listen['cancelNotification'], isFalse);
-
-    await notifier.setReading({plan.id});
-    expect(posted, hasLength(2));
-    expect(buttonsOf(posted.last), [actionOpenTelegram, actionStop]);
-    final stop = (androidOf(posted.last)['actions'] as List).last as Map;
-    expect(stop['cancelNotification'], isFalse);
-
-    await notifier.setReading({});
-    expect(posted, hasLength(3));
-    expect(buttonsOf(posted.last), [actionOpenTelegram, actionListen]);
-
-    // The same notification each time: its time is the post's, it does not sound again,
-    // and it keeps its text, rule and group.
-    for (final p in posted) {
-      expect(p['id'], plan.id);
-      expect(p['body'], plan.body);
-      expect(androidOf(p)['when'], 1700000000 * 1000);
-      expect(androidOf(p)['onlyAlertOnce'], isTrue);
-      expect(androidOf(p)['subText'], 'rates');
-      expect(androidOf(p)['groupKey'], plan.groupKey);
-      // A swipe is reported, so the service stops reading the post.
-      expect(
-        androidOf(p)['dismissIsolate'],
-        NotificationDismissedIsolate.background.index,
-      );
-    }
-
-    // No change, nothing posted.
-    await notifier.setReading({});
-    expect(posted, hasLength(3));
+  test('only the notification of the channel that is read changes', () async {
+    final notifier = await start();
+    await notifier.show(planFor(10));
+    await notifier.show(planFor(5, chatId: -1002, title: 'Wire'));
+    later();
+    final count = shade.shown.length;
+    await notifier.setReading({NotificationPlan.idFor(-1002, 5)});
+    expect(shade.shown, hasLength(count + 1));
+    expect(shade.shown.last.id, NotificationPlan.idForChat(-1002));
+    expect(shade.shown.last.buttons.last, actionStop);
   });
 
   test('a post queued before it is shown offers Stop from the start', () async {
-    final notifier = Notifier();
-    await notifier.init();
-    final plan = planFor(5 << 20);
-    await notifier.setReading({plan.id});
-    await notifier.show(plan);
-    expect(posted, hasLength(1));
-    expect(buttonsOf(posted.single), [actionOpenTelegram, actionStop]);
+    final notifier = await start();
+    await notifier.setReading({idOf(10)});
+    await notifier.show(planFor(10));
+    expect(shade.shown, hasLength(1));
+    expect(shade.shown.single.buttons, [actionOpenTelegram, actionStop]);
   });
 
   test('a notification the reader dismissed is not brought back', () async {
-    final notifier = Notifier();
-    await notifier.init();
-    final plan = planFor(5 << 20);
-    await notifier.setReading({plan.id});
-    await notifier.show(plan);
-    live = []; // swiped away while it was read
+    final notifier = await start();
+    await notifier.show(planFor(10));
+    await notifier.setReading({idOf(10)});
+    later();
+    final count = shade.shown.length;
+    shade.swipe(chatId); // swiped away while it was read
     await notifier.setReading({});
-    expect(posted, hasLength(1));
+    expect(shade.shown, hasLength(count));
   });
 
   test('a swipe reaches the service host as a dismissal', () async {
@@ -156,60 +108,24 @@ void main() {
       NotificationResponse(
         notificationResponseType:
             NotificationResponseType.notificationDismissed,
-        id: plan.id,
+        id: NotificationPlan.idForChat(chatId),
         payload: plan.payload,
       ),
     );
     final m = await port.first as Map;
     expect(m['type'], NotificationResponseType.notificationDismissed.name);
-    expect(PostRef.decode(m['payload'] as String?)!.messageId, 5 << 20);
+    expect(PostRef.decode(m['payload'] as String?)!.chatId, chatId);
   });
 
-  test('a notification from before the service started changes too', () async {
-    final old = planFor(5 << 20);
-    live = [activeOf(old)];
-    final notifier = Notifier();
-    await notifier.init();
+  test('a notification from before the host started changes too', () async {
+    final before = await start();
+    await before.show(planFor(10, text: 'old'));
+    later();
 
-    await notifier.setReading({old.id});
-    expect(posted, hasLength(1));
-    final again = posted.single;
-    expect(buttonsOf(again), [actionOpenTelegram, actionStop]);
-    expect(again['title'], 'News');
-    expect(again['body'], old.body);
-    expect(again['payload'], old.payload);
-    expect(androidOf(again)['subText'], 'rates');
-    expect(androidOf(again)['when'], 1700000000 * 1000);
-
-    await notifier.setReading({});
-    expect(buttonsOf(posted.last), [actionOpenTelegram, actionListen]);
-  });
-
-  test('a restored plan keeps priority, rule and time', () {
-    final plan = planFor(5 << 20);
-    final back = NotificationPlan.restore(
-      id: plan.id,
-      androidChannelId: '${channelUrgentDnd}_k3f9',
-      title: plan.title,
-      body: plan.body,
-      groupKey: plan.groupKey,
-      payload: plan.payload,
-    )!;
-    expect(back.channelId, channelUrgent);
-    expect(back.rule, 'rates');
-    expect(back.when, 1700000000 * 1000);
-    expect(back.summaryId, plan.summaryId);
-    expect(PostRef.decode(back.payload)!.messageId, 5 << 20);
-    expect(
-      NotificationPlan.restore(
-        id: 1,
-        androidChannelId: channelSilent,
-        title: '',
-        body: '',
-        groupKey: '',
-        payload: '',
-      ),
-      isNull,
-    );
+    final after = await start();
+    await after.setReading({idOf(10)});
+    expect(shade.shown.last.buttons, [actionOpenTelegram, actionStop]);
+    expect(shade.shown.last.texts, ['old']);
+    expect(shade.shown.last.alerts, isFalse);
   });
 }
