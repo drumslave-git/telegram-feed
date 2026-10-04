@@ -79,6 +79,9 @@ final class HistoryGateway implements TelegramGateway {
       HistoryFilter.url => post.text.contains('http'),
       HistoryFilter.audio => m is AudioMedia && !m.isVoice,
       HistoryFilter.voice => m is AudioMedia && m.isVoice,
+      HistoryFilter.photo => m is PhotoMedia,
+      HistoryFilter.video => m is VideoMedia && !m.isAnimation,
+      HistoryFilter.animation => m is VideoMedia && m.isAnimation,
     };
   }
 
@@ -228,6 +231,8 @@ final class HistoryGateway implements TelegramGateway {
   Future<void> markCommentsViewed(Thread thread, List<int> messageIds) async {}
   @override
   Future<void> markChannelUnread(int chatId, {required bool unread}) async {}
+  @override
+  Future<Map<HistoryFilter, int>> mediaCounts(int chatId) async => const {};
   @override
   Future<ReportStep> report(
     int chatId,

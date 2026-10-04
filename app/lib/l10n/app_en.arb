@@ -65,6 +65,24 @@
   "tabLinks": "Links",
   "tabMusic": "Music",
   "tabVoice": "Voice",
+  "tabGifs": "GIFs",
+  "sharedMediaPhotos": "Photos",
+  "sharedMediaVideos": "Videos",
+  "sharedMediaShowInChat": "Show in chat",
+  "sharedMediaScroller": "Scroll by date",
+  "sharedMediaFilter": "Photos and videos",
+  "@sharedMediaFilter": {
+    "description": "Tooltip of the button in the media tab that chooses whether photos, videos or both are shown."
+  },
+  "sharedMediaSearchHint": "Search",
+  "sharedMediaNothingFound": "Nothing found for \"{query}\".",
+  "@sharedMediaNothingFound": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
   "mediaStickerWithEmoji": "{emoji} Sticker",
   "@mediaStickerWithEmoji": {
     "description": "A sticker named by the emoji it stands for.",

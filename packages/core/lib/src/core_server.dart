@@ -390,6 +390,9 @@ final class CoreServer {
           'totalCount': page.totalCount,
           'nextOffset': page.nextOffset,
         };
+      case 'mediaCounts':
+        final counts = await gateway.mediaCounts(a['chatId'] as int);
+        return {for (final e in counts.entries) e.key.name: e.value};
       case 'markChannelUnread':
         await gateway.markChannelUnread(
           a['chatId'] as int,

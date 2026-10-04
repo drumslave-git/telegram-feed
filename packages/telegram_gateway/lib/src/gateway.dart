@@ -59,6 +59,11 @@ abstract interface class TelegramGateway {
     int limit = 30,
   });
 
+  /// How many posts of each of the [sharedMediaKinds] a channel has, as Telegram counts
+  /// them; -1 for a kind it cannot count. A kind with none is a tab the shared media
+  /// leave out.
+  Future<Map<HistoryFilter, int>> mediaCounts(int chatId);
+
   /// Newest post of [chatId] sent no later than [unixDate]; 0 when the channel has none.
   Future<int> messageIdByDate(int chatId, int unixDate);
 

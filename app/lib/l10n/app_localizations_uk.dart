@@ -160,6 +160,32 @@ class AppLocalizationsUk extends AppLocalizations {
   String get tabVoice => 'Голосові';
 
   @override
+  String get tabGifs => 'GIF';
+
+  @override
+  String get sharedMediaPhotos => 'Фото';
+
+  @override
+  String get sharedMediaVideos => 'Відео';
+
+  @override
+  String get sharedMediaShowInChat => 'Показати в чаті';
+
+  @override
+  String get sharedMediaScroller => 'Прокрутити за датою';
+
+  @override
+  String get sharedMediaFilter => 'Фото та відео';
+
+  @override
+  String get sharedMediaSearchHint => 'Пошук';
+
+  @override
+  String sharedMediaNothingFound(String query) {
+    return 'Нічого не знайдено за запитом «$query».';
+  }
+
+  @override
   String mediaStickerWithEmoji(String emoji) {
     return '$emoji Наліпка';
   }

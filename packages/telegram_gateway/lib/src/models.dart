@@ -298,7 +298,26 @@ enum HistoryFilter {
   /// Music files, not voice messages.
   audio,
   voice,
+
+  /// Photos alone and videos alone: the two halves of [photoAndVideo], which the media
+  /// tab can show one without the other.
+  photo,
+  video,
+
+  /// GIFs, which Telegram keeps apart from videos.
+  animation,
 }
+
+/// The kinds the shared media are listed by, each a tab: what [TelegramGateway.mediaCounts]
+/// counts.
+const sharedMediaKinds = [
+  HistoryFilter.photoAndVideo,
+  HistoryFilter.document,
+  HistoryFilter.url,
+  HistoryFilter.audio,
+  HistoryFilter.voice,
+  HistoryFilter.animation,
+];
 
 /// One page of [TelegramGateway.searchHistory], newest first.
 final class SearchPage {

@@ -398,6 +398,54 @@ abstract class AppLocalizations {
   /// **'Voice'**
   String get tabVoice;
 
+  /// No description provided for @tabGifs.
+  ///
+  /// In en, this message translates to:
+  /// **'GIFs'**
+  String get tabGifs;
+
+  /// No description provided for @sharedMediaPhotos.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos'**
+  String get sharedMediaPhotos;
+
+  /// No description provided for @sharedMediaVideos.
+  ///
+  /// In en, this message translates to:
+  /// **'Videos'**
+  String get sharedMediaVideos;
+
+  /// No description provided for @sharedMediaShowInChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Show in chat'**
+  String get sharedMediaShowInChat;
+
+  /// No description provided for @sharedMediaScroller.
+  ///
+  /// In en, this message translates to:
+  /// **'Scroll by date'**
+  String get sharedMediaScroller;
+
+  /// Tooltip of the button in the media tab that chooses whether photos, videos or both are shown.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos and videos'**
+  String get sharedMediaFilter;
+
+  /// No description provided for @sharedMediaSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get sharedMediaSearchHint;
+
+  /// No description provided for @sharedMediaNothingFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing found for \"{query}\".'**
+  String sharedMediaNothingFound(String query);
+
   /// A sticker named by the emoji it stands for.
   ///
   /// In en, this message translates to:

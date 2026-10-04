@@ -700,8 +700,23 @@ class _HomeScreenState extends State<HomeScreen>
       case 'info':
         await Navigator.of(context).push(
           MaterialPageRoute<void>(
-            builder: (_) =>
-                ChannelInfoScreen(gateway: widget.gateway, channel: channel),
+            builder: (_) => ChannelInfoScreen(
+              gateway: widget.gateway,
+              channel: channel,
+              onShowInChat: (post) => unawaited(
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => TimelineScreen(
+                      db: widget.db,
+                      gateway: widget.gateway,
+                      channel: channel,
+                      focusChatId: post.chatId,
+                      focusMessageId: post.messageId,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         );
       case 'add':

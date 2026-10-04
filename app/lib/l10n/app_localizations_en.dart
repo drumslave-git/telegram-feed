@@ -160,6 +160,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tabVoice => 'Voice';
 
   @override
+  String get tabGifs => 'GIFs';
+
+  @override
+  String get sharedMediaPhotos => 'Photos';
+
+  @override
+  String get sharedMediaVideos => 'Videos';
+
+  @override
+  String get sharedMediaShowInChat => 'Show in chat';
+
+  @override
+  String get sharedMediaScroller => 'Scroll by date';
+
+  @override
+  String get sharedMediaFilter => 'Photos and videos';
+
+  @override
+  String get sharedMediaSearchHint => 'Search';
+
+  @override
+  String sharedMediaNothingFound(String query) {
+    return 'Nothing found for \"$query\".';
+  }
+
+  @override
   String mediaStickerWithEmoji(String emoji) {
     return '$emoji Sticker';
   }

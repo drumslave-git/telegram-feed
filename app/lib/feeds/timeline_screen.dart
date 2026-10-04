@@ -431,9 +431,19 @@ class _TimelineScreenState extends State<TimelineScreen> {
             : InkWell(
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => ChannelInfoScreen(
+                    builder: (info) => ChannelInfoScreen(
                       gateway: widget.gateway,
                       channel: channel,
+                      onShowInChat: (post) {
+                        Navigator.of(info).pop();
+                        unawaited(
+                          _view.currentState?.jumpToPost(
+                            chatId: post.chatId,
+                            messageId: post.messageId,
+                            date: post.date,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -2783,8 +2793,20 @@ class TimelineViewState extends State<TimelineView>
     if (channel == null) return null;
     return () => Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            ChannelInfoScreen(gateway: widget.gateway, channel: channel),
+        builder: (info) => ChannelInfoScreen(
+          gateway: widget.gateway,
+          channel: channel,
+          onShowInChat: (post) {
+            Navigator.of(info).pop();
+            unawaited(
+              jumpToPost(
+                chatId: post.chatId,
+                messageId: post.messageId,
+                date: post.date,
+              ),
+            );
+          },
+        ),
       ),
     );
   }

@@ -4,7 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-53.
+**Current phase:** Parity with the official app. **Next task:** Q-54.
 
 ## Differences from the official app
 
@@ -15,7 +15,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Home, channel info and shared media
 
-- [ ] Q-53 Shared media: the grid pinches from two to nine columns, has a date scroller and a photo/video filter; Files, Links and Music can be searched; a long press on an item offers "Show in chat"; empty tabs are left out and GIFs have their own.
 
 ### Media
 
@@ -45,6 +44,13 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 - [ ] Q-71 Turning background watching on or off applies without restarting the app.
 - [ ] Q-72 Voice messages load by themselves whenever automatic downloads are on for the connection; "preload larger videos" applies only above 2 MB; the size limit is a continuous slider.
 - [ ] Q-73 The app lock takes a four-digit PIN that unlocks when complete, or a password; the header of the home screen has a lock button; "5 hours" is among the timeouts.
+
+## Hands-on checks
+
+Built and covered by tests, not yet used on the emulator.
+
+- [ ] V-1 Shared media: pinch the grid from two to nine columns, drag the date scroller, search Files, and "Show in chat" from a channel's info, from the home screen and from a feed's info.
+- [ ] V-2 Run the Maestro flows (all nine) against the build that holds Q-51 to Q-53.
 
 ## Phase 4 — Extras
 

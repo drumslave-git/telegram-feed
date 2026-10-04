@@ -137,6 +137,9 @@ td.SearchMessagesFilter? searchFilter(HistoryFilter f) => switch (f) {
   HistoryFilter.url => const td.SearchMessagesFilterUrl(),
   HistoryFilter.audio => const td.SearchMessagesFilterAudio(),
   HistoryFilter.voice => const td.SearchMessagesFilterVoiceNote(),
+  HistoryFilter.photo => const td.SearchMessagesFilterPhoto(),
+  HistoryFilter.video => const td.SearchMessagesFilterVideo(),
+  HistoryFilter.animation => const td.SearchMessagesFilterAnimation(),
 };
 
 /// One line for a channel list: the text or caption on one line; empty when there is

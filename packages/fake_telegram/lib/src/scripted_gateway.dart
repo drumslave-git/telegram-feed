@@ -102,6 +102,10 @@ class ChannelsGateway implements TelegramGateway {
   }) async => const SearchPage();
   @override
   Future<int> messageIdByDate(int chatId, int unixDate) async => 0;
+
+  /// Nothing is counted here, so the shared media show every tab.
+  @override
+  Future<Map<HistoryFilter, int>> mediaCounts(int chatId) async => const {};
   @override
   Future<ChannelInfo> channelInfo(int chatId) async =>
       ChannelInfo(chatId: chatId);

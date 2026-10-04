@@ -14,6 +14,7 @@ import '../rules/rules_screen.dart' show RuleList, openRuleEditor;
 import '../widgets/destructive_button.dart';
 import '../widgets/empty_state.dart';
 import 'shared_media.dart';
+import 'timeline_screen.dart';
 
 /// The feed's own info screen: its channels (add from a searchable picker, remove,
 /// reorder), its rules, and, in the tabs beside them, the shared media of all its channels
@@ -206,6 +207,21 @@ class _FeedEditorScreenState extends State<FeedEditorScreen>
                     chatIds: chatIds,
                     filter: filter,
                     titles: {for (final s in sources) s.chatId: s.title},
+                    onShowInChat: feedSnap.data == null
+                        ? null
+                        : (post) => unawaited(
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => TimelineScreen(
+                                  db: widget.db,
+                                  gateway: widget.gateway,
+                                  feed: feedSnap.data,
+                                  focusChatId: post.chatId,
+                                  focusMessageId: post.messageId,
+                                ),
+                              ),
+                            ),
+                          ),
                   );
                 },
               ),

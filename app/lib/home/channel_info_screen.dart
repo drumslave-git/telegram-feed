@@ -27,7 +27,12 @@ class ChannelInfoScreen extends StatefulWidget {
     required this.gateway,
     required this.channel,
     this.share = shareWithSystemSheet,
+    this.onShowInChat,
   });
+
+  /// Goes to a post of the channel: "Show in chat" of a shared media item. The screen
+  /// that opened this one knows how; without it the items have no menu.
+  final void Function(Post post)? onShowInChat;
 
   final TelegramGateway gateway;
   final Channel channel;
@@ -238,6 +243,7 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
           gateway: widget.gateway,
           chatIds: [channel.chatId],
           titles: {channel.chatId: channel.title},
+          onShowInChat: widget.onShowInChat,
           header: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

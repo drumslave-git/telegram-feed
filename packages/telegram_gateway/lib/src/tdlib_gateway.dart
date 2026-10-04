@@ -591,6 +591,29 @@ final class TdlibGateway implements TelegramGateway {
   }
 
   @override
+  Future<Map<HistoryFilter, int>> mediaCounts(int chatId) async {
+    final out = <HistoryFilter, int>{};
+    await Future.wait([
+      for (final kind in sharedMediaKinds)
+        () async {
+          try {
+            final counted = await _client.call(
+              td.GetChatMessageCount(
+                chatId: chatId,
+                filter: map.searchFilter(kind),
+                returnLocal: false,
+              ),
+            );
+            out[kind] = counted.count;
+          } on TelegramException {
+            out[kind] = -1;
+          }
+        }(),
+    ]);
+    return out;
+  }
+
+  @override
   Future<int> messageIdByDate(int chatId, int unixDate) async {
     try {
       return (await _client.call(

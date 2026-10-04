@@ -42,6 +42,9 @@ class SearchFilterChips extends StatelessWidget {
     HistoryFilter.document => l10n.tabFiles,
     HistoryFilter.audio => l10n.tabMusic,
     HistoryFilter.voice => l10n.tabVoice,
+    HistoryFilter.photo => l10n.sharedMediaPhotos,
+    HistoryFilter.video => l10n.sharedMediaVideos,
+    HistoryFilter.animation => l10n.tabGifs,
   };
 
   @override

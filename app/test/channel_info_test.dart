@@ -71,6 +71,9 @@ final class MediaGateway extends ChannelsGateway {
         HistoryFilter.url => p.text.contains('http'),
         HistoryFilter.audio => m is AudioMedia && !m.isVoice,
         HistoryFilter.voice => m is AudioMedia && m.isVoice,
+        HistoryFilter.photo => m is PhotoMedia,
+        HistoryFilter.video => m is VideoMedia && !m.isAnimation,
+        HistoryFilter.animation => m is VideoMedia && m.isAnimation,
       };
     }
 
@@ -237,10 +240,13 @@ void main() {
     await tester.tap(find.text('Shared media'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 50)),
-    );
-    await tester.pump();
+    // The kinds are counted first, then the tab loads its page.
+    for (var i = 0; i < 2; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump();
+    }
     // Both channels, merged: the photo of one and the video of the other.
     expect(find.byType(MediaTile), findsNWidgets(2));
 

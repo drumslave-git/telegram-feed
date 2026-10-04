@@ -424,6 +424,17 @@ final class CoreClient implements TelegramGateway {
   }
 
   @override
+  Future<Map<HistoryFilter, int>> mediaCounts(int chatId) async {
+    final counts = (await _call('mediaCounts', {
+      'chatId': chatId,
+    })) as Map<Object?, Object?>;
+    return {
+      for (final kind in sharedMediaKinds)
+        if (counts[kind.name] is int) kind: counts[kind.name]! as int,
+    };
+  }
+
+  @override
   Future<void> markChannelUnread(int chatId, {required bool unread}) =>
       _call('markChannelUnread', {'chatId': chatId, 'unread': unread});
 

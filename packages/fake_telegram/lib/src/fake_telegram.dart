@@ -1021,10 +1021,25 @@ final class FakeTelegram extends TimelineGateway {
     );
   }
 
+  @override
+  Future<Map<HistoryFilter, int>> mediaCounts(int chatId) async => {
+    for (final kind in sharedMediaKinds)
+      kind: (histories[chatId] ?? const <Post>[])
+          .where((p) => _passes(p, kind))
+          .length,
+  };
+
   static bool _passes(Post p, HistoryFilter f) => switch (f) {
     HistoryFilter.any => true,
+    // As Telegram: a GIF is neither a photo nor a video.
     HistoryFilter.photoAndVideo =>
-      p.media is PhotoMedia || p.media is VideoMedia,
+      p.media is PhotoMedia ||
+          (p.media is VideoMedia && !(p.media as VideoMedia).isAnimation),
+    HistoryFilter.photo => p.media is PhotoMedia,
+    HistoryFilter.video =>
+      p.media is VideoMedia && !(p.media as VideoMedia).isAnimation,
+    HistoryFilter.animation =>
+      p.media is VideoMedia && (p.media as VideoMedia).isAnimation,
     HistoryFilter.url =>
       p.linkPreview != null ||
           p.entities.any((e) => e.kind == TextEntityKind.link),
