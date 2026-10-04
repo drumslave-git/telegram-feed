@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/l10n.dart';
 import 'video_sessions.dart';
 import 'video_stage.dart';
 
@@ -17,23 +18,43 @@ abstract final class SystemPip {
   static final active = ValueNotifier<bool>(false);
   static bool _started = false;
 
+  /// What the window's button is called, in the app's language ([PipHost] sets them).
+  static String playLabel = 'Play';
+  static String pauseLabel = 'Pause';
+
+  /// The video the window showed last: its button plays it again after a pause, when
+  /// nothing is in [VideoSessions.foreground] any more.
+  static VideoSession? _last;
+
   static void start() {
     if (_started) return;
     _started = true;
     _channel.setMethodCallHandler((call) async {
-      if (call.method == 'pipChanged') active.value = call.arguments == true;
+      switch (call.method) {
+        case 'pipChanged':
+          active.value = call.arguments == true;
+        // The window's own button: play or pause.
+        case 'pipAction':
+          await (VideoSessions.foreground.value ?? _last)?.togglePlay();
+      }
     });
     VideoSessions.foreground.addListener(_arm);
   }
 
   static void _arm() {
-    final size = VideoSessions.foreground.value?.controller?.value.size;
+    final now = VideoSessions.foreground.value;
+    if (now != null) _last = now;
+    final size = now?.controller?.value.size;
     unawaited(
       _channel
           .invokeMethod<void>('arm', {
             'enabled': size != null,
             'width': size == null || size.isEmpty ? 16 : size.width.round(),
             'height': size == null || size.isEmpty ? 9 : size.height.round(),
+            // The window's button: pause while it plays, play otherwise.
+            'playing': size != null,
+            'playLabel': playLabel,
+            'pauseLabel': pauseLabel,
           })
           .catchError((Object e) {
             // No activity behind the channel (tests, a platform without the window).
@@ -102,6 +123,12 @@ class _PipHostState extends State<PipHost> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final shown = _shown;
+    // Above the app's strings there are none: the labels stay English there.
+    final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
+    if (l10n != null) {
+      SystemPip.playLabel = l10n.playerPlay;
+      SystemPip.pauseLabel = l10n.playerPause;
+    }
     return Stack(
       fit: StackFit.expand,
       children: [

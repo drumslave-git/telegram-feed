@@ -1,10 +1,16 @@
 package dev.telegramfeed.telegram_feed
 
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.PictureInPictureParams
+import android.app.RemoteAction
 import android.content.ActivityNotFoundException
+import android.content.BroadcastReceiver
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.graphics.drawable.Icon
 import android.content.pm.PackageManager
 import android.media.RingtoneManager
 import android.net.Uri
@@ -23,6 +29,7 @@ import java.io.File
 import android.util.Rational
 import android.view.WindowManager
 import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -40,6 +47,18 @@ class MainActivity : FlutterActivity() {
     private var sampleText: MethodChannel.Result? = null
     private var pipArmed = false
     private var pipAspect = Rational(16, 9)
+
+    // The floating window's own button: pause while the video plays, play otherwise. Its
+    // tap comes back as a broadcast, which is handed on to Dart (`pipAction`).
+    private var pipPlaying = false
+    private var pipPlayLabel = "Play"
+    private var pipPauseLabel = "Pause"
+    private var pipReceiverOn = false
+    private val pipActionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            pipChannel?.invokeMethod("pipAction", null)
+        }
+    }
 
     /** Read-aloud runs in this engine while background watching is off (rule_alerts.dart). */
     private var readAloudKeys: ReadAloudKeys? = null
@@ -274,8 +293,14 @@ class MainActivity : FlutterActivity() {
                             call.argument<Int>("width") ?: 16,
                             call.argument<Int>("height") ?: 9,
                         )
-                        // From Android 12 the system enters by itself, also on the home gesture.
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && pipSupported()) {
+                        pipPlaying = call.argument<Boolean>("playing") == true
+                        pipPlayLabel = call.argument<String>("playLabel") ?: pipPlayLabel
+                        pipPauseLabel = call.argument<String>("pauseLabel") ?: pipPauseLabel
+                        // From Android 12 the system enters by itself, also on the home
+                        // gesture; before that the parameters still carry the window's
+                        // button, which follows whether the video plays.
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && pipSupported()) {
+                            registerPipReceiver()
                             setPictureInPictureParams(pipParams())
                         }
                         result.success(null)
@@ -407,9 +432,47 @@ class MainActivity : FlutterActivity() {
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun pipParams(): PictureInPictureParams {
-        val builder = PictureInPictureParams.Builder().setAspectRatio(pipAspect)
+        val builder = PictureInPictureParams.Builder()
+            .setAspectRatio(pipAspect)
+            .setActions(listOf(pipToggleAction()))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) builder.setAutoEnterEnabled(pipArmed)
         return builder.build()
+    }
+
+    /** Play or pause in the floating window. */
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun pipToggleAction(): RemoteAction {
+        val tap = PendingIntent.getBroadcast(
+            this,
+            PIP_TOGGLE_REQUEST,
+            Intent(PIP_TOGGLE_ACTION).setPackage(packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val label = if (pipPlaying) pipPauseLabel else pipPlayLabel
+        val icon = Icon.createWithResource(
+            this,
+            if (pipPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+        )
+        return RemoteAction(icon, label, label, tap)
+    }
+
+    private fun registerPipReceiver() {
+        if (pipReceiverOn) return
+        ContextCompat.registerReceiver(
+            this,
+            pipActionReceiver,
+            IntentFilter(PIP_TOGGLE_ACTION),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        pipReceiverOn = true
+    }
+
+    override fun onDestroy() {
+        if (pipReceiverOn) {
+            unregisterReceiver(pipActionReceiver)
+            pipReceiverOn = false
+        }
+        super.onDestroy()
     }
 
     override fun onUserLeaveHint() {
@@ -429,5 +492,7 @@ class MainActivity : FlutterActivity() {
     private companion object {
         const val SOUND_PICK_REQUEST = 7301
         const val SAMPLE_TEXT_REQUEST = 7302
+        const val PIP_TOGGLE_REQUEST = 7303
+        const val PIP_TOGGLE_ACTION = "dev.telegramfeed.telegram_feed.PIP_TOGGLE"
     }
 }

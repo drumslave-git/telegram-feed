@@ -9,11 +9,29 @@ import 'video_sessions.dart';
 import 'video_stage.dart';
 
 /// Picture-in-picture inside the app: the video of the viewer goes on playing in a small
-/// window that floats over the timeline and every other screen, and can be dragged around,
-/// opened in the viewer again or closed. One at a time; opening the viewer ends it.
+/// window that floats over the timeline and every other screen. It is dragged around and
+/// rests at the nearer side, resized with a pinch, and thrown off a side to close; a tap
+/// shows its buttons (play or pause, back to the viewer, close) and a double tap seeks
+/// ten seconds, back on its left half and forwards on its right. One at a time; opening
+/// the viewer ends it.
 abstract final class MiniPlayer {
   static OverlayEntry? _entry;
   static VideoSession? _session;
+
+  /// The smallest a pinch makes the window.
+  static const minWidth = 120.0;
+
+  /// Where the last window was left and how wide a pinch made it: the next one opens
+  /// there, for as long as the app runs.
+  static Offset? _lastAt;
+  static double? _lastWidth;
+
+  /// Forgets the place and the size (tests start from the corner).
+  @visibleForTesting
+  static void forgetPlace() {
+    _lastAt = null;
+    _lastWidth = null;
+  }
 
   static bool get isShowing => _entry != null;
 
@@ -82,8 +100,27 @@ class _MiniPlayerView extends StatefulWidget {
 class _MiniPlayerViewState extends State<_MiniPlayerView> {
   static const _margin = 12.0;
 
-  /// Top left corner; null until the first layout puts the window bottom right.
-  Offset? _at;
+  /// How far a double tap seeks.
+  static const _seekStep = Duration(seconds: 10);
+
+  /// How fast a window that is already over an edge has to move to be thrown away.
+  static const _throwSpeed = 700.0;
+
+  /// Top left corner; null until the first layout puts the window bottom right, or where
+  /// the window before this one was left.
+  Offset? _at = MiniPlayer._lastAt;
+
+  /// The width a pinch gave the window; null for the width it has by itself.
+  double? _width = MiniPlayer._lastWidth;
+
+  /// A finger moves the window: it may leave the screen sideways, to be thrown away.
+  bool _moving = false;
+  double _widthAtPinchStart = 0;
+
+  /// The buttons are over the picture: after a tap, and for a moment when it appears.
+  bool _controls = true;
+  Timer? _hide;
+  TapDownDetails? _doubleTapAt;
 
   VideoSession get _s => widget.session;
 
@@ -91,10 +128,12 @@ class _MiniPlayerViewState extends State<_MiniPlayerView> {
   void initState() {
     super.initState();
     _s.addListener(_onSession);
+    _scheduleHide();
   }
 
   @override
   void dispose() {
+    _hide?.cancel();
     _s.removeListener(_onSession);
     super.dispose();
   }
@@ -104,6 +143,25 @@ class _MiniPlayerViewState extends State<_MiniPlayerView> {
     // A video that broke has nothing to show in a window without room for an error.
     if (_s.error != null) return scheduleMicrotask(widget.onClose);
     setState(() {});
+  }
+
+  void _scheduleHide() {
+    _hide?.cancel();
+    _hide = Timer(const Duration(seconds: 3), () {
+      // A paused video keeps its buttons: there is nothing to watch behind them.
+      if (!mounted || !_s.isPlaying) return;
+      setState(() => _controls = false);
+    });
+  }
+
+  void _toggleControls() {
+    setState(() => _controls = !_controls);
+    if (_controls) _scheduleHide();
+  }
+
+  Future<void> _togglePlay() async {
+    await _s.togglePlay();
+    _scheduleHide();
   }
 
   @override
@@ -120,9 +178,15 @@ class _MiniPlayerViewState extends State<_MiniPlayerView> {
                 ? file.width / file.height
                 : 16 / 9)
             .clamp(0.6, 1.8);
-    final width = (screen.width * (aspect < 1 ? 0.36 : 0.5)).clamp(
-      120.0,
+    final own = (screen.width * (aspect < 1 ? 0.36 : 0.5)).clamp(
+      MiniPlayer.minWidth,
       280.0,
+    );
+    // A pinch makes it anything between the smallest and the width of the screen.
+    final widest = screen.width - 2 * _margin - media.padding.horizontal;
+    final width = (_width ?? own).clamp(
+      MiniPlayer.minWidth,
+      widest < MiniPlayer.minWidth ? MiniPlayer.minWidth : widest,
     );
     final size = Size(width, width / aspect);
     final bounds = Rect.fromLTRB(
@@ -133,93 +197,153 @@ class _MiniPlayerViewState extends State<_MiniPlayerView> {
     );
     final at = _at ?? Offset(bounds.right, bounds.bottom - 72);
     final position = Offset(
-      at.dx.clamp(bounds.left, bounds.right),
+      // While a finger moves it the window follows over the side edges.
+      _moving ? at.dx : at.dx.clamp(bounds.left, bounds.right),
       at.dy.clamp(bounds.top, bounds.bottom),
     );
     final playing = c?.value.isPlaying ?? false;
     final total = c?.value.duration.inMilliseconds ?? 0;
+    final l10n = context.l10n;
     return Positioned(
       left: position.dx,
       top: position.dy,
       width: size.width,
       height: size.height,
       child: Semantics(
-        label: context.l10n.pipFloatingPlayer,
-        button: true,
-        child: GestureDetector(
-          onTap: _s.togglePlay,
-          onPanUpdate: (d) => setState(() => _at = position + d.delta),
-          // Rests at the nearer side, as the system's window does.
-          onPanEnd: (_) => setState(
-            () => _at = Offset(
-              position.dx + size.width / 2 < screen.width / 2
-                  ? bounds.left
-                  : bounds.right,
-              position.dy,
-            ),
-          ),
-          child: Material(
-            color: Colors.black,
-            elevation: 8,
-            borderRadius: BorderRadius.circular(12),
-            clipBehavior: Clip.antiAlias,
-            child: IconTheme(
-              data: const IconThemeData(color: Colors.white, size: 20),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (ready)
-                    VideoPicture(c)
-                  else
-                    const Center(
-                      child: CircularProgressIndicator(color: Colors.white70),
-                    ),
-                  if (ready && !playing)
-                    const Center(child: Icon(Icons.play_arrow, size: 40)),
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: DecoratedBox(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.black54, Colors.transparent],
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            tooltip: context.l10n.pipBackToFullScreen,
-                            visualDensity: VisualDensity.compact,
-                            icon: const Icon(Icons.open_in_full),
-                            onPressed: widget.onExpand,
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            tooltip: context.l10n.commonClose,
-                            visualDensity: VisualDensity.compact,
-                            icon: const Icon(Icons.close),
-                            onPressed: widget.onClose,
-                          ),
-                        ],
-                      ),
+        label: l10n.pipFloatingPlayer,
+        child: Material(
+          color: Colors.black,
+          elevation: 8,
+          borderRadius: BorderRadius.circular(12),
+          clipBehavior: Clip.antiAlias,
+          child: IconTheme(
+            data: const IconThemeData(color: Colors.white, size: 20),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Behind the buttons, not around them: around them every button tap
+                // would wait out the double-tap window.
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _toggleControls,
+                  onDoubleTapDown: (d) => _doubleTapAt = d,
+                  // The left half goes back, the right half forwards.
+                  onDoubleTap: () => unawaited(
+                    _s.seekBy(
+                      (_doubleTapAt?.localPosition.dx ?? 0) < size.width / 2
+                          ? -_seekStep
+                          : _seekStep,
                     ),
                   ),
-                  if (ready && total > 0)
-                    Align(
-                      alignment: Alignment.bottomCenter,
-                      child: LinearProgressIndicator(
-                        minHeight: 2,
-                        value: (c.value.position.inMilliseconds / total).clamp(
-                          0.0,
-                          1.0,
+                  onScaleStart: (_) => setState(() {
+                    _moving = true;
+                    _at = position;
+                    _widthAtPinchStart = size.width;
+                  }),
+                  onScaleUpdate: (d) => setState(() {
+                    if (d.pointerCount >= 2) {
+                      // Two fingers resize it around its middle.
+                      final next = (_widthAtPinchStart * d.scale).clamp(
+                        MiniPlayer.minWidth,
+                        widest < MiniPlayer.minWidth
+                            ? MiniPlayer.minWidth
+                            : widest,
+                      );
+                      final grown = next - size.width;
+                      _width = next;
+                      _at = position - Offset(grown / 2, grown / aspect / 2);
+                    } else {
+                      _at = position + d.focalPointDelta;
+                    }
+                  }),
+                  onScaleEnd: (d) {
+                    final speed = d.velocity.pixelsPerSecond.dx;
+                    final overLeft = bounds.left - position.dx;
+                    final overRight = position.dx - bounds.right;
+                    // Thrown off a side: over the edge and still moving out, or most of the
+                    // way out already.
+                    final thrown =
+                        (overLeft > 0 &&
+                            (speed < -_throwSpeed ||
+                                overLeft > size.width / 2)) ||
+                        (overRight > 0 &&
+                            (speed > _throwSpeed ||
+                                overRight > size.width / 2));
+                    if (thrown) return widget.onClose();
+                    setState(() {
+                      _moving = false;
+                      // Rests at the nearer side, as the system's window does.
+                      _at = Offset(
+                        position.dx + size.width / 2 < screen.width / 2
+                            ? bounds.left
+                            : bounds.right,
+                        position.dy,
+                      );
+                    });
+                    // The next window opens where this one was left, as large as it was.
+                    MiniPlayer._lastAt = _at;
+                    MiniPlayer._lastWidth = _width;
+                  },
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (ready)
+                        VideoPicture(c)
+                      else
+                        const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white70,
+                          ),
                         ),
-                        color: Colors.white,
-                        backgroundColor: Colors.white24,
+                    ],
+                  ),
+                ),
+                if (_controls) ...[
+                  const IgnorePointer(child: ColoredBox(color: Colors.black38)),
+                  if (ready)
+                    Center(
+                      child: IconButton(
+                        tooltip: playing ? l10n.playerPause : l10n.playerPlay,
+                        iconSize: 36,
+                        icon: Icon(playing ? Icons.pause : Icons.play_arrow),
+                        onPressed: () => unawaited(_togglePlay()),
                       ),
                     ),
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: Row(
+                      children: [
+                        IconButton(
+                          tooltip: l10n.pipBackToFullScreen,
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.open_in_full),
+                          onPressed: widget.onExpand,
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          tooltip: l10n.commonClose,
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.close),
+                          onPressed: widget.onClose,
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
-              ),
+                if (ready && total > 0)
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: LinearProgressIndicator(
+                      minHeight: 2,
+                      value: (c.value.position.inMilliseconds / total).clamp(
+                        0.0,
+                        1.0,
+                      ),
+                      color: Colors.white,
+                      backgroundColor: Colors.white24,
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
