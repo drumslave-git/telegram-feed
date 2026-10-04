@@ -428,8 +428,10 @@ class _MiniPlayerViewState extends State<_MiniPlayerView> {
                   }),
                   onScaleEnd: (d) {
                     final speed = d.velocity.pixelsPerSecond.dx;
-                    final overLeft = bounds.left - position.dx;
-                    final overRight = position.dx - bounds.right;
+                    // Where the finger left it, which a frame may not have drawn yet.
+                    final left = _at ?? position;
+                    final overLeft = bounds.left - left.dx;
+                    final overRight = left.dx - bounds.right;
                     // Thrown off a side: over the edge and still moving out, or most of the
                     // way out already.
                     final thrown =
@@ -444,10 +446,10 @@ class _MiniPlayerViewState extends State<_MiniPlayerView> {
                       _moving = false;
                       // Rests at the nearer side, as the system's window does.
                       _at = Offset(
-                        position.dx + size.width / 2 < screen.width / 2
+                        left.dx + size.width / 2 < screen.width / 2
                             ? bounds.left
                             : bounds.right,
-                        position.dy,
+                        left.dy.clamp(bounds.top, bounds.bottom),
                       );
                     });
                     // The next window opens where this one was left, as large as it was.

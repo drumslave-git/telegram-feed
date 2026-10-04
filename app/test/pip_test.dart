@@ -223,9 +223,18 @@ void main() {
     final moved = window(tester);
     expect(moved.left, closeTo(started.left - 100, 0.5));
     expect(moved.top, closeTo(started.top - 150, 0.5));
+
+    // Let go in the same frame as its last moves: it rests where the finger left it,
+    // at the nearer side, not where it was last drawn.
     await tester.pump(const Duration(milliseconds: 400));
+    await drag.moveBy(const Offset(-150, -40));
+    await tester.pump(const Duration(milliseconds: 400));
+    await drag.moveBy(const Offset(0, -60));
     await drag.up();
     await tester.pump();
+    final rested = window(tester);
+    expect(rested.left, 12);
+    expect(rested.top, closeTo(moved.top - 100, 0.5));
     await unmount(tester);
   });
 
