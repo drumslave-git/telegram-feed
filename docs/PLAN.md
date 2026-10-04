@@ -40,7 +40,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 - [ ] Q-67 Login: a country picker with the code and number in separate, formatted fields; "Is this the correct number?"; one box per digit of the code, sent when full; a countdown before the code can be sent again; a flood wait says how long.
 - [ ] Q-68 Accounts are listed in Settings with photo, name and unread count, and an account that was added but never logged in leaves no row.
 - [ ] Q-69 Cached media is removed after a set time (channels: one week until changed) and above a set cache size; storage usage shows a chart by kind of file and clears by kind.
-- [ ] Q-70 Text size runs from 12 to 30 with 16 as the start, and its preview is a post bubble that changes while the slider moves.
 - [ ] Q-71 Turning background watching on or off applies without restarting the app.
 - [ ] Q-72 Voice messages load by themselves whenever automatic downloads are on for the connection; "preload larger videos" applies only above 2 MB; the size limit is a continuous slider.
 - [ ] Q-73 The app lock takes a four-digit PIN that unlocks when complete, or a password; the header of the home screen has a lock button; "5 hours" is among the timeouts.
@@ -50,7 +49,8 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 Built and covered by tests, not yet used on the emulator.
 
 - [ ] V-1 Shared media: pinch the grid from two to nine columns, drag the date scroller, search Files, and "Show in chat" from a channel's info, from the home screen and from a feed's info.
-- [ ] V-2 Run the Maestro flows (all nine) against the build that holds Q-51 to Q-53.
+- [ ] V-2 Run the Maestro flows (all nine) against the newest build.
+- [ ] V-3 Chat settings: drag the text size slider from 12 to 30 and watch the post under it, in light and dark and in Ukrainian.
 
 ## Phase 4 — Extras
 

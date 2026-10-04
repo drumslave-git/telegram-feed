@@ -1,17 +1,28 @@
 import 'dart:async';
 
 import 'package:app_db/app_db.dart';
+import 'package:core/core.dart' show TimelineItem;
 import 'package:flutter/material.dart';
+import 'package:telegram_gateway/telegram_gateway.dart';
 
-import '../feeds/post_card.dart' show defaultQuickReaction, standardReactions;
+import '../app_name.dart';
+import '../feeds/post_card.dart'
+    show ChatColors, PostCard, defaultQuickReaction, standardReactions;
 import '../feeds/text_scale.dart';
 import '../l10n/l10n.dart';
 import 'settings_tiles.dart';
 
 /// How posts look: the text size of posts and the theme, the official app's Chat Settings.
 class ChatSettingsScreen extends StatelessWidget {
-  const ChatSettingsScreen({super.key, required this.db});
+  const ChatSettingsScreen({
+    super.key,
+    required this.db,
+    required this.gateway,
+  });
   final AppDatabase db;
+
+  /// For the preview's post, which is drawn as the timeline draws one.
+  final TelegramGateway gateway;
 
   @override
   Widget build(BuildContext context) {
@@ -23,43 +34,11 @@ class ChatSettingsScreen extends StatelessWidget {
           SettingsHeader(l10n.chatSettingsTextSize),
           StreamBuilder<String?>(
             stream: db.watchSetting(SettingKeys.postTextScale),
-            builder: (context, snap) {
-              final factor = PostTextScale.parse(snap.data);
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _TextSizeSlider(db: db, factor: factor),
-                        ),
-                        SizedBox(
-                          width: 56,
-                          child: Text(
-                            '${(factor * 100).round()} %',
-                            textAlign: TextAlign.end,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: MediaQuery(
-                      data: MediaQuery.of(context)
-                          .copyWith(textScaler: TextScaler.linear(factor)),
-                      child: Text(
-                        l10n.chatSettingsTextSizePreview,
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
+            builder: (context, snap) => _TextSize(
+              db: db,
+              gateway: gateway,
+              factor: PostTextScale.parse(snap.data),
+            ),
           ),
           const Divider(),
           StreamBuilder<String?>(
@@ -154,40 +133,100 @@ class ChatSettingsScreen extends StatelessWidget {
   }
 }
 
-/// The text-size slider. It keeps the value it is being dragged to and writes it once the
-/// finger lifts: a write on every tick sent the whole app through the database and back
-/// twenty times a drag.
-class _TextSizeSlider extends StatefulWidget {
-  const _TextSizeSlider({required this.db, required this.factor});
+/// The text size of posts: the slider from 12 to 30 with the size beside it, and under it
+/// a post as the timeline draws one, which follows the slider while it moves, as the
+/// official app's preview does. The size is written once the finger lifts: a write on
+/// every tick sent the whole app through the database and back twenty times a drag.
+class _TextSize extends StatefulWidget {
+  const _TextSize({
+    required this.db,
+    required this.gateway,
+    required this.factor,
+  });
   final AppDatabase db;
+  final TelegramGateway gateway;
 
   /// The saved value, which the slider follows while it is not being dragged.
   final double factor;
 
   @override
-  State<_TextSizeSlider> createState() => _TextSizeSliderState();
+  State<_TextSize> createState() => _TextSizeState();
 }
 
-class _TextSizeSliderState extends State<_TextSizeSlider> {
-  double? _dragging;
+class _TextSizeState extends State<_TextSize> {
+  int? _dragging;
+
+  /// The post of the preview. Its time is the moment the screen opened.
+  late final _sample = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
   @override
   Widget build(BuildContext context) {
-    final value = _dragging ?? widget.factor;
-    return Slider(
-      value: value.clamp(PostTextScale.min, PostTextScale.max),
-      min: PostTextScale.min,
-      max: PostTextScale.max,
-      // 5 % steps: the slider lands on round numbers.
-      divisions: ((PostTextScale.max - PostTextScale.min) / 0.05).round(),
-      label: '${(value * 100).round()} %',
-      onChanged: (v) => setState(() => _dragging = v),
-      onChangeEnd: (v) {
-        unawaited(
-          widget.db.setSetting(SettingKeys.postTextScale, v.toStringAsFixed(2)),
-        );
-        setState(() => _dragging = null);
-      },
+    final l10n = context.l10n;
+    final size = _dragging ?? PostTextScale.sizeOf(widget.factor);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Slider(
+                  value: size.toDouble(),
+                  min: PostTextScale.minSize.toDouble(),
+                  max: PostTextScale.maxSize.toDouble(),
+                  divisions: PostTextScale.maxSize - PostTextScale.minSize,
+                  label: '$size',
+                  onChanged: (v) => setState(() => _dragging = v.round()),
+                  onChangeEnd: (v) {
+                    unawaited(
+                      widget.db.setSetting(
+                        SettingKeys.postTextScale,
+                        PostTextScale.factorOf(v.round()).toStringAsFixed(4),
+                      ),
+                    );
+                    setState(() => _dragging = null);
+                  },
+                ),
+              ),
+              SizedBox(
+                width: 40,
+                child: Text(
+                  '$size',
+                  textAlign: TextAlign.end,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              const SizedBox(width: 12),
+            ],
+          ),
+        ),
+        // A post on the timeline's backdrop, at the size the slider stands on.
+        ColoredBox(
+          color: ChatColors.of(context).background,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: PostTextScale.preview(
+              factor: PostTextScale.factorOf(size),
+              child: IgnorePointer(
+                child: PostCard(
+                  item: TimelineItem(
+                    Post(
+                      chatId: 1,
+                      messageId: 1,
+                      date: _sample,
+                      text: l10n.chatSettingsTextSizePreview,
+                      views: 1,
+                    ),
+                  ),
+                  channelTitle: appName,
+                  gateway: widget.gateway,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

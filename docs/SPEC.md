@@ -93,7 +93,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - The phone answers my touch as in the official app: a long press that takes hold (a selection, a menu, a link) and a reaction are felt, and a selection that is full refuses one more post with a longer buzz.
 - I open the original post in the official Telegram app.
 - The day of the topmost post floats over the list while I scroll.
-- I set the text size of posts, on top of the phone's own text size; it changes the words of a post, not its counters and buttons. Times and dates follow the phone's own clock and locale.
+- I set the text size of posts from 12 to 30, 16 to begin with, on a slider whose preview is a post that changes while the slider moves. The size goes on top of the phone's own text size; it changes the words of a post, not its counters and buttons. Times and dates follow the phone's own clock and locale.
 - I close any screen with a swipe to the right, from anywhere on it. Back closes an open selection or search first, then the screen; in a search it leaves the list of results before the search itself.
 - When the app cannot reach Telegram, the title says so. A screen that could not load says so in its own words, keeps Telegram's code underneath, and offers to try again.
 

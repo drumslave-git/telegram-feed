@@ -12,9 +12,25 @@ class PostTextScale extends StatefulWidget {
   final AppDatabase db;
   final Widget child;
 
-  /// Smallest and largest the slider offers.
-  static const min = 0.8;
-  static const max = 1.6;
+  /// The text sizes the slider offers, as the official app's: 12 to 30, starting at 16.
+  /// The setting keeps a factor of the standard size, so 16 is 1.0.
+  static const standardSize = 16;
+  static const minSize = 12;
+  static const maxSize = 30;
+
+  /// Smallest and largest factor: the sizes above over the standard one.
+  static const min = minSize / standardSize;
+  static const max = maxSize / standardSize;
+
+  /// The factor of a text size, and the size a factor stands for.
+  static double factorOf(int size) => size / standardSize;
+  static int sizeOf(double factor) =>
+      (factor * standardSize).round().clamp(minSize, maxSize);
+
+  /// Puts [factor] in place of the reader's own for everything under [child]: the
+  /// setting's preview, which follows the slider while it moves.
+  static Widget preview({required double factor, required Widget child}) =>
+      _ScaleInherited(factor: factor, child: child);
 
   /// 1.0 where no scope exists (widget tests of single cards).
   static double of(BuildContext context) =>

@@ -181,7 +181,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SettingsLink(
             icon: Icons.chat_bubble_outline,
             title: l10n.chatSettingsTitle,
-            onTap: () => _open(ChatSettingsScreen(db: db)),
+            onTap: () =>
+                _open(ChatSettingsScreen(db: db, gateway: widget.gateway)),
           ),
           SettingsLink(
             icon: Icons.lock_outline,

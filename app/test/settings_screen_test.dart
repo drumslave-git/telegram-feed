@@ -176,7 +176,7 @@ void main() {
   testWidgets('chat settings: the quick reaction is picked from the list', (
     tester,
   ) async {
-    await tester.pumpWidget(app(ChatSettingsScreen(db: db)));
+    await tester.pumpWidget(app(ChatSettingsScreen(db: db, gateway: gw)));
     await settle(tester);
     // A thumbs up until another is chosen.
     expect(find.text('Quick reaction'), findsOneWidget);
@@ -199,10 +199,43 @@ void main() {
   testWidgets('chat settings: the theme and the text size of posts', (
     tester,
   ) async {
-    await tester.pumpWidget(app(ChatSettingsScreen(db: db)));
+    await tester.pumpWidget(app(ChatSettingsScreen(db: db, gateway: gw)));
     await settle(tester);
-    expect(find.text('100 %'), findsOneWidget);
-    expect(find.text('A post is drawn at this size.'), findsOneWidget);
+    // Sixteen until it is changed, shown beside the slider, and a post drawn at it.
+    expect(find.text('16'), findsOneWidget);
+    final slider = tester.widget<Slider>(find.byType(Slider));
+    expect(slider.min, 12);
+    expect(slider.max, 30);
+    expect(slider.value, 16);
+    expect(find.byType(PostCard), findsOneWidget);
+    double sampleSize() =>
+        tester.getSize(find.text('A post is drawn at this size.')).height;
+    final before = sampleSize();
+
+    // The post follows the slider while it moves, before anything is saved.
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(Slider)),
+    );
+    await gesture.moveBy(const Offset(40, 0));
+    await gesture.moveBy(const Offset(160, 0));
+    await tester.pump();
+    final dragged = tester.widget<Slider>(find.byType(Slider)).value;
+    expect(dragged, greaterThan(16));
+    expect(find.text('${dragged.round()}'), findsWidgets);
+    expect(sampleSize(), greaterThan(before));
+    await tester.runAsync(
+      () async => expect(await db.setting(SettingKeys.postTextScale), isNull),
+    );
+
+    // Lifting the finger saves the size, as a factor of the standard one.
+    await gesture.up();
+    await settle(tester);
+    await tester.runAsync(() async {
+      final saved = double.parse(
+        (await db.setting(SettingKeys.postTextScale))!,
+      );
+      expect((saved * 16).round(), dragged.round());
+    });
     await tester.tap(find.text('Dark'));
     await settle(tester);
     await tester.runAsync(
