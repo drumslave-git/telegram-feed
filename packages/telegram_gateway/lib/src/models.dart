@@ -344,8 +344,18 @@ final class ChannelInfo {
     this.memberCount = 0,
     this.inviteLink = '',
     this.bigPhoto,
+    this.descriptionEntities = const [],
+    this.photos = const [],
   });
   final int chatId;
+
+  /// The links, mentions, hashtags and e-mail addresses Telegram finds in the
+  /// description, which is plain text: they open as in a post.
+  final List<TextEntity> descriptionEntities;
+
+  /// Every photo the channel has had, the current one first: the gallery behind the
+  /// photo. Empty when the channel has none or Telegram does not tell.
+  final List<PhotoMedia> photos;
   final String description;
   final int memberCount;
 

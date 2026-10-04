@@ -144,6 +144,9 @@ Map<String, Object?> encodeChannelInfo(ChannelInfo i) => {
   'memberCount': i.memberCount,
   'inviteLink': i.inviteLink,
   'bigPhoto': _fileOrNull(i.bigPhoto),
+  if (i.descriptionEntities.isNotEmpty)
+    'descriptionEntities': _encodeEntities(i.descriptionEntities),
+  if (i.photos.isNotEmpty) 'photos': i.photos.map(encodeMedia).toList(),
 };
 
 ChannelInfo decodeChannelInfo(Map<Object?, Object?> m) => ChannelInfo(
@@ -152,6 +155,11 @@ ChannelInfo decodeChannelInfo(Map<Object?, Object?> m) => ChannelInfo(
   memberCount: m['memberCount'] as int,
   inviteLink: m['inviteLink'] as String,
   bigPhoto: _decodeFileOrNull(m['bigPhoto']),
+  descriptionEntities: _decodeEntities(m['descriptionEntities']),
+  photos: [
+    for (final p in (m['photos'] as List?) ?? const [])
+      decodeMedia(p as Map<Object?, Object?>) as PhotoMedia,
+  ],
 );
 
 Map<String, Object?> encodeSearchPage(SearchPage p) => {

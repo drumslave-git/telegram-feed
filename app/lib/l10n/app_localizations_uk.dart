@@ -956,6 +956,14 @@ class AppLocalizationsUk extends AppLocalizations {
   String get channelInfoLinkCopied => 'Посилання скопійовано';
 
   @override
+  String channelInfoPhotoOf(int current, int total) {
+    return 'Фото $current з $total';
+  }
+
+  @override
+  String get channelInfoCloseGallery => 'Показати мале фото';
+
+  @override
   String channelInfoSubscribers(int count, String shown) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

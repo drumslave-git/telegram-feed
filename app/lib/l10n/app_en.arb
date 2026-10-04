@@ -738,6 +738,19 @@
   "channelInfoTitle": "Channel info",
   "channelInfoQrCode": "QR code",
   "channelInfoLinkCopied": "Link copied",
+  "channelInfoPhotoOf": "Photo {current} of {total}",
+  "@channelInfoPhotoOf": {
+    "description": "Screen reader label of the marks over the gallery of a channel's photos.",
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "channelInfoCloseGallery": "Show the small photo",
   "channelInfoSubscribers": "{count, plural, =1{{shown} subscriber} other{{shown} subscribers}}",
   "@channelInfoSubscribers": {
     "description": "Under the channel's name. shown is count in short form, e.g. 1.2K.",

@@ -1390,12 +1390,98 @@ void main() {
         'is_revoked': false,
       },
     };
+    // Telegram finds what opens in the description, which is plain text.
+    t.handlers['getTextEntities'] = (r) {
+      expect(r['text'], 'All the news');
+      return {
+        '@type': 'textEntities',
+        'entities': [
+          {
+            '@type': 'textEntity',
+            'offset': 8,
+            'length': 4,
+            'type': {'@type': 'textEntityTypeHashtag'},
+          },
+        ],
+      };
+    };
+    // The photos the channel has had are service messages of its history.
+    Map<String, Object?> changed(int id, int file) => messageJson(
+      -1001,
+      id,
+      content: {
+        '@type': 'messageChatChangePhoto',
+        'photo': {
+          '@type': 'chatPhoto',
+          'id': '$id',
+          'added_date': 1,
+          'sizes': [
+            {
+              '@type': 'photoSize',
+              'type': 'c',
+              'photo': {
+                '@type': 'file',
+                'id': file,
+                'size': 9,
+                'expected_size': 9,
+                'remote': {'@type': 'remoteFile', 'id': 'r$file'},
+              },
+              'width': 640,
+              'height': 640,
+            },
+          ],
+        },
+      },
+    );
+    t.handlers['searchChatMessages'] = (r) {
+      expect((r['filter'] as Map)['@type'], 'searchMessagesFilterChatPhoto');
+      return {
+        '@type': 'foundChatMessages',
+        'total_count': 2,
+        'messages': [changed(90, 31), changed(40, 30)],
+        'next_from_message_id': 0,
+      };
+    };
     final info = await g.channelInfo(-1001);
     expect(info.description, 'All the news');
     expect(info.memberCount, 1234);
     expect(info.inviteLink, 'https://t.me/+abc');
     expect(info.bigPhoto?.id, 5);
+    expect(info.descriptionEntities.single.kind, TextEntityKind.hashtag);
+    expect(info.descriptionEntities.single.offset, 8);
+    expect(info.photos.map((p) => p.sizes.single.id), [31, 30]);
+
+    // Through the core boundary.
+    final back = decodeChannelInfo(encodeChannelInfo(info));
+    expect(back.descriptionEntities.single.length, 4);
+    expect(back.photos.map((p) => p.sizes.single.id), [31, 30]);
   });
+
+  test(
+    'channelInfo does without links and photos when Telegram gives none',
+    () async {
+      t.handlers['getChat'] = (_) => chatJson(-1001, 'News', supergroupId: 1);
+      t.handlers['getSupergroupFullInfo'] = (_) => {
+        '@type': 'supergroupFullInfo',
+        'description': 'Plain words',
+        'member_count': 5,
+      };
+      t.handlers['getTextEntities'] = (_) => {
+        '@type': 'error',
+        'code': 400,
+        'message': 'nope',
+      };
+      t.handlers['searchChatMessages'] = (_) => {
+        '@type': 'error',
+        'code': 400,
+        'message': 'nope',
+      };
+      final info = await g.channelInfo(-1001);
+      expect(info.description, 'Plain words');
+      expect(info.descriptionEntities, isEmpty);
+      expect(info.photos, isEmpty);
+    },
+  );
 
   test('canComment follows reply_info', () async {
     t.handlers['getChatHistory'] = (r) => {

@@ -618,12 +618,49 @@ final class TdlibGateway implements TelegramGateway {
       memberCount = full.memberCount;
       inviteLink = full.inviteLink?.inviteLink ?? '';
     }
+    // The description is plain text: TDLib finds what opens in it.
+    var entities = const <TextEntity>[];
+    if (description.isNotEmpty) {
+      try {
+        final found = await _client.call(td.GetTextEntities(text: description));
+        entities = map.entities(
+          td.FormattedText(text: description, entities: found.entities),
+        );
+      } on TelegramException {
+        // The words then stand without links.
+      }
+    }
+    // Every photo the channel has had is a service message of its history.
+    final photos = <PhotoMedia>[];
+    try {
+      final changes = await _client.call(
+        td.SearchChatMessages(
+          chatId: chatId,
+          query: '',
+          fromMessageId: 0,
+          offset: 0,
+          limit: 30,
+          filter: const td.SearchMessagesFilterChatPhoto(),
+        ),
+      );
+      for (final m in changes.messages) {
+        final content = m.content;
+        if (content is td.MessageChatChangePhoto && content.photo != null) {
+          final photo = map.chatPhoto(content.photo!);
+          if (photo.sizes.isNotEmpty) photos.add(photo);
+        }
+      }
+    } on TelegramException {
+      // The current photo alone.
+    }
     return ChannelInfo(
       chatId: chatId,
       description: description,
       memberCount: memberCount,
       inviteLink: inviteLink,
       bigPhoto: big == null ? null : map.fileRef(big),
+      descriptionEntities: entities,
+      photos: photos,
     );
   }
 

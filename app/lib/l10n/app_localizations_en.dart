@@ -924,6 +924,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get channelInfoLinkCopied => 'Link copied';
 
   @override
+  String channelInfoPhotoOf(int current, int total) {
+    return 'Photo $current of $total';
+  }
+
+  @override
+  String get channelInfoCloseGallery => 'Show the small photo';
+
+  @override
   String channelInfoSubscribers(int count, String shown) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

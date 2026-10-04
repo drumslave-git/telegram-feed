@@ -4,7 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-52.
+**Current phase:** Parity with the official app. **Next task:** Q-53.
 
 ## Differences from the official app
 
@@ -15,7 +15,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Home, channel info and shared media
 
-- [ ] Q-52 Channel info: the photo pulls down to a full-width gallery of every channel photo, links in the description open, the subscriber count is written in full, and the link row opens the share sheet.
 - [ ] Q-53 Shared media: the grid pinches from two to nine columns, has a date scroller and a photo/video filter; Files, Links and Music can be searched; a long press on an item offers "Show in chat"; empty tabs are left out and GIFs have their own.
 
 ### Media

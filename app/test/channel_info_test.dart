@@ -41,13 +41,18 @@ final class MediaGateway extends ChannelsGateway {
         .toList();
   }
 
+  /// What the info screen is told about the channel; a test may put its own in.
+  ChannelInfo? info;
+
   @override
-  Future<ChannelInfo> channelInfo(int chatId) async => ChannelInfo(
-    chatId: chatId,
-    description: 'All the news that fits',
-    memberCount: 1234,
-    inviteLink: 'https://t.me/+private',
-  );
+  Future<ChannelInfo> channelInfo(int chatId) async =>
+      info ??
+      ChannelInfo(
+        chatId: chatId,
+        description: 'All the news that fits',
+        memberCount: 1234,
+        inviteLink: 'https://t.me/+private',
+      );
 
   @override
   Future<SearchPage> searchHistory(
@@ -140,8 +145,8 @@ void main() {
     await settle(tester);
 
     expect(find.text('Alpha News'), findsOneWidget);
-    // The full info replaces the count the channel list carried.
-    expect(find.text('1.2K subscribers'), findsOneWidget);
+    // The full info replaces the count the channel list carried, and is written in full.
+    expect(find.text('1,234 subscribers'), findsOneWidget);
     expect(find.text('All the news that fits'), findsOneWidget);
     // A public channel is known by its username, not by the invite link.
     expect(find.text('@alpha'), findsOneWidget);
@@ -292,6 +297,124 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('the link row hands the link to the share sheet, and a link in '
+      'the description opens', (tester) async {
+    gw.info = const ChannelInfo(
+      chatId: -1,
+      description: 'Tips to example.org please',
+      descriptionEntities: [
+        TextEntity(
+          offset: 8,
+          length: 11,
+          kind: TextEntityKind.link,
+          url: 'https://example.org',
+        ),
+      ],
+      memberCount: 48210,
+    );
+    final shared = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChannelInfoScreen(
+          gateway: gw,
+          channel: channel,
+          share: (text, {required subject}) async =>
+              shared.add('$subject: $text'),
+        ),
+      ),
+    );
+    await settle(tester);
+    expect(find.text('48,210 subscribers'), findsOneWidget);
+
+    await tester.tap(find.text('@alpha'));
+    await tester.pump();
+    expect(shared, ['Alpha News: https://t.me/alpha']);
+
+    // The link stands out in the description and answers a tap.
+    final words = tester.widget<Text>(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Text &&
+            (w.textSpan?.toPlainText() ?? '') == 'Tips to example.org please',
+      ),
+    );
+    final link = (words.textSpan! as TextSpan).children!
+        .whereType<TextSpan>()
+        .firstWhere((s) => s.text == 'example.org');
+    expect(link.recognizer, isNotNull);
+    expect(
+      link.style?.color,
+      Theme.of(tester.element(find.byType(ChannelInfoScreen)))
+          .colorScheme
+          .primary,
+    );
+  });
+
+  testWidgets('a pull down opens the gallery of every photo the channel has '
+      'had, and a tap opens the viewer on that photo', (tester) async {
+    FileRef file(int id) =>
+        FileRef(id: id, remoteId: 'r$id', size: 10, width: 640, height: 640);
+    gw.info = ChannelInfo(
+      chatId: -1,
+      memberCount: 1200,
+      photos: [
+        PhotoMedia(sizes: [file(11)]),
+        PhotoMedia(sizes: [file(12)]),
+        PhotoMedia(sizes: [file(13)]),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChannelInfoScreen(gateway: gw, channel: channel),
+      ),
+    );
+    await settle(tester);
+    final gallery = find.byKey(const ValueKey('channel-photos'));
+    expect(gallery, findsNothing);
+    expect(find.byType(ChannelAvatar), findsOneWidget);
+
+    await tester.drag(find.text('Alpha News'), const Offset(0, 300));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    // As wide as the screen, with the name on it and no small photo beside it.
+    expect(tester.getSize(gallery).width, 800);
+    expect(find.byType(ChannelAvatar), findsNothing);
+    expect(find.text('Alpha News'), findsOneWidget);
+    expect(find.text('1,200 subscribers'), findsOneWidget);
+    expect(find.bySemanticsLabel('Photo 1 of 3'), findsOneWidget);
+
+    // One swipe to the next photo.
+    await tester.drag(gallery, const Offset(-600, 0));
+    // The page comes to rest: a tap on a page that still moves only stops it.
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.bySemanticsLabel('Photo 2 of 3'), findsOneWidget);
+
+    await tester.tap(gallery);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(MediaViewerScreen), findsOneWidget);
+    final viewer = tester.widget<MediaViewerScreen>(
+      find.byType(MediaViewerScreen),
+    );
+    expect(viewer.items, hasLength(3));
+    expect(viewer.initialIndex, 1);
+    await tester.pageBack();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // The arrow brings the small photo back.
+    // On this wide test surface the square gallery reaches below the screen.
+    await tester.ensureVisible(find.byTooltip('Show the small photo'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Show the small photo'));
+    await tester.pump();
+    await tester.pump();
+    expect(gallery, findsNothing);
+    expect(find.byType(ChannelAvatar), findsOneWidget);
   });
 
   testWidgets('a channel with no photo opens nothing', (tester) async {

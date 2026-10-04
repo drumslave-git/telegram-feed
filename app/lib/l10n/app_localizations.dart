@@ -1562,6 +1562,18 @@ abstract class AppLocalizations {
   /// **'Link copied'**
   String get channelInfoLinkCopied;
 
+  /// Screen reader label of the marks over the gallery of a channel's photos.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo {current} of {total}'**
+  String channelInfoPhotoOf(int current, int total);
+
+  /// No description provided for @channelInfoCloseGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the small photo'**
+  String get channelInfoCloseGallery;
+
   /// Under the channel's name. shown is count in short form, e.g. 1.2K.
   ///
   /// In en, this message translates to:

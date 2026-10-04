@@ -182,11 +182,33 @@ final class FakeTelegram extends TimelineGateway {
     ]);
     _infos[harbour.chatId] = ChannelInfo(
       chatId: harbour.chatId,
+      // 72 letters, then the link (23) and, after " or ", the mention (13).
       description:
-          'News from the harbour district: shipping, weather and the market.',
+          'News from the harbour district: shipping, weather and the market. Tips: '
+          'https://example.org/tip or @harbourtimes',
+      descriptionEntities: const [
+        TextEntity(
+          offset: 72,
+          length: 23,
+          kind: TextEntityKind.link,
+          url: 'https://example.org/tip',
+        ),
+        TextEntity(
+          offset: 99,
+          length: 13,
+          kind: TextEntityKind.link,
+          url: 'https://t.me/harbourtimes',
+        ),
+      ],
       memberCount: harbour.memberCount,
       inviteLink: 'https://t.me/harbourtimes',
       bigPhoto: _file('avatar1.png', 128, 128),
+      // The photo it has now, and two it had before.
+      photos: [
+        PhotoMedia(sizes: [_file('avatar1.png', 128, 128)]),
+        PhotoMedia(sizes: [_file('photo1.png', 640, 640)]),
+        PhotoMedia(sizes: [_file('photo2.png', 640, 640)]),
+      ],
     );
     _infos[circuit.chatId] = ChannelInfo(
       chatId: circuit.chatId,

@@ -244,6 +244,8 @@
   "channelInfoTitle": "Профіль каналу",
   "channelInfoQrCode": "QR-код",
   "channelInfoLinkCopied": "Посилання скопійовано",
+  "channelInfoPhotoOf": "Фото {current} з {total}",
+  "channelInfoCloseGallery": "Показати мале фото",
   "channelInfoSubscribers": "{count, plural, one{{shown} підписник} few{{shown} підписники} many{{shown} підписників} other{{shown} підписника}}",
   "channelInfoChannel": "Канал",
   "channelInfoLoadFailed": "Не вдалося завантажити дані каналу.",

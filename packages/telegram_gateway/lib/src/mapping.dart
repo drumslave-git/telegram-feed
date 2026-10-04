@@ -574,6 +574,15 @@ List<String> availableEmoji(td.AvailableReactions a) => {
       ?reactionName(r.type),
 }.toList();
 
+/// A photo the channel has or had, as a picture of any post: smallest size first.
+PhotoMedia chatPhoto(td.ChatPhoto photo) => PhotoMedia(
+  sizes: [
+    for (final s in photo.sizes.where((s) => s.photo != null))
+      fileRef(s.photo!, width: s.width, height: s.height),
+  ]..sort((a, b) => a.width.compareTo(b.width)),
+  miniature: _miniature(photo.minithumbnail),
+);
+
 String? _miniature(td.Minithumbnail? mini) =>
     mini == null || mini.data.isEmpty ? null : mini.data;
 

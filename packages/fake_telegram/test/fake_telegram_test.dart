@@ -272,6 +272,21 @@ void main() {
     expect(ledger.lastMessageText, isEmpty);
   });
 
+  test(
+    'a channel says what opens in its description and which photos it had',
+    () async {
+      final info = await tg.channelInfo(FakeChats.harbourTimes);
+      expect(
+        [
+          for (final e in info.descriptionEntities)
+            info.description.substring(e.offset, e.offset + e.length),
+        ],
+        ['https://example.org/tip', '@harbourtimes'],
+      );
+      expect(info.photos, hasLength(3));
+    },
+  );
+
   test('a post arrives on the wire', () async {
     final added = tg.postEvents.first;
     tg.arriveOnWire();
