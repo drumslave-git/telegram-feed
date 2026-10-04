@@ -338,6 +338,65 @@ void main() {
     expect(asked, 1);
   });
 
+  test(
+    'a channel says whether Telegram verified it and where it is pinned',
+    () async {
+      t.handlers['loadChats'] = (_) => {
+        '@type': 'error',
+        'code': 404,
+        'message': 'Not Found',
+      };
+      t.handlers['getChats'] = (r) => {
+        '@type': 'chats',
+        'total_count': 2,
+        'chat_ids': [-1001, -1002],
+      };
+      t.handlers['getChat'] = (r) => r['chat_id'] == -1001
+          ? {
+              ...chatJson(-1001, 'News', supergroupId: 1),
+              'positions': [
+                {
+                  '@type': 'chatPosition',
+                  'list': {'@type': 'chatListMain'},
+                  'order': '9',
+                  'is_pinned': true,
+                },
+                {
+                  '@type': 'chatPosition',
+                  'list': {'@type': 'chatListFolder', 'chat_folder_id': 5},
+                  'order': '8',
+                  'is_pinned': true,
+                },
+                {
+                  '@type': 'chatPosition',
+                  'list': {'@type': 'chatListFolder', 'chat_folder_id': 6},
+                  'order': '7',
+                  'is_pinned': false,
+                },
+              ],
+            }
+          : chatJson(-1002, 'Memes', supergroupId: 2);
+      t.handlers['getSupergroup'] = (r) => r['supergroup_id'] == 1
+          ? {
+              ...supergroupJson(1),
+              'verification_status': {
+                '@type': 'verificationStatus',
+                'is_verified': true,
+                'is_scam': false,
+                'is_fake': false,
+                'bot_verification_icon_custom_emoji_id': '0',
+              },
+            }
+          : supergroupJson(2);
+
+      final channels = await g.myChannels();
+      expect(channels.first.isVerified, isTrue);
+      expect(channels.first.pinnedLists, [0, 5]);
+      expect(channels.last.isVerified, isFalse);
+      expect(channels.last.pinnedLists, isEmpty);
+    },
+  );
+
   test('a channel is muted by its own setting, or by the default for '
       'channels', () async {
     Map<String, Object?> chat(

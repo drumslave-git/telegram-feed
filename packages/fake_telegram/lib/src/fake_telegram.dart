@@ -1105,11 +1105,29 @@ final class FakeTelegram extends TimelineGateway {
     posts.add(PostEdited(edited));
   }
 
-  /// The channels with their newest post, which the rows of the chat list show.
+  /// The channels with their newest post, which the rows of the chat list show, in
+  /// Telegram's order: the one that posted last comes first.
   @override
-  Future<List<Channel>> myChannels() async => [
-    for (final c in await super.myChannels()) _withNewestPost(c),
-  ];
+  Future<List<Channel>> myChannels() async =>
+      [for (final c in await super.myChannels()) _withNewestPost(c)]
+        ..sort((a, b) => b.lastMessageDate.compareTo(a.lastMessageDate));
+
+  /// The folders list their channels in the same order.
+  @override
+  Future<List<ChatFolder>> chatFolders() async {
+    final order = [for (final c in await myChannels()) c.chatId];
+    return [
+      for (final f in await super.chatFolders())
+        ChatFolder(
+          id: f.id,
+          title: f.title,
+          channelIds: [
+            for (final id in order)
+              if (f.channelIds.contains(id)) id,
+          ],
+        ),
+    ];
+  }
 
   @override
   Future<List<Channel>> archivedChannels() async => [
@@ -1141,8 +1159,10 @@ final class FakeTelegram extends TimelineGateway {
       lastMessageMedia: words.isEmpty ? newest.media : null,
       lastMessageDate: newest.date,
       lastMessageAlbum: [for (final p in parts.reversed) ?p.media],
-      // The Gazette is muted in Telegram.
+      // The Gazette is muted in Telegram, and the Harbour Times is verified.
       isMuted: c.chatId == FakeChats.northfieldGazette,
+      isVerified: c.chatId == FakeChats.harbourTimes,
+      pinnedLists: c.pinnedLists,
     );
   }
 

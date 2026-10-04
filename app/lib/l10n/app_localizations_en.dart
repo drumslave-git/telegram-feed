@@ -1173,6 +1173,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get channelsVerified => 'Verified';
+
+  @override
   String get channelsArchive => 'Archive';
 
   @override

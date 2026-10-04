@@ -466,6 +466,58 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a post moves its channel to the top at once, under the pinned '
+      'ones, with the post as its preview', (tester) async {
+    gw = TimelineGateway(
+      {
+        -1: [post(-1, 100, 'one-post')],
+        -2: [post(-2, 200, 'two-post')],
+        -3: [post(-3, 300, 'three-post')],
+      },
+      channels: const [
+        Channel(
+          chatId: -1,
+          title: 'One',
+          lastMessageId: 100,
+          lastMessageText: 'one-post',
+          pinnedLists: [0],
+        ),
+        Channel(
+          chatId: -2,
+          title: 'Two',
+          lastMessageId: 200,
+          lastMessageText: 'two-post',
+        ),
+        Channel(
+          chatId: -3,
+          title: 'Three',
+          lastMessageId: 300,
+          lastMessageText: 'three-post',
+        ),
+      ],
+    );
+    await tester.pumpWidget(app());
+    await settle(tester);
+    await tester.tap(find.text('All channels'));
+    await tester.pumpAndSettle();
+    double topOf(String title) => tester.getTopLeft(find.text(title)).dy;
+    expect(topOf('One'), lessThan(topOf('Two')));
+    expect(topOf('Two'), lessThan(topOf('Three')));
+
+    gw.posts.add(PostAdded(post(-3, 301, 'fresh from three')));
+    // The event arrives, the rows are rebuilt in their new order, and the slide runs out.
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    // No reload has happened yet: the row moved by itself.
+    expect(find.text('fresh from three'), findsOneWidget);
+    expect(find.text('three-post'), findsNothing);
+    // Under the pinned channel, over the other one.
+    expect(topOf('One'), lessThan(topOf('Three')));
+    expect(topOf('Three'), lessThan(topOf('Two')));
+    await unmount(tester);
+  });
+
   testWidgets('a long press on All channels offers to mark everything read', (
     tester,
   ) async {

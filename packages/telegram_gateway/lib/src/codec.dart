@@ -96,6 +96,8 @@ Map<String, Object?> encodeChannel(Channel c) => {
   if (c.lastMessageAlbum.isNotEmpty)
     'lastMessageAlbum': c.lastMessageAlbum.map(encodeMedia).toList(),
   if (c.isMuted) 'isMuted': true,
+  if (c.isVerified) 'isVerified': true,
+  if (c.pinnedLists.isNotEmpty) 'pinnedLists': [...c.pinnedLists],
 };
 
 Map<String, Object?> encodeChatFolder(ChatFolder f) => {
@@ -130,6 +132,8 @@ Channel decodeChannel(Map<Object?, Object?> m) => Channel(
       decodeMedia(a as Map<Object?, Object?>),
   ],
   isMuted: m['isMuted'] == true,
+  isVerified: m['isVerified'] == true,
+  pinnedLists: ((m['pinnedLists'] as List?) ?? const []).cast<int>().toList(),
 );
 
 Map<String, Object?> encodeChannelInfo(ChannelInfo i) => {

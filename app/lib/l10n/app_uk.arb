@@ -295,6 +295,7 @@
   "channelsAlbumFiles": "{count, plural, one{{count} файл} few{{count} файли} many{{count} файлів} other{{count} файлу}}",
   "channelsAlbumMusic": "{count, plural, one{{count} музичний файл} few{{count} музичні файли} many{{count} музичних файлів} other{{count} музичного файлу}}",
   "channelsAlbumMedia": "{count} медіа",
+  "channelsVerified": "Підтверджено",
   "channelsArchive": "Архів",
   "channelsArchiveSubtitle": "Канали, які ви архівували в Telegram",
   "channelsArchiveEmpty": "Немає архівованих каналів.",

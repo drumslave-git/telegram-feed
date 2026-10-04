@@ -111,6 +111,8 @@ void main() {
         chatId: -1,
         title: 'News',
         isMuted: true,
+        isVerified: true,
+        pinnedLists: [0, 5],
         lastMessageAlbum: [
           PhotoMedia(sizes: [FileRef(id: 1, remoteId: 'a', size: 10)]),
           VideoMedia(
@@ -130,12 +132,27 @@ void main() {
       );
       expect(read.isMuted, isTrue);
       expect(read.lastMessageAlbum, hasLength(2));
+      expect(read.isVerified, isTrue);
+      expect(read.pinnedLists, [0, 5]);
+
+      // A post that arrives becomes the channel's newest; the rest stays.
+      final bumped = back.withNewestPost(
+        const Post(chatId: -1, messageId: 9, date: 900, text: 'fresh'),
+      );
+      expect(bumped.lastMessageId, 9);
+      expect(bumped.lastMessageText, 'fresh');
+      expect(bumped.lastMessageDate, 900);
+      expect(bumped.lastMessageAlbum, isEmpty);
+      expect(bumped.isVerified, isTrue);
+      expect(bumped.pinnedLists, [0, 5]);
 
       final plain = decodeChannel(
         encodeChannel(const Channel(chatId: -2, title: 'Plain')),
       );
       expect(plain.isMuted, isFalse);
       expect(plain.lastMessageAlbum, isEmpty);
+      expect(plain.isVerified, isFalse);
+      expect(plain.pinnedLists, isEmpty);
     },
   );
 

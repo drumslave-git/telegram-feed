@@ -49,16 +49,17 @@ void main() {
 
   test('lists the channels, folders and the archive', () async {
     final channels = await tg.myChannels();
+    // In Telegram's order: the channel that posted last comes first.
     expect(channels.map((c) => c.title), [
-      'Harbour Times',
-      'Circuit Weekly',
-      'Northfield Gazette',
       'Wire',
+      'Harbour Times',
+      'Northfield Gazette',
+      'Circuit Weekly',
     ]);
     expect((await tg.chatFolders()).map((f) => f.title), ['News', 'Alerts']);
     expect((await tg.archivedChannels()).single.title, 'Old Ledger');
     // The newest three posts of a channel are unread: the divider has something to divide.
-    expect(channels.map((c) => c.unreadCount), [3, 3, 3, 2]);
+    expect(channels.map((c) => c.unreadCount), [2, 3, 3, 3]);
   });
 
   test('pages a history and finds every kind of post', () async {
@@ -248,6 +249,17 @@ void main() {
     expect(harbour.lastMessageText, newest.text);
     expect(harbour.lastMessageDate, newest.date);
     expect(harbour.isMuted, isFalse);
+    expect(harbour.isVerified, isTrue);
+    // Telegram lists the channel that posted last first, in the folders too.
+    final dates = [for (final c in await tg.myChannels()) c.lastMessageDate];
+    expect(dates, [...dates]..sort((a, b) => b.compareTo(a)));
+    final order = [for (final c in await tg.myChannels()) c.chatId];
+    for (final f in await tg.chatFolders()) {
+      expect(f.channelIds, [
+        for (final id in order)
+          if (f.channelIds.contains(id)) id,
+      ]);
+    }
 
     final gazette = (await tg.myChannels()).firstWhere(
       (c) => c.chatId == FakeChats.northfieldGazette,

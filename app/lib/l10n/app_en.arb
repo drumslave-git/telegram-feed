@@ -976,6 +976,10 @@
       }
     }
   },
+  "channelsVerified": "Verified",
+  "@channelsVerified": {
+    "description": "Screen reader label of the mark beside a channel Telegram has verified."
+  },
   "channelsArchive": "Archive",
   "@channelsArchive": {
     "description": "The channels archived in Telegram (a row and a screen title)."

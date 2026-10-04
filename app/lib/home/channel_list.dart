@@ -60,11 +60,48 @@ class ChannelList extends StatefulWidget {
 }
 
 class _ChannelListState extends State<ChannelList>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
   String _query = '';
 
   @override
   bool get wantKeepAlive => true;
+
+  /// Rows that changed their place when the order last changed, by chat: how many rows
+  /// each one came from (below is positive), and the slide that brings them home.
+  Map<int, int> _moved = const {};
+  late final AnimationController _slide = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 250),
+    value: 1,
+  );
+
+  @override
+  void dispose() {
+    _slide.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(ChannelList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final before = [for (final c in oldWidget.channels) c.chatId];
+    final after = [for (final c in widget.channels) c.chatId];
+    // The same channels in another order: a channel got a post and went up. A list that
+    // gained or lost channels is simply the new list.
+    if (before.length != after.length ||
+        before.isEmpty ||
+        !before.toSet().containsAll(after)) {
+      return;
+    }
+    final was = {for (final (i, id) in before.indexed) id: i};
+    final moved = {
+      for (final (i, id) in after.indexed)
+        if (was[id] != i) id: was[id]! - i,
+    };
+    if (moved.isEmpty) return;
+    _moved = moved;
+    unawaited(_slide.forward(from: 0));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -114,15 +151,31 @@ class _ChannelListState extends State<ChannelList>
             itemBuilder: (context, row) {
               if (widget.header != null && row == 0) return widget.header!;
               final i = widget.header == null ? row : row - 1;
-              return ChannelTile(
+              final rows = _moved[shown[i].chatId] ?? 0;
+              // A row that changed its place slides there from where it was, as the
+              // official app's chat list moves a chat that got a message. The list builds
+              // its rows by place, so the slide belongs to the list and not to a row.
+              return AnimatedBuilder(
                 key: ValueKey(shown[i].chatId),
-                channel: shown[i],
-                gateway: widget.gateway,
-                feeds: widget.feedsByChat[shown[i].chatId] ?? const [],
-                onTap: () => widget.onOpen(shown[i]),
-                onMenu: widget.onMenu == null
-                    ? null
-                    : (at) => widget.onMenu!(shown[i], at),
+                animation: _slide,
+                builder: (context, child) => Transform.translate(
+                  offset: Offset(
+                    0,
+                    rows *
+                        ChannelTile.height *
+                        (1 - Curves.easeOut.transform(_slide.value)),
+                  ),
+                  child: child,
+                ),
+                child: ChannelTile(
+                  channel: shown[i],
+                  gateway: widget.gateway,
+                  feeds: widget.feedsByChat[shown[i].chatId] ?? const [],
+                  onTap: () => widget.onOpen(shown[i]),
+                  onMenu: widget.onMenu == null
+                      ? null
+                      : (at) => widget.onMenu!(shown[i], at),
+                ),
               );
             },
           );
@@ -198,6 +251,10 @@ class ChannelTile extends StatelessWidget {
   /// Names of the feeds this channel is in; shown as tags under the newest post.
   final List<String> feeds;
 
+  /// A row's height and the size of its photo, as in the official app's chat list.
+  static const height = 70.0;
+  static const photoSize = 52.0;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -214,70 +271,149 @@ class ChannelTile extends StatelessWidget {
     final label = album.length > 1
         ? albumLabel(album, l10n)
         : l10n.mediaPreview(c.lastMessageMedia, channel: c.title);
-    final tile = ListTile(
-      onTap: onTap,
-      // Always two lines: the preview line stays even when there is nothing to preview,
-      // and the feed tags share it, so rows keep one height as channels join feeds.
-      leading: ChannelAvatar(
-        photo: c.photo,
-        title: c.title,
-        colorId: c.chatId,
-        gateway: gateway,
-      ),
-      title: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Row(
-        children: [
-          // Up to three pictures of the newest post, as the official app's rows show.
-          for (final media in pictures.take(3))
-            Padding(
-              padding: const EdgeInsets.only(right: 3),
-              child: RowThumbnail(media: media, gateway: gateway),
-            ),
-          if (pictures.isNotEmpty) const SizedBox(width: 2),
-          Expanded(
-            child: Text(
-              // A post without words is named by what it carries, in the accent colour.
-              words ? c.lastMessageText : label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: words ? null : TextStyle(color: theme.colorScheme.primary),
-            ),
-          ),
-          if (feeds.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(left: 6),
-              child: FeedTags(names: feeds),
-            ),
-        ],
-      ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (c.lastMessageDate > 0)
-            Text(
-              formatListDate(
-                DateTime.fromMillisecondsSinceEpoch(c.lastMessageDate * 1000),
-                context: context,
-              ),
-              style: theme.textTheme.labelSmall,
-            ),
-          if (c.unreadCount > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: UnreadBadge(c.unreadCount, muted: c.isMuted),
-            ),
-        ],
+    final preview = Text(
+      // A post without words is named by what it carries, in the accent colour.
+      words ? c.lastMessageText : label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.bodyMedium?.copyWith(
+        color: words
+            ? theme.colorScheme.onSurfaceVariant
+            : theme.colorScheme.primary,
       ),
     );
-    if (onMenu == null) return tile;
-    // The menu opens under the finger, which a ListTile's own long press cannot report.
+    // The official app's row: 70 high, a photo of 52, the name over the newest post, the
+    // time at the end of the first line and the counter at the end of the second, and a
+    // line under the words. Every row has both lines, whatever the channel has, so rows
+    // keep one height.
+    final tile = InkWell(
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: height),
+        child: Row(
+          children: [
+            const SizedBox(width: 12),
+            ChannelAvatar(
+              photo: c.photo,
+              title: c.title,
+              colorId: c.chatId,
+              gateway: gateway,
+              radius: photoSize / 2,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: theme.dividerColor.withValues(alpha: 0.4),
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: height),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            // The name takes what the date leaves; the mark stands
+                            // right after it.
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      c.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.titleMedium,
+                                    ),
+                                  ),
+                                  if (c.isVerified)
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 4),
+                                      child: Icon(
+                                        Icons.verified,
+                                        size: 18,
+                                        color: theme.colorScheme.primary,
+                                        semanticLabel: l10n.channelsVerified,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            if (c.lastMessageDate > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: Text(
+                                  formatListDate(
+                                    DateTime.fromMillisecondsSinceEpoch(
+                                      c.lastMessageDate * 1000,
+                                    ),
+                                    context: context,
+                                  ),
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            // Up to three pictures of the newest post, as the official
+                            // app's rows show.
+                            for (final media in pictures.take(3))
+                              Padding(
+                                padding: const EdgeInsets.only(right: 3),
+                                child: RowThumbnail(
+                                  media: media,
+                                  gateway: gateway,
+                                ),
+                              ),
+                            if (pictures.isNotEmpty) const SizedBox(width: 2),
+                            Expanded(child: preview),
+                            if (feeds.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 6),
+                                child: FeedTags(names: feeds),
+                              ),
+                            if (c.unreadCount > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: UnreadBadge(
+                                  c.unreadCount,
+                                  muted: c.isMuted,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    // One node for a screen reader, as a list tile is.
+    final row = MergeSemantics(child: Semantics(button: true, child: tile));
+    if (onMenu == null) return row;
+    // The menu opens under the finger, which a tap target's own long press cannot report.
     return GestureDetector(
       onLongPressStart: (d) {
         Haptics.longPress();
         onMenu!(d.globalPosition);
       },
-      child: tile,
+      child: row,
     );
   }
 }

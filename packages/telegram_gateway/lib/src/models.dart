@@ -106,7 +106,16 @@ final class Channel {
     this.lastMessageDate = 0,
     this.lastMessageAlbum = const [],
     this.isMuted = false,
+    this.isVerified = false,
+    this.pinnedLists = const [],
   });
+
+  /// Telegram has verified the channel: its name carries the mark.
+  final bool isVerified;
+
+  /// The chat lists the channel is pinned in: 0 for the main list, a folder's id for that
+  /// folder. A pinned channel keeps its place when another one gets a new post.
+  final List<int> pinnedLists;
 
   /// Everything the newest post carries, oldest part first: the parts of an album, the one
   /// picture or file of a single post, nothing for words alone. A channel row draws the
@@ -157,6 +166,29 @@ final class Channel {
     lastMessageDate: lastMessageDate,
     lastMessageAlbum: lastMessageAlbum,
     isMuted: isMuted,
+    isVerified: isVerified,
+    pinnedLists: pinnedLists,
+  );
+
+  /// The same channel once [post] has arrived as its newest: what its row shows until
+  /// Telegram's own list is read again.
+  Channel withNewestPost(Post post) => Channel(
+    chatId: chatId,
+    title: title,
+    username: username,
+    memberCount: memberCount,
+    photo: photo,
+    isMember: isMember,
+    lastMessageId: post.messageId,
+    lastReadMessageId: lastReadMessageId,
+    unreadCount: unreadCount,
+    lastMessageText: post.text,
+    lastMessageMedia: post.text.isEmpty ? post.media : null,
+    lastMessageDate: post.date,
+    lastMessageAlbum: [?post.media],
+    isMuted: isMuted,
+    isVerified: isVerified,
+    pinnedLists: pinnedLists,
   );
 
   /// The same channel after its read state changed.
@@ -175,6 +207,8 @@ final class Channel {
     lastMessageDate: lastMessageDate,
     lastMessageAlbum: lastMessageAlbum,
     isMuted: isMuted,
+    isVerified: isVerified,
+    pinnedLists: pinnedLists,
   );
 
   @override

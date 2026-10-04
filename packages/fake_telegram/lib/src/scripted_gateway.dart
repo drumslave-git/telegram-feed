@@ -35,6 +35,10 @@ class ChannelsGateway implements TelegramGateway {
         lastMessageText: c.lastMessageText,
         lastMessageMedia: c.lastMessageMedia,
         lastMessageDate: c.lastMessageDate,
+        lastMessageAlbum: c.lastMessageAlbum,
+        isMuted: c.isMuted,
+        isVerified: c.isVerified,
+        pinnedLists: c.pinnedLists,
       ),
   ];
   @override

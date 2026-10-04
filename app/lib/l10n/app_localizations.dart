@@ -1868,6 +1868,12 @@ abstract class AppLocalizations {
   /// **'{count} media'**
   String channelsAlbumMedia(int count);
 
+  /// Screen reader label of the mark beside a channel Telegram has verified.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified'**
+  String get channelsVerified;
+
   /// The channels archived in Telegram (a row and a screen title).
   ///
   /// In en, this message translates to:

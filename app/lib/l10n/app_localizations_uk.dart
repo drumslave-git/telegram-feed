@@ -1214,6 +1214,9 @@ class AppLocalizationsUk extends AppLocalizations {
   }
 
   @override
+  String get channelsVerified => 'Підтверджено';
+
+  @override
   String get channelsArchive => 'Архів';
 
   @override

@@ -116,6 +116,16 @@ Channel channel(
   lastMessageDate: chat.lastMessage?.date ?? 0,
   lastMessageAlbum: album ?? [?content(chat.lastMessage?.content).$2],
   isMuted: muted,
+  isVerified: sg.verificationStatus?.isVerified ?? false,
+  pinnedLists: [
+    for (final p in chat.positions)
+      if (p.isPinned)
+        switch (p.list) {
+          td.ChatListFolder(:final chatFolderId) => chatFolderId,
+          td.ChatListMain() => 0,
+          _ => -1,
+        },
+  ]..remove(-1),
 );
 
 /// TDLib's filter for a [HistoryFilter]; null searches everything.

@@ -24,10 +24,15 @@ void main() {
   Future<void> show(WidgetTester tester, Channel channel) => tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
-        body: ChannelTile(
-          channel: channel,
-          gateway: ChannelsGateway(const []),
-          onTap: () {},
+        // In a list, as it stands in the app: the row takes the height it wants.
+        body: ListView(
+          children: [
+            ChannelTile(
+              channel: channel,
+              gateway: ChannelsGateway(const []),
+              onTap: () {},
+            ),
+          ],
         ),
       ),
     ),
@@ -74,7 +79,12 @@ void main() {
       ),
     );
     expect(find.byType(RowThumbnail), findsOneWidget);
-    expect(colorOf(tester, 'the quay this morning'), isNull);
+    expect(
+      colorOf(tester, 'the quay this morning'),
+      Theme.of(tester.element(find.byType(ChannelTile)))
+          .colorScheme
+          .onSurfaceVariant,
+    );
     expect(
       tester.getCenter(find.byType(RowThumbnail)).dx,
       lessThan(tester.getTopLeft(find.text('the quay this morning')).dx),
@@ -144,5 +154,76 @@ void main() {
       scheme.primary,
     );
     expect(find.byType(UnreadBadge), findsOneWidget);
+  });
+
+  testWidgets('a row is 70 high with a photo of 52, and a verified channel '
+      'carries the mark', (tester) async {
+    await show(
+      tester,
+      const Channel(
+        chatId: -1,
+        title: 'News',
+        lastMessageText: 'words',
+        isVerified: true,
+      ),
+    );
+    expect(tester.getSize(find.byType(ChannelTile)).height, 70);
+    expect(tester.getSize(find.byType(ChannelAvatar)), const Size(52, 52));
+    expect(find.byIcon(Icons.verified), findsOneWidget);
+    // The mark stands right after the name.
+    expect(
+      tester.getTopLeft(find.byIcon(Icons.verified)).dx,
+      greaterThan(tester.getTopRight(find.text('News')).dx),
+    );
+
+    // The date stands at the end of the row, whatever the length of the name.
+    await show(
+      tester,
+      Channel(
+        chatId: -1,
+        title: 'A name that is much too long to fit beside any date at all, really',
+        lastMessageText: 'words',
+        lastMessageDate: DateTime(2019, 1, 5).millisecondsSinceEpoch ~/ 1000,
+      ),
+    );
+    final row = tester.getRect(find.byType(ChannelTile));
+    expect(tester.getTopRight(find.text('05.01.19')).dx, row.right - 16);
+    expect(tester.takeException(), isNull);
+
+    // A channel with nothing to show keeps the same height.
+    await show(tester, const Channel(chatId: -2, title: 'Empty'));
+    expect(tester.getSize(find.byType(ChannelTile)).height, 70);
+    expect(find.byIcon(Icons.verified), findsNothing);
+  });
+
+  testWidgets('a channel that goes up slides to its place', (tester) async {
+    const one = Channel(chatId: -1, title: 'One', lastMessageText: 'a');
+    const two = Channel(chatId: -2, title: 'Two', lastMessageText: 'b');
+    const three = Channel(chatId: -3, title: 'Three', lastMessageText: 'c');
+    Widget list(List<Channel> channels) => MaterialApp(
+      home: Scaffold(
+        body: ChannelList(
+          channels: channels,
+          gateway: ChannelsGateway(const []),
+          onOpen: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpWidget(list(const [one, two, three]));
+    final top = tester.getTopLeft(find.text('One')).dy;
+    final third = tester.getTopLeft(find.text('Three')).dy;
+
+    // Three got a post: it is the first row now.
+    await tester.pumpWidget(list(const [three, one, two]));
+    // At the start of the move every row still stands where it was.
+    expect(tester.getTopLeft(find.text('Three')).dy, third);
+    expect(tester.getTopLeft(find.text('One')).dy, top);
+    await tester.pump(const Duration(milliseconds: 120));
+    final onTheWay = tester.getTopLeft(find.text('Three')).dy;
+    expect(onTheWay, lessThan(third));
+    expect(onTheWay, greaterThan(top));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Three')).dy, top);
+    expect(tester.getTopLeft(find.text('One')).dy, top + 70);
   });
 }

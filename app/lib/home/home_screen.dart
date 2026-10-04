@@ -88,6 +88,9 @@ class _HomeScreenState extends State<HomeScreen>
     // New posts change previews, order and unread counts of the channel lists.
     _posts = widget.gateway.postEvents.listen((e) {
       if (e is! PostAdded) return;
+      // The row goes up at once with the post as its preview, as in the official app;
+      // Telegram's own list, read a moment later, confirms the order and the counters.
+      _bump(e.post);
       _reload?.cancel();
       _reload = Timer(const Duration(seconds: 3), _loadChannels);
     });
@@ -256,6 +259,43 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       ),
     );
+  }
+
+  /// A channel got [post]: its row shows it and moves to the top of every list it is in,
+  /// under the channels pinned there.
+  void _bump(Post post) {
+    final i = _channels.indexWhere((c) => c.chatId == post.chatId);
+    if (i < 0 || !mounted) return;
+    final c = _channels[i];
+    // An older post that arrives late (a part of an album, an edit's echo) moves nothing.
+    if (post.messageId <= c.lastMessageId && c.lastMessageId != 0) return;
+    final channels = [..._channels]..removeAt(i);
+    final at = c.pinnedLists.contains(0)
+        ? i
+        : channels.indexWhere((x) => !x.pinnedLists.contains(0));
+    channels.insert(at < 0 ? channels.length : at, c.withNewestPost(post));
+    final byId = {for (final x in channels) x.chatId: x};
+    setState(() {
+      _channels = channels;
+      _folders = [
+        for (final f in _folders)
+          if (!f.channelIds.contains(post.chatId) ||
+              c.pinnedLists.contains(f.id))
+            f
+          else
+            ChatFolder(
+              id: f.id,
+              title: f.title,
+              channelIds: () {
+                final ids = [...f.channelIds]..remove(post.chatId);
+                final first = ids.indexWhere(
+                  (id) => !(byId[id]?.pinnedLists.contains(f.id) ?? false),
+                );
+                return ids..insert(first < 0 ? ids.length : first, post.chatId);
+              }(),
+            ),
+      ];
+    });
   }
 
   void _onRead(ReadState r) {
