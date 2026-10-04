@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:core/core.dart';
 import 'package:telegram_gateway/telegram_gateway.dart' show Post;
 
+import '../app_name.dart';
 import '../l10n/l10n.dart';
 
 /// Notification channels (ARCHITECTURE.md section 6.3), one per rule priority.
@@ -33,8 +34,12 @@ const actionStop = 'stop';
 const actionOpenTelegram = 'open_tg';
 
 /// What the app sends the service host with `FlutterForegroundTask.sendDataToTask` when
-/// its screen comes up or goes away ([Notifier.appOpen]).
-Map<String, bool> appOpenMessage(bool open) => {'appOpen': open};
+/// its screen comes up or goes away ([Notifier.appOpen]) and when its lock screen comes
+/// up or goes ([unlocked]: on screen and not behind the lock).
+Map<String, bool> appOpenMessage(bool open, {bool unlocked = false}) => {
+  'appOpen': open,
+  'unlocked': open && unlocked,
+};
 
 /// Port name under which the service host receives notification actions
 /// (the background action isolate has no other way to reach it).
@@ -92,6 +97,7 @@ final class NotificationPlan {
     required this.summaryId,
     required this.payload,
     this.quiet = false,
+    this.hidden = false,
   });
   final int id;
   final String channelId;
@@ -101,6 +107,10 @@ final class NotificationPlan {
   /// The channel has sounded as often as it may for now ([Notifier.soundLimit]): this
   /// post is shown without sound and without a pop-up, whatever its rule's priority.
   final bool quiet;
+
+  /// The app is locked: the notification says that there is a new post and nothing of
+  /// it, neither the channel nor the words nor the rule, and has no buttons.
+  final bool hidden;
 
   /// The same notification with other words (its post was edited), or made [quiet].
   NotificationPlan copyWith({String? body, bool? quiet}) => NotificationPlan(
@@ -114,6 +124,7 @@ final class NotificationPlan {
     summaryId: summaryId,
     payload: payload,
     quiet: quiet ?? this.quiet,
+    hidden: hidden,
   );
 
   /// What a post's notification says: its words in one line, cut at 240 letters, or
@@ -160,8 +171,30 @@ final class NotificationPlan {
     MatchEvent m, {
     required String channelTitle,
     AppLocalizations? strings,
+    bool hidden = false,
   }) {
     final s = strings ?? AppLanguage.englishStrings;
+    if (hidden) {
+      return NotificationPlan(
+        id: idFor(m.post.chatId, m.post.messageId),
+        channelId: channelFor(m.priority),
+        title: appName,
+        body: s.notifyNewPost,
+        when: m.post.date * 1000,
+        groupKey: 'chat-${m.post.chatId}',
+        summaryId: summaryIdFor(m.post.chatId),
+        // Which post it is, for the tap that opens it; no rule's name beside it.
+        payload: jsonEncode({
+          ...PostRef(
+            m.post.chatId,
+            m.post.messageId,
+            feedId: m.feedId,
+          ).toJson(),
+          'when': m.post.date * 1000,
+        }),
+        hidden: true,
+      );
+    }
     // A rule with no condition also notifies about posts without text; those show what
     // they carry ("Photo", "Video", the file's name).
     final body = bodyOf(m.post, s);

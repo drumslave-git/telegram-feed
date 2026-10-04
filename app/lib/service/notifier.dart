@@ -368,26 +368,29 @@ final class Notifier {
           // tap or a cancellation is not reported.
           dismissIsolate: NotificationDismissedIsolate.background,
           styleInformation: BigTextStyleInformation(plan.body),
-          // The button that changes comes last, so the other one never moves.
-          actions: [
-            AndroidNotificationAction(
-              actionOpenTelegram,
-              _strings.commonOpenInTelegram,
-              showsUserInterface: true,
-              cancelNotification: true,
-            ),
-            reading
-                ? AndroidNotificationAction(
-                    actionStop,
-                    _strings.notifyStop,
-                    cancelNotification: false,
-                  )
-                : AndroidNotificationAction(
-                    actionListen,
-                    _strings.notifyListen,
-                    cancelNotification: false,
+          // The button that changes comes last, so the other one never moves. A
+          // notification that hides its post has none: Listen would say it aloud.
+          actions: plan.hidden
+              ? const []
+              : [
+                  AndroidNotificationAction(
+                    actionOpenTelegram,
+                    _strings.commonOpenInTelegram,
+                    showsUserInterface: true,
+                    cancelNotification: true,
                   ),
-          ],
+                  reading
+                      ? AndroidNotificationAction(
+                          actionStop,
+                          _strings.notifyStop,
+                          cancelNotification: false,
+                        )
+                      : AndroidNotificationAction(
+                          actionListen,
+                          _strings.notifyListen,
+                          cancelNotification: false,
+                        ),
+                ],
         ),
       ),
     );
@@ -402,7 +405,8 @@ final class Notifier {
   Future<void> updateBody(int chatId, int messageId, String body) async {
     final id = NotificationPlan.idFor(chatId, messageId);
     final shown = _shown[id];
-    if (shown == null || shown.plan.body == body) return;
+    // A notification that hides its post goes on hiding it.
+    if (shown == null || shown.plan.hidden || shown.plan.body == body) return;
     final active = await _active();
     // Dismissed or opened meanwhile: it stays gone.
     if (active != null && !active.any((n) => n.id == id)) {

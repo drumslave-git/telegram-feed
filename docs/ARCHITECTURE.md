@@ -390,6 +390,8 @@ Android 13 and later require `POST_NOTIFICATIONS`. `CoreHost` does **not** ask f
 
 `Notifier.show` lets one chat sound at most `soundLimit` (2) times within `soundWindow` (three minutes): it keeps when each chat's notifications sounded, and a post beyond the limit is shown as a quiet plan (`NotificationPlan.quiet`), which goes on the silent channel whatever its rule's priority and stays there when it is posted again for another button. Posts of silent rules do not count. `RuleAlerts` hands a `PostEdited` to `Notifier.updateBody`: where the post's notification is still shown it is posted again with the new words (`NotificationPlan.bodyOf`), on the same channel, which makes no sound; rules are not evaluated again.
 
+A match made while the app has a lock (`AppLock.enabled`, read from the keystore by the host the alerts run in; a keystore that cannot be read counts as a lock) and the app is not on screen and past its lock becomes a hidden plan (`NotificationPlan.hidden`): the app's name, "New post", no rule, no buttons, and a payload that still names the post for the tap. `LockGate` publishes whether the lock screen is up in `AppLock.locked` (true until it has looked), `CoreHost` sends it with the lifecycle as `appOpenMessage(open, unlocked:)`, and `RuleAlerts.unlocked` holds it. An edit does not uncover a hidden notification.
+
 ### 6.4 AI semantic rules
 
 A rule may carry a description of what the post should be about (`rules.semantic_prompt`). Its keyword condition is then an optional pre-filter; an empty one (`And([])`) lets every post of the rule's channels through, and the editor warns that all of them are sent to the model.

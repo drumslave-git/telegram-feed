@@ -10,6 +10,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../ai/semantic_gate.dart';
 import '../l10n/l10n.dart';
+import '../settings/app_lock.dart' show AppLock;
 import 'notifier.dart';
 import 'read_aloud_keys.dart';
 import 'reading_now.dart';
@@ -31,9 +32,11 @@ final class RuleAlerts {
     Notifier? notifier,
     this.speaker,
     this.gate,
+    Future<bool> Function()? lockSet,
     ReadAloudKeys Function(void Function() onStop)? keys,
     void Function(String)? log,
   }) : _notifier = notifier ?? Notifier(),
+       _lockSet = lockSet ?? (() => const AppLock().enabled),
        _makeKeys = keys ?? ((onStop) => ReadAloudKeys(onStop: onStop)),
        _log = log ?? ((s) => debugPrint('alerts: $s'));
 
@@ -96,6 +99,15 @@ final class RuleAlerts {
 
   /// Whether the app is on screen: posts that match then do not pop up over it.
   set appOpen(bool open) => _notifier.appOpen = open;
+
+  /// Whether the app has a lock; asked for every match, since the lock is set and
+  /// removed in the app while these alerts run.
+  final Future<bool> Function() _lockSet;
+
+  /// The app is on screen and not behind its lock. While a lock is set and this does
+  /// not hold, a notification says only that there is a new post: the phone may be in
+  /// other hands. False until the app says otherwise.
+  bool unlocked = false;
 
   Future<void> start(AppLocalizations strings) async {
     _strings = strings;
@@ -171,11 +183,22 @@ final class RuleAlerts {
       m,
       channelTitle: _titles[m.post.chatId] ?? '',
       strings: _strings,
+      hidden: !unlocked && await _hasLock(),
     );
     _remember(m.post.chatId, m.post.messageId, m.post.text);
     // Queued first, so the notification offers Stop from the start.
     if (m.readAloud) unawaited(_speakPost(m.post.chatId, m.post.messageId));
     await _notifier.show(plan);
+  }
+
+  Future<bool> _hasLock() async {
+    try {
+      return await _lockSet();
+    } on Object catch (e) {
+      // The keystore cannot be asked: what a post says is not shown on a guess.
+      _log('lock state unknown: $e');
+      return true;
+    }
   }
 
   void _remember(int chatId, int messageId, String text) {

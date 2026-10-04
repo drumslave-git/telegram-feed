@@ -47,11 +47,17 @@ void main() {
     ],
   );
 
+  /// Whether the app has a lock, and how many buttons each notification was shown with.
+  var hasLock = false;
+  var buttons = <int, int>{};
+
   Future<void> tick() => Future<void>.delayed(const Duration(milliseconds: 20));
 
   setUp(() async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     AndroidFlutterLocalNotificationsPlugin.registerWith();
+    hasLock = false;
+    buttons = {};
     shown = [];
     cancelled = [];
     shade = {};
@@ -73,6 +79,10 @@ void main() {
                 title: m['title'] as String? ?? '',
                 body: m['body'] as String? ?? '',
               ));
+              buttons[m['id'] as int] =
+                  ((m['platformSpecifics'] as Map)['actions'] as List?)
+                      ?.length ??
+                  0;
               shade[m['id'] as int] = {
                 'id': m['id'],
                 'title': m['title'],
@@ -113,6 +123,7 @@ void main() {
       onReading: reading.add,
       speaker: speaker,
       gate: SemanticGate(db: db, secrets: MemorySecrets()),
+      lockSet: () async => hasLock,
       log: (_) {},
     );
     await alerts.start(AppLanguage.englishStrings);
@@ -124,6 +135,65 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
+  });
+
+  test('with a lock set and the app not open and unlocked, a notification says '
+      'only that there is a new post', () async {
+    hasLock = true;
+    matches.add(match(7));
+    await tick();
+    final id = NotificationPlan.idFor(chatId, 7);
+    final hidden = shown.firstWhere((s) => s.id == id);
+    // Neither the channel nor the words, and no button that would say them aloud.
+    expect(
+      (hidden.title, hidden.body),
+      ('Unofficial Telegram Feed', 'New post'),
+    );
+    expect(buttons[id], 0);
+    // The tap still knows which post it is; the rule's name is not in it.
+    final tag = shade[id]!['tag'] as String;
+    expect(PostRef.decode(tag)!.messageId, 7);
+    expect(tag, isNot(contains('macro')));
+
+    // An edit of that post does not uncover it.
+    posts.add(
+      PostEdited(
+        Post(chatId: chatId, messageId: 7, date: 1, text: 'rates cut twice'),
+      ),
+    );
+    await tick();
+    expect(shown.where((s) => s.id == id).map((s) => s.body).toSet(), {
+      'New post',
+    });
+
+    // The app on screen and past its lock: the post is shown as it is.
+    alerts.unlocked = true;
+    matches.add(match(8));
+    await tick();
+    final open = shown.firstWhere(
+      (s) => s.id == NotificationPlan.idFor(chatId, 8),
+    );
+    expect((open.title, open.body), ('Wire', 'rates cut'));
+    expect(buttons[NotificationPlan.idFor(chatId, 8)], 2);
+
+    // Behind the lock again, or gone from the screen: hidden again.
+    alerts.unlocked = false;
+    matches.add(match(9));
+    await tick();
+    expect(
+      shown.firstWhere((s) => s.id == NotificationPlan.idFor(chatId, 9)).body,
+      'New post',
+    );
+  });
+
+  test('without a lock a notification shows its post whether the app is open '
+      'or not', () async {
+    matches.add(match(7));
+    await tick();
+    expect(
+      shown.firstWhere((s) => s.id == NotificationPlan.idFor(chatId, 7)).body,
+      'rates cut',
+    );
   });
 
   test('a match is shown under its channel, and not spoken unasked', () async {

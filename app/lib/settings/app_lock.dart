@@ -70,6 +70,11 @@ class AppLock {
   /// Counts up when the reader asks for the lock at once (the home screen's button);
   /// [LockGate] listens.
   static final lockNow = ValueNotifier<int>(0);
+
+  /// Whether the lock screen is up, as far as is known: true until [LockGate] has
+  /// looked whether there is a lock at all, so nothing counts as open by mistake.
+  /// Notifications hide what a post says while a lock is set and this holds.
+  static final locked = ValueNotifier<bool>(true);
   static const _timeoutKey = 'lock.timeout';
   static const _biometricsKey = 'lock.biometrics';
   static const _showContentKey = 'lock.showContent';
@@ -266,6 +271,7 @@ class _LockGateState extends State<LockGate> with WidgetsBindingObserver {
 
   Future<void> _lockIfEnabled() async {
     if (await _lock.enabled && mounted) setState(() => _locked = true);
+    AppLock.locked.value = _locked;
   }
 
   @override
@@ -288,6 +294,7 @@ class _LockGateState extends State<LockGate> with WidgetsBindingObserver {
         ? Duration.zero
         : DateTime.now().difference(since);
     if (rested >= timeout && mounted) setState(() => _locked = true);
+    AppLock.locked.value = _locked;
   }
 
   @override
@@ -303,7 +310,10 @@ class _LockGateState extends State<LockGate> with WidgetsBindingObserver {
         LockScreen(
           lock: _lock,
           auth: widget.auth,
-          onUnlocked: () => setState(() => _locked = false),
+          onUnlocked: () {
+            setState(() => _locked = false);
+            AppLock.locked.value = false;
+          },
         ),
     ],
   );

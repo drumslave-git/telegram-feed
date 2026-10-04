@@ -19,6 +19,7 @@ import 'l10n/l10n.dart';
 import 'media/cache_limits.dart';
 import 'media/video_positions.dart';
 import 'service/core_service.dart';
+import 'settings/app_lock.dart' show AppLock;
 import 'service/notification_plan.dart';
 import 'service/reading_now.dart';
 import 'service/rule_alerts.dart';
@@ -213,6 +214,7 @@ final class CoreHost implements AppHost {
     }
     // Posts that match while the app is on screen do not pop up over it.
     _lifecycle = AppLifecycleListener(onStateChange: _sendAppOpen);
+    AppLock.locked.addListener(_onLockChanged);
     _sendAppOpen(
       WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
     );
@@ -251,14 +253,26 @@ final class CoreHost implements AppHost {
   /// Only a resumed app counts as open, so in picture-in-picture posts pop up as usual.
   void _sendAppOpen(AppLifecycleState state) {
     final open = state == AppLifecycleState.resumed;
-    if (open == _appOpen) return;
+    final unlocked = open && !AppLock.locked.value;
+    if (open == _appOpen && unlocked == _appUnlocked) return;
     _appOpen = open;
+    _appUnlocked = unlocked;
     if (_inService) {
-      FlutterForegroundTask.sendDataToTask(appOpenMessage(open));
+      FlutterForegroundTask.sendDataToTask(
+        appOpenMessage(open, unlocked: unlocked),
+      );
     } else {
       _alerts?.appOpen = open;
+      _alerts?.unlocked = unlocked;
     }
   }
+
+  bool? _appUnlocked;
+
+  /// The lock screen came up or went: the notifications follow.
+  void _onLockChanged() => _sendAppOpen(
+    (_appOpen ?? false) ? AppLifecycleState.resumed : AppLifecycleState.paused,
+  );
 
   void _onTaskData(Object data) {
     if (data is Map && data.containsKey('reading')) {
@@ -348,6 +362,7 @@ final class CoreHost implements AppHost {
     FlutterForegroundTask.removeTaskDataCallback(_onTaskData);
     await _alerts?.dispose();
     _lifecycle?.dispose();
+    AppLock.locked.removeListener(_onLockChanged);
     if (_phoneLanguage case final o?) WidgetsBinding.instance.removeObserver(o);
     for (final s in _subs) {
       await s.cancel();
