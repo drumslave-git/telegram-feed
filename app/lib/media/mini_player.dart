@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../l10n/l10n.dart';
+import 'audio_session.dart';
 import 'media_viewer.dart';
 import 'video_sessions.dart';
 import 'video_stage.dart';
@@ -80,6 +81,10 @@ abstract final class MiniPlayer {
     entry.dispose();
     _session?.releaseFromViewer();
     _session = null;
+    // Closed for good, not opened in the viewer again: what the video paused plays on.
+    if (MediaViewerScreen.showing.value == 0) {
+      unawaited(AudioSessions.instance.resumeAfterVideo());
+    }
   }
 }
 

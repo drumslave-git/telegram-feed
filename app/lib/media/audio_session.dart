@@ -1,6 +1,7 @@
 import 'dart:async';
+import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:just_audio/just_audio.dart';
 
 /// What plays sound, behind an interface so tests can drive it without the plugin, the way
@@ -69,19 +70,83 @@ class AudioTrack {
     required this.path,
     required this.label,
     required this.durationSeconds,
+    this.id,
+    this.isVoice = false,
   });
   final String path;
   final String label;
   final int durationSeconds;
+
+  /// Which entry of the queue it is ([AudioItem.id]); null for a track that came with
+  /// no queue.
+  final int? id;
+
+  /// A voice message, which neither repeats nor shuffles.
+  final bool isVoice;
+}
+
+/// One voice message or one piece of music of a timeline, as the timeline knows it
+/// before its file is on the phone: what the session plays on to when a track ends.
+class AudioItem {
+  const AudioItem({
+    required this.id,
+    required this.label,
+    required this.durationSeconds,
+    required this.isVoice,
+    required this.load,
+  });
+
+  /// Telegram's id of the file.
+  final int id;
+  final String label;
+  final int durationSeconds;
+  final bool isVoice;
+
+  /// The path of the file, which is downloaded first when it is not there yet.
+  final Future<String> Function() load;
+}
+
+/// What music does when it ends, as in the official app: stop at the end of the list,
+/// start the list over, or play the same piece again.
+enum AudioRepeat { off, all, one }
+
+/// Hands the audio rows under it the queue they belong to: the voice messages or the
+/// music of the timeline they are in, oldest first.
+class AudioQueue extends InheritedWidget {
+  const AudioQueue({super.key, required this.items, required super.child});
+  final List<AudioItem> Function({required bool voice}) items;
+
+  static AudioQueue? maybeOf(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<AudioQueue>();
+
+  @override
+  bool updateShouldNotify(AudioQueue old) => false;
 }
 
 /// The one sound of the app. Voice messages and music play through it, so a post that
 /// scrolls away keeps playing (H-20) and a bar can say what is on, and only one thing is
 /// ever heard at a time. Speeds are the official app's: 1×, 1.5×, 2×.
 class AudioSessions {
-  AudioSessions({AudioEngine Function()? engine})
-    : _make = engine ?? JustAudioEngine.new;
+  AudioSessions({AudioEngine Function()? engine, math.Random? random})
+    : _make = engine ?? JustAudioEngine.new,
+      _random = random ?? math.Random();
   final AudioEngine Function() _make;
+  final math.Random _random;
+
+  /// The tracks the one that plays stands among, oldest first; empty when it came alone.
+  List<AudioItem> _queue = const [];
+
+  /// The order shuffled music plays in, as places in [_queue]; null while it is not
+  /// shuffled.
+  List<int>? _shuffled;
+
+  /// What music does at its end, and whether it plays in a shuffled order. Voice
+  /// messages follow neither: they play on in the order they were posted, and stop.
+  final repeat = ValueNotifier<AudioRepeat>(AudioRepeat.off);
+  final shuffle = ValueNotifier<bool>(false);
+
+  /// A video took the sound away from a track that was playing ([pauseForVideo]).
+  bool _heldForVideo = false;
 
   /// The app's own; tests make their own instance instead.
   static AudioSessions instance = AudioSessions();
@@ -108,7 +173,14 @@ class AudioSessions {
   bool isCurrent(String path) => track.value?.path == path;
 
   /// Plays [path] from the beginning, or carries on with it when it is already the one.
-  Future<void> play(AudioTrack next) async {
+  /// [queue] is what it stands among, which plays on when it ends; without one the
+  /// track plays alone.
+  Future<void> play(AudioTrack next, {List<AudioItem>? queue}) async {
+    _heldForVideo = false;
+    if (queue != null) {
+      _queue = queue;
+      _shuffled = null;
+    }
     if (isCurrent(next.path)) {
       await resume();
       return;
@@ -125,7 +197,7 @@ class AudioSessions {
     // The engine itself goes on saying "playing" at the end of a file.
     _subs.add(
       engine.completed.listen((_) {
-        if (identical(_engine, engine)) unawaited(stop());
+        if (identical(_engine, engine)) unawaited(_onCompleted());
       }),
     );
     try {
@@ -149,7 +221,128 @@ class AudioSessions {
 
   Future<void> pause() async => _engine?.pause();
 
-  Future<void> toggle() async => playing.value ? await pause() : await resume();
+  Future<void> toggle() async {
+    _heldForVideo = false;
+    playing.value ? await pause() : await resume();
+  }
+
+  /// A video is about to play with its sound: a track that plays is paused, and
+  /// remembered for [resumeAfterVideo].
+  Future<void> pauseForVideo() async {
+    if (!playing.value) return;
+    _heldForVideo = true;
+    await pause();
+  }
+
+  /// The video is gone: what it paused plays on, unless something else was done with
+  /// the track meanwhile.
+  Future<void> resumeAfterVideo() async {
+    if (!_heldForVideo) return;
+    _heldForVideo = false;
+    if (track.value != null) await resume();
+  }
+
+  /// The file played to its end: the same piece again, the next of the queue, or
+  /// nothing more.
+  Future<void> _onCompleted() async {
+    final current = track.value;
+    if (current == null) return;
+    if (!current.isVoice && repeat.value == AudioRepeat.one) {
+      await seek(Duration.zero);
+      await _engine?.play();
+      return;
+    }
+    final next = _neighbour(
+      1,
+      wrap: !current.isVoice && repeat.value == AudioRepeat.all,
+    );
+    if (next == null) return stop();
+    await _playItem(next);
+  }
+
+  /// The order the queue plays in: shuffled for music while [shuffle] is on, with the
+  /// track that plays at its head, and as posted otherwise.
+  List<int> _order(AudioTrack current) {
+    final plain = [for (var i = 0; i < _queue.length; i++) i];
+    if (current.isVoice || !shuffle.value) return plain;
+    final kept = _shuffled;
+    if (kept != null && kept.length == _queue.length) return kept;
+    final at = _queue.indexWhere((i) => i.id == current.id);
+    final rest = [
+      for (final i in plain)
+        if (i != at) i,
+    ]..shuffle(_random);
+    return _shuffled = [if (at >= 0) at, ...rest];
+  }
+
+  /// The entry [step] places from the one that plays; null at an end of the queue,
+  /// unless it [wrap]s round.
+  AudioItem? _neighbour(int step, {bool wrap = false}) {
+    final current = track.value;
+    if (current == null || current.id == null || _queue.isEmpty) return null;
+    final order = _order(current);
+    final at = order.indexWhere((i) => _queue[i].id == current.id);
+    if (at < 0) return null;
+    var to = at + step;
+    if (to < 0 || to >= order.length) {
+      if (!wrap) return null;
+      to %= order.length;
+    }
+    return _queue[order[to]];
+  }
+
+  /// Whether there is a track after, or before, the one that plays.
+  bool get hasNext => _neighbour(1, wrap: _wraps) != null;
+  bool get hasPrevious => _neighbour(-1, wrap: _wraps) != null;
+
+  bool get _wraps =>
+      !(track.value?.isVoice ?? true) && repeat.value == AudioRepeat.all;
+
+  /// The next track of the queue, as the button and the headset ask for it.
+  Future<void> next() async {
+    final to = _neighbour(1, wrap: _wraps);
+    if (to != null) await _playItem(to);
+  }
+
+  /// The track before, or the start of this one once it has played three seconds, as
+  /// players do.
+  Future<void> previous() async {
+    final to = _neighbour(-1, wrap: _wraps);
+    if (to == null || position.value > const Duration(seconds: 3)) {
+      await seek(Duration.zero);
+      return;
+    }
+    await _playItem(to);
+  }
+
+  Future<void> _playItem(AudioItem item) async {
+    final String path;
+    try {
+      path = await item.load();
+    } on Object catch (e) {
+      // What cannot be had ends the playing; the row says why when it is tapped.
+      debugPrint('audio: next track not loaded: $e');
+      return stop();
+    }
+    await play(
+      AudioTrack(
+        path: path,
+        label: item.label,
+        durationSeconds: item.durationSeconds,
+        id: item.id,
+        isVoice: item.isVoice,
+      ),
+    );
+  }
+
+  /// Off, the whole list, one piece, and off again, as the official app's button goes.
+  void nextRepeat() => repeat.value =
+      AudioRepeat.values[(repeat.value.index + 1) % AudioRepeat.values.length];
+
+  void toggleShuffle() {
+    shuffle.value = !shuffle.value;
+    _shuffled = null;
+  }
 
   Future<void> seek(Duration to) async {
     position.value = to;
@@ -168,6 +361,7 @@ class AudioSessions {
   /// Stops, and forgets what was playing: the bar goes away at once, and the engine is let
   /// go afterwards.
   Future<void> stop() async {
+    _heldForVideo = false;
     track.value = null;
     playing.value = false;
     position.value = Duration.zero;

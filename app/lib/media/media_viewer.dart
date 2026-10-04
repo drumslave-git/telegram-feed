@@ -213,7 +213,8 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
   /// A video plays with its sound, so voice and music stop, as in the official app.
   void _quietAudioFor(int index) {
     if (index < _items.length && _items[index] is VideoMedia) {
-      unawaited(AudioSessions.instance.pause());
+      // Remembered: what the video paused plays on when the video is gone.
+      unawaited(AudioSessions.instance.pauseForVideo());
     }
   }
 
@@ -249,6 +250,11 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     unawaited(SecureWindow.release(this));
     MediaViewerScreen.showing.value--;
+    // The video is over, unless it moved on into the floating player, which says so
+    // itself when it closes.
+    if (!MiniPlayer.isShowing) {
+      unawaited(AudioSessions.instance.resumeAfterVideo());
+    }
     _pages.dispose();
     super.dispose();
   }

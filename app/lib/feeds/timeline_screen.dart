@@ -16,6 +16,7 @@ import '../host/haptics.dart';
 import '../home/channel_info_screen.dart';
 import '../home/connection_title.dart';
 import '../l10n/l10n.dart';
+import '../media/audio_session.dart';
 import '../media/gallery.dart';
 import '../media/media_viewer.dart';
 import '../settings/data_storage_screen.dart' show DataStorageScreen;
@@ -2908,10 +2909,55 @@ class TimelineViewState extends State<TimelineView>
     super.dispose();
   }
 
+  /// The voice messages, or the music, of the posts the timeline holds, oldest first:
+  /// what plays on when one of them ends, as the official app plays on down the chat.
+  List<AudioItem> _audioItems({required bool voice}) {
+    final l10n = context.l10n;
+    final found = <AudioItem>[];
+    for (final item in (_timeline?.items ?? const <TimelineItem>[]).reversed) {
+      if (_folded(item)) continue; // its row has no player
+      for (final post in item.allPosts.reversed) {
+        final media = post.media;
+        if (media is! AudioMedia || media.isVoice != voice) continue;
+        final named = [
+          media.title,
+          media.performer,
+        ].where((s) => s.isNotEmpty).join(' – ');
+        found.add(
+          AudioItem(
+            id: media.file.id,
+            label: voice
+                ? l10n.mediaVoiceMessage
+                : named.isEmpty
+                ? l10n.mediaAudio
+                : named,
+            durationSeconds: media.durationSeconds,
+            isVoice: voice,
+            load: () async {
+              final file = media.file.isDownloaded
+                  ? media.file
+                  : await widget.gateway.download(media.file);
+              return file.localPath!;
+            },
+          ),
+        );
+      }
+    }
+    return found;
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = _timeline;
     final items = t?.items ?? const <TimelineItem>[];
+    return AudioQueue(items: _audioItems, child: _stack(context, t, items));
+  }
+
+  Widget _stack(
+    BuildContext context,
+    FeedTimeline? t,
+    List<TimelineItem> items,
+  ) {
     return Stack(
       children: [
         Positioned.fill(

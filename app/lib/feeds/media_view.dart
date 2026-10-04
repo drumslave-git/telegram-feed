@@ -11,6 +11,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../l10n/l10n.dart';
+import '../media/audio_session.dart';
 import '../media/auto_download.dart';
 import '../media/media_viewer.dart';
 import '../media/video_downloads.dart';
@@ -205,6 +206,7 @@ class MediaView extends StatelessWidget {
               ? l10n.mediaVoiceMessage
               : [title, performer].where((s) => s.isNotEmpty).join(' – '),
           gateway: gateway,
+          isVoice: isVoice,
           autoLoad: isVoice ? policy.voice(file.size) : policy.file(file.size),
         ),
       DocumentMedia(
@@ -1035,12 +1037,20 @@ class AudioView extends StatefulWidget {
     required this.durationSeconds,
     required this.label,
     required this.gateway,
+    this.isVoice = false,
+    this.sessions,
     this.autoLoad = false,
   });
   final FileRef file;
   final int durationSeconds;
   final String label;
   final TelegramGateway gateway;
+
+  /// A voice message; music otherwise. Each plays on among its own kind.
+  final bool isVoice;
+
+  /// The app's one sound; tests hand in their own.
+  final AudioSessions? sessions;
 
   /// The file loads ahead without playing, so a tap plays it at once
   /// ([AutoDownloadPolicy.file]).
@@ -1079,11 +1089,23 @@ class _AudioViewState extends State<AudioView> {
         );
   }
 
+  AudioSessions get _sessions => widget.sessions ?? AudioSessions.instance;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ValueListenableBuilder<AudioTrack?>(
+    valueListenable: _sessions.track,
+    builder: (context, track, _) => _row(
+      context,
+      // The session played on to this one by itself: the row shows it as playing.
+      current: track?.id == widget.file.id,
+    ),
+  );
+
+  Widget _row(BuildContext context, {required bool current}) {
     final l10n = context.l10n;
     final label = widget.label.isEmpty ? l10n.mediaAudio : widget.label;
-    if (!_requested) {
+    final queue = AudioQueue.maybeOf(context);
+    if (!_requested && !current) {
       return ListTile(
         contentPadding: EdgeInsets.zero,
         leading: IconButton.filled(
@@ -1116,6 +1138,13 @@ class _AudioViewState extends State<AudioView> {
         path: path,
         label: label,
         durationSeconds: widget.durationSeconds,
+        sessions: widget.sessions,
+        id: widget.file.id,
+        isVoice: widget.isVoice,
+        queue: queue == null ? null : () => queue.items(voice: widget.isVoice),
+        // Only a tap on this row starts it; a row whose track already plays is drawn
+        // as it is.
+        autoStart: _requested,
       ),
     );
   }

@@ -18,11 +18,28 @@ class AudioPlayerWidget extends StatefulWidget {
     required this.label,
     required this.durationSeconds,
     this.sessions,
+    this.id,
+    this.isVoice = false,
+    this.queue,
+    this.autoStart = true,
   });
 
   final String path;
   final String label;
   final int durationSeconds;
+
+  /// Telegram's id of the file, by which the queue knows the track.
+  final int? id;
+  final bool isVoice;
+
+  /// The tracks this one stands among, asked for when it starts: what plays on after
+  /// it. Null where the row is in no timeline.
+  final List<AudioItem> Function()? queue;
+
+  /// Starts playing when the row appears, as a tap on its play button asks for. False
+  /// for a row that is drawn because its track already plays (it played on to it): a
+  /// paused track must not start because its post scrolled into view.
+  final bool autoStart;
 
   /// Tests hand in their own; the app uses the one session it has.
   final AudioSessions? sessions;
@@ -41,16 +58,18 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   void initState() {
     super.initState();
     // The post asked for it: start at once, as it did before.
-    unawaited(
-      _sessions.play(
-        AudioTrack(
-          path: widget.path,
-          label: widget.label,
-          durationSeconds: widget.durationSeconds,
-        ),
-      ),
-    );
+    if (widget.autoStart) unawaited(_start());
   }
+
+  AudioTrack get _track => AudioTrack(
+    path: widget.path,
+    label: widget.label,
+    durationSeconds: widget.durationSeconds,
+    id: widget.id,
+    isVoice: widget.isVoice,
+  );
+
+  Future<void> _start() => _sessions.play(_track, queue: widget.queue?.call());
 
   Duration get _length {
     final own = Duration(seconds: widget.durationSeconds);
@@ -79,17 +98,8 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                 tooltip: mine && playing
                     ? context.l10n.timelinePause
                     : context.l10n.timelinePlay,
-                onPressed: () => unawaited(
-                  mine
-                      ? _sessions.toggle()
-                      : _sessions.play(
-                          AudioTrack(
-                            path: widget.path,
-                            label: widget.label,
-                            durationSeconds: widget.durationSeconds,
-                          ),
-                        ),
-                ),
+                onPressed: () =>
+                    unawaited(mine ? _sessions.toggle() : _start()),
                 icon: Icon(mine && playing ? Icons.pause : Icons.play_arrow),
               ),
               title: Text(widget.label),
