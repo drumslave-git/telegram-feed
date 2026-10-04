@@ -256,18 +256,17 @@ void main() {
 
   testWidgets('a video that is still loading turns the page on an edge tap '
       'too', (tester) async {
-    FakeVideoPlatform.install();
+    FakeVideoPlatform.install().loadsForever = true;
     final gw = DownloadGateway(pngPath);
     const video = VideoMedia(
       file: FileRef(id: 9, remoteId: 'v', size: 5000000),
       durationSeconds: 30,
     );
     await tester.pumpWidget(opener(gw, [video, photo(2)]));
-    // Opened, and not given the time to load.
-    await tester.tap(find.text('open'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    await open(tester);
     expect(find.text('1 of 2'), findsOneWidget);
+    // The player is there and has not said it is ready.
+    expect(find.byType(VideoStage), findsOneWidget);
     final size = tester.getSize(find.byType(MediaViewerScreen));
     await tester.tapAt(Offset(size.width - 10, size.height / 2));
     await tester.pump(const Duration(milliseconds: 350));

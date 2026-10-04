@@ -11,6 +11,9 @@ class FakeVideoPlatform extends VideoPlayerPlatform {
   /// How long the players created from now on say their video is.
   Duration duration = const Duration(seconds: 100);
 
+  /// Set, a player that is created stays loading: it does not say it is initialised.
+  bool loadsForever = false;
+
   /// Whether each player was last told to loop.
   final looping = <int, bool>{};
   final sources = <DataSource>[];
@@ -41,14 +44,16 @@ class FakeVideoPlatform extends VideoPlayerPlatform {
     sources.add(options.dataSource);
     final id = sources.length;
     positions[id] = Duration.zero;
-    _events[id] = StreamController<VideoEvent>()
-      ..add(
+    _events[id] = StreamController<VideoEvent>();
+    if (!loadsForever) {
+      _events[id]!.add(
         VideoEvent(
           eventType: VideoEventType.initialized,
           duration: duration,
           size: const Size(640, 360),
         ),
       );
+    }
     return id;
   }
 
