@@ -222,12 +222,13 @@ void main() {
     );
     var last = shade.shown.last;
     expect(last.avatar, '/cache/a.png');
-    // The picture stands under the words of its post, as a line of its own.
+    // The picture stands above the words of its post, as a line of its own: the
+    // words are the last line, which Android shows whatever else fits.
     expect(last.texts, ['no picture', 'with one', 'with one']);
     expect(last.lines.map((l) => l.picture), [
       null,
-      null,
       'content://files/p.jpg',
+      null,
     ]);
     final person = (last.specifics['styleInformation'] as Map)['person'] as Map;
     expect(person['icon'], '/cache/a.png');

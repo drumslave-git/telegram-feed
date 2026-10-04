@@ -556,23 +556,27 @@ final class Notifier {
             conversationTitle: header.isEmpty ? null : header,
             groupConversation: false,
             messages: [
-              for (final p in posts)
+              for (final p in posts) ...[
+                // The picture of the newest post, above its words, as a photo stands
+                // above its caption. Android draws a line's picture in place of its
+                // words and only the newest lines that fit, so the picture is a line
+                // of its own that goes first when there is no room, and the older
+                // posts stay words.
+                if (identical(p, newest))
+                  if (newest.picture case final picture?)
+                    Message(
+                      newest.body,
+                      DateTime.fromMillisecondsSinceEpoch(newest.when ?? 0),
+                      sender(newest),
+                      dataMimeType: 'image/jpeg',
+                      dataUri: picture,
+                    ),
                 Message(
                   p.body,
                   DateTime.fromMillisecondsSinceEpoch(p.when ?? 0),
                   sender(p),
                 ),
-              // The picture of the newest post, under its words: Android draws a
-              // line's picture in place of its words, and only as many lines as fit,
-              // so the older posts stay words.
-              if (newest.picture case final picture?)
-                Message(
-                  newest.body,
-                  DateTime.fromMillisecondsSinceEpoch(newest.when ?? 0),
-                  sender(newest),
-                  dataMimeType: 'image/jpeg',
-                  dataUri: picture,
-                ),
+              ],
             ],
           ),
           // The button that changes comes last, so the other one never moves. A

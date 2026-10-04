@@ -438,6 +438,22 @@ void main() {
     expect(textOf(tester, 'Phone number'), '67');
   });
 
+  test('countries are listed by the alphabet of their language', () {
+    final names = ['Ямайка', 'Індія', 'Єгипет', 'Австрія', 'Germany', 'Ґренада']
+      ..sort(compareCountryNames);
+    expect(names, [
+      'Germany',
+      'Австрія',
+      'Ґренада',
+      'Єгипет',
+      'Індія',
+      'Ямайка',
+    ]);
+    final english = ['Åland Islands', 'albania', 'Algeria', 'Albania (2)']
+      ..sort(compareCountryNames);
+    expect(english.first, 'albania');
+  });
+
   test('digits are written into the pattern Telegram gives', () {
     expect(formatPhoneDigits('671234567', '-- --- ----'), '67 123 4567');
     // What is typed so far, with nothing after its last digit.

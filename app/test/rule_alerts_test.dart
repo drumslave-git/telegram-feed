@@ -244,8 +244,9 @@ void main() {
     await tick();
     final shown = shade.of(chatId);
     expect(shown.avatar, '/tdlib/50.round.png');
-    expect(shown.lines.first.text, '🖼 the bridge');
-    expect(shown.lines.last.picture, 'content://files/tdlib/2');
+    expect(shown.lines.first.picture, 'content://files/tdlib/2');
+    expect(shown.lines.last.text, '🖼 the bridge');
+    expect(shown.lines.last.picture, isNull);
     expect(downloaded.toSet(), {50, 2});
 
     // A picture under a spoiler stays under it: the newest post shows none, and the

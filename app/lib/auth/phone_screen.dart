@@ -24,6 +24,28 @@ String formatPhoneDigits(String digits, String template) {
   return out.toString().trimRight();
 }
 
+/// The order of the Ukrainian alphabet, which is not the order of its letters' codes
+/// (Є and І come before А there, and Ґ after Я).
+const _ukrainian = 'абвгґдеєжзиіїйклмнопрстуфхцчшщьюя';
+
+/// Orders the names of countries as a reader of the list expects: by the alphabet, the
+/// Ukrainian one for Ukrainian letters, whatever the case. Names Telegram has only in
+/// English come first.
+int compareCountryNames(String a, String b) {
+  int rank(int unit) {
+    final at = _ukrainian.indexOf(String.fromCharCode(unit));
+    return at < 0 ? unit : 0x10000 + at;
+  }
+
+  final x = a.toLowerCase().codeUnits;
+  final y = b.toLowerCase().codeUnits;
+  for (var i = 0; i < x.length && i < y.length; i++) {
+    final by = rank(x[i]).compareTo(rank(y[i]));
+    if (by != 0) return by;
+  }
+  return x.length.compareTo(y.length);
+}
+
 bool _takesDigit(String unit) =>
     unit == '-' || (unit.compareTo('0') >= 0 && unit.compareTo('9') <= 0);
 
@@ -112,7 +134,7 @@ class _PhoneScreenState extends State<PhoneScreen> {
     try {
       final countries = await widget.gateway.countries(language: language);
       if (!mounted || language != _language) return;
-      countries.sort((a, b) => a.name.compareTo(b.name));
+      countries.sort((a, b) => compareCountryNames(a.name, b.name));
       setState(() {
         _countries = countries;
         // Named again in the new language.
