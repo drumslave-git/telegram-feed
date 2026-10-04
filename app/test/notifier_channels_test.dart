@@ -122,7 +122,12 @@ void main() {
             .setMockMethodCallHandler(channel, null),
       );
 
-      final notifier = Notifier();
+      // Minutes apart, so the limit on how often one channel sounds does not come in.
+      var now = DateTime(2026, 10, 4, 12);
+      final notifier = Notifier(
+        null,
+        () => now = now.add(const Duration(minutes: 5)),
+      );
       await notifier.init();
       expect(importanceOf['posts_normal_popup'], Importance.high.value);
       expect(importanceOf['posts_urgent'], Importance.high.value);

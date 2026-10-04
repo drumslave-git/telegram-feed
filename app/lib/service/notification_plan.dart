@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:core/core.dart';
+import 'package:telegram_gateway/telegram_gateway.dart' show Post;
 
 import '../l10n/l10n.dart';
 
@@ -90,11 +91,43 @@ final class NotificationPlan {
     required this.groupKey,
     required this.summaryId,
     required this.payload,
+    this.quiet = false,
   });
   final int id;
   final String channelId;
   final String title;
   final String body;
+
+  /// The channel has sounded as often as it may for now ([Notifier.soundLimit]): this
+  /// post is shown without sound and without a pop-up, whatever its rule's priority.
+  final bool quiet;
+
+  /// The same notification with other words (its post was edited), or made [quiet].
+  NotificationPlan copyWith({String? body, bool? quiet}) => NotificationPlan(
+    id: id,
+    channelId: channelId,
+    title: title,
+    body: body ?? this.body,
+    rule: rule,
+    when: when,
+    groupKey: groupKey,
+    summaryId: summaryId,
+    payload: payload,
+    quiet: quiet ?? this.quiet,
+  );
+
+  /// What a post's notification says: its words in one line, cut at 240 letters, or
+  /// what it carries when it has no words.
+  static String bodyOf(Post post, AppLocalizations s) {
+    final text =
+        (post.albumId != 0 && post.text.trim().isEmpty
+                // An album without a caption is named as one, not by its first picture.
+                ? s.mediaAlbum
+                : postLabel(post, s.mediaWords))
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .trim();
+    return text.length > 240 ? '${text.substring(0, 240)}…' : text;
+  }
 
   /// The rule that matched, shown as Android's sub-text beside the app's name: with
   /// several rules on one feed the shade would otherwise not say which one fired.
@@ -131,14 +164,7 @@ final class NotificationPlan {
     final s = strings ?? AppLanguage.englishStrings;
     // A rule with no condition also notifies about posts without text; those show what
     // they carry ("Photo", "Video", the file's name).
-    final text =
-        (m.post.albumId != 0 && m.post.text.trim().isEmpty
-                // An album without a caption is named as one, not by its first picture.
-                ? s.mediaAlbum
-                : postLabel(m.post, s.mediaWords))
-            .replaceAll(RegExp(r'\s+'), ' ')
-            .trim();
-    final body = text.length > 240 ? '${text.substring(0, 240)}…' : text;
+    final body = bodyOf(m.post, s);
     // The rules that matched, so the shade says why this post is here.
     final rule = m.ruleNames.join(', ');
     final when = m.post.date * 1000;

@@ -18,10 +18,31 @@ const notificationIcon = 'ic_stat_feed';
 /// Posts notifications for rule matches. Lives in the service host isolate (plugins with
 /// platform callbacks cannot run in the core isolate, spike P0-2).
 final class Notifier {
-  Notifier([FlutterLocalNotificationsPlugin? plugin])
-    : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+  Notifier([FlutterLocalNotificationsPlugin? plugin, DateTime Function()? now])
+    : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+      _now = now ?? DateTime.now;
 
   final FlutterLocalNotificationsPlugin _plugin;
+  final DateTime Function() _now;
+
+  /// How often one channel may sound and pop up within [soundWindow], as the official
+  /// app's default for a chat: twice in three minutes. Further posts of it are shown
+  /// quietly until the window has passed.
+  static const soundLimit = 2;
+  static const soundWindow = Duration(minutes: 3);
+
+  /// When each chat's notifications last sounded, oldest first.
+  final _sounded = <int, List<DateTime>>{};
+
+  /// Whether a post of [chatId] may sound now; counts it when it may.
+  bool _maySound(int chatId) {
+    final now = _now();
+    final times = _sounded.putIfAbsent(chatId, () => [])
+      ..removeWhere((t) => now.difference(t) >= soundWindow);
+    if (times.length >= soundLimit) return false;
+    times.add(now);
+    return true;
+  }
 
   /// The last post shown per chat; only its title and channel are reused, to re-post that
   /// chat's group summary after a cancellation.
@@ -277,6 +298,7 @@ final class Notifier {
   /// The Android channel a plan's notification goes on: an in-app one while the app is
   /// open. The reader's sound is in the channel's id, so the plan's priority is looked up.
   Future<String> _channelOf(NotificationPlan plan) async {
+    if (plan.quiet) return _actual[channelSilent] ?? channelSilent;
     final inApp = appOpen && plan.channelId != channelSilent;
     if (plan.channelId == channelUrgent) {
       await _ensureUrgentChannel();
@@ -285,8 +307,14 @@ final class Notifier {
     return (inApp ? _actualInApp : _actual)[plan.channelId] ?? plan.channelId;
   }
 
-  /// Shows a post. One already queued for reading aloud offers Stop from the start.
-  Future<void> show(NotificationPlan plan) async {
+  /// Shows a post. One already queued for reading aloud offers Stop from the start. A
+  /// post of a channel that has just sounded [soundLimit] times is shown quietly.
+  Future<void> show(NotificationPlan asked) async {
+    final chat = PostRef.decode(asked.payload)?.chatId;
+    final plan =
+        asked.channelId == channelSilent || chat == null || _maySound(chat)
+        ? asked
+        : asked.copyWith(quiet: true);
     final channelId = await _channelOf(plan);
     await _post(plan, channelId, reading: _reading.contains(plan.id));
     final chatId = PostRef.decode(plan.payload)?.chatId;
@@ -325,8 +353,14 @@ final class Notifier {
           ),
           icon: notificationIcon,
           subText: plan.rule.isEmpty ? null : plan.rule,
-          importance: _importanceOf(plan.channelId, channelId),
-          priority: _priorityOf(plan.channelId, channelId),
+          importance: _importanceOf(
+            plan.quiet ? channelSilent : plan.channelId,
+            channelId,
+          ),
+          priority: _priorityOf(
+            plan.quiet ? channelSilent : plan.channelId,
+            channelId,
+          ),
           groupKey: plan.groupKey,
           when: plan.when,
           onlyAlertOnce: true,
@@ -360,6 +394,24 @@ final class Notifier {
     _shown.remove(plan.id);
     _shown[plan.id] = (plan: plan, reading: reading);
     if (_shown.length > 200) _shown.remove(_shown.keys.first);
+  }
+
+  /// The post of a notification was edited: the notification says the new words, where
+  /// it is still shown. Posted again it makes no sound and keeps its time and place.
+  /// Rules are not asked again: an edit neither raises nor takes back a notification.
+  Future<void> updateBody(int chatId, int messageId, String body) async {
+    final id = NotificationPlan.idFor(chatId, messageId);
+    final shown = _shown[id];
+    if (shown == null || shown.plan.body == body) return;
+    final active = await _active();
+    // Dismissed or opened meanwhile: it stays gone.
+    if (active != null && !active.any((n) => n.id == id)) {
+      _shown.remove(id);
+      return;
+    }
+    final plan = shown.plan.copyWith(body: body);
+    await _post(plan, await _channelOf(plan), reading: shown.reading);
+    if (_lastPerChat[chatId]?.id == id) _lastPerChat[chatId] = plan;
   }
 
   /// The posts being read or waiting to be read, by notification id: their notifications

@@ -126,6 +126,19 @@ final class RuleAlerts {
       postEvents.listen((e) {
         if (e is PostsDeleted) {
           unawaited(_notifier.cancel(e.chatId, e.messageIds));
+        } else if (e is PostEdited) {
+          // The notification of an edited post says what the post says now.
+          final post = e.post;
+          if (_recentTexts.containsKey((post.chatId, post.messageId))) {
+            _remember(post.chatId, post.messageId, post.text);
+          }
+          unawaited(
+            _notifier.updateBody(
+              post.chatId,
+              post.messageId,
+              NotificationPlan.bodyOf(post, _strings),
+            ),
+          );
         }
       }),
     );

@@ -17,7 +17,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 ### Notifications
 
 - [ ] Q-61 One notification per channel that lists its matched posts as a conversation, with the channel's photo and the post's picture; captioned media is marked with 🖼, 📹, 🎬 or 📎.
-- [ ] Q-62 A channel sounds at most twice in three minutes, further posts arrive silently; a post the channel sent silently makes no sound; an edited post updates its notification.
 - [ ] Q-63 While the app is open, a matching post pops up, except for the feed or channel on screen, which only plays the in-app sound.
 - [ ] Q-64 With the app locked, a notification says only that there is a new post.
 - [ ] Q-65 The launcher icon shows the number of unread posts, with the official app's three badge switches.

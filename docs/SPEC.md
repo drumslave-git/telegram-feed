@@ -135,6 +135,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - A rule's condition is built from terms combined with AND / OR / NOT. A term is a word or phrase with options: whole word, case sensitive.
 - A rule with an empty condition notifies about every post of its channels, including posts without text; the notification then says what the post is (a photo, a video, a file). It still takes a priority, a schedule and read-aloud.
 - A rule has a priority: silent (tray only), normal (pops up on the screen), urgent (pops up and breaks through Do Not Disturb where Android permits). The editor says what each one does, and picking "urgent" offers to open Android's setting for it.
+- One channel sounds and pops up at most twice in three minutes; further posts of it that match in that time are shown without sound and without a pop-up, as the official app does by default. When a post is edited, its notification says the new words, without sounding again; an edit neither raises a notification nor takes one back.
 - While the app is on screen, matching posts sound and vibrate as their priority says but do not pop up over it.
 - I choose the sound and the vibration of normal and urgent notifications; silent ones stay silent. A change applies at once, and the row names the sound as Android's picker does.
 - A rule can request read-aloud.
@@ -210,6 +211,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - Polls, quizzes, giveaways, invoices and paid media; they show as a label that names their kind, or "Unsupported post" for a kind the app has no name for. Playing a game and ticking a checklist's tasks.
 - Selecting part of a post's text (the whole text can be copied).
 - Translating posts, transcribing voice messages, voice-message waveforms.
+- Keeping quiet for a post its channel sent without sound: Telegram's library reports that only through its own notifications, which say nothing for a channel that is muted in Telegram.
 - Swiping a channel row to mark it read (the row's menu does it).
 - An in-app browser and Instant View. Registering the app as a handler for t.me links from other apps.
 - Chat wallpapers and bubble colours. Night mode on a schedule. Interface languages other than English and Ukrainian.
