@@ -4,7 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-55.
+**Current phase:** Parity with the official app. **Next task:** Q-56.
 
 ## Differences from the official app
 
@@ -12,7 +12,6 @@ Each task makes the app behave as the official Android app does. SPEC.md and ARC
 
 ### Media
 
-- [ ] Q-55 The viewer's menu has "Show in chat" and "Open in…"; a landscape video has a rotate button; dragging the seek bar shows the frame; a tap near a side edge turns the page; the caption keeps its formatting and every link in it opens.
 - [ ] Q-56 Holding a finger on a video starts at 2× and a sideways slide changes the speed; on a video longer than three minutes the left third rewinds and the right third speeds up in steps. The speed menu adds 0.2× and a slider up to 3×.
 - [ ] Q-57 The floating player is resized with a pinch, thrown off a side to close, shows its controls on a tap and seeks on a double tap, and remembers its place; Android's picture-in-picture window has play and pause.
 - [ ] Q-58 Voice messages and music play on to the next one, with repeat and shuffle for music; they show on the lock screen and in a notification, and answer the headset's buttons; closing a video resumes what it paused.
@@ -44,6 +43,7 @@ Built and covered by tests, not yet used on the emulator.
 - [ ] V-6 Accounts in Settings: add a second account, back out of its login and see no row; log in to a second account and see the first as a row with photo, name, phone and unread count; switch by a tap, remove by a long press; run `settings.yaml`; light, dark and Ukrainian.
 - [ ] V-7 Storage usage on the real account: the chart and the rows by kind match what Telegram stores, clearing one kind leaves the others, "Keep media" and the size stops save; after a day with a short time set, old media is gone and loads again on opening; run `settings.yaml`; light, dark and Ukrainian.
 - [ ] V-8 Video in the viewer: a long video opens where it was left, also after the app was closed and from an autoplaying row; a video of up to thirty seconds loops; a longer one returns to its start at its end with the controls shown.
+- [ ] V-9 Viewer: "Show in chat" from a feed, from shared media and from search; "Open in…" for a photo and a downloaded video; the rotate button on a landscape video and the orientation after leaving; the picture following the seek bar on a downloaded video; edge taps in a feed and in an album; a caption with bold, a link to a channel and a web link; light, dark and Ukrainian.
 - [ ] V-3 Chat settings: drag the text size slider from 12 to 30 and watch the post under it, in light and dark and in Ukrainian.
 
 ## Phase 4 — Extras

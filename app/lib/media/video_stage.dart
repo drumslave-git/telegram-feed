@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:telegram_gateway/telegram_gateway.dart';
 
+import '../feeds/formatted_text.dart';
 import '../feeds/open_links.dart';
 
 import 'package:video_player/video_player.dart';
@@ -102,12 +105,23 @@ class VideoStage extends StatefulWidget {
     super.key,
     required this.session,
     this.caption = '',
+    this.entities = const [],
+    this.onOpenLink,
+    this.onEdgeTap,
     this.poster,
     this.title,
     this.actions = const [],
     this.onZoomChanged,
   });
   final VideoSession session;
+
+  /// The formatting of [caption] and what a link in it opens ([ViewerCaption]).
+  final List<TextEntity> entities;
+  final void Function(String url)? onOpenLink;
+
+  /// Asked first about a single tap, with where on the screen it was: true when the tap
+  /// turned the viewer's page and is no tap on the video.
+  final bool Function(Offset at)? onEdgeTap;
 
   /// Beside the back arrow: the position in the album.
   final Widget? title;
@@ -143,6 +157,7 @@ class _VideoStageState extends State<VideoStage> {
   Timer? _streakEnd;
 
   TapDownDetails? _lastDoubleTap;
+  TapUpDetails? _lastTapUp;
 
   final _transform = TransformationController();
   bool _zoomed = false;
@@ -185,6 +200,11 @@ class _VideoStageState extends State<VideoStage> {
     _transform.dispose();
     final before = _speedBeforeHold;
     if (before != null) unawaited(_s.controller?.setPlaybackSpeed(before));
+    if (_turned) {
+      _turned = false;
+      // The device decides again.
+      unawaited(SystemChrome.setPreferredOrientations(const []));
+    }
     super.dispose();
   }
 
@@ -232,6 +252,57 @@ class _VideoStageState extends State<VideoStage> {
   void _toggleControls() {
     setState(() => _controls = !_controls);
     if (_controls) _scheduleHide();
+  }
+
+  /// A single tap on the picture: near a side edge it turns the viewer's page, anywhere
+  /// else it shows or hides the controls.
+  void _onTap() {
+    final at = _lastTapUp;
+    if (at != null && (widget.onEdgeTap?.call(at.globalPosition) ?? false)) {
+      return;
+    }
+    _toggleControls();
+  }
+
+  /// While the seek bar is dragged the picture follows it, where the player already
+  /// has that part of the video: a part that is still to be downloaded waits for the
+  /// finger to lift, so a drag does not send the download from place to place.
+  void _showFrameAt(VideoPlayerController c, double milliseconds) {
+    final watch = _frameWatch;
+    if (watch != null && watch.elapsed < _frameEvery) return;
+    final at = Duration(milliseconds: milliseconds.round());
+    final v = c.value;
+    final local = c.dataSourceType == DataSourceType.file;
+    if (!local && !v.buffered.any((r) => r.start <= at && at <= r.end)) return;
+    _frameWatch = Stopwatch()..start();
+    unawaited(c.seekTo(at));
+  }
+
+  static const _frameEvery = Duration(milliseconds: 150);
+
+  /// Since the picture last followed the drag; null before it ever did.
+  Stopwatch? _frameWatch;
+
+  /// The orientation the rotate button asked for was set: it is given back to the
+  /// device when the stage goes.
+  static bool _turned = false;
+
+  /// Lays the screen on its side, or stands it up again, whatever way the phone is held.
+  void _rotate() {
+    final landscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    _turned = true;
+    unawaited(
+      SystemChrome.setPreferredOrientations(
+        landscape
+            ? const [DeviceOrientation.portraitUp]
+            : const [
+                DeviceOrientation.landscapeLeft,
+                DeviceOrientation.landscapeRight,
+              ],
+      ),
+    );
+    _scheduleHide();
   }
 
   /// -1 on the left third, +1 on the right third, 0 in the middle.
@@ -328,7 +399,8 @@ class _VideoStageState extends State<VideoStage> {
         children: [
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: ready ? _toggleControls : null,
+            onTapUp: ready ? (d) => _lastTapUp = d : null,
+            onTap: ready ? _onTap : null,
             onDoubleTapDown: ready ? (d) => _lastDoubleTap = d : null,
             onDoubleTap: ready
                 ? () => _onDoubleTap(_lastDoubleTap!, box.maxWidth)
@@ -374,6 +446,9 @@ class _VideoStageState extends State<VideoStage> {
           if (widget.caption.isNotEmpty && (!ready || _controls))
             ViewerCaption(
               text: widget.caption,
+              entities: widget.entities,
+              onOpenLink: widget.onOpenLink,
+              gateway: _s.gateway,
               bottomInset: ready ? _barHeight : 0,
             ),
           if (ready && _controls) SafeArea(child: _overlay(c)),
@@ -479,7 +554,10 @@ class _VideoStageState extends State<VideoStage> {
                       value: position,
                       secondaryTrackValue: buffered,
                       onChangeStart: (_) => _hide?.cancel(),
-                      onChanged: (x) => setState(() => _scrub = x),
+                      onChanged: (x) {
+                        setState(() => _scrub = x);
+                        _showFrameAt(c, x);
+                      },
                       onChangeEnd: (x) async {
                         await c.seekTo(Duration(milliseconds: x.round()));
                         if (mounted) setState(() => _scrub = null);
@@ -509,6 +587,14 @@ class _VideoStageState extends State<VideoStage> {
                   icon: Icon(_s.muted ? Icons.volume_off : Icons.volume_up),
                   onPressed: () => _s.setMuted(!_s.muted),
                 ),
+                // A video that is wider than tall can be laid on its side without
+                // turning the phone, as in the official viewer.
+                if (v.size.width > v.size.height)
+                  IconButton(
+                    tooltip: l10n.viewerRotate,
+                    icon: const Icon(Icons.screen_rotation),
+                    onPressed: _rotate,
+                  ),
               ],
             ),
           ),
@@ -522,8 +608,23 @@ class _VideoStageState extends State<VideoStage> {
 /// The words of the post under the picture, over a dark band so they stay readable, as the
 /// official app shows a caption in its viewer.
 class ViewerCaption extends StatelessWidget {
-  const ViewerCaption({super.key, required this.text, this.bottomInset = 0});
+  const ViewerCaption({
+    super.key,
+    required this.text,
+    this.entities = const [],
+    this.onOpenLink,
+    this.gateway,
+    this.bottomInset = 0,
+  });
   final String text;
+
+  /// The post's formatting. With it the words are drawn as the timeline draws them, on
+  /// the dark band; without it only the links the words spell out are links.
+  final List<TextEntity> entities;
+  final void Function(String url)? onOpenLink;
+
+  /// Fetches the custom emoji of the caption.
+  final TelegramGateway? gateway;
 
   /// Room under the words for the player's bar, so the two never lie on each other.
   final double bottomInset;
@@ -561,7 +662,32 @@ class ViewerCaption extends StatelessWidget {
                 constraints: BoxConstraints(
                   maxHeight: MediaQuery.sizeOf(context).height * 0.3,
                 ),
-                child: SingleChildScrollView(child: _CaptionText(text: text)),
+                child: SingleChildScrollView(
+                  child: entities.isEmpty
+                      ? _CaptionText(text: text)
+                      // The viewer is dark whatever the app's theme is: the colours of
+                      // links, code and quotes are the dark theme's.
+                      : Theme(
+                          data: ThemeData(
+                            colorSchemeSeed: Colors.blue,
+                            brightness: Brightness.dark,
+                            useMaterial3: true,
+                          ),
+                          child: FormattedText(
+                            text: text,
+                            entities: entities,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
+                            onOpenLink:
+                                onOpenLink ??
+                                (url) =>
+                                    unawaited(launchFirst([Uri.tryParse(url)])),
+                            gateway: gateway,
+                          ),
+                        ),
+                ),
               ),
             ),
           ),

@@ -2677,10 +2677,19 @@ class TimelineViewState extends State<TimelineView>
         channel: _titles[item.chatId] ?? '',
         date: item.head.date,
         caption: item.text,
+        entities: item.textPost.entities,
         // The pictures of one post count among themselves ("2 of 3"), not among the
         // hundreds the feed holds.
         postKey: '${item.chatId}:${item.head.messageId}',
         protected: item.isProtected,
+        onOpenLink: (url) => unawaited(_openLink(url, from: item)),
+        onShowInChat: () => unawaited(
+          jumpToPost(
+            chatId: item.chatId,
+            messageId: item.head.messageId,
+            date: item.head.date,
+          ),
+        ),
       ),
   ];
 

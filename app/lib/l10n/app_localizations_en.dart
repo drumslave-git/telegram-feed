@@ -3001,6 +3001,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get viewerSaveToSavedMessages => 'Save to Saved Messages';
 
   @override
+  String get viewerOpenIn => 'Open in…';
+
+  @override
+  String get viewerOpenNeedsDownload =>
+      'The video opens in another app once it is downloaded.';
+
+  @override
+  String get viewerRotate => 'Rotate';
+
+  @override
   String get viewerSaveToGallery => 'Save to gallery';
 
   @override

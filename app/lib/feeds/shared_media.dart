@@ -412,6 +412,7 @@ class _SharedMediaTabState extends State<SharedMediaTab>
       items.addAll(shown);
       // The channel, the day and the caption, as the timeline hands them over: a
       // picture opened from the grid used to arrive with no word about where it is from.
+      final show = widget.onShowInChat;
       details.addAll(
         List.filled(
           shown.length,
@@ -419,8 +420,10 @@ class _SharedMediaTabState extends State<SharedMediaTab>
             channel: widget.titles[p.chatId] ?? '',
             date: p.date,
             caption: p.text,
+            entities: p.entities,
             postKey: '${p.chatId}:${p.messageId}',
             protected: !p.canBeSaved,
+            onShowInChat: show == null ? null : () => show(p),
           ),
         ),
       );

@@ -3105,6 +3105,16 @@ class AppLocalizationsUk extends AppLocalizations {
   String get viewerSaveToSavedMessages => 'Зберегти до Збереженого';
 
   @override
+  String get viewerOpenIn => 'Відкрити в…';
+
+  @override
+  String get viewerOpenNeedsDownload =>
+      'Відео відкриється в іншому застосунку, коли завантажиться.';
+
+  @override
+  String get viewerRotate => 'Повернути';
+
+  @override
   String get viewerSaveToGallery => 'Зберегти до галереї';
 
   @override

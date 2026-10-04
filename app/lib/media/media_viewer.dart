@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import '../feeds/media_view.dart' show Downloaded, pickPhotoSize;
+import '../feeds/media_view.dart'
+    show Downloaded, openDownloadedFile, pickPhotoSize;
+import '../feeds/open_links.dart' show launchFirst;
 import '../feeds/post_card.dart' show formatDay;
 import '../l10n/l10n.dart';
 import 'audio_session.dart';
@@ -32,10 +35,25 @@ class ViewerDetail {
     required this.channel,
     required this.date,
     this.caption = '',
+    this.entities = const [],
     this.postKey = '',
     this.protected = false,
+    this.onOpenLink,
+    this.onShowInChat,
   });
   final String channel;
+
+  /// The formatting of [caption], as the post has it: bold, links, spoilers and the rest
+  /// are drawn as in the timeline.
+  final List<TextEntity> entities;
+
+  /// A link in the caption was tapped. The viewer closes first, since what the link
+  /// opens may be a screen of the app. Without it a link goes to the phone's browser.
+  final void Function(String url)? onOpenLink;
+
+  /// Goes to the post in its timeline ("Show in chat" in the viewer's menu); the viewer
+  /// closes first. Null where there is no timeline to go to.
+  final VoidCallback? onShowInChat;
 
   /// The channel protects its content: the picture is not shared or saved, and no
   /// screenshot is taken of it.
@@ -300,6 +318,90 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     }
   }
 
+  /// Opens the picture or the video in another app of the phone ("Open in…"). Like
+  /// sharing, it takes a video only once the whole file is on the phone.
+  Future<void> _openIn() async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final l10n = context.l10n;
+    final current = _current();
+    if (current == null) return;
+    final (:file, :video) = current;
+    try {
+      final path = video
+          ? await _fileOnDisk(file)
+          : file.isDownloaded
+          ? file.localPath
+          : (await widget.gateway.download(file)).localPath;
+      if (!mounted) return;
+      if (path == null) {
+        messenger?.showSnackBar(
+          video
+              ? SnackBar(
+                  content: Text(l10n.viewerOpenNeedsDownload),
+                  action: SnackBarAction(
+                    label: l10n.videoDownload,
+                    onPressed: () => unawaited(
+                      VideoDownloads.of(widget.gateway).start(file),
+                    ),
+                  ),
+                )
+              : SnackBar(content: Text(l10n.viewerShareFileMissing)),
+        );
+        return;
+      }
+      await openDownloadedFile(
+        context,
+        path,
+        video ? 'video/mp4' : 'image/jpeg',
+      );
+    } on TelegramException catch (e) {
+      messenger?.showSnackBar(
+        SnackBar(content: Text('Telegram: ${e.message}')),
+      );
+    }
+  }
+
+  /// A tap near a side edge turns the page, as in the official viewer: within 45 px of
+  /// the edge, or an eighth of the width where that is less, and below the top bar. True
+  /// when the page was turned; at the first and the last page the tap is an ordinary one.
+  bool _edgeTap(Offset at) {
+    if (_zoomed) return false;
+    final size = MediaQuery.sizeOf(context);
+    if (at.dy <= MediaQuery.paddingOf(context).top + kToolbarHeight + 40) {
+      return false;
+    }
+    final side = math.min(45.0, size.width / 8);
+    final step = at.dx < side
+        ? -1
+        : at.dx > size.width - side
+        ? 1
+        : 0;
+    if (step == 0) return false;
+    // Older pictures are on the left where the newest comes first.
+    final to = _index + (widget.newestFirst ? -step : step);
+    if (to < 0 || to >= _items.length) return false;
+    unawaited(
+      _pages.animateToPage(
+        to,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      ),
+    );
+    return true;
+  }
+
+  /// A link of the caption: the viewer goes first, then the link opens where the
+  /// caller opens links, or in the browser.
+  void _openLink(String url) {
+    final open = _index < _details.length ? _details[_index].onOpenLink : null;
+    if (open == null) {
+      unawaited(launchFirst([Uri.tryParse(url)]));
+      return;
+    }
+    unawaited(Navigator.of(context).maybePop());
+    open(url);
+  }
+
   /// Puts the picture or the video of the page in front into the phone's gallery. The file
   /// is downloaded first if it is not there yet, as the download button would.
   Future<void> _saveToGallery() async {
@@ -448,6 +550,13 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
     // A channel that protects its content has neither: only the video's own entries stay
     // behind the dots.
     List<ViewerAction> menu() => [
+      if (detail?.onShowInChat case final show?)
+        ViewerAction(l10n.sharedMediaShowInChat, () {
+          unawaited(Navigator.of(context).maybePop());
+          show();
+        }),
+      if (!protected)
+        ViewerAction(l10n.viewerOpenIn, () => unawaited(_openIn())),
       if (widget.onSave != null && !protected)
         ViewerAction(
           l10n.viewerSaveToSavedMessages,
@@ -498,6 +607,9 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
               actions: actions,
               menu: menu,
               caption: i < _details.length ? _details[i].caption : '',
+              entities: i < _details.length ? _details[i].entities : const [],
+              onOpenLink: _openLink,
+              onEdgeTap: _edgeTap,
               onZoomChanged: _onZoom,
               onPip: _toMiniPlayer,
               heroTag: i == _index ? _heroTag(i) : null,
@@ -516,6 +628,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                       photo: photo,
                       gateway: widget.gateway,
                       onZoomChanged: _onZoom,
+                      onEdgeTap: _edgeTap,
                       onTap: () => setState(() => _chrome = !_chrome),
                     ),
                   )
@@ -524,6 +637,7 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                     photo: photo,
                     gateway: widget.gateway,
                     onZoomChanged: _onZoom,
+                    onEdgeTap: _edgeTap,
                     // A tap takes the bar and the words off the picture, as on a video.
                     onTap: () => setState(() => _chrome = !_chrome),
                   ),
@@ -533,7 +647,12 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
                 if (_chrome &&
                     i < _details.length &&
                     _details[i].caption.isNotEmpty)
-                  ViewerCaption(text: _details[i].caption),
+                  ViewerCaption(
+                    text: _details[i].caption,
+                    entities: _details[i].entities,
+                    onOpenLink: _openLink,
+                    gateway: widget.gateway,
+                  ),
               ],
             ),
             _ => const SizedBox.shrink(),
@@ -589,11 +708,17 @@ class _VideoPage extends StatefulWidget {
     required this.actions,
     required this.menu,
     required this.caption,
+    required this.entities,
+    required this.onOpenLink,
+    required this.onEdgeTap,
     required this.onZoomChanged,
     required this.onPip,
     this.heroTag,
   });
   final VideoMedia video;
+  final List<TextEntity> entities;
+  final void Function(String url) onOpenLink;
+  final bool Function(Offset at) onEdgeTap;
 
   /// The name the poster flies under out of the row it was tapped in.
   final String? heroTag;
@@ -699,6 +824,9 @@ class _VideoPageState extends State<_VideoPage> {
         ),
       ],
       caption: widget.caption,
+      entities: widget.entities,
+      onOpenLink: widget.onOpenLink,
+      onEdgeTap: widget.onEdgeTap,
     );
   }
 }
@@ -711,10 +839,15 @@ class ZoomablePhoto extends StatefulWidget {
     required this.gateway,
     required this.onZoomChanged,
     this.onTap,
+    this.onEdgeTap,
   });
   final PhotoMedia photo;
   final TelegramGateway gateway;
   final ValueChanged<bool> onZoomChanged;
+
+  /// Asked first about a single tap, with where on the screen it was: true when the tap
+  /// turned the page and is no tap on the picture.
+  final bool Function(Offset at)? onEdgeTap;
 
   /// A single tap on the picture, which shows or hides the viewer's chrome.
   final VoidCallback? onTap;
@@ -726,6 +859,7 @@ class ZoomablePhoto extends StatefulWidget {
 class _ZoomablePhotoState extends State<ZoomablePhoto> {
   final _transform = TransformationController();
   Offset _doubleTapAt = Offset.zero;
+  Offset _tapAt = Offset.zero;
 
   @override
   void initState() {
@@ -759,7 +893,11 @@ class _ZoomablePhotoState extends State<ZoomablePhoto> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: widget.onTap,
+      onTapUp: (d) => _tapAt = d.globalPosition,
+      onTap: () {
+        if (widget.onEdgeTap?.call(_tapAt) ?? false) return;
+        widget.onTap?.call();
+      },
       onDoubleTapDown: (d) => _doubleTapAt = d.localPosition,
       onDoubleTap: () => _transform.toggleZoom(_doubleTapAt),
       child: InteractiveViewer(

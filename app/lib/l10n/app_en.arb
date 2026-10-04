@@ -2333,6 +2333,15 @@
   "@viewerSaveToSavedMessages": {
     "description": "Viewer menu item: forwards the post into the Saved Messages chat."
   },
+  "viewerOpenIn": "Open in…",
+  "@viewerOpenIn": {
+    "description": "Viewer menu: opens the picture or the video in another app of the phone."
+  },
+  "viewerOpenNeedsDownload": "The video opens in another app once it is downloaded.",
+  "viewerRotate": "Rotate",
+  "@viewerRotate": {
+    "description": "Tooltip of the button that lays a landscape video on its side or stands it up again."
+  },
   "viewerSaveToGallery": "Save to gallery",
   "@viewerSaveToGallery": {
     "description": "Viewer menu item: copies the picture or video into the phone's gallery."

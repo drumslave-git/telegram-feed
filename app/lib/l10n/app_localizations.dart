@@ -4748,6 +4748,24 @@ abstract class AppLocalizations {
   /// **'Save to Saved Messages'**
   String get viewerSaveToSavedMessages;
 
+  /// Viewer menu: opens the picture or the video in another app of the phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in…'**
+  String get viewerOpenIn;
+
+  /// No description provided for @viewerOpenNeedsDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'The video opens in another app once it is downloaded.'**
+  String get viewerOpenNeedsDownload;
+
+  /// Tooltip of the button that lays a landscape video on its side or stands it up again.
+  ///
+  /// In en, this message translates to:
+  /// **'Rotate'**
+  String get viewerRotate;
+
   /// Viewer menu item: copies the picture or video into the phone's gallery.
   ///
   /// In en, this message translates to:

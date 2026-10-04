@@ -381,8 +381,11 @@ class SearchResults extends StatelessWidget {
             channel: look(p.chatId).title,
             date: p.date,
             caption: p.text,
+            entities: p.entities,
             postKey: '${p.chatId}:${p.messageId}',
             protected: !p.canBeSaved,
+            // The post in its timeline, as a tap on a found row opens it.
+            onShowInChat: () => onOpen(i),
           ),
         ),
       );

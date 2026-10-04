@@ -25,6 +25,9 @@ final class VideoSession extends ChangeNotifier {
   final VideoSessions _owner;
   final FileRef file;
 
+  /// The account the video is of.
+  TelegramGateway get gateway => _owner.gateway;
+
   /// Whether the video starts over at its end where the viewer does not say otherwise:
   /// in its row, and in a viewer that was not told ([retainForViewer]).
   final bool loop;
