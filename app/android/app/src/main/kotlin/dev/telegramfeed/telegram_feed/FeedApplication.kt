@@ -18,11 +18,16 @@ class FeedApplication : Application() {
             object : FlutterForegroundTaskLifecycleListener {
                 private var keys: ReadAloudKeys? = null
                 private var pictures: NotificationPictures? = null
+                private var badge: LauncherBadge? = null
 
                 override fun onEngineCreate(flutterEngine: FlutterEngine?) {
                     keys?.dispose()
                     keys = flutterEngine?.let {
                         ReadAloudKeys(this@FeedApplication, it.dartExecutor.binaryMessenger)
+                    }
+                    badge?.dispose()
+                    badge = flutterEngine?.let {
+                        LauncherBadge(this@FeedApplication, it.dartExecutor.binaryMessenger)
                     }
                     pictures?.dispose()
                     pictures = flutterEngine?.let {
@@ -44,6 +49,8 @@ class FeedApplication : Application() {
                     keys = null
                     pictures?.dispose()
                     pictures = null
+                    badge?.dispose()
+                    badge = null
                 }
             },
         )

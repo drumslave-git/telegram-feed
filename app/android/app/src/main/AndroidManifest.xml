@@ -11,6 +11,10 @@
     <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- Lists the app under Do Not Disturb access, which urgent rules need to break through -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY"/>
+    <!-- The number on the app's icon, on the home screens that take one (LauncherBadge.kt) -->
+    <uses-permission android:name="com.sec.android.provider.badge.permission.READ"/>
+    <uses-permission android:name="com.sec.android.provider.badge.permission.WRITE"/>
+    <uses-permission android:name="com.huawei.android.launcher.permission.CHANGE_BADGE"/>
     <application
         android:label="TG Feed"
         android:usesCleartextTraffic="true"
@@ -110,6 +114,11 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="geo"/>
         </intent>
+        <!-- The home screens that take the number of the app's icon -->
+        <intent>
+            <action android:name="android.intent.action.BADGE_COUNT_UPDATE"/>
+        </intent>
+        <provider android:authorities="com.huawei.android.launcher.settings"/>
         <!-- The speech engine's example sentence for a voice preview -->
         <intent>
             <action android:name="android.speech.tts.engine.GET_SAMPLE_TEXT"/>

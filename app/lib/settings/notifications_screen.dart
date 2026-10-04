@@ -157,6 +157,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           const Divider(),
           SettingsHeader(l10n.notificationSettingsBadgeCounter),
           StreamBuilder<String?>(
+            stream: db.watchSetting(SettingKeys.badgeEnabled),
+            builder: (context, snap) => SwitchListTile(
+              title: Text(l10n.notificationSettingsBadgeShow),
+              value: snap.data != 'false',
+              onChanged: (v) => db.setSetting(SettingKeys.badgeEnabled, '$v'),
+            ),
+          ),
+          StreamBuilder<String?>(
+            stream: db.watchSetting(SettingKeys.badgeMuted),
+            builder: (context, snap) => SwitchListTile(
+              title: Text(l10n.notificationSettingsBadgeMuted),
+              value: snap.data == 'true',
+              onChanged: (v) => db.setSetting(SettingKeys.badgeMuted, '$v'),
+            ),
+          ),
+          StreamBuilder<String?>(
             stream: db.watchSetting(SettingKeys.countUnreadPosts),
             builder: (context, snap) => SwitchListTile(
               title: Text(l10n.notificationSettingsCountUnreadPosts),

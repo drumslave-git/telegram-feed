@@ -149,10 +149,16 @@ abstract final class SettingKeys {
   static const normalVibrate = 'notifications.normal.vibrate';
   static const urgentVibrate = 'notifications.urgent.vibrate';
 
-  /// The badges of the feeds and of the folder tabs count unread posts; 'false' counts the
-  /// channels with unread posts instead, as the official app's "Count unread messages"
-  /// does. Default true.
+  /// The badges of the feeds and of the folder tabs, and the number on the app's icon,
+  /// count unread posts; 'false' counts the channels with unread posts instead, as the
+  /// official app's "Count unread messages" does. Default true.
   static const countUnreadPosts = 'badge.countPosts';
+
+  /// The app's icon carries the number of unread posts; 'true' | 'false', default true.
+  static const badgeEnabled = 'badge.enabled';
+
+  /// That number counts the muted channels too; 'true' | 'false', default false.
+  static const badgeMuted = 'badge.includeMuted';
 
   /// The card on the Feeds tab that says notifications come from rules is gone for good;
   /// 'true' once the reader dismissed it. Default false.

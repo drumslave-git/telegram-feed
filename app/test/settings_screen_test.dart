@@ -283,6 +283,26 @@ void main() {
     await tester.pumpWidget(app(NotificationsScreen(db: db)));
     await settle(tester);
     expect(find.text('Normal rules: sound'), findsOneWidget);
+    // The number on the app's icon: shown, without the muted channels, as the official
+    // app has it until a switch says otherwise.
+    final show = find.widgetWithText(SwitchListTile, 'Show badge icon');
+    final muted = find.widgetWithText(SwitchListTile, 'Include muted channels');
+    // Scrolled to, a row stands at the top: the first one, so the others are below it.
+    await tester.scrollUntilVisible(
+      show,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(tester.widget<SwitchListTile>(show).value, isTrue);
+    expect(tester.widget<SwitchListTile>(muted).value, isFalse);
+    await tester.tap(muted);
+    await settle(tester);
+    await tester.tap(show);
+    await settle(tester);
+    await tester.runAsync(() async {
+      expect(await db.setting(SettingKeys.badgeMuted), 'true');
+      expect(await db.setting(SettingKeys.badgeEnabled), 'false');
+    });
     // The badges count posts until the switch says channels (J-1).
     final countPosts = find.widgetWithText(
       SwitchListTile,

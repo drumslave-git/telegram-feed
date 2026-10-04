@@ -20,6 +20,7 @@ import 'l10n/l10n.dart';
 import 'media/cache_limits.dart';
 import 'media/video_positions.dart';
 import 'service/core_service.dart';
+import 'service/launcher_badge.dart';
 import 'settings/app_lock.dart' show AppLock;
 import 'service/notification_plan.dart';
 import 'service/reading_now.dart';
@@ -194,6 +195,9 @@ final class CoreHost implements AppHost {
   /// The alerts of a core that runs in this process; the service has its own.
   RuleAlerts? _alerts;
 
+  /// The number on the app's icon, counted here while there is no service to do it.
+  LauncherBadge? _badge;
+
   /// Read-aloud lives beside the core: in the service, which says what it reads after
   /// every change, or here. The pause is the core's.
   Future<void> _followReadingAndPause() async {
@@ -212,6 +216,8 @@ final class CoreHost implements AppHost {
       _alerts = alerts;
       _languageSetting = await db.setting(SettingKeys.language);
       await alerts.start(AppLanguage.strings(_languageSetting));
+      _badge = LauncherBadge.of(_client, db: db);
+      await _badge!.start();
     }
     // Posts that match while the app is on screen do not pop up over it.
     _lifecycle = AppLifecycleListener(onStateChange: _sendAppOpen);
@@ -315,6 +321,15 @@ final class CoreHost implements AppHost {
         }),
       );
     }
+    // The number on the app's icon is counted beside the core.
+    for (final key in LauncherBadge.settings) {
+      _subs.add(
+        db.watchSetting(key).distinct().skip(1).listen((_) {
+          if (_inService) FlutterForegroundTask.sendDataToTask('badge');
+          unawaited(_badge?.refresh());
+        }),
+      );
+    }
     _subs.add(db.watchSourceChanges().listen((_) => refresh()));
     // Feed filters decide which posts may notify (ARCHITECTURE 5.8).
     _subs.add(db.watchFeeds().skip(1).listen((_) => refresh()));
@@ -373,6 +388,7 @@ final class CoreHost implements AppHost {
   Future<void> dispose() async {
     FlutterForegroundTask.removeTaskDataCallback(_onTaskData);
     await _alerts?.dispose();
+    await _badge?.dispose();
     _lifecycle?.dispose();
     AppLock.locked.removeListener(_onLockChanged);
     Viewing.chats.removeListener(_onLockChanged);

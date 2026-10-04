@@ -3680,10 +3680,22 @@ abstract class AppLocalizations {
   /// **'Count unread posts'**
   String get notificationSettingsCountUnreadPosts;
 
+  /// Switch: the app's launcher icon carries the number of unread posts. The official app calls it Show Badge Icon.
+  ///
+  /// In en, this message translates to:
+  /// **'Show badge icon'**
+  String get notificationSettingsBadgeShow;
+
+  /// Switch: the number on the app's icon also counts the channels that are muted in Telegram.
+  ///
+  /// In en, this message translates to:
+  /// **'Include muted channels'**
+  String get notificationSettingsBadgeMuted;
+
   /// No description provided for @notificationSettingsCountFooter.
   ///
   /// In en, this message translates to:
-  /// **'The badges of the feeds and of the folder tabs count the unread posts. Off, they count the channels that have unread posts.'**
+  /// **'The app\'s icon carries the number of unread posts of your channels, on home screens that show numbers. That number and the badges of the feeds and of the folder tabs count the unread posts. Off, they count the channels that have unread posts.'**
   String get notificationSettingsCountFooter;
 
   /// No description provided for @notificationSettingsBackground.

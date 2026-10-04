@@ -15,6 +15,7 @@ import '../credentials.dart';
 import '../host/accounts.dart';
 import '../host/fake_media.dart';
 import '../l10n/l10n.dart';
+import 'launcher_badge.dart';
 import 'rule_alerts.dart';
 import '../app_name.dart';
 
@@ -134,6 +135,7 @@ class CoreServiceHandler extends TaskHandler {
   StreamSubscription<bool>? _pausedSub;
   bool _paused = false;
   RuleAlerts? _alerts;
+  LauncherBadge? _badge;
 
   /// Whether the app is on screen; it may say so before the alerts are up.
   bool _appOpen = false;
@@ -195,6 +197,8 @@ class CoreServiceHandler extends TaskHandler {
     alerts.viewing = _appViewing;
     _alerts = alerts;
     await alerts.start(_strings);
+    _badge = LauncherBadge.of(_client!, db: _db!);
+    await _badge!.start();
     await _updateNotification();
     _log('core up, port registered');
   }
@@ -258,12 +262,15 @@ class CoreServiceHandler extends TaskHandler {
   @override
   void onReceiveData(Object data) {
     // The UI sends 'refresh' after database changes (feeds, sources, rules), 'sounds'
-    // after a rule sound or vibration changed, and whether it is on screen.
+    // after a rule sound or vibration changed, 'badge' after a switch of the badge
+    // counter, and whether it is on screen.
     if (data == 'refresh') {
       unawaited(_client?.refresh());
       unawaited(_updateNotification());
     }
     if (data == 'sounds') unawaited(_alerts?.reloadSounds());
+    // A switch of the badge counter changed.
+    if (data == 'badge') unawaited(_badge?.refresh());
     if (data is Map && data['language'] is String) {
       unawaited(_setLanguage(data['language'] as String));
     }
@@ -315,6 +322,7 @@ class CoreServiceHandler extends TaskHandler {
     }
     await _pausedSub?.cancel();
     await _alerts?.dispose();
+    await _badge?.dispose();
     // Give TDLib back before the isolate goes: its client has to drop the database lock
     // and its receive pump has to stop, or the app's own core aborts the process.
     try {

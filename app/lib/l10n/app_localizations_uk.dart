@@ -2366,8 +2366,15 @@ class AppLocalizationsUk extends AppLocalizations {
       'Рахувати непрочитані дописи';
 
   @override
+  String get notificationSettingsBadgeShow => 'Показувати';
+
+  @override
+  String get notificationSettingsBadgeMuted =>
+      'Враховувати канали без сповіщень';
+
+  @override
   String get notificationSettingsCountFooter =>
-      'Лічильники стрічок і вкладок папок показують кількість непрочитаних дописів. Якщо вимкнено, вони показують кількість каналів із непрочитаними дописами.';
+      'Значок застосунку показує кількість непрочитаних дописів ваших каналів на головних екранах, що показують числа. Це число та лічильники стрічок і вкладок папок показують кількість непрочитаних дописів. Якщо вимкнено, вони показують кількість каналів із непрочитаними дописами.';
 
   @override
   String get notificationSettingsBackground => 'Робота у фоні';

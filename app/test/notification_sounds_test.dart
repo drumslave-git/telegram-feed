@@ -164,6 +164,9 @@ void main() {
       find.text('Watch channels in the background'),
       200,
     );
+    // Found at the very edge of the screen: a little further, so the tap lands on it.
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -200));
+    await tester.pump();
     await tester.tap(find.text('Watch channels in the background'));
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 40)),

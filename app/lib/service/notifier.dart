@@ -521,6 +521,8 @@ final class Notifier {
           importance: _importanceOf(priority, channelId),
           priority: _priorityOf(priority, channelId),
           when: newest.when,
+          // A launcher that counts by notifications counts the posts, not the channels.
+          number: posts.length,
           onlyAlertOnce: !alert,
           // Swiping it away reaches the service host, which stops reading its posts; a
           // tap or a cancellation is not reported.

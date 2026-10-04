@@ -1831,7 +1831,15 @@
   "notificationSettingsRuleNotifications": "Rule notifications",
   "notificationSettingsBadgeCounter": "Badge counter",
   "notificationSettingsCountUnreadPosts": "Count unread posts",
-  "notificationSettingsCountFooter": "The badges of the feeds and of the folder tabs count the unread posts. Off, they count the channels that have unread posts.",
+  "notificationSettingsBadgeShow": "Show badge icon",
+  "@notificationSettingsBadgeShow": {
+    "description": "Switch: the app's launcher icon carries the number of unread posts. The official app calls it Show Badge Icon."
+  },
+  "notificationSettingsBadgeMuted": "Include muted channels",
+  "@notificationSettingsBadgeMuted": {
+    "description": "Switch: the number on the app's icon also counts the channels that are muted in Telegram."
+  },
+  "notificationSettingsCountFooter": "The app's icon carries the number of unread posts of your channels, on home screens that show numbers. That number and the badges of the feeds and of the folder tabs count the unread posts. Off, they count the channels that have unread posts.",
   "notificationSettingsBackground": "Background",
   "notificationSettingsWatchInBackground": "Watch channels in the background",
   "notificationSettingsWatchInBackgroundSubtitle": "Rules keep running while the app is closed. Off removes the permanent notification, and rules then only notify while the app is open. The app restarts to apply it.",

@@ -2269,8 +2269,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationSettingsCountUnreadPosts => 'Count unread posts';
 
   @override
+  String get notificationSettingsBadgeShow => 'Show badge icon';
+
+  @override
+  String get notificationSettingsBadgeMuted => 'Include muted channels';
+
+  @override
   String get notificationSettingsCountFooter =>
-      'The badges of the feeds and of the folder tabs count the unread posts. Off, they count the channels that have unread posts.';
+      'The app\'s icon carries the number of unread posts of your channels, on home screens that show numbers. That number and the badges of the feeds and of the folder tabs count the unread posts. Off, they count the channels that have unread posts.';
 
   @override
   String get notificationSettingsBackground => 'Background';
