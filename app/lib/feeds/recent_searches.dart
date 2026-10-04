@@ -28,6 +28,17 @@ class RecentSearches {
     return cut;
   }
 
+  /// Takes [query] out of the list, whatever its case; what is left is returned.
+  Future<List<String>> remove(String query) async {
+    final words = query.trim().toLowerCase();
+    final kept = [
+      for (final old in await load())
+        if (old.toLowerCase() != words) old,
+    ];
+    await db.setSetting(SettingKeys.recentSearches, jsonEncode(kept));
+    return kept;
+  }
+
   Future<void> clear() async =>
       db.setSetting(SettingKeys.recentSearches, jsonEncode(const <String>[]));
 

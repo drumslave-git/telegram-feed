@@ -119,7 +119,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - A tap on a day label, and the calendar button of the search, opens the calendar: the months under one another, the newest at the bottom, with a small round picture in every day that has a photo or a video (in a feed, the newest of that day among its channels). A tap on a day jumps to it; days to come cannot be picked. Leaving the calendar without a day leaves the search open.
 - A tap on the floating date goes to the first post of that day.
 - A row of a list (a search result, a channel) says when its post was made as the official app does: the time today, the weekday within a week, the day and month ("Sep 12") within a year, and the date in digits ("12.09.25") before that.
-- An open search bar offers the words I looked for last: those that led me to a result I opened.
+- An open search bar offers the words I looked for last: those that led me to a result I opened. The cross of a row takes that one out of the list; "Clear" empties the list after asking.
 - The comments of a post are searched the same way: sent words take the thread to the newest comment that has them, wherever it is in the discussion, with the words marked and the bar that says which match it is ("3 of 41"), steps to the older and the newer one and shows the results as a list, which loads further pages at its end. While the search is open the comment field makes way for it.
 
 ### Notification rules

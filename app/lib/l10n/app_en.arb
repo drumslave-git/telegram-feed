@@ -296,6 +296,10 @@
     "description": "Search filter chip: posts of every kind."
   },
   "searchRecent": "Recent searches",
+  "searchRemoveRecent": "Remove from Recent",
+  "searchClearHistoryTitle": "Clear search history",
+  "searchClearHistoryBody": "Do you want to clear your search history?",
+  "searchClearAll": "Clear All",
   "searchFailed": "Could not search.",
   "searchTypeToSearch": "Type to search the posts.",
   "searchNothingFoundPlain": "Nothing found.",

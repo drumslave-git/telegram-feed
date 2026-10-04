@@ -430,6 +430,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchRecent => 'Recent searches';
 
   @override
+  String get searchRemoveRecent => 'Remove from Recent';
+
+  @override
+  String get searchClearHistoryTitle => 'Clear search history';
+
+  @override
+  String get searchClearHistoryBody =>
+      'Do you want to clear your search history?';
+
+  @override
+  String get searchClearAll => 'Clear All';
+
+  @override
   String get searchFailed => 'Could not search.';
 
   @override

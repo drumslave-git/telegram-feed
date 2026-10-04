@@ -448,6 +448,18 @@ class AppLocalizationsUk extends AppLocalizations {
   String get searchRecent => 'Недавні пошуки';
 
   @override
+  String get searchRemoveRecent => 'Прибрати з недавніх';
+
+  @override
+  String get searchClearHistoryTitle => 'Очистити історію пошуку';
+
+  @override
+  String get searchClearHistoryBody => 'Ви хочете очистити історію пошуку?';
+
+  @override
+  String get searchClearAll => 'Очистити все';
+
+  @override
   String get searchFailed => 'Не вдалося виконати пошук.';
 
   @override

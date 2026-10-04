@@ -776,6 +776,30 @@ abstract class AppLocalizations {
   /// **'Recent searches'**
   String get searchRecent;
 
+  /// No description provided for @searchRemoveRecent.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from Recent'**
+  String get searchRemoveRecent;
+
+  /// No description provided for @searchClearHistoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search history'**
+  String get searchClearHistoryTitle;
+
+  /// No description provided for @searchClearHistoryBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Do you want to clear your search history?'**
+  String get searchClearHistoryBody;
+
+  /// No description provided for @searchClearAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear All'**
+  String get searchClearAll;
+
   /// No description provided for @searchFailed.
   ///
   /// In en, this message translates to:

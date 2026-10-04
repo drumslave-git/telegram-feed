@@ -91,6 +91,7 @@ class SearchResults extends StatelessWidget {
     this.recent = const [],
     this.onRecent,
     this.onClearRecent,
+    this.onRemoveRecent,
   });
 
   final List<Post> results;
@@ -123,6 +124,32 @@ class SearchResults extends StatelessWidget {
   final void Function(String query)? onRecent;
   final VoidCallback? onClearRecent;
 
+  /// Takes one of the words searched for last out of the list.
+  final void Function(String query)? onRemoveRecent;
+
+  /// "Clear" empties the whole list, so it asks first, in the official app's words.
+  Future<void> _askToClear(BuildContext context) async {
+    final l10n = context.l10n;
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.searchClearHistoryTitle),
+        content: Text(l10n.searchClearHistoryBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.searchClearAll),
+          ),
+        ],
+      ),
+    );
+    if (sure == true) onClearRecent?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -144,7 +171,7 @@ class SearchResults extends StatelessWidget {
             trailing: onClearRecent == null
                 ? null
                 : TextButton(
-                    onPressed: onClearRecent,
+                    onPressed: () => _askToClear(context),
                     child: Text(l10n.commonClear),
                   ),
           ),
@@ -153,6 +180,13 @@ class SearchResults extends StatelessWidget {
               leading: const Icon(Icons.history),
               title: Text(words),
               onTap: () => onRecent!(words),
+              trailing: onRemoveRecent == null
+                  ? null
+                  : IconButton(
+                      tooltip: l10n.searchRemoveRecent,
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => onRemoveRecent!(words),
+                    ),
             ),
         ],
       );

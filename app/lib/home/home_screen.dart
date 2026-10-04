@@ -931,6 +931,10 @@ class _HomeScreenState extends State<HomeScreen>
                 _queryCtl.text = words;
                 unawaited(_startSearch(words));
               },
+              onRemoveRecent: (words) async {
+                final left = await RecentSearches(widget.db).remove(words);
+                if (mounted) setState(() => _recent = left);
+              },
               onClearRecent: () async {
                 await RecentSearches(widget.db).clear();
                 if (mounted) setState(() => _recent = const []);

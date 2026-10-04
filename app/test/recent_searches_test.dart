@@ -39,6 +39,17 @@ void main() {
     },
   );
 
+  test('a search is taken out of the list alone, whatever its case', () async {
+    final recent = RecentSearches(db);
+    await recent.remember('rain');
+    await recent.remember('Pier');
+    await recent.remember('ferry');
+    expect(await recent.remove('pier'), ['ferry', 'rain']);
+    expect(await recent.load(), ['ferry', 'rain']);
+    // What is not there takes nothing away.
+    expect(await recent.remove('snow'), ['ferry', 'rain']);
+  });
+
   test('broken json is simply no history', () {
     expect(RecentSearches.decode(null), isEmpty);
     expect(RecentSearches.decode('not json'), isEmpty);
@@ -97,15 +108,40 @@ void main() {
     await settle();
     expect(gw.globalQueries.last.startsWith('needle|'), isTrue);
 
-    // Clearing empties the list.
+    // One of them is taken out by its cross; the others stay.
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
+    await tester.runAsync(() => RecentSearches(db).remember('hay'));
     await tester.tap(find.byTooltip('Search posts'));
     await tester.pumpAndSettle();
     await settle();
+    expect(find.text('hay'), findsOneWidget);
+    expect(find.text('needle'), findsOneWidget);
+    await tester.tap(find.byTooltip('Remove from Recent').first);
+    await settle();
+    expect(find.text('hay'), findsNothing);
+    expect(find.text('needle'), findsOneWidget);
+    expect(await tester.runAsync(RecentSearches(db).load), ['needle']);
+
+    // Clearing asks first, and Cancel keeps the list.
     await tester.tap(find.text('Clear'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Do you want to clear your search history?'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    await settle();
+    expect(find.text('needle'), findsOneWidget);
+
+    await tester.tap(find.text('Clear'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Clear All'));
+    await tester.pumpAndSettle();
     await settle();
     expect(find.text('Recent searches'), findsNothing);
+    expect(await tester.runAsync(RecentSearches(db).load), isEmpty);
 
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(
