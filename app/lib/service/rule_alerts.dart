@@ -100,6 +100,9 @@ final class RuleAlerts {
   /// Whether the app is on screen: posts that match then do not pop up over it.
   set appOpen(bool open) => _notifier.appOpen = open;
 
+  /// The channels of the timeline in front ([Notifier.viewing]).
+  set viewing(Set<int> chatIds) => _notifier.viewing = chatIds;
+
   /// Whether the app has a lock; asked for every match, since the lock is set and
   /// removed in the app while these alerts run.
   final Future<bool> Function() _lockSet;

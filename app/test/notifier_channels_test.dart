@@ -160,8 +160,15 @@ void main() {
       expect(summary['setAsGroupSummary'], isTrue);
       expect(summary['groupAlertBehavior'], GroupAlertBehavior.children.index);
 
-      // On screen, posts keep their sound but do not pop up.
+      // The app open on another screen: posts pop up as they do outside it.
       notifier.appOpen = true;
+      shown.clear();
+      await notifier.show(planOf(4 << 20, RulePriority.normal));
+      expect(shown.first['channelId'], 'posts_normal_popup');
+      expect(shown.first['importance'], Importance.high.value);
+
+      // Their own timeline on screen: they keep their sound but do not pop up.
+      notifier.viewing = {-1001};
       shown.clear();
       await notifier.show(planOf(6 << 20, RulePriority.normal));
       await notifier.show(planOf(7 << 20, RulePriority.urgent));

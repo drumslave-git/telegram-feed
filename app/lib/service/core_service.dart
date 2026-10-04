@@ -138,6 +138,7 @@ class CoreServiceHandler extends TaskHandler {
   /// Whether the app is on screen; it may say so before the alerts are up.
   bool _appOpen = false;
   bool _appUnlocked = false;
+  Set<int> _appViewing = const {};
 
   /// The interface language: the Language setting, or the phone's. The app tells the
   /// service when it changes ('language').
@@ -191,6 +192,7 @@ class CoreServiceHandler extends TaskHandler {
     );
     alerts.appOpen = _appOpen;
     alerts.unlocked = _appUnlocked;
+    alerts.viewing = _appViewing;
     _alerts = alerts;
     await alerts.start(_strings);
     await _updateNotification();
@@ -272,6 +274,12 @@ class CoreServiceHandler extends TaskHandler {
       // Behind its lock, or gone: a match hides what its post says (rule_alerts.dart).
       _appUnlocked = data['unlocked'] == true;
       _alerts?.unlocked = _appUnlocked;
+      // The timeline in front: its own posts do not pop up over it.
+      _appViewing = {
+        for (final id in (data['viewing'] as List? ?? const []))
+          if (id is int) id,
+      };
+      _alerts?.viewing = _appViewing;
     }
     // The read-aloud banner asks what is read, and stops it (reading_now.dart).
     if (data is Map) {

@@ -72,10 +72,13 @@ final class Notifier {
   /// The interface language of the notifications and of the channels' names.
   AppLocalizations _strings = AppLanguage.englishStrings;
 
-  /// Whether the app is on screen. Posts that match then sound and vibrate as their
-  /// priority says but do not pop up over it; Android decides the pop-up by the channel, so
-  /// they go on the in-app channels.
+  /// Whether the app is on screen, and the channels of the timeline that is in front
+  /// there. A post of one of those channels sounds and vibrates as its priority says but
+  /// does not pop up over the timeline it has just appeared in; Android decides the
+  /// pop-up by the channel, so it goes on the in-app channels. Any other post pops up
+  /// over the app as it does outside it, as in the official app.
   bool appOpen = false;
+  Set<int> viewing = const {};
 
   /// The suffix a choice gives a channel id. The default choice adds nothing, so only a
   /// reader who picks a sound gets channels of their own.
@@ -299,7 +302,10 @@ final class Notifier {
   /// open. The reader's sound is in the channel's id, so the plan's priority is looked up.
   Future<String> _channelOf(NotificationPlan plan) async {
     if (plan.quiet) return _actual[channelSilent] ?? channelSilent;
-    final inApp = appOpen && plan.channelId != channelSilent;
+    final inApp =
+        appOpen &&
+        plan.channelId != channelSilent &&
+        viewing.contains(PostRef.decode(plan.payload)?.chatId);
     if (plan.channelId == channelUrgent) {
       await _ensureUrgentChannel();
       return _urgentId(inApp: inApp);

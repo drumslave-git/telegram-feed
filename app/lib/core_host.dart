@@ -15,6 +15,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import 'ai/semantic_gate.dart';
 import 'host/accounts.dart';
 import 'host/app_host.dart';
+import 'host/viewing.dart';
 import 'l10n/l10n.dart';
 import 'media/cache_limits.dart';
 import 'media/video_positions.dart';
@@ -215,6 +216,7 @@ final class CoreHost implements AppHost {
     // Posts that match while the app is on screen do not pop up over it.
     _lifecycle = AppLifecycleListener(onStateChange: _sendAppOpen);
     AppLock.locked.addListener(_onLockChanged);
+    Viewing.chats.addListener(_onLockChanged);
     _sendAppOpen(
       WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
     );
@@ -254,22 +256,32 @@ final class CoreHost implements AppHost {
   void _sendAppOpen(AppLifecycleState state) {
     final open = state == AppLifecycleState.resumed;
     final unlocked = open && !AppLock.locked.value;
-    if (open == _appOpen && unlocked == _appUnlocked) return;
+    final viewing = open ? Viewing.chats.value : const <int>{};
+    if (open == _appOpen &&
+        unlocked == _appUnlocked &&
+        setEquals(viewing, _appViewing)) {
+      return;
+    }
     _appOpen = open;
     _appUnlocked = unlocked;
+    _appViewing = viewing;
     if (_inService) {
       FlutterForegroundTask.sendDataToTask(
-        appOpenMessage(open, unlocked: unlocked),
+        appOpenMessage(open, unlocked: unlocked, viewing: viewing),
       );
     } else {
       _alerts?.appOpen = open;
       _alerts?.unlocked = unlocked;
+      _alerts?.viewing = viewing;
     }
   }
 
+  Set<int>? _appViewing;
+
   bool? _appUnlocked;
 
-  /// The lock screen came up or went: the notifications follow.
+  /// The lock screen came up or went, or another timeline is in front: the
+  /// notifications follow.
   void _onLockChanged() => _sendAppOpen(
     (_appOpen ?? false) ? AppLifecycleState.resumed : AppLifecycleState.paused,
   );
@@ -363,6 +375,7 @@ final class CoreHost implements AppHost {
     await _alerts?.dispose();
     _lifecycle?.dispose();
     AppLock.locked.removeListener(_onLockChanged);
+    Viewing.chats.removeListener(_onLockChanged);
     if (_phoneLanguage case final o?) WidgetsBinding.instance.removeObserver(o);
     for (final s in _subs) {
       await s.cancel();

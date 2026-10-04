@@ -13,6 +13,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import '../host/haptics.dart';
+import '../host/viewing.dart';
 import '../home/channel_info_screen.dart';
 import '../home/connection_title.dart';
 import '../l10n/l10n.dart';
@@ -102,8 +103,30 @@ class _TimelineScreenState extends State<TimelineScreen> {
     photos: const {},
   );
 
+  /// Whether this timeline is the screen in front.
+  bool _inFront = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Told again whenever another screen covers this one or uncovers it.
+    _inFront = ModalRoute.of(context)?.isCurrent ?? true;
+    _tellViewing();
+  }
+
+  /// Says which channels are on screen, so a post that matches a rule here only
+  /// sounds instead of popping up over the timeline it has just appeared in.
+  void _tellViewing() {
+    if (_inFront) {
+      Viewing.show(this, _sources.chatIds);
+    } else {
+      Viewing.hide(this);
+    }
+  }
+
   @override
   void dispose() {
+    Viewing.hide(this);
     _queryCtl.dispose();
     _queryFocus.dispose();
     super.dispose();
@@ -112,6 +135,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
   void _onSources(TimelineSources sources) {
     if (!mounted) return;
     setState(() => _sources = sources);
+    _tellViewing();
     // A search that started before the sources were known covers them now.
     final session = _session;
     if (session != null && session.chatIds.length != sources.chatIds.length) {

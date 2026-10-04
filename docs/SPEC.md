@@ -136,7 +136,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - A rule with an empty condition notifies about every post of its channels, including posts without text; the notification then says what the post is (a photo, a video, a file). It still takes a priority, a schedule and read-aloud.
 - A rule has a priority: silent (tray only), normal (pops up on the screen), urgent (pops up and breaks through Do Not Disturb where Android permits). The editor says what each one does, and picking "urgent" offers to open Android's setting for it.
 - One channel sounds and pops up at most twice in three minutes; further posts of it that match in that time are shown without sound and without a pop-up, as the official app does by default. When a post is edited, its notification says the new words, without sounding again; an edit neither raises a notification nor takes one back.
-- While the app is on screen, matching posts sound and vibrate as their priority says but do not pop up over it.
+- While the app is on screen, a matching post pops up over it as it does outside it, as in the official app. A post of the timeline that is in front (the feed's, or the channel's) sounds and vibrates as its priority says but does not pop up over the timeline it has just appeared in.
 - I choose the sound and the vibration of normal and urgent notifications; silent ones stay silent. A change applies at once, and the row names the sound as Android's picker does.
 - A rule can request read-aloud.
 - A rule can have a schedule: active on selected weekdays between two times.

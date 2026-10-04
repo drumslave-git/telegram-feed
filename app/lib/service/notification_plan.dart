@@ -34,11 +34,17 @@ const actionStop = 'stop';
 const actionOpenTelegram = 'open_tg';
 
 /// What the app sends the service host with `FlutterForegroundTask.sendDataToTask` when
-/// its screen comes up or goes away ([Notifier.appOpen]) and when its lock screen comes
-/// up or goes ([unlocked]: on screen and not behind the lock).
-Map<String, bool> appOpenMessage(bool open, {bool unlocked = false}) => {
+/// its screen comes up or goes away ([Notifier.appOpen]), when its lock screen comes up
+/// or goes ([unlocked]: on screen and not behind the lock), and when another timeline is
+/// in front ([viewing]: the channels it reads, `Viewing`).
+Map<String, Object> appOpenMessage(
+  bool open, {
+  bool unlocked = false,
+  Iterable<int> viewing = const [],
+}) => {
   'appOpen': open,
   'unlocked': open && unlocked,
+  'viewing': open ? [...viewing] : const <int>[],
 };
 
 /// Port name under which the service host receives notification actions
