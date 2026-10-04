@@ -110,8 +110,30 @@ final class FakeTelegram extends TimelineGateway {
               emailPattern: 'f***@example.com',
               codeLength: 5,
             )
-          : AuthWaitCode(phoneNumber: phone, codeLength: 5, viaSms: true),
+          : AuthWaitCode(
+              phoneNumber: phone,
+              codeLength: 5,
+              viaSms: true,
+              resendAfter: resendAfter,
+            ),
     );
+  }
+
+  /// How long the fake makes the login wait before the code can be asked for again.
+  static const resendAfter = 20;
+
+  @override
+  Future<void> resendCode() async {
+    if (_auth case AuthWaitCode(:final phoneNumber)) {
+      _setAuth(
+        AuthWaitCode(
+          phoneNumber: phoneNumber,
+          codeLength: 5,
+          viaSms: true,
+          resendAfter: resendAfter,
+        ),
+      );
+    }
   }
 
   @override

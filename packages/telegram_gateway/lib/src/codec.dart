@@ -5,6 +5,32 @@ library;
 
 import 'models.dart';
 
+Map<String, Object?> encodeCountry(Country c) => {
+  'code': c.code,
+  'name': c.name,
+  'flag': c.flag,
+  'callingCodes': c.callingCodes,
+};
+
+Country decodeCountry(Map<Object?, Object?> m) => Country(
+  code: m['code'] as String,
+  name: m['name'] as String,
+  flag: m['flag'] as String? ?? '',
+  callingCodes: (m['callingCodes'] as List).cast<String>(),
+);
+
+Map<String, Object?> encodePhoneInfo(PhoneInfo p) => {
+  'countryCode': p.countryCode,
+  'callingCode': p.callingCode,
+  'formatted': p.formatted,
+};
+
+PhoneInfo decodePhoneInfo(Map<Object?, Object?> m) => PhoneInfo(
+  countryCode: m['countryCode'] as String? ?? '',
+  callingCode: m['callingCode'] as String? ?? '',
+  formatted: m['formatted'] as String? ?? '',
+);
+
 Map<String, Object?> encodeAuthState(AuthState s) => switch (s) {
   AuthStarting() => {'state': 'starting'},
   AuthWaitPhoneNumber() => {'state': 'waitPhoneNumber'},
@@ -12,12 +38,21 @@ Map<String, Object?> encodeAuthState(AuthState s) => switch (s) {
     'state': 'waitOtherDevice',
     'link': link,
   },
-  AuthWaitCode(:final phoneNumber, :final codeLength, :final viaSms) => {
-    'state': 'waitCode',
-    'phoneNumber': phoneNumber,
-    'codeLength': codeLength,
-    'viaSms': viaSms,
-  },
+  AuthWaitCode(
+    :final phoneNumber,
+    :final codeLength,
+    :final viaSms,
+    :final resendAfter,
+    :final canResend,
+  ) =>
+    {
+      'state': 'waitCode',
+      'phoneNumber': phoneNumber,
+      'codeLength': codeLength,
+      'viaSms': viaSms,
+      'resendAfter': resendAfter,
+      'canResend': canResend,
+    },
   AuthWaitEmailAddress() => {'state': 'waitEmailAddress'},
   AuthWaitEmailCode(:final emailPattern, :final codeLength) => {
     'state': 'waitEmailCode',
@@ -40,6 +75,8 @@ AuthState decodeAuthState(Map<Object?, Object?> m) => switch (m['state']) {
     phoneNumber: m['phoneNumber'] as String,
     codeLength: m['codeLength'] as int,
     viaSms: m['viaSms'] as bool,
+    resendAfter: m['resendAfter'] as int? ?? 0,
+    canResend: m['canResend'] as bool? ?? true,
   ),
   'waitEmailAddress' => const AuthWaitEmailAddress(),
   'waitEmailCode' => AuthWaitEmailCode(

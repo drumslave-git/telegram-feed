@@ -30,6 +30,8 @@ AuthState authState(td.AuthorizationState s) => switch (s) {
       _ => 0,
     },
     viaSms: codeInfo?.type is td.AuthenticationCodeTypeSms,
+    resendAfter: codeInfo?.timeout ?? 0,
+    canResend: codeInfo?.nextType != null,
   ),
   td.AuthorizationStateWaitRegistration() => const AuthWaitRegistration(),
   td.AuthorizationStateWaitPassword(:final passwordHint) => AuthWaitPassword(

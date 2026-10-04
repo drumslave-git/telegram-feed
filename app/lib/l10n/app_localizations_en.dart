@@ -1308,6 +1308,39 @@ class AppLocalizationsEn extends AppLocalizations {
       'Telegram is rate-limiting this account. Wait a minute and try again.';
 
   @override
+  String errorFloodWaitSeconds(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count seconds',
+      one: '1 second',
+    );
+    return 'Too many attempts. Try again in $_temp0.';
+  }
+
+  @override
+  String errorFloodWaitMinutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count minutes',
+      one: '1 minute',
+    );
+    return 'Too many attempts. Try again in $_temp0.';
+  }
+
+  @override
+  String errorFloodWaitHours(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count hours',
+      one: '1 hour',
+    );
+    return 'Too many attempts. Try again in $_temp0.';
+  }
+
+  @override
   String get errorPhoneNumberInvalid => 'That phone number is not valid.';
 
   @override
@@ -1624,7 +1657,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String loginPhoneExplanation(String appName) {
-    return '$appName reads the channels your Telegram account has joined. Enter the phone number of that account in international format.';
+    return '$appName reads the channels your Telegram account has joined. Confirm the country code and enter the phone number of that account.';
   }
 
   @override
@@ -1649,6 +1682,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loginResendCode => 'Resend code';
+
+  @override
+  String loginResendCodeIn(String time) {
+    return 'Resend code in $time';
+  }
+
+  @override
+  String get loginCountry => 'Country';
+
+  @override
+  String get loginChooseCountry => 'Choose a country';
+
+  @override
+  String get loginInvalidCountryCode => 'Invalid country code';
+
+  @override
+  String get loginCountryCode => 'Code';
+
+  @override
+  String get loginNoCountryFound => 'No country found';
+
+  @override
+  String get loginCorrectNumber => 'Is this the correct number?';
+
+  @override
+  String get loginEditNumber => 'Edit';
+
+  @override
+  String get loginYes => 'Yes';
 
   @override
   String get loginChangeNumber => 'Change number';

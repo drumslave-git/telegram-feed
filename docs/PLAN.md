@@ -4,21 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Parity with the official app. **Next task:** Q-67.
-
-## Differences from the official app
-
-Each task makes the app behave as the official Android app does. SPEC.md and ARCHITECTURE.md change in the same commit where a task reverses a decision recorded there.
-
-### Media
-
-
-### Notifications
-
-
-### Login, accounts and settings
-
-- [ ] Q-67 Login: a country picker with the code and number in separate, formatted fields; "Is this the correct number?"; one box per digit of the code, sent when full; a countdown before the code can be sent again; a flood wait says how long.
+**Current phase:** Hands-on checks of the parity work. **Next task:** V-14.
 
 ## Hands-on checks
 
@@ -28,6 +14,8 @@ Built and covered by tests; what is listed here has not been used on the emulato
 - [ ] V-9 Viewer: "Show in chat" from a feed, from shared media and from search; the picture following the seek bar on a downloaded video; edge taps in a feed and in an album; a caption link to a channel; dark and Ukrainian.
 - [ ] V-11 Floating player: pinch (two fingers, not possible with adb), double tap on each half, the place and size after reopening; Android's picture-in-picture button on an image older than Android 12.
 - [ ] V-13 Audio bar: the tap to the post of a voice message from another screen; previous, next, repeat and shuffle in the player with real music; the long press on the speed; a voice message at 2× followed by music at 1×; dark and Ukrainian.
+- [ ] V-14 Real Telegram: the login screen's country list in English and Ukrainian and the writing of a number while it is typed (reached by "Add an account", without logging in); background watching off and on with a real session; a rule notification with the channel's photo and a post's picture; a second real account notifying while the first is in use.
+- [ ] V-15 The number on the app's icon on a home screen that shows numbers (Samsung); the emulator's shows none.
 
 ## Phase 4 — Extras
 

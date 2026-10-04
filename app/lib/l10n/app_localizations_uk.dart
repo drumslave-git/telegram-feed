@@ -1351,6 +1351,45 @@ class AppLocalizationsUk extends AppLocalizations {
       'Telegram обмежив кількість запитів від цього акаунта. Зачекайте хвилину й спробуйте ще раз.';
 
   @override
+  String errorFloodWaitSeconds(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count секунди',
+      many: '$count секунд',
+      few: '$count секунди',
+      one: '$count секунду',
+    );
+    return 'Забагато спроб, спробуйте через $_temp0.';
+  }
+
+  @override
+  String errorFloodWaitMinutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count хвилини',
+      many: '$count хвилин',
+      few: '$count хвилини',
+      one: '$count хвилину',
+    );
+    return 'Забагато спроб, спробуйте через $_temp0.';
+  }
+
+  @override
+  String errorFloodWaitHours(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count години',
+      many: '$count годин',
+      few: '$count години',
+      one: '$count годину',
+    );
+    return 'Забагато спроб, спробуйте через $_temp0.';
+  }
+
+  @override
   String get errorPhoneNumberInvalid => 'Некоректний номер телефону.';
 
   @override
@@ -1674,7 +1713,7 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String loginPhoneExplanation(String appName) {
-    return '$appName читає канали, на які підписаний ваш акаунт Telegram. Введіть номер телефону цього акаунта в міжнародному форматі.';
+    return '$appName читає канали, на які підписаний ваш акаунт Telegram. Перевірте код країни й введіть номер телефону цього акаунта.';
   }
 
   @override
@@ -1699,6 +1738,35 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get loginResendCode => 'Надіслати код ще раз';
+
+  @override
+  String loginResendCodeIn(String time) {
+    return 'Надіслати код ще раз через $time';
+  }
+
+  @override
+  String get loginCountry => 'Країна';
+
+  @override
+  String get loginChooseCountry => 'Виберіть країну';
+
+  @override
+  String get loginInvalidCountryCode => 'Некоректний код країни';
+
+  @override
+  String get loginCountryCode => 'Код';
+
+  @override
+  String get loginNoCountryFound => 'Країну не знайдено';
+
+  @override
+  String get loginCorrectNumber => 'Це ваш номер телефону?';
+
+  @override
+  String get loginEditNumber => 'Редагувати';
+
+  @override
+  String get loginYes => 'Так';
 
   @override
   String get loginChangeNumber => 'Змінити номер';

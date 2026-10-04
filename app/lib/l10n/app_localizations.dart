@@ -2096,6 +2096,24 @@ abstract class AppLocalizations {
   /// **'Telegram is rate-limiting this account. Wait a minute and try again.'**
   String get errorRateLimited;
 
+  /// Telegram refuses for now (flood wait) and says for how many seconds.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Try again in {count, plural, =1{1 second} other{{count} seconds}}.'**
+  String errorFloodWaitSeconds(int count);
+
+  /// Telegram refuses for now (flood wait); the wait in minutes, rounded up.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Try again in {count, plural, =1{1 minute} other{{count} minutes}}.'**
+  String errorFloodWaitMinutes(int count);
+
+  /// Telegram refuses for now (flood wait); the wait in hours, rounded up.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Try again in {count, plural, =1{1 hour} other{{count} hours}}.'**
+  String errorFloodWaitHours(int count);
+
   /// No description provided for @errorPhoneNumberInvalid.
   ///
   /// In en, this message translates to:
@@ -2603,7 +2621,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginPhoneExplanation.
   ///
   /// In en, this message translates to:
-  /// **'{appName} reads the channels your Telegram account has joined. Enter the phone number of that account in international format.'**
+  /// **'{appName} reads the channels your Telegram account has joined. Confirm the country code and enter the phone number of that account.'**
   String loginPhoneExplanation(String appName);
 
   /// No description provided for @loginPhoneNumber.
@@ -2647,6 +2665,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Resend code'**
   String get loginResendCode;
+
+  /// The resend button while Telegram does not allow it yet; time is minutes and seconds, 0:59.
+  ///
+  /// In en, this message translates to:
+  /// **'Resend code in {time}'**
+  String loginResendCodeIn(String time);
+
+  /// No description provided for @loginCountry.
+  ///
+  /// In en, this message translates to:
+  /// **'Country'**
+  String get loginCountry;
+
+  /// No description provided for @loginChooseCountry.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a country'**
+  String get loginChooseCountry;
+
+  /// No description provided for @loginInvalidCountryCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid country code'**
+  String get loginInvalidCountryCode;
+
+  /// Label of the small field for the country calling code, beside the phone number.
+  ///
+  /// In en, this message translates to:
+  /// **'Code'**
+  String get loginCountryCode;
+
+  /// No description provided for @loginNoCountryFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No country found'**
+  String get loginNoCountryFound;
+
+  /// No description provided for @loginCorrectNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Is this the correct number?'**
+  String get loginCorrectNumber;
+
+  /// No description provided for @loginEditNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get loginEditNumber;
+
+  /// No description provided for @loginYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes'**
+  String get loginYes;
 
   /// No description provided for @loginChangeNumber.
   ///

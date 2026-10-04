@@ -209,6 +209,18 @@ final class CoreClient implements TelegramGateway {
   Future<void> checkCode(String code) => _call('checkCode', {'code': code});
   @override
   Future<void> resendCode() => _call('resendCode', const {});
+
+  @override
+  Future<List<Country>> countries({String language = 'en'}) async => [
+    for (final c
+        in (await _call('countries', {'language': language})) as List<Object?>)
+      decodeCountry(c! as Map<Object?, Object?>),
+  ];
+
+  @override
+  Future<PhoneInfo> phoneInfo(String digits) async => decodePhoneInfo(
+    (await _call('phoneInfo', {'digits': digits})) as Map<Object?, Object?>,
+  );
   @override
   Future<void> setEmailAddress(String email) =>
       _call('setEmailAddress', {'email': email});

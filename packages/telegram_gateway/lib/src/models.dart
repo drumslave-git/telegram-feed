@@ -36,12 +36,61 @@ final class AuthWaitCode extends AuthState {
     required this.phoneNumber,
     required this.codeLength,
     required this.viaSms,
+    this.resendAfter = 0,
+    this.canResend = true,
   });
   final String phoneNumber;
 
   /// 0 when the code length is unknown.
   final int codeLength;
   final bool viaSms;
+
+  /// Seconds before Telegram lets the code be asked for again; 0 for at once.
+  final int resendAfter;
+
+  /// Whether Telegram has another way to send the code at all.
+  final bool canResend;
+}
+
+/// A country of the login screen's list, as Telegram names it.
+final class Country {
+  const Country({
+    required this.code,
+    required this.name,
+    required this.callingCodes,
+    this.flag = '',
+  });
+
+  /// ISO 3166-1 alpha-2.
+  final String code;
+
+  /// In the language that was asked for; English where Telegram has no other name.
+  final String name;
+
+  /// The flag as an emoji; empty where Telegram has none.
+  final String flag;
+
+  /// Without the plus. A country may have several.
+  final List<String> callingCodes;
+}
+
+/// What Telegram makes of the digits of a phone number as far as they are typed.
+final class PhoneInfo {
+  const PhoneInfo({
+    required this.callingCode,
+    required this.formatted,
+    this.countryCode = '',
+  });
+
+  /// The country the number belongs to (ISO 3166-1 alpha-2); empty while not known.
+  final String countryCode;
+
+  /// The leading digits that are the country's calling code; empty while not known.
+  final String callingCode;
+
+  /// The digits after the calling code as the country writes them, with a `-` for
+  /// every digit still expected ("67 123 ----").
+  final String formatted;
 }
 
 /// Telegram wants an email address for this account: login codes will go there.

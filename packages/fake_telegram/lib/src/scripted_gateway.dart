@@ -6,6 +6,8 @@ import 'dart:async';
 
 import 'package:telegram_gateway/telegram_gateway.dart';
 
+import 'fake_countries.dart';
+
 /// The gateway with nothing in it: channels and folders only, every other call answered with
 /// an empty result. Screens that never page history use this one.
 class ChannelsGateway implements TelegramGateway {
@@ -68,6 +70,11 @@ class ChannelsGateway implements TelegramGateway {
   Future<void> checkEmailCode(String code) async {}
   @override
   Future<void> resendCode() async {}
+  @override
+  Future<List<Country>> countries({String language = 'en'}) async =>
+      fakeCountries(language: language);
+  @override
+  Future<PhoneInfo> phoneInfo(String digits) async => fakePhoneInfo(digits);
   @override
   Future<void> checkPassword(String password) async {}
   @override

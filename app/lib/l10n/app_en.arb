@@ -1075,6 +1075,21 @@
   "bannerPauseNotifications": "Pause notifications",
   "bannerResumeNotifications": "Resume notifications",
   "errorRateLimited": "Telegram is rate-limiting this account. Wait a minute and try again.",
+  "errorFloodWaitSeconds": "Too many attempts. Try again in {count, plural, =1{1 second} other{{count} seconds}}.",
+  "@errorFloodWaitSeconds": {
+    "description": "Telegram refuses for now (flood wait) and says for how many seconds.",
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "errorFloodWaitMinutes": "Too many attempts. Try again in {count, plural, =1{1 minute} other{{count} minutes}}.",
+  "@errorFloodWaitMinutes": {
+    "description": "Telegram refuses for now (flood wait); the wait in minutes, rounded up.",
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "errorFloodWaitHours": "Too many attempts. Try again in {count, plural, =1{1 hour} other{{count} hours}}.",
+  "@errorFloodWaitHours": {
+    "description": "Telegram refuses for now (flood wait); the wait in hours, rounded up.",
+    "placeholders": {"count": {"type": "int"}}
+  },
   "errorPhoneNumberInvalid": "That phone number is not valid.",
   "errorPhoneNumberBanned": "Telegram has banned that phone number.",
   "errorPhoneNumberFlood": "That number has asked for too many codes today. Try again tomorrow.",
@@ -1324,7 +1339,7 @@
   },
   "loginNewCodeSent": "A new code is on its way.",
   "loginPhoneTitle": "Log in to Telegram",
-  "loginPhoneExplanation": "{appName} reads the channels your Telegram account has joined. Enter the phone number of that account in international format.",
+  "loginPhoneExplanation": "{appName} reads the channels your Telegram account has joined. Confirm the country code and enter the phone number of that account.",
   "@loginPhoneExplanation": {
     "placeholders": {
       "appName": {
@@ -1346,6 +1361,22 @@
   },
   "loginCode": "Code",
   "loginResendCode": "Resend code",
+  "loginResendCodeIn": "Resend code in {time}",
+  "@loginResendCodeIn": {
+    "description": "The resend button while Telegram does not allow it yet; time is minutes and seconds, 0:59.",
+    "placeholders": {"time": {"type": "String"}}
+  },
+  "loginCountry": "Country",
+  "loginChooseCountry": "Choose a country",
+  "loginInvalidCountryCode": "Invalid country code",
+  "loginCountryCode": "Code",
+  "@loginCountryCode": {
+    "description": "Label of the small field for the country calling code, beside the phone number."
+  },
+  "loginNoCountryFound": "No country found",
+  "loginCorrectNumber": "Is this the correct number?",
+  "loginEditNumber": "Edit",
+  "loginYes": "Yes",
   "loginChangeNumber": "Change number",
   "loginEmailTitle": "Your email",
   "loginEmailExplanation": "Telegram asks this account for an email address. Login codes will be sent to it every time you log in from a new device.",

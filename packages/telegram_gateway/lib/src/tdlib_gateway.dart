@@ -284,6 +284,57 @@ final class TdlibGateway implements TelegramGateway {
       _client.call(td.CheckAuthenticationCode(code: code));
   @override
   Future<void> resendCode() => _client.call(td.ResendAuthenticationCode());
+
+  /// The language TDLib was last told to name countries in.
+  String? _countriesIn;
+
+  @override
+  Future<List<Country>> countries({String language = 'en'}) async {
+    if (language != _countriesIn) {
+      // Telegram names countries in the language of the client's language pack.
+      try {
+        await _client.call(
+          td.SetOption(
+            name: 'localization_target',
+            value: const td.OptionValueString(value: 'android'),
+          ),
+        );
+        await _client.call(
+          td.SetOption(
+            name: 'language_pack_id',
+            value: td.OptionValueString(value: language),
+          ),
+        );
+        _countriesIn = language;
+      } on TelegramException catch (e) {
+        log?.call('countries stay in English: ${e.message}');
+      }
+    }
+    final all = await _client.call(td.GetCountries());
+    return [
+      for (final c in all.countries)
+        if (!c.isHidden)
+          Country(
+            code: c.countryCode,
+            name: c.name.isEmpty ? c.englishName : c.name,
+            flag: c.flagEmoji,
+            callingCodes: c.callingCodes,
+          ),
+    ];
+  }
+
+  @override
+  Future<PhoneInfo> phoneInfo(String digits) async {
+    final info = await _client.call(
+      td.GetPhoneNumberInfo(phoneNumberPrefix: digits),
+    );
+    return PhoneInfo(
+      countryCode: info.country?.countryCode ?? '',
+      callingCode: info.countryCallingCode,
+      formatted: info.formattedPhoneNumber,
+    );
+  }
+
   @override
   Future<void> setEmailAddress(String email) =>
       _client.call(td.SetAuthenticationEmailAddress(emailAddress: email));

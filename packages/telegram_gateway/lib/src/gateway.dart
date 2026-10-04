@@ -10,6 +10,14 @@ abstract interface class TelegramGateway {
   /// Asks Telegram for the login code again, as the official app's "Resend code" does.
   Future<void> resendCode();
 
+  /// The countries of the login screen, named in [language] (a two-letter code) where
+  /// Telegram has such names. Works before the login.
+  Future<List<Country>> countries({String language = 'en'});
+
+  /// What Telegram makes of [digits], a phone number without its plus as far as it is
+  /// typed: whose calling code it starts with and how the rest is written.
+  Future<PhoneInfo> phoneInfo(String digits);
+
   /// The email address Telegram asks some accounts for; login codes then go there.
   Future<void> setEmailAddress(String email);
 

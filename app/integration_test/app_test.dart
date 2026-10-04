@@ -66,11 +66,17 @@ void main() {
     );
 
     if (login.evaluate().isNotEmpty) {
-      await tester.enterText(find.byType(TextField), '+15550100');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Phone number'),
+        '+15550100',
+      );
       await tester.tap(find.text('Send code'));
+      // "Is this the correct number?"
+      expect(await _waitFor(tester, find.text('Yes')), isTrue);
+      await tester.tap(find.text('Yes'));
       expect(await _waitFor(tester, find.text('Enter the code')), isTrue);
+      // The code goes by itself when its last digit is typed.
       await tester.enterText(find.byType(TextField), fakeLoginCode);
-      await tester.tap(find.text('Continue'));
       expect(await _waitFor(tester, home), isTrue, reason: 'login failed');
     }
 

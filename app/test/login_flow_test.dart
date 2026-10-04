@@ -1,8 +1,12 @@
 import 'dart:async';
 
+import 'package:fake_telegram/fake_telegram.dart'
+    show fakeCountries, fakePhoneInfo;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/auth/login_screens.dart';
+import 'package:telegram_feed/l10n/l10n.dart';
+import 'package:telegram_feed/widgets/error_state.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 /// Gateway whose auth state the test drives by hand.
@@ -42,6 +46,11 @@ final class ScriptedGateway implements TelegramGateway {
   Future<void> checkEmailCode(String code) => _record('emailCode:$code');
   @override
   Future<void> resendCode() => _record('resend');
+  @override
+  Future<List<Country>> countries({String language = 'en'}) async =>
+      fakeCountries(language: language);
+  @override
+  Future<PhoneInfo> phoneInfo(String digits) async => fakePhoneInfo(digits);
   @override
   Future<void> checkPassword(String password) => _record('password:$password');
   @override
@@ -244,15 +253,33 @@ Widget app(TelegramGateway g) => MaterialApp(
 );
 
 void main() {
+  Finder field(String label) => find.widgetWithText(TextField, label);
+  String textOf(WidgetTester tester, String label) =>
+      tester.widget<TextField>(field(label)).controller!.text;
+
   testWidgets('phone → code → password → home', (tester) async {
     final g = ScriptedGateway();
     await tester.pumpWidget(app(g));
     await tester.pump();
     expect(find.text('Log in to Telegram'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), '+15551234567');
-    await tester.tap(find.text('Send code'));
+    // A whole number typed with its plus is taken apart: the code to its field, the
+    // rest written as the country writes it, the country named.
+    await tester.enterText(field('Phone number'), '+15551234567');
     await tester.pump();
+    await tester.pump();
+    expect(textOf(tester, 'Code'), '1');
+    expect(textOf(tester, 'Phone number'), '555 123 4567');
+    expect(find.textContaining('United States'), findsOneWidget);
+
+    // The official app's question, before any code is sent.
+    await tester.tap(find.text('Send code'));
+    await tester.pumpAndSettle();
+    expect(g.calls, isEmpty);
+    expect(find.text('Is this the correct number?'), findsOneWidget);
+    expect(find.text('+1 555 123 4567'), findsOneWidget);
+    await tester.tap(find.text('Yes'));
+    await tester.pumpAndSettle();
     expect(g.calls, ['phone:+15551234567']);
 
     g.go(
@@ -263,9 +290,14 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pump();
     expect(find.text('Enter the code'), findsOneWidget);
+    // One box per digit, and no button: the code goes when the last one is typed.
+    expect(find.text('Continue'), findsNothing);
+    await tester.enterText(find.byType(TextField), '1234');
+    await tester.pump();
+    expect(g.calls.last, 'phone:+15551234567');
     await tester.enterText(find.byType(TextField), '12345');
-    await tester.tap(find.text('Continue'));
     await tester.pump();
     expect(g.calls.last, 'code:12345');
 
@@ -282,9 +314,208 @@ void main() {
     expect(find.text('HOME'), findsOneWidget);
   });
 
-  testWidgets('Telegram errors are shown inline and the field stays usable', (
+  testWidgets('"Edit" goes back to the number and sends nothing', (
     tester,
   ) async {
+    final g = ScriptedGateway();
+    await tester.pumpWidget(app(g));
+    await tester.pump();
+    await tester.enterText(field('Phone number'), '5551234567');
+    await tester.pump();
+    await tester.tap(find.text('Send code'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    expect(g.calls, isEmpty);
+    expect(textOf(tester, 'Phone number'), '555 123 4567');
+  });
+
+  testWidgets('the country sets the code, the code finds the country, and the '
+      'number is written as the country writes it', (tester) async {
+    final g = ScriptedGateway();
+    await tester.pumpWidget(app(g));
+    await tester.pump();
+    await tester.pump();
+    // The phone's own country to begin with.
+    expect(textOf(tester, 'Code'), '1');
+    expect(find.textContaining('United States'), findsOneWidget);
+
+    // Picked from the list, which a search narrows by name or by code.
+    await tester.tap(find.textContaining('United States'));
+    await tester.pumpAndSettle();
+    expect(find.text('+380'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'ukr');
+    await tester.pump();
+    expect(find.text('Poland'), findsNothing);
+    await tester.enterText(find.byType(TextField), '+48');
+    await tester.pump();
+    expect(find.text('Poland'), findsOneWidget);
+    expect(find.text('Ukraine'), findsNothing);
+    await tester.enterText(find.byType(TextField), 'atlantis');
+    await tester.pump();
+    expect(find.text('No country found'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'ukr');
+    await tester.pump();
+    await tester.tap(find.text('Ukraine'));
+    await tester.pumpAndSettle();
+    expect(textOf(tester, 'Code'), '380');
+    expect(find.textContaining('Ukraine'), findsOneWidget);
+    // The hint shows how a number is written there.
+    expect(
+      tester.widget<TextField>(field('Phone number')).decoration!.hintText,
+      '00 000 0000',
+    );
+    await tester.enterText(field('Phone number'), '671234567');
+    await tester.pump();
+    expect(textOf(tester, 'Phone number'), '67 123 4567');
+
+    // The code typed by hand finds its country; one that is nobody's says so.
+    await tester.enterText(field('Code'), '44');
+    await tester.pump();
+    await tester.pump();
+    expect(find.textContaining('United Kingdom'), findsOneWidget);
+    expect(textOf(tester, 'Phone number'), '6712 34567');
+    await tester.enterText(field('Code'), '999');
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Invalid country code'), findsOneWidget);
+    await tester.enterText(field('Code'), '');
+    await tester.pump();
+    expect(find.text('Choose a country'), findsOneWidget);
+
+    // Without a code nothing is sent.
+    await tester.tap(find.text('Send code'));
+    await tester.pumpAndSettle();
+    expect(g.calls, isEmpty);
+    expect(find.byType(AlertDialog), findsNothing);
+  });
+
+  testWidgets('a number typed into the code field goes where it belongs', (
+    tester,
+  ) async {
+    final g = ScriptedGateway();
+    await tester.pumpWidget(app(g));
+    await tester.pump();
+    await tester.pump();
+    await tester.enterText(field('Code'), '380671234567');
+    await tester.pump();
+    await tester.pump();
+    expect(textOf(tester, 'Code'), '380');
+    expect(textOf(tester, 'Phone number'), '67 123 4567');
+  });
+
+  test('digits are written into the pattern Telegram gives', () {
+    expect(formatPhoneDigits('671234567', '-- --- ----'), '67 123 4567');
+    // What is typed so far, with nothing after its last digit.
+    expect(formatPhoneDigits('671', '67 1-- ----'), '67 1');
+    expect(formatPhoneDigits('', '-- --- ----'), '');
+    // More digits than the pattern expects follow at the end.
+    expect(formatPhoneDigits('67123456789', '-- --- ----'), '67 123 456789');
+    expect(formatPhoneDigits('123', ''), '123');
+  });
+
+  testWidgets('a flood wait says how long', (tester) async {
+    final g = ScriptedGateway()
+      ..nextError = const TelegramException(
+        429,
+        'Too Many Requests: retry after 187',
+      );
+    await tester.pumpWidget(app(g));
+    await tester.pump();
+    await tester.enterText(field('Phone number'), '5551234567');
+    await tester.pump();
+    await tester.tap(find.text('Send code'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Yes'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Too many attempts. Try again in 4 minutes.'),
+      findsOneWidget,
+    );
+
+    String line(String message, [String language = 'en']) => telegramErrorLine(
+      TelegramException(420, message),
+      what: 'x',
+      l10n: lookupAppLocalizations(Locale(language)),
+    );
+    expect(
+      line('FLOOD_WAIT_30'),
+      'Too many attempts. Try again in 30 seconds.',
+    );
+    expect(line('FLOOD_WAIT_1'), 'Too many attempts. Try again in 1 second.');
+    expect(line('FLOOD_WAIT_60'), 'Too many attempts. Try again in 1 minute.');
+    expect(line('FLOOD_WAIT_7201'), 'Too many attempts. Try again in 3 hours.');
+    expect(
+      line('FLOOD_WAIT_22', 'uk'),
+      'Забагато спроб, спробуйте через 22 секунди.',
+    );
+    expect(
+      line('FLOOD_WAIT_300', 'uk'),
+      'Забагато спроб, спробуйте через 5 хвилин.',
+    );
+    // No time given: the old sentence.
+    expect(line('Too Many Requests'), contains('rate-limiting'));
+  });
+
+  testWidgets('the code can be asked for again when the countdown is over', (
+    tester,
+  ) async {
+    final g = ScriptedGateway();
+    var now = DateTime(2026, 10, 4, 12);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CodeScreen(
+          gateway: g,
+          phoneNumber: '+1',
+          codeLength: 5,
+          resendAfter: 75,
+          now: () => now,
+        ),
+      ),
+    );
+    await tester.pump();
+    Finder resend(String label) => find.widgetWithText(OutlinedButton, label);
+    expect(resend('Resend code in 1:15'), findsOneWidget);
+    expect(
+      tester.widget<OutlinedButton>(resend('Resend code in 1:15')).onPressed,
+      isNull,
+    );
+
+    now = now.add(const Duration(seconds: 16));
+    await tester.pump(const Duration(seconds: 1));
+    expect(resend('Resend code in 0:59'), findsOneWidget);
+
+    now = now.add(const Duration(seconds: 59));
+    await tester.pump(const Duration(seconds: 1));
+    expect(resend('Resend code'), findsOneWidget);
+    await tester.tap(resend('Resend code'));
+    await tester.pump();
+    expect(g.calls, ['resend']);
+    expect(find.text('A new code is on its way.'), findsOneWidget);
+  });
+
+  testWidgets('with no other way to send the code there is no resend, and a '
+      'code of unknown length has a field and a button', (tester) async {
+    final g = ScriptedGateway()
+      ..state = const AuthWaitCode(
+        phoneNumber: '+1',
+        codeLength: 0,
+        viaSms: true,
+        canResend: false,
+      );
+    await tester.pumpWidget(app(g));
+    await tester.pump();
+    expect(find.textContaining('Resend code'), findsNothing);
+    await tester.enterText(find.byType(TextField), '123456');
+    await tester.pump();
+    expect(g.calls, isEmpty);
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+    expect(g.calls, ['code:123456']);
+  });
+
+  testWidgets('a wrong code is said inline and the boxes are empty for the '
+      'next try', (tester) async {
     final g = ScriptedGateway()
       ..nextError = const TelegramException(400, 'PHONE_CODE_INVALID');
     g.state = const AuthWaitCode(
@@ -295,10 +526,13 @@ void main() {
     await tester.pumpWidget(app(g));
     await tester.pump();
     await tester.enterText(find.byType(TextField), '00000');
-    await tester.tap(find.text('Continue'));
     await tester.pump();
+    await tester.pump();
+    expect(g.calls, ['code:00000']);
     expect(find.text('Wrong code.'), findsOneWidget);
-    expect(tester.widget<TextField>(find.byType(TextField)).enabled, isTrue);
+    final box = tester.widget<TextField>(find.byType(TextField));
+    expect(box.enabled, isTrue);
+    expect(box.controller!.text, isEmpty);
   });
 
   testWidgets('an account that logs in by email: the address, then its code', (

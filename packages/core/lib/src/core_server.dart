@@ -218,6 +218,15 @@ final class CoreServer {
         await gateway.checkCode(a['code'] as String);
       case 'resendCode':
         await gateway.resendCode();
+      case 'countries':
+        return [
+          for (final c in await gateway.countries(
+            language: a['language'] as String? ?? 'en',
+          ))
+            encodeCountry(c),
+        ];
+      case 'phoneInfo':
+        return encodePhoneInfo(await gateway.phoneInfo(a['digits'] as String));
       case 'setEmailAddress':
         await gateway.setEmailAddress(a['email'] as String);
       case 'checkEmailCode':

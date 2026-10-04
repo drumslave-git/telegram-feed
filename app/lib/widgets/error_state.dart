@@ -6,8 +6,19 @@ import '../l10n/l10n.dart';
 /// The sentence for a code Telegram's API returns, or null when the app has none.
 String? _known(String message, AppLocalizations l10n) {
   if (message.startsWith('Too Many Requests') ||
-      message.startsWith('FLOOD_WAIT')) {
-    return l10n.errorRateLimited;
+      message.startsWith('FLOOD_WAIT') ||
+      message.startsWith('FLOOD_PREMIUM_WAIT')) {
+    // Telegram says how long to wait, and so does the app.
+    final wait = RegExp(r'(?:retry after |WAIT_)(\d+)')
+        .firstMatch(message)
+        ?.group(1);
+    final seconds = int.tryParse(wait ?? '') ?? 0;
+    return switch (seconds) {
+      <= 0 => l10n.errorRateLimited,
+      < 60 => l10n.errorFloodWaitSeconds(seconds),
+      < 3600 => l10n.errorFloodWaitMinutes((seconds / 60).ceil()),
+      _ => l10n.errorFloodWaitHours((seconds / 3600).ceil()),
+    };
   }
   return switch (message) {
     'PHONE_NUMBER_INVALID' => l10n.errorPhoneNumberInvalid,

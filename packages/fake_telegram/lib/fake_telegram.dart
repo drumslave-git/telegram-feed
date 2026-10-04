@@ -2,5 +2,6 @@
 /// and the whole fake account of the fake build.
 library;
 
+export 'src/fake_countries.dart';
 export 'src/fake_telegram.dart';
 export 'src/scripted_gateway.dart';

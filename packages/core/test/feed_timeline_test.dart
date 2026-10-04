@@ -116,6 +116,22 @@ final class HistoryGateway implements TelegramGateway {
   Future<void> checkEmailCode(String code) async {}
   @override
   Future<void> resendCode() async {}
+
+  @override
+  Future<List<Country>> countries({String language = 'en'}) async => [
+    Country(
+      code: 'UA',
+      name: language == 'uk' ? 'Україна' : 'Ukraine',
+      flag: '🇺🇦',
+      callingCodes: const ['380'],
+    ),
+  ];
+  @override
+  Future<PhoneInfo> phoneInfo(String digits) async => PhoneInfo(
+    countryCode: digits.startsWith('380') ? 'UA' : '',
+    callingCode: digits.startsWith('380') ? '380' : '',
+    formatted: digits.startsWith('380') ? digits.substring(3) : digits,
+  );
   @override
   Future<void> checkPassword(String password) async {}
   @override

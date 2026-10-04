@@ -4,11 +4,15 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'dart:async';
 
-import '../app_name.dart';
 import '../host/accounts.dart';
 import '../l10n/l10n.dart';
 import '../service/core_service.dart' show appPaths;
 import '../widgets/error_state.dart';
+import 'code_screen.dart';
+import 'phone_screen.dart';
+
+export 'code_screen.dart';
+export 'phone_screen.dart';
 
 /// Shows the screen for the current [AuthState] and [child] once logged in.
 class AuthGate extends StatelessWidget {
@@ -29,11 +33,19 @@ class AuthGate extends StatelessWidget {
             gateway: gateway,
             link: link,
           ),
-          AuthWaitCode(:final phoneNumber, :final codeLength) => CodeScreen(
-            gateway: gateway,
-            phoneNumber: phoneNumber,
-            codeLength: codeLength,
-          ),
+          AuthWaitCode(
+            :final phoneNumber,
+            :final codeLength,
+            :final resendAfter,
+            :final canResend,
+          ) =>
+            CodeScreen(
+              gateway: gateway,
+              phoneNumber: phoneNumber,
+              codeLength: codeLength,
+              resendAfter: resendAfter,
+              canResend: canResend,
+            ),
           AuthWaitPassword(:final hint) => PasswordScreen(
             gateway: gateway,
             hint: hint,
@@ -74,15 +86,10 @@ class _StepForm extends StatefulWidget {
     this.keyboardType = TextInputType.text,
     this.obscure = false,
     this.maxLength,
-    this.hint,
-    this.initialValue,
     this.footnote,
     this.secondaryLabel,
     this.secondaryIcon,
     this.onSecondary,
-    this.tertiaryLabel,
-    this.tertiaryIcon,
-    this.onTertiary,
   });
   final String title;
   final String explanation;
@@ -93,12 +100,6 @@ class _StepForm extends StatefulWidget {
   final bool obscure;
   final int? maxLength;
 
-  /// An example of what to type, e.g. a phone number in international format.
-  final String? hint;
-
-  /// What the field starts with, e.g. the "+" every phone number begins with.
-  final String? initialValue;
-
   /// A quiet line under the buttons, e.g. where something else has to be done.
   final String? footnote;
 
@@ -107,21 +108,15 @@ class _StepForm extends StatefulWidget {
   final IconData? secondaryIcon;
   final Future<void> Function()? onSecondary;
 
-  /// A third action beside the second one (e.g. "Resend code").
-  final String? tertiaryLabel;
-  final IconData? tertiaryIcon;
-  final Future<void> Function()? onTertiary;
-
   @override
   State<_StepForm> createState() => _StepFormState();
 }
 
 class _StepFormState extends State<_StepForm> {
-  late final _ctl = TextEditingController(text: widget.initialValue ?? '');
+  final _ctl = TextEditingController();
   String? _error;
   bool _busy = false;
   late bool _hidden = widget.obscure;
-  String? _note;
 
   Future<void> _submit() async {
     final value = _ctl.text.trim();
@@ -173,7 +168,6 @@ class _StepFormState extends State<_StepForm> {
             maxLength: widget.maxLength,
             decoration: InputDecoration(
               labelText: widget.label,
-              hintText: widget.hint,
               errorText: _error,
               // A password typed on a phone is worth being able to look at.
               suffixIcon: !widget.obscure
@@ -203,21 +197,6 @@ class _StepFormState extends State<_StepForm> {
                   )
                 : Text(widget.action),
           ),
-          if (widget.onTertiary != null) ...[
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _busy
-                  ? null
-                  : () async {
-                      await _guard(widget.onTertiary!);
-                      if (mounted && _error == null) {
-                        setState(() => _note = l10n.loginNewCodeSent);
-                      }
-                    },
-              icon: Icon(widget.tertiaryIcon),
-              label: Text(widget.tertiaryLabel ?? ''),
-            ),
-          ],
           if (widget.onSecondary != null) ...[
             const SizedBox(height: 8),
             OutlinedButton.icon(
@@ -226,14 +205,6 @@ class _StepFormState extends State<_StepForm> {
               label: Text(widget.secondaryLabel ?? ''),
             ),
           ],
-          if (_note != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(
-                _note!,
-                style: TextStyle(color: Theme.of(context).colorScheme.primary),
-              ),
-            ),
           const OtherAccountButton(),
           if (widget.footnote != null)
             Padding(
@@ -247,64 +218,6 @@ class _StepFormState extends State<_StepForm> {
             ),
         ],
       ),
-    );
-  }
-}
-
-class PhoneScreen extends StatelessWidget {
-  const PhoneScreen({super.key, required this.gateway});
-  final TelegramGateway gateway;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return _StepForm(
-      title: l10n.loginPhoneTitle,
-      explanation: l10n.loginPhoneExplanation(appName),
-      label: l10n.loginPhoneNumber,
-      action: l10n.loginSendCode,
-      keyboardType: TextInputType.phone,
-      hint: '+44 7700 900123',
-      initialValue: '+',
-      onSubmit: gateway.setPhoneNumber,
-      secondaryLabel: l10n.loginWithQrInstead,
-      secondaryIcon: Icons.qr_code,
-      onSecondary: gateway.requestQrCode,
-    );
-  }
-}
-
-class CodeScreen extends StatelessWidget {
-  const CodeScreen({
-    super.key,
-    required this.gateway,
-    required this.phoneNumber,
-    required this.codeLength,
-  });
-  final TelegramGateway gateway;
-  final String phoneNumber;
-  final int codeLength;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return _StepForm(
-      title: l10n.loginCodeTitle,
-      explanation: l10n.loginCodeExplanation(phoneNumber),
-      label: l10n.loginCode,
-      action: l10n.commonContinue,
-      keyboardType: TextInputType.number,
-      maxLength: codeLength > 0 ? codeLength : null,
-      onSubmit: gateway.checkCode,
-      // A code that never arrived: ask for it again without starting over.
-      tertiaryLabel: l10n.loginResendCode,
-      tertiaryIcon: Icons.refresh,
-      onTertiary: gateway.resendCode,
-      // A mistyped number, or a code that never came: back to the number, as the
-      // official app's "Wrong number?".
-      secondaryLabel: l10n.loginChangeNumber,
-      secondaryIcon: Icons.edit_outlined,
-      onSecondary: gateway.logOut,
     );
   }
 }

@@ -47,6 +47,22 @@ final class FakeGateway implements TelegramGateway {
   Future<void> resendCode() async => calls.add('resend');
 
   @override
+  Future<List<Country>> countries({String language = 'en'}) async => [
+    Country(
+      code: 'UA',
+      name: language == 'uk' ? 'Україна' : 'Ukraine',
+      flag: '🇺🇦',
+      callingCodes: const ['380'],
+    ),
+  ];
+  @override
+  Future<PhoneInfo> phoneInfo(String digits) async => PhoneInfo(
+    countryCode: digits.startsWith('380') ? 'UA' : '',
+    callingCode: digits.startsWith('380') ? '380' : '',
+    formatted: digits.startsWith('380') ? digits.substring(3) : digits,
+  );
+
+  @override
   Future<void> checkPassword(String password) async => calls.add('pw');
   @override
   Future<void> registerUser({
@@ -562,6 +578,18 @@ void main() {
         await s.cancel();
       }
       await moving.close();
+    });
+
+    test('the countries and what a number is made of cross the port', () async {
+      final countries = await client.countries(language: 'uk');
+      expect(countries.single.name, 'Україна');
+      expect(countries.single.flag, '🇺🇦');
+      expect(countries.single.callingCodes, ['380']);
+      final info = await client.phoneInfo('38067');
+      expect(
+        (info.countryCode, info.callingCode, info.formatted),
+        ('UA', '380', '67'),
+      );
     });
 
     test('download streams progress then completes', () async {
