@@ -1,11 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:telegram_feed/media/video_positions.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
-/// Stands in for ExoPlayer in widget tests: every player initialises at once as a 100 second,
-/// 640x360 video and remembers what it was told.
+/// Stands in for ExoPlayer in widget tests: every player initialises at once as a 640x360
+/// video of [duration] (100 seconds unless a test says otherwise) and remembers what it
+/// was told.
 class FakeVideoPlatform extends VideoPlayerPlatform {
+  /// How long the players created from now on say their video is.
+  Duration duration = const Duration(seconds: 100);
+
+  /// Whether each player was last told to loop.
+  final looping = <int, bool>{};
   final sources = <DataSource>[];
   final log = <String>[];
   final positions = <int, Duration>{};
@@ -14,7 +21,16 @@ class FakeVideoPlatform extends VideoPlayerPlatform {
   static FakeVideoPlatform install() {
     final p = FakeVideoPlatform();
     VideoPlayerPlatform.instance = p;
+    // Where a test before this one left its videos is nothing to this one.
+    unawaited(VideoPositions.wipe());
     return p;
+  }
+
+  /// The video of [playerId] plays to its end, as ExoPlayer reports it for a video that
+  /// does not loop.
+  void finish(int playerId) {
+    positions[playerId] = duration;
+    _events[playerId]!.add(VideoEvent(eventType: VideoEventType.completed));
   }
 
   @override
@@ -29,7 +45,7 @@ class FakeVideoPlatform extends VideoPlayerPlatform {
       ..add(
         VideoEvent(
           eventType: VideoEventType.initialized,
-          duration: const Duration(seconds: 100),
+          duration: duration,
           size: const Size(640, 360),
         ),
       );
@@ -54,7 +70,10 @@ class FakeVideoPlatform extends VideoPlayerPlatform {
   }
 
   @override
-  Future<void> setLooping(int playerId, bool looping) async {}
+  Future<void> setLooping(int playerId, bool looping) async {
+    this.looping[playerId] = looping;
+  }
+
   @override
   Future<void> play(int playerId) async => log.add('play $playerId');
   @override

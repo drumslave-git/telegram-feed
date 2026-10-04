@@ -8,6 +8,7 @@ import 'package:video_player/video_player.dart';
 
 import 'media_server.dart';
 import 'video_downloads.dart';
+import 'video_positions.dart';
 
 /// Playback of one video file. Lives outside the widget tree so that the inline player, the
 /// full-screen player and a list row that was rebuilt all drive the same player instead of
@@ -23,7 +24,21 @@ final class VideoSession extends ChangeNotifier {
 
   final VideoSessions _owner;
   final FileRef file;
+
+  /// Whether the video starts over at its end where the viewer does not say otherwise:
+  /// in its row, and in a viewer that was not told ([retainForViewer]).
   final bool loop;
+
+  /// What the viewer asked for while it shows the session; null lets [loop] stand.
+  bool? _viewerLoop;
+
+  /// The viewer took the session before the player was ready: its looping and the place
+  /// the video was left at are applied once it is. True when the session came from an
+  /// autoplaying row.
+  bool? _enterPending;
+
+  /// When the place was last written while the viewer plays.
+  final _sinceSaved = Stopwatch()..start();
 
   /// Started by scrolling into view, not by a tap: muted, and paused again when out of view.
   final bool autoplay;
@@ -70,6 +85,9 @@ final class VideoSession extends ChangeNotifier {
       if (_disposed) return;
       await c.setLooping(loop);
       await c.setVolume(_muted ? 0 : 1);
+      if (_enterPending case final fromRow?) {
+        await _enterViewer(fromRow: fromRow);
+      }
       await play();
     } catch (e) {
       if (_disposed) return;
@@ -88,7 +106,39 @@ final class VideoSession extends ChangeNotifier {
       _wasPlaying = playing;
       _owner._syncForeground();
     }
+    // The place survives the app being closed under the viewer: written as it plays.
+    if (playing && _viewerHolds > 0 && _sinceSaved.elapsed >= _saveEvery) {
+      _savePlace();
+    }
     notifyListeners();
+  }
+
+  static const _saveEvery = Duration(seconds: 5);
+
+  void _savePlace() {
+    final v = _controller?.value;
+    if (v == null || !v.isInitialized) return;
+    _sinceSaved.reset();
+    VideoPositions.leave(file, v.position, v.duration);
+  }
+
+  /// The viewer opens the video: it loops or not as the viewer says, and goes to the
+  /// place it was left at. A video the timeline autoplayed is somewhere in the middle of
+  /// itself; with no place of its own it starts over.
+  Future<void> _enterViewer({required bool fromRow}) async {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) {
+      _enterPending = fromRow;
+      return;
+    }
+    _enterPending = null;
+    await c.setLooping(_viewerLoop ?? loop);
+    final left = VideoPositions.of(file, c.value.duration);
+    if (left != null) {
+      await c.seekTo(left);
+    } else if (fromRow) {
+      await c.seekTo(Duration.zero);
+    }
   }
 
   bool get isPlaying => isReady && _controller!.value.isPlaying;
@@ -149,20 +199,22 @@ final class VideoSession extends ChangeNotifier {
     _idle = Timer(VideoSessions.gracePeriod, () => _owner._close(this));
   }
 
-  /// The full-screen viewer shows this session: with sound and playing. Called from widget
+  /// The full-screen viewer shows this session: with sound and playing, starting over at
+  /// its end if [loop] says so, and from the place it was left at. Called from widget
   /// lifecycle methods, so the player is only touched once the frame is done (listeners
   /// rebuild widgets).
-  void retainForViewer() {
-    // A video the timeline autoplayed is somewhere in the middle of itself; opening it
-    // starts it over (founder decision 2026-09-20). Taking the session over from the mini
-    // player or the system window is not an opening: there [_viewerHolds] is already up.
-    final fromRow = autoplay && _viewerHolds == 0;
+  void retainForViewer({bool? loop}) {
+    // Taking the session over from the mini player or the system window is not an
+    // opening: there [_viewerHolds] is already up, and the video goes on as it is.
+    final opening = _viewerHolds == 0;
+    final fromRow = autoplay && opening;
     retain();
     _viewerHolds++;
+    if (loop != null) _viewerLoop = loop;
     scheduleMicrotask(() async {
       if (_disposed) return;
       if (_muted) await setMuted(false);
-      if (fromRow) await _controller?.seekTo(Duration.zero);
+      if (opening) await _enterViewer(fromRow: fromRow);
       await play();
       _owner._syncForeground();
     });
@@ -176,11 +228,15 @@ final class VideoSession extends ChangeNotifier {
     _holders--;
     // Handed over between the viewer and the mini player: the other one goes on watching.
     if (--_viewerHolds > 0) return;
+    // Where it is left is where it opens again.
+    _savePlace();
+    _enterPending = null;
     final backToRow = autoplay && _holders > 0;
     scheduleMicrotask(() async {
       if (_disposed) return;
       _owner._syncForeground();
       if (backToRow) {
+        await _controller?.setLooping(loop);
         await setMuted(true);
         await play();
       } else if (_holders <= 0) {

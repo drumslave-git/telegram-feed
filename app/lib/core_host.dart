@@ -17,6 +17,7 @@ import 'host/accounts.dart';
 import 'host/app_host.dart';
 import 'l10n/l10n.dart';
 import 'media/cache_limits.dart';
+import 'media/video_positions.dart';
 import 'service/core_service.dart';
 import 'service/notification_plan.dart';
 import 'service/reading_now.dart';
@@ -38,6 +39,11 @@ final class CoreHost implements AppHost {
     final paths = await appPaths();
     final db = AppDatabase(appDatabaseFile(File(paths.db), inBackground: true));
     final host = CoreHost._(db, paths);
+    // Where the account's videos were left in the viewer.
+    final accounts = AccountStore(paths.support);
+    await VideoPositions.attach(
+      File(accounts.videoPositionsOf(await accounts.activeId())),
+    );
     await host._connect();
     host._forwardChanges();
     // TDLib keeps the limits of its cache; the reader's are handed to it once the
@@ -314,6 +320,7 @@ final class CoreHost implements AppHost {
     await sync.turnOff();
     await const SecureSecretStore().write(AiKeys.apiKeySecret, null);
     await db.wipe();
+    await VideoPositions.wipe();
     await gateway.logOut();
     // Nothing of the account stays in the list of accounts either.
     try {

@@ -115,6 +115,10 @@ class AccountStore {
   String dbOf(int id) => '$supportDirectory/app${_suffix(id)}.sqlite';
   String photoOf(int id) => '$supportDirectory/account${_suffix(id)}.jpg';
 
+  /// Where the account's videos were left in the viewer (`VideoPositions`).
+  String videoPositionsOf(int id) =>
+      '$supportDirectory/video-positions${_suffix(id)}.json';
+
   /// Changes to the file wait for each other: the profile and the unread count of the
   /// account in use are written from different places, and each change reads the file
   /// first.
@@ -232,7 +236,13 @@ class AccountStore {
 
   Future<void> _deleteData(int id, {String? tdlib, String? db}) async {
     final base = db ?? dbOf(id);
-    for (final path in [base, '$base-wal', '$base-shm', photoOf(id)]) {
+    for (final path in [
+      base,
+      '$base-wal',
+      '$base-shm',
+      photoOf(id),
+      videoPositionsOf(id),
+    ]) {
       final file = File(path);
       if (file.existsSync()) await file.delete();
     }

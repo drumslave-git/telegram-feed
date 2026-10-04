@@ -635,9 +635,14 @@ class _VideoPageState extends State<_VideoPage> {
     super.dispose();
   }
 
+  /// A GIF and a video of up to half a minute start over at their end, as in the
+  /// official app; a longer video goes back to its start and waits.
+  bool get _loops =>
+      widget.video.isAnimation || widget.video.durationSeconds <= 30;
+
   void _take() => _session = VideoSessions.of(
     widget.gateway,
-  ).open(widget.video.file, loop: widget.video.isAnimation)..retainForViewer();
+  ).open(widget.video.file, loop: _loops)..retainForViewer(loop: _loops);
 
   void _handBack() {
     _session?.releaseFromViewer();

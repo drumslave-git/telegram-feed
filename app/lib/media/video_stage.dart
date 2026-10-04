@@ -188,8 +188,33 @@ class _VideoStageState extends State<VideoStage> {
     super.dispose();
   }
 
+  /// The seek back to the start is under way.
+  bool _returning = false;
+
   void _onSession() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    _returnFromEnd();
+    setState(() {});
+  }
+
+  /// A video that does not loop goes back to its start when it has played to its end,
+  /// and waits there with the controls shown, as in the official app. The player has
+  /// paused itself and stands on its last frame by then.
+  void _returnFromEnd() {
+    final c = _s.controller;
+    if (c == null || _returning) return;
+    final v = c.value;
+    final ended =
+        v.isInitialized &&
+        v.duration > Duration.zero &&
+        v.position >= v.duration &&
+        !v.isPlaying &&
+        !v.isLooping;
+    if (!ended) return;
+    _returning = true;
+    _hide?.cancel();
+    _controls = true;
+    unawaited(c.seekTo(Duration.zero).whenComplete(() => _returning = false));
   }
 
   void _scheduleHide() {
