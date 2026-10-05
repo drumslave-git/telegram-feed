@@ -13,7 +13,13 @@ appId: dev.telegramfeed.telegram_feed
     env:
       FEED: News
 - assertVisible: '(?s)Unread posts\n.*'
-- assertVisible: '(?s).*The new lighthouse lamp is lit tonight.*'
+# The fixture's posts are dated from now, so the time of day decides the date chips and
+# how the times wrap: the post may stand below the screen's edge when the feed opens.
+- scrollUntilVisible:
+    element: '(?s).*The new lighthouse lamp is lit tonight.*'
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
 - tapOn:
     text: 'Channel info of Harbour Times.*'
     index: 0
