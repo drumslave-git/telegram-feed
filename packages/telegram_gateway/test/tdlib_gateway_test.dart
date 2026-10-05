@@ -397,6 +397,35 @@ void main() {
     },
   );
 
+  test('push: the FCM token is registered encrypted, with the other accounts, '
+      'and a push TDLib cannot handle yet is let be', () async {
+    t.handlers['registerDevice'] = (_) => {
+      '@type': 'pushReceiverId',
+      'id': '7',
+    };
+    await g.registerPush('tok', otherUserIds: [11, 12]);
+    final reg = t.sent.lastWhere((r) => r['@type'] == 'registerDevice');
+    expect(reg['device_token'], {
+      '@type': 'deviceTokenFirebaseCloudMessaging',
+      'token': 'tok',
+      'encrypt': true,
+    });
+    expect(reg['other_user_ids'], [11, 12]);
+
+    t.handlers['processPushNotification'] = (_) => {
+      '@type': 'error',
+      'code': 406,
+      'message': 'need to connect',
+    };
+    await g.processPush('{"p":"x","google.sent_time":1}');
+    expect(
+      t.sent.lastWhere(
+        (r) => r['@type'] == 'processPushNotification',
+      )['payload'],
+      '{"p":"x","google.sent_time":1}',
+    );
+  });
+
   test('marking a channel as unread toggles Telegram\'s flag, which the '
       'channel carries', () async {
     t.handlers['toggleChatIsMarkedAsUnread'] = (_) => {'@type': 'ok'};

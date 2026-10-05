@@ -6,19 +6,18 @@ import '../core_host.dart';
 import '../credentials.dart';
 import 'fake_media.dart';
 import '../notifications/notification_launch.dart';
-import '../service/core_service.dart';
 import '../service/reading_now.dart';
 import '../sync/sync_controller.dart';
 
 /// What the screens need from the platform: the app database, a gateway to Telegram and
-/// a few facts about where the core runs. [CoreHost] implements it on Android; tests
-/// inject fakes.
+/// a few facts about the phone. [CoreHost] implements it on Android; tests inject fakes.
 abstract interface class AppHost {
   AppDatabase get db;
   TelegramGateway get gateway;
 
-  /// True when rules keep running while the app is not open (foreground service).
-  bool get runningInService;
+  /// Whether Telegram's push reaches this install, so rules notify while the app is
+  /// closed: the build has a Firebase project and the phone Google Play services.
+  Future<bool> get pushAvailable;
 
   /// Google Drive sync of feeds, rules and settings (ARCHITECTURE.md section 5.5).
   SyncController get sync;
@@ -36,10 +35,6 @@ abstract interface class AppHost {
   Future<bool> get isBatteryExempt;
   Future<void> requestBatteryExemption();
 
-  /// Turns background watching on or off and moves the core to where it then runs;
-  /// [runningInService] says afterwards whether it does.
-  Future<void> setBackgroundWatching(bool on);
-
   /// Logs out and wipes everything the app stored (ARCHITECTURE section 10).
   Future<void> logOutAndWipe();
   Future<void> dispose();
@@ -49,9 +44,6 @@ abstract interface class AppHost {
   /// serving the account that was left.
   Future<void> standDown();
 }
-
-/// Platform setup before `runApp`: registers the foreground task callback.
-void platformInit() => initCoreService();
 
 /// Starts the host. The fake build first puts its sample media where the core serves it
 /// from.

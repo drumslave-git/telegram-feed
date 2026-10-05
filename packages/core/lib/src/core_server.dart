@@ -25,6 +25,7 @@ final class CoreServer {
     this.dropAccount,
     this.onMarks,
     this.marksDelay = const Duration(seconds: 1),
+    this.onPush,
   }) : _gateway = gateway {
     _port.listen(_onMessage);
     final e = engine;
@@ -63,8 +64,11 @@ final class CoreServer {
   bool _stopped = false;
 
   /// Keeps [setPaused] for the next start: the pause is a kill switch, and a restart of
-  /// the service or the phone must not undo it.
+  /// the app or the phone must not undo it.
   final Future<void> Function(bool paused)? onPaused;
+
+  /// Hands a push on to the other accounts this core serves ([handlePush] of each).
+  final Future<void> Function(String payload)? onPush;
 
   /// Keeps the engine's marks ([RuleEngine.marks]) for the next run; called [marksDelay]
   /// after they moved, and once more at [shutdown].
@@ -130,6 +134,15 @@ final class CoreServer {
       }
     });
     return _catchingUp = run;
+  }
+
+  /// A push came (ARCHITECTURE 6.5): TDLib gets it and fetches what it is about, and the
+  /// rules catch up. The posts TDLib fetches afterwards come as new posts, and a
+  /// connection that comes back catches up again by itself.
+  Future<void> handlePush(String payload) async {
+    if (_stopped) return;
+    if (_gateway case final PushGateway g) await g.processPush(payload);
+    await catchUp();
   }
 
   Future<void>? _catchingUp;
@@ -425,6 +438,17 @@ final class CoreServer {
         await onRefresh?.call();
       case 'catchUp':
         await catchUp();
+      case 'registerPush':
+        if (gateway case final PushGateway g) {
+          await g.registerPush(
+            a['token'] as String,
+            otherUserIds: (a['otherUserIds'] as List).cast<int>(),
+          );
+        }
+      case 'processPush':
+        final payload = a['payload'] as String;
+        await handlePush(payload);
+        await onPush?.call(payload);
       case 'accounts':
         return accounts?.call() ?? const <int, SendPort>{};
       case 'dropAccount':

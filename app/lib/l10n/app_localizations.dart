@@ -3515,7 +3515,7 @@ abstract class AppLocalizations {
   /// No description provided for @ruleBatteryBanner.
   ///
   /// In en, this message translates to:
-  /// **'Android may stop background watching, and rules would then go quiet. Allow the app to ignore battery optimisation so they keep working.'**
+  /// **'While the phone sleeps, Android may hold back what the app does for a push, and some phones put the app to sleep: rules would then notify late or not at all. Allow the app to ignore battery optimisation so they keep working.'**
   String get ruleBatteryBanner;
 
   /// No description provided for @semanticProblemNotSetUp.
@@ -3746,23 +3746,23 @@ abstract class AppLocalizations {
   /// **'Background'**
   String get notificationSettingsBackground;
 
-  /// No description provided for @notificationSettingsWatchInBackground.
+  /// Row that says whether Telegram's push reaches the app, so rules notify while it is closed.
   ///
   /// In en, this message translates to:
-  /// **'Watch channels in the background'**
-  String get notificationSettingsWatchInBackground;
+  /// **'Notify while the app is closed'**
+  String get notificationSettingsPush;
 
-  /// No description provided for @notificationSettingsWatchInBackgroundSubtitle.
+  /// No description provided for @notificationSettingsPushOn.
   ///
   /// In en, this message translates to:
-  /// **'Rules keep running while the app is closed. Off removes the permanent notification, and rules then only notify while the app is open.'**
-  String get notificationSettingsWatchInBackgroundSubtitle;
+  /// **'Telegram\'s push wakes the app for new posts. Of a channel muted in Telegram, it comes for about every tenth post, so that channel\'s notifications may come late.'**
+  String get notificationSettingsPushOn;
 
-  /// Message when the foreground service could not be started after the switch was turned on.
+  /// No description provided for @notificationSettingsPushOff.
   ///
   /// In en, this message translates to:
-  /// **'Android did not start background watching. Rules notify while the app is open.'**
-  String get notificationSettingsBackgroundFailed;
+  /// **'This build or this phone gets no push from Telegram. Rules notify only while the app is open.'**
+  String get notificationSettingsPushOff;
 
   /// No description provided for @notificationSettingsSystemSettings.
   ///
@@ -5155,48 +5155,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'… and more'**
   String get ttsMore;
-
-  /// Android notification channel of the permanent notification.
-  ///
-  /// In en, this message translates to:
-  /// **'Watching channels'**
-  String get serviceChannelName;
-
-  /// No description provided for @serviceChannelDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Keeps the Telegram connection open for keyword rules'**
-  String get serviceChannelDescription;
-
-  /// No description provided for @serviceStarting.
-  ///
-  /// In en, this message translates to:
-  /// **'Starting…'**
-  String get serviceStarting;
-
-  /// Button on the permanent notification that pauses every rule.
-  ///
-  /// In en, this message translates to:
-  /// **'Pause'**
-  String get servicePause;
-
-  /// No description provided for @serviceResume.
-  ///
-  /// In en, this message translates to:
-  /// **'Resume'**
-  String get serviceResume;
-
-  /// No description provided for @servicePaused.
-  ///
-  /// In en, this message translates to:
-  /// **'Paused: rules are not evaluated'**
-  String get servicePaused;
-
-  /// No description provided for @serviceWatching.
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{Watching 1 channel} other{Watching {count} channels}}'**
-  String serviceWatching(int count);
 
   /// Title of a rule notification whose channel has no name.
   ///

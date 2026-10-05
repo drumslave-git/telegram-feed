@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug builds only: a push queued from adb, as FCM would (DebugPushReceiver.kt) -->
+        <receiver
+            android:name=".DebugPushReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="dev.telegramfeed.push_runner.DEBUG_PUSH" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

@@ -23,7 +23,7 @@ final class _Host implements AppHost {
   @override
   final TelegramGateway gateway;
   @override
-  bool get runningInService => false;
+  Future<bool> get pushAvailable async => false;
   @override
   SyncController get sync => throw UnimplementedError();
   @override
@@ -38,8 +38,6 @@ final class _Host implements AppHost {
   Future<bool> get isBatteryExempt async => true;
   @override
   Future<void> requestBatteryExemption() async {}
-  @override
-  Future<void> setBackgroundWatching(bool on) async {}
   @override
   Future<void> logOutAndWipe() async {}
   @override
@@ -76,7 +74,6 @@ void main() {
     expect(uk.timelineNewPosts(11), '11 нових дописів');
     expect(uk.timelineNewPosts(21), '21 новий допис');
     expect(uk.timelineNewPosts(22), '22 нові дописи');
-    expect(uk.serviceWatching(21), 'Стеження за 21 каналом');
     final en = lookupAppLocalizations(const Locale('en'));
     expect(en.timelineNewPosts(1), '1 new post');
     expect(en.timelineNewPosts(21), '21 new posts');

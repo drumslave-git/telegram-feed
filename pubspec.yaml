@@ -12,3 +12,4 @@ workspace:
   - packages/tdlib_bindings
   - packages/versioning
   - packages/fake_telegram
+  - packages/push_runner

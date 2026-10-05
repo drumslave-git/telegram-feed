@@ -11,8 +11,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 /// the muted ones, or no number at all (Notifications and sounds). It lives beside the
 /// core, like the rule alerts, so the number follows while the app is closed, and is
 /// counted again a moment after a post arrived or was read. The app calls [refresh] when
-/// a switch changes: the settings are written in the app, which the service's own
-/// connection to the database does not hear of.
+/// a switch changes.
 /// `LauncherBadge.kt` hands it to the launchers that show numbers.
 class LauncherBadge {
   LauncherBadge({

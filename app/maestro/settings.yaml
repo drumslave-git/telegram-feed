@@ -33,13 +33,13 @@ appId: dev.telegramfeed.telegram_feed
 - scrollUntilVisible:
     element: '(?s)System notification settings.*'
     direction: DOWN
-- assertVisible: '(?s).*Watch channels in the background.*'
+- assertVisible: '(?s).*Notify while the app is closed.*'
 - tapOn: '(?s)System notification settings.*'
 - extendedWaitUntil:
     visible: '(?s).*TG Feed.*'
     timeout: 10000
 - back
-- assertVisible: '(?s).*Watch channels in the background.*'
+- assertVisible: '(?s).*Notify while the app is closed.*'
 - tapOn: 'Back'
 - scrollUntilVisible:
     element: 'Data and storage'

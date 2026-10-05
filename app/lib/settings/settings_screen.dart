@@ -35,10 +35,9 @@ class SettingsScreen extends StatefulWidget {
     required this.onLogOut,
     this.secrets = const SecureSecretStore(),
     this.sync,
-    this.onBackground,
+    this.pushAvailable,
     this.batteryExempt,
     this.onRequestBatteryExemption,
-    this.runningInService,
     this.accounts,
   });
   final AppDatabase db;
@@ -51,14 +50,11 @@ class SettingsScreen extends StatefulWidget {
   /// Drive sync; the entry is hidden when the host has none (tests).
   final SyncController? sync;
 
-  /// Turns background watching on or off, which moves the core.
-  final Future<void> Function(bool on)? onBackground;
-
-  /// Handed on to Notifications and sounds: whether Android lets the app keep watching
-  /// in the background, and where the core runs right now.
+  /// Handed on to Notifications and sounds: whether Telegram's push reaches the app, and
+  /// whether Android lets it ignore battery optimisation.
+  final Future<bool> Function()? pushAvailable;
   final Future<bool> Function()? batteryExempt;
   final Future<void> Function()? onRequestBatteryExemption;
-  final bool Function()? runningInService;
 
   /// The accounts of this device; the app's own store lives beside the databases, and
   /// tests pass theirs.
@@ -179,10 +175,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => _open(
               NotificationsScreen(
                 db: db,
-                onBackground: widget.onBackground,
+                pushAvailable: widget.pushAvailable,
                 batteryExempt: widget.batteryExempt,
                 onRequestBatteryExemption: widget.onRequestBatteryExemption,
-                runningInService: widget.runningInService,
               ),
             ),
           ),

@@ -320,21 +320,6 @@ void main() {
       () async =>
           expect(await db.setting(SettingKeys.countUnreadPosts), 'false'),
     );
-    final background = find.widgetWithText(
-      SwitchListTile,
-      'Watch channels in the background',
-    );
-    await tester.scrollUntilVisible(
-      background,
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(background);
-    await settle(tester);
-    await tester.runAsync(
-      () async =>
-          expect(await db.setting(SettingKeys.backgroundWatching), 'false'),
-    );
     await unmount(tester);
   });
 

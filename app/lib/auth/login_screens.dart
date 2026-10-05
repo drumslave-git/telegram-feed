@@ -6,7 +6,7 @@ import 'dart:async';
 
 import '../host/accounts.dart';
 import '../l10n/l10n.dart';
-import '../service/core_service.dart' show appPaths;
+import '../service/core_bootstrap.dart' show appPaths;
 import '../widgets/error_state.dart';
 import 'code_screen.dart';
 import 'phone_screen.dart';

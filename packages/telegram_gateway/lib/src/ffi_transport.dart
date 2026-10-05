@@ -160,7 +160,7 @@ final class FfiTransport implements TdTransport {
   ///
   /// `td_receive` may only be polled by one thread in the whole process: a second pump
   /// makes TDLib abort ("Receive must not be called simultaneously from two different
-  /// threads"), which killed the app when the service's core was taken down and the app
-  /// spawned one of its own. A core that hands over leaves none behind (ARCHITECTURE 8).
+  /// threads"), which kills the app when a core is taken down and another one is spawned
+  /// in the same process. A core that hands over leaves none behind (ARCHITECTURE 8).
   static Future<void> stopReceiving() => _Receiver.stop();
 }

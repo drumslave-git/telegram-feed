@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:push_runner/push_runner.dart';
 
 import '../l10n/l10n.dart';
 import 'notification_plan.dart';
@@ -73,8 +74,8 @@ class _Listed {
 }
 
 /// Posts notifications for rule matches: one per channel, which lists the channel's
-/// matched posts as a conversation. Lives in the service host isolate (plugins with
-/// platform callbacks cannot run in the core isolate, spike P0-2).
+/// matched posts as a conversation. Lives in the root isolate of the app's engine, or of
+/// a push run's (plugins with platform callbacks cannot run in the core isolate).
 final class Notifier {
   Notifier([
     FlutterLocalNotificationsPlugin? plugin,
@@ -336,7 +337,7 @@ final class Notifier {
 
   /// Makes the urgent channels, the pop-up one and the in-app one, for the current policy
   /// access. Re-checked before every urgent notification so that granting policy access
-  /// later takes effect without restarting the service.
+  /// later takes effect at once.
   Future<void> _ensureUrgentChannel() async {
     final android = _plugin
         .resolvePlatformSpecificImplementation<
@@ -537,8 +538,8 @@ final class Notifier {
           // A launcher that counts by notifications counts the posts, not the channels.
           number: posts.length,
           onlyAlertOnce: !alert,
-          // Swiping it away reaches the service host, which stops reading its posts; a
-          // tap or a cancellation is not reported.
+          // Swiping it away reaches the alerts, which stop reading its posts; a tap or a
+          // cancellation is not reported.
           dismissIsolate: NotificationDismissedIsolate.background,
           styleInformation: MessagingStyleInformation(
             sender(named),
@@ -700,18 +701,20 @@ final class Notifier {
 
 /// Entry point for action taps and swipes. For background actions and swipes Android starts
 /// a fresh isolate, so the response is forwarded to whoever registered [notifierPortName]
-/// (the service host); for foreground taps the app's own handler also receives it through
-/// the plugin.
+/// (the app, or a run); for foreground taps the app's own handler also receives it through
+/// the plugin. A Listen pressed while nothing runs starts a run for it (ARCHITECTURE 6.5);
+/// whatever else comes then is settled the next time the alerts start.
 @pragma('vm:entry-point')
-void notificationActionEntryPoint(NotificationResponse response) {
-  final port = IsolateNameServer.lookupPortByName(notifierPortName);
-  if (port == null) {
-    debugPrint('notifier: no host port for action ${response.actionId}');
-    return;
-  }
-  port.send({
+Future<void> notificationActionEntryPoint(NotificationResponse response) async {
+  final message = {
     'actionId': response.actionId,
     'payload': response.payload,
     'type': response.notificationResponseType.name,
-  });
+  };
+  final port = IsolateNameServer.lookupPortByName(notifierPortName);
+  if (port != null) {
+    port.send(message);
+  } else if (response.actionId == actionListen) {
+    await PushRunner.startRun(message);
+  }
 }

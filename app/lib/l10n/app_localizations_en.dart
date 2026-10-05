@@ -2184,7 +2184,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ruleBatteryBanner =>
-      'Android may stop background watching, and rules would then go quiet. Allow the app to ignore battery optimisation so they keep working.';
+      'While the phone sleeps, Android may hold back what the app does for a push, and some phones put the app to sleep: rules would then notify late or not at all. Allow the app to ignore battery optimisation so they keep working.';
 
   @override
   String get semanticProblemNotSetUp =>
@@ -2326,16 +2326,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationSettingsBackground => 'Background';
 
   @override
-  String get notificationSettingsWatchInBackground =>
-      'Watch channels in the background';
+  String get notificationSettingsPush => 'Notify while the app is closed';
 
   @override
-  String get notificationSettingsWatchInBackgroundSubtitle =>
-      'Rules keep running while the app is closed. Off removes the permanent notification, and rules then only notify while the app is open.';
+  String get notificationSettingsPushOn =>
+      'Telegram\'s push wakes the app for new posts. Of a channel muted in Telegram, it comes for about every tenth post, so that channel\'s notifications may come late.';
 
   @override
-  String get notificationSettingsBackgroundFailed =>
-      'Android did not start background watching. Rules notify while the app is open.';
+  String get notificationSettingsPushOff =>
+      'This build or this phone gets no push from Telegram. Rules notify only while the app is open.';
 
   @override
   String get notificationSettingsSystemSettings =>
@@ -3250,36 +3249,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ttsMore => '… and more';
-
-  @override
-  String get serviceChannelName => 'Watching channels';
-
-  @override
-  String get serviceChannelDescription =>
-      'Keeps the Telegram connection open for keyword rules';
-
-  @override
-  String get serviceStarting => 'Starting…';
-
-  @override
-  String get servicePause => 'Pause';
-
-  @override
-  String get serviceResume => 'Resume';
-
-  @override
-  String get servicePaused => 'Paused: rules are not evaluated';
-
-  @override
-  String serviceWatching(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: 'Watching $count channels',
-      one: 'Watching 1 channel',
-    );
-    return '$_temp0';
-  }
 
   @override
   String get notifyNewPost => 'New post';

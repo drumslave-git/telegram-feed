@@ -95,7 +95,7 @@ void main() {
     expect(shade.shown, hasLength(count));
   });
 
-  test('a swipe reaches the service host as a dismissal', () async {
+  test('a swipe reaches the alerts as a dismissal', () async {
     final port = ReceivePort();
     IsolateNameServer.removePortNameMapping(notifierPortName);
     IsolateNameServer.registerPortWithName(port.sendPort, notifierPortName);

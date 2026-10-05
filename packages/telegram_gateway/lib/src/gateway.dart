@@ -279,3 +279,17 @@ abstract interface class TelegramGateway {
 
   Future<void> close();
 }
+
+/// Telegram's push for one account (ARCHITECTURE 6.5). Gateways that talk to Telegram
+/// implement it beside [TelegramGateway].
+abstract interface class PushGateway {
+  /// Has Telegram send this account's pushes to the Firebase Cloud Messaging [token],
+  /// encrypted. [otherUserIds] are the other accounts logged in on this device, so a
+  /// push can say which of them it is for.
+  Future<void> registerPush(String token, {List<int> otherUserIds = const []});
+
+  /// Hands TDLib a push: the message's data as JSON, with `google.sent_time` added.
+  /// TDLib connects and fetches what the push is about; a push it cannot read (another
+  /// account's, an unknown kind) changes nothing.
+  Future<void> processPush(String payload);
+}

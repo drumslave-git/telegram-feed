@@ -18,7 +18,14 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed app packages tool
       - name: dart test (packages)
         run: |
-          for p in packages/*/; do (cd "$p" && dart test --reporter=compact); done
+          # A Flutter plugin among them (push_runner) needs flutter test.
+          for p in packages/*/; do
+            if grep -q "sdk: flutter" "$p/pubspec.yaml"; then
+              (cd "$p" && flutter test --reporter=compact)
+            else
+              (cd "$p" && dart test --reporter=compact)
+            fi
+          done
       - run: flutter test
         working-directory: app
 

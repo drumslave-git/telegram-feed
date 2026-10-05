@@ -83,6 +83,11 @@ class AccountWatch {
   /// Whether another account is watched: the notifications then say which account.
   bool get any => _others.isNotEmpty;
 
+  /// The other accounts' clients and databases, for push registration.
+  List<({CoreClient client, AppDatabase db})> get clients => [
+    for (final o in _others) (client: o.client, db: o.db),
+  ];
+
   /// What the alerts need of each other account.
   List<AlertAccount> get alerts => [
     for (final o in _others)

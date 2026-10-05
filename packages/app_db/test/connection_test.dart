@@ -43,7 +43,7 @@ void main() {
     ];
     addTearDown(() => Future.wait(dbs.map((d) => d.close())));
 
-    // The app, the service and the core reach an empty file together.
+    // The app, a push run and the core reach an empty file together.
     await Future.wait(dbs.map((d) => d.allFeeds()));
     expect(await dbs.first.allFeeds(), isEmpty);
   });
@@ -58,7 +58,7 @@ void main() {
       await old.allFeeds();
       await old.close();
 
-      // After an update the app, the service and the core all find the old schema. These two
+      // After an update the app, a push run and the core all find the old schema. These two
       // are held at the worst moment for each other: one is between dropping the rules table
       // and creating it again, the other is about to read that same table.
       final dropped = Completer<void>();

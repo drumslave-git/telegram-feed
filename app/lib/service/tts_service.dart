@@ -245,9 +245,8 @@ final class TtsService {
 
 /// Real speaker: flutter_tts + ML Kit language identification + just_audio + audio_session.
 ///
-/// The engine writes the speech into a file and this app plays it: Android mutes audio
-/// played in the background by an app without a while-in-use foreground service, and the
-/// engine plays in its own process, which has none (ARCHITECTURE 7).
+/// The engine writes the speech into a file and this app plays it, with the audio focus
+/// and as media, so other audio ducks and a call pauses it (ARCHITECTURE 7).
 final class FlutterTtsSpeaker implements Speaker {
   FlutterTtsSpeaker({void Function(String)? log})
     : _log = log ?? ((s) => debugPrint('tts: $s'));
@@ -374,10 +373,8 @@ final class FlutterTtsSpeaker implements Speaker {
         _waitForTheCall();
         return false;
       }
-      // Android withholds the focus from a foreground service that it started in the
-      // background (after a reboot or an update, until the app is opened). The engine
-      // speaks by itself then, which Android lets be heard right after a tap such as
-      // Listen.
+      // Android withholds the focus from an app that is not in use where it enforces
+      // audio hardening, a push run included. The engine speaks by itself then.
       _log('audio focus withheld in the background; the engine speaks');
       return await Future.any([
         _tts.speak(text, focus: true).then((r) => r == 1),

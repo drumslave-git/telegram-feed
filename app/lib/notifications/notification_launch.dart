@@ -9,7 +9,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../host/accounts.dart';
 import '../host/app_host.dart';
-import '../service/core_service.dart' show appPaths;
+import '../service/core_bootstrap.dart' show appPaths;
 import '../service/notifier.dart';
 import 'open_post.dart';
 
@@ -27,7 +27,7 @@ final class NotificationLaunch {
   Future<void> attach() async {
     await _plugin.initialize(
       settings: const InitializationSettings(
-        // The same icon as the service's notifier: this initialisation writes the
+        // The same icon as the alerts' notifier: this initialisation writes the
         // plugin's default icon into shared preferences, where it outlives the isolate.
         android: AndroidInitializationSettings(notificationIcon),
       ),
@@ -54,7 +54,7 @@ final class NotificationLaunch {
   Future<void> _onResponse(NotificationResponse r) async {
     final ref = PostRef.decode(r.payload);
     if (ref == null) return;
-    // Handled by the service host.
+    // Handled by the alerts (rule_alerts.dart).
     if (r.actionId == actionListen || r.actionId == actionStop) return;
     // The tap, or "Open in Telegram", took the notification out of the shade; whoever
     // posts them forgets what it listed.

@@ -229,7 +229,7 @@ String voiceLabel(Map<String, String> voice, AppLocalizations l10n) {
   return [who, region, online].where((s) => s.isNotEmpty).join(' · ');
 }
 
-/// Read-aloud preferences (ARCHITECTURE.md section 7): the service's TtsService reads the
+/// Read-aloud preferences (ARCHITECTURE.md section 7): the alerts' TtsService reads the
 /// same keys, so changes apply to the next utterance.
 class ReadAloudScreen extends StatefulWidget {
   const ReadAloudScreen({

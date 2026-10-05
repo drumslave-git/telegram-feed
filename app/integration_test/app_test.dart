@@ -1,5 +1,5 @@
 // Runs the real app on the emulator against the fake Telegram (`package:fake_telegram`):
-// the core, the service, the database and every screen are real; only Telegram is scripted.
+// the core, the alerts, the database and every screen are real; only Telegram is scripted.
 //
 //   cd app && flutter test integration_test -d emulator-5554 --dart-define=TG_FAKE=true
 //

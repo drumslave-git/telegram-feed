@@ -90,9 +90,9 @@ final class AlertAccount {
 
 /// What a rule match becomes: its notification, read-aloud, and the actions on both
 /// (ARCHITECTURE 6.3 and 7). It lives where the plugins can run, beside the core it
-/// listens to: in the service host, or in the app itself while background watching is
-/// off. Every logged-in account notifies: the account in use and [others] share the
-/// notifier, the speech queue and the settings of the account in use.
+/// listens to: in the app, or in a push run while the app is closed (`push_run.dart`).
+/// Every logged-in account notifies: the account in use and [others] share the notifier,
+/// the speech queue and the settings of the account in use.
 final class RuleAlerts {
   RuleAlerts({
     required this.db,
@@ -200,6 +200,13 @@ final class RuleAlerts {
   ReadAloudKeys? _keys;
   AppLocalizations _strings = AppLanguage.englishStrings;
 
+  /// Matches on their way to their notification (the AI check, the pictures).
+  int _working = 0;
+
+  /// Something is still to be done: a match on its way to its notification, or a post
+  /// being read or waiting to be. A run ends only once nothing is.
+  bool get busy => _working > 0 || (_tts?.reading.isNotEmpty ?? false);
+
   /// Recent matched posts so the Listen action can find their text.
   final _recentTexts = <(int, int), String>{};
 
@@ -291,6 +298,15 @@ final class RuleAlerts {
   }
 
   Future<void> _onMatch(AlertAccount a, MatchEvent candidate) async {
+    _working++;
+    try {
+      await _alert(a, candidate);
+    } finally {
+      _working--;
+    }
+  }
+
+  Future<void> _alert(AlertAccount a, MatchEvent candidate) async {
     // AI semantic rules: the model decides before anything is shown. A check that cannot
     // be done skips those rules for this post; keyword rules on it still fire.
     final check = a.gate ??= SemanticGate(
@@ -445,6 +461,10 @@ final class RuleAlerts {
 
   Future<void> _onNotificationAction(Object? msg) async {
     final m = msg as Map<Object?, Object?>;
+    if (m['type'] == alertsBusy) {
+      (m['reply'] as SendPort).send(busy);
+      return;
+    }
     final ref = PostRef.decode(m['payload'] as String?);
     final dismissed =
         m['type'] == NotificationResponseType.notificationDismissed.name;
@@ -532,7 +552,12 @@ final class RuleAlerts {
     }
     await _keys?.watch(false);
     await _tts?.dispose();
-    IsolateNameServer.removePortNameMapping(notifierPortName);
+    // Unless the alerts of another host took the name over since (a run hands over to
+    // the app when it opens).
+    if (IsolateNameServer.lookupPortByName(notifierPortName) ==
+        _actions.sendPort) {
+      IsolateNameServer.removePortNameMapping(notifierPortName);
+    }
     _actions.close();
   }
 }

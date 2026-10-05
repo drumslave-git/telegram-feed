@@ -1731,7 +1731,7 @@
       }
     }
   },
-  "ruleBatteryBanner": "Android may stop background watching, and rules would then go quiet. Allow the app to ignore battery optimisation so they keep working.",
+  "ruleBatteryBanner": "While the phone sleeps, Android may hold back what the app does for a push, and some phones put the app to sleep: rules would then notify late or not at all. Allow the app to ignore battery optimisation so they keep working.",
   "semanticProblemNotSetUp": "The AI endpoint is not set up in Settings.",
   "semanticProblemUnreachable": "Could not reach the AI endpoint: {error}",
   "@semanticProblemUnreachable": {
@@ -1864,12 +1864,12 @@
   },
   "notificationSettingsCountFooter": "The app's icon carries the number of unread posts of your channels, on home screens that show numbers. That number and the badges of the feeds and of the folder tabs count the unread posts. Off, they count the channels that have unread posts.",
   "notificationSettingsBackground": "Background",
-  "notificationSettingsWatchInBackground": "Watch channels in the background",
-  "notificationSettingsWatchInBackgroundSubtitle": "Rules keep running while the app is closed. Off removes the permanent notification, and rules then only notify while the app is open.",
-  "notificationSettingsBackgroundFailed": "Android did not start background watching. Rules notify while the app is open.",
-  "@notificationSettingsBackgroundFailed": {
-    "description": "Message when the foreground service could not be started after the switch was turned on."
+  "notificationSettingsPush": "Notify while the app is closed",
+  "@notificationSettingsPush": {
+    "description": "Row that says whether Telegram's push reaches the app, so rules notify while it is closed."
   },
+  "notificationSettingsPushOn": "Telegram's push wakes the app for new posts. Of a channel muted in Telegram, it comes for about every tenth post, so that channel's notifications may come late.",
+  "notificationSettingsPushOff": "This build or this phone gets no push from Telegram. Rules notify only while the app is open.",
   "notificationSettingsSystemSettings": "System notification settings",
   "notificationSettingsNoSoundPicker": "No sound picker: {message}",
   "@notificationSettingsNoSoundPicker": {
@@ -2577,26 +2577,6 @@
   "ttsMore": "… and more",
   "@ttsMore": {
     "description": "Spoken after a post cut short when it is read aloud."
-  },
-  "serviceChannelName": "Watching channels",
-  "@serviceChannelName": {
-    "description": "Android notification channel of the permanent notification."
-  },
-  "serviceChannelDescription": "Keeps the Telegram connection open for keyword rules",
-  "serviceStarting": "Starting…",
-  "servicePause": "Pause",
-  "@servicePause": {
-    "description": "Button on the permanent notification that pauses every rule."
-  },
-  "serviceResume": "Resume",
-  "servicePaused": "Paused: rules are not evaluated",
-  "serviceWatching": "{count, plural, =1{Watching 1 channel} other{Watching {count} channels}}",
-  "@serviceWatching": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
   },
   "notifyNewPost": "New post",
   "@notifyNewPost": {

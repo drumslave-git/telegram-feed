@@ -36,7 +36,7 @@ final class TdlibConfig {
 }
 
 /// [TelegramGateway] on top of any TDLib JSON transport (`FfiTransport` on Android).
-final class TdlibGateway implements TelegramGateway {
+final class TdlibGateway implements TelegramGateway, PushGateway {
   TdlibGateway(TdTransport transport, this.config, {this.log})
     : _client = TdClient(transport) {
     // asyncMap keeps update handling strictly ordered even when a handler awaits a request
@@ -1560,6 +1560,32 @@ final class TdlibGateway implements TelegramGateway {
   /// wide), and the widest the options take for the size, in kilobytes, and the count.
   static const _never = 10 * 365 * 24 * 60 * 60;
   static const _noLimit = 0x7fffffff;
+
+  @override
+  Future<void> registerPush(
+    String token, {
+    List<int> otherUserIds = const [],
+  }) async {
+    await _client.call(
+      td.RegisterDevice(
+        deviceToken: td.DeviceTokenFirebaseCloudMessaging(
+          token: token,
+          encrypt: true,
+        ),
+        otherUserIds: otherUserIds,
+      ),
+    );
+  }
+
+  @override
+  Future<void> processPush(String payload) async {
+    try {
+      await _client.call(td.ProcessPushNotification(payload: payload));
+    } on TelegramException catch (e) {
+      // 406: TDLib has to ask Telegram itself, which it does once it is connected.
+      log?.call('processPushNotification: $e');
+    }
+  }
 
   @override
   Future<void> setCacheLimits({

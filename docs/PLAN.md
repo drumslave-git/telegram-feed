@@ -4,15 +4,13 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Phase 5 — Push. **Next task:** P5-2.
+**Current phase:** Phase 5 — Push. **Next task:** V-16.
 
 ## Phase 5 — Push
 
 Rules notify through Telegram's push (FCM) instead of a permanent foreground service.
 
-- [ ] P5-2 The foreground service goes: the core always runs in the app's process; the background watching switch, the permanent notification with its Pause and the `flutter_foreground_task` plugin are removed; the battery exemption goes through the app's own channel.
-- [ ] P5-3 Push: every logged-in account registers the FCM token with TDLib (`registerDevice`); an FCM message schedules an expedited WorkManager job that starts a headless engine with the core, the alerts and the badge, hands TDLib the push, catches up and ends when nothing is left to do; the app takes such a core over when it opens; Listen on a notification starts a run when nothing runs. The native side is a local plugin (FCM service, worker, token), so every engine has its channel.
-- [ ] V-16 Real Telegram: a push from Telegram wakes the app on the emulator and a rule notifies (needs a build on the founder's api_id with FCM credentials uploaded at my.telegram.org, and a Firebase project for the app).
+- [ ] V-16 Real Telegram: a push from Telegram wakes the closed app on the emulator and a rule notifies. Needs the app's Firebase project (its `google-services.json` in `app/android/app/`), that project's FCM credentials uploaded at my.telegram.org for the founder's `api_id`, and a build on that `api_id`.
 
 ## Hands-on checks
 

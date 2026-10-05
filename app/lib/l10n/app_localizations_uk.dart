@@ -2278,7 +2278,7 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get ruleBatteryBanner =>
-      'Android може зупинити стеження у фоні, і тоді правила замовкнуть. Дозвольте застосунку ігнорувати оптимізацію батареї, щоб вони працювали далі.';
+      'Поки телефон спить, Android може затримувати те, що застосунок робить після push, а деякі телефони присипляють застосунок: тоді правила сповіщатимуть пізно або не сповіщатимуть зовсім. Дозвольте застосунку ігнорувати оптимізацію батареї, щоб вони працювали далі.';
 
   @override
   String get semanticProblemNotSetUp =>
@@ -2430,16 +2430,15 @@ class AppLocalizationsUk extends AppLocalizations {
   String get notificationSettingsBackground => 'Робота у фоні';
 
   @override
-  String get notificationSettingsWatchInBackground =>
-      'Стежити за каналами у фоні';
+  String get notificationSettingsPush => 'Сповіщати, коли застосунок закрито';
 
   @override
-  String get notificationSettingsWatchInBackgroundSubtitle =>
-      'Правила працюють, навіть коли застосунок закрито. Якщо вимкнути, постійне сповіщення зникне, а правила сповіщатимуть лише тоді, коли застосунок відкрито.';
+  String get notificationSettingsPushOn =>
+      'Push від Telegram будить застосунок, коли зʼявляються нові дописи. Для каналу, вимкненого в Telegram, він приходить приблизно для кожного десятого допису, тож сповіщення цього каналу можуть запізнюватися.';
 
   @override
-  String get notificationSettingsBackgroundFailed =>
-      'Android не запустив стеження у фоні. Правила сповіщають, поки застосунок відкрито.';
+  String get notificationSettingsPushOff =>
+      'Ця збірка або цей телефон не отримує push від Telegram. Правила сповіщають лише тоді, коли застосунок відкрито.';
 
   @override
   String get notificationSettingsSystemSettings =>
@@ -3362,38 +3361,6 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get ttsMore => '… і далі';
-
-  @override
-  String get serviceChannelName => 'Стеження за каналами';
-
-  @override
-  String get serviceChannelDescription =>
-      'Тримає зʼєднання з Telegram для правил із ключовими словами';
-
-  @override
-  String get serviceStarting => 'Запуск…';
-
-  @override
-  String get servicePause => 'Призупинити';
-
-  @override
-  String get serviceResume => 'Відновити';
-
-  @override
-  String get servicePaused => 'Призупинено: правила не перевіряються';
-
-  @override
-  String serviceWatching(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: 'Стеження за $count каналу',
-      many: 'Стеження за $count каналами',
-      few: 'Стеження за $count каналами',
-      one: 'Стеження за $count каналом',
-    );
-    return '$_temp0';
-  }
 
   @override
   String get notifyNewPost => 'Новий допис';

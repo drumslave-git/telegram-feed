@@ -20,8 +20,7 @@ import 'semantic_gate_test.dart' show MemorySecrets;
 import 'tts_service_test.dart' show FakeSpeaker;
 
 /// A match becomes a line of its channel's notification and, when a rule asks, speech,
-/// wherever the alerts run: in the service host, or in the app while background watching
-/// is off.
+/// wherever the alerts run: in the app, or in a push run while the app is closed.
 void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
   const pictureChannel = MethodChannel('tf/notificationPictures');
@@ -71,8 +70,7 @@ void main() {
   /// Minutes pass: Android lists what was posted, and the channel may sound again.
   void later() => now = now.add(const Duration(minutes: 5));
 
-  /// A button of the channel's notification, a swipe or a tap, as the service host
-  /// hears of it.
+  /// A button of the channel's notification, a swipe or a tap, as the alerts hear of it.
   Future<void> respond({String? action, String? type}) async {
     IsolateNameServer.lookupPortByName(notifierPortName)!.send({
       'actionId': action,

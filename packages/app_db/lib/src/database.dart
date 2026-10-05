@@ -216,15 +216,13 @@ abstract final class SettingKeys {
   /// The same for GIFs; 'true' | 'false', default true.
   static const autoplayGifs = 'media.autoplayGifs';
 
-  /// Rules keep being evaluated while the app is closed, in the foreground service;
-  /// 'true' | 'false', default true. Off means no permanent notification and no rule
-  /// notifications unless the app is open.
-  static const backgroundWatching = 'service.background';
-
   /// Rules notify about nothing and read nothing aloud (the pause in the home screen's
-  /// header and on the permanent notification); 'true' | 'false', default false. Kept on
-  /// this device, through restarts.
+  /// header); 'true' | 'false', default false. Kept on this device, through restarts.
   static const rulesPaused = 'rules.paused';
+
+  /// The FCM token and the other accounts' user ids this account last had Telegram push
+  /// to, as `token ids`; it registers again when either changes. Kept on this device.
+  static const pushRegistered = 'push.registered';
 }
 
 @DriftDatabase(

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../home/unread_badge.dart';
 import '../host/accounts.dart';
 import '../l10n/l10n.dart';
-import '../service/core_service.dart' show appPaths;
+import '../service/core_bootstrap.dart' show appPaths;
 import '../widgets/destructive_button.dart';
 
 /// The other accounts of this device, under the profile in Settings as the official app

@@ -18,6 +18,8 @@ dependencies:
     path: ../packages/app_db
   rules:
     path: ../packages/rules
+  push_runner:
+    path: ../packages/push_runner
   path_provider: ^2.1.6
   qr_flutter: ^4.1.0
   drift: ^2.35.0
@@ -25,7 +27,6 @@ dependencies:
   just_audio: ^0.10.6
   scrollable_positioned_list: ^0.3.8
   url_launcher: ^6.3.2
-  flutter_foreground_task: ^11.0.3
   flutter_local_notifications: ^22.3.1
   flutter_tts: ^4.2.5
   google_mlkit_language_id: ^0.15.1

@@ -14,6 +14,7 @@ import 'media/audio_session.dart';
 import 'media/auto_download.dart';
 import 'media/system_pip.dart';
 import 'notifications/open_post.dart';
+import 'service/push_run.dart';
 import 'rules/rules_screen.dart';
 import 'settings/app_lock.dart';
 import 'settings/settings_screen.dart';
@@ -23,9 +24,13 @@ import 'app_name.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  platformInit();
   runApp(const TelegramFeedApp());
 }
+
+/// The entry point of a run: Android starts it in an engine of its own for a push while
+/// the app is closed (`PushWorker`, ARCHITECTURE 6.5).
+@pragma('vm:entry-point')
+Future<void> pushMain() => runPush();
 
 class TelegramFeedApp extends StatefulWidget {
   const TelegramFeedApp({super.key, this.host});
@@ -220,11 +225,10 @@ class _Root extends StatelessWidget {
                         db: h.db,
                         gateway: h.gateway,
                         onLogOut: h.logOutAndWipe,
-                        onBackground: h.setBackgroundWatching,
                         sync: h.sync,
                         batteryExempt: () => h.isBatteryExempt,
                         onRequestBatteryExemption: h.requestBatteryExemption,
-                        runningInService: () => h.runningInService,
+                        pushAvailable: () => h.pushAvailable,
                       ),
                     ),
                   ),

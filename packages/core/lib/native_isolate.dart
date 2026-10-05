@@ -117,6 +117,11 @@ Future<void> coreIsolateMain(CoreBootstrap b) async {
         id: other.sendPort,
     },
     dropAccount: (id) async => others.remove(id)?.shutdown(),
+    onPush: (payload) async {
+      for (final other in others.values) {
+        await other.handlePush(payload);
+      }
+    },
     onShutdown: () async {
       // Hand TDLib back: every client closes, so each drops its database lock, then the
       // receive pump stops, so the next core in this process can start one of its own.
@@ -157,6 +162,7 @@ Future<CoreServer> _serve(
   required Future<void> Function() onShutdown,
   Map<int, SendPort> Function()? accounts,
   Future<void> Function(int id)? dropAccount,
+  Future<void> Function(String payload)? onPush,
 }) async {
   RuleEngine? engine;
   Future<void> Function()? refresh;
@@ -203,6 +209,7 @@ Future<CoreServer> _serve(
     accounts: accounts,
     dropAccount: dropAccount,
     onMarks: appDb?.saveRuleMarks,
+    onPush: onPush,
   );
   _watchForClose(server, b, closing);
   return server;

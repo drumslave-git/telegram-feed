@@ -6,6 +6,13 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Push (ARCHITECTURE 6.5): a build gets Telegram's pushes through a Firebase project of
+// its own, whose google-services.json lies here, git-ignored. Without it the build has no
+// FCM and rules notify only while the app is open.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 // Release signing: android/key.properties (git-ignored) with storeFile, storePassword,
 // keyAlias, keyPassword. CI writes it from secrets; without it release builds use the
 // debug key so local `flutter build apk --release` still works.

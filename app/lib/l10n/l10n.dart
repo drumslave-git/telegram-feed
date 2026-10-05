@@ -45,8 +45,8 @@ abstract final class AppLanguage {
     const Locale('en'),
   );
 
-  /// The strings of a setting value, where no widget tree is at hand (the service's
-  /// notifications).
+  /// The strings of a setting value, where no widget tree is at hand (the notifications
+  /// of the alerts, also those of a push run).
   static AppLocalizations strings(String? value, [List<Locale>? preferred]) =>
       lookupAppLocalizations(localeOf(value) ?? ofPhone(preferred));
 

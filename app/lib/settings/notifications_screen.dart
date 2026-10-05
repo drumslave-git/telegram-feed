@@ -8,33 +8,28 @@ import '../l10n/l10n.dart';
 import '../rules/rules_screen.dart' show BatteryBanner;
 import 'settings_tiles.dart';
 
-/// How rules notify and whether they run with the app closed: the official app's
+/// How rules notify, and whether they can while the app is closed: the official app's
 /// Notifications and Sounds.
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({
     super.key,
     required this.db,
-    this.onBackground,
+    this.pushAvailable,
     this.batteryExempt,
     this.onRequestBatteryExemption,
-    this.runningInService,
     this.channel = const MethodChannel('tf/notifications'),
   });
   final AppDatabase db;
 
-  /// Turns background watching on or off, which moves the core between the service and
-  /// the app. Null where there is no host to do it (tests): the setting alone is saved.
-  final Future<void> Function(bool on)? onBackground;
+  /// Whether Telegram's push reaches this install (`AppHost.pushAvailable`). Null where
+  /// there is no host to ask (tests): the screen then says nothing of it.
+  final Future<bool> Function()? pushAvailable;
 
   /// Whether Android lets the app ignore battery optimisation, and the ask for it; the
   /// banner about it belongs here as well as on the rules screens. Null where the
   /// platform has none (tests, desktop).
   final Future<bool> Function()? batteryExempt;
   final Future<void> Function()? onRequestBatteryExemption;
-
-  /// True while the core still runs in the mode the setting had before it was changed:
-  /// the switch shows the new value, so the screen says a restart is due.
-  final bool Function()? runningInService;
 
   /// Asks Android whether the app may notify at all; tests hand in their own.
   final MethodChannel channel;
@@ -52,6 +47,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   );
 
   AppDatabase get db => widget.db;
+
+  late final Future<bool>? _push = widget.pushAvailable?.call();
 
   @override
   void initState() {
@@ -80,38 +77,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (mounted && enabled != null) setState(() => _enabled = enabled!);
   }
 
-  /// Background watching moves the core between the service and the app, at once.
-  Future<void> _setBackground(bool on) async {
-    final move = widget.onBackground;
-    if (move == null) {
-      await db.setSetting(
-        SettingKeys.backgroundWatching,
-        on ? 'true' : 'false',
-      );
-      return;
-    }
-    if (_moving) return;
-    _moving = true;
-    try {
-      await move(on);
-    } finally {
-      _moving = false;
-    }
-    // Android did not start the service: the switch says what runs.
-    if (on && mounted && widget.runningInService?.call() == false) {
-      await db.setSetting(SettingKeys.backgroundWatching, 'false');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.notificationSettingsBackgroundFailed),
-        ),
-      );
-    }
-  }
-
-  /// The core is on its way between the service and the app.
-  bool _moving = false;
-
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -135,8 +100,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
               ],
             ),
-          // The same warning the rules screens carry: battery optimisation stops the
-          // watching this screen turns on.
+          // The same warning the rules screens carry: battery optimisation holds back
+          // what a push starts.
           if (widget.batteryExempt != null)
             BatteryBanner(
               exempt: widget.batteryExempt!,
@@ -172,22 +137,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
           ),
           SettingsFooter(l10n.notificationSettingsCountFooter),
-          const Divider(),
-          SettingsHeader(l10n.notificationSettingsBackground),
-          StreamBuilder<String?>(
-            stream: db.watchSetting(SettingKeys.backgroundWatching),
-            builder: (context, snap) {
-              final on = snap.data != 'false';
-              return SwitchListTile(
-                title: Text(l10n.notificationSettingsWatchInBackground),
-                subtitle: Text(
-                  l10n.notificationSettingsWatchInBackgroundSubtitle,
+          if (_push case final push?)
+            FutureBuilder<bool>(
+              future: push,
+              builder: (context, snap) => switch (snap.data) {
+                null => const SizedBox.shrink(),
+                final on => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Divider(),
+                    SettingsHeader(l10n.notificationSettingsBackground),
+                    ListTile(
+                      title: Text(l10n.notificationSettingsPush),
+                      subtitle: Text(
+                        on
+                            ? l10n.notificationSettingsPushOn
+                            : l10n.notificationSettingsPushOff,
+                      ),
+                    ),
+                  ],
                 ),
-                value: on,
-                onChanged: (v) => unawaited(_setBackground(v)),
-              );
-            },
-          ),
+              },
+            ),
           const Divider(),
           SystemNotificationSettingsRow(channel: widget.channel),
         ],
@@ -196,8 +167,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 }
 
-/// Opens Android's settings page of the app's notifications, where each kind of them, the
-/// permanent "Watching N channels" one included, is turned off or changed.
+/// Opens Android's settings page of the app's notifications, where each kind of them is
+/// turned off or changed.
 class SystemNotificationSettingsRow extends StatelessWidget {
   const SystemNotificationSettingsRow({
     super.key,

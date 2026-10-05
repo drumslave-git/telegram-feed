@@ -30,7 +30,7 @@ abstract final class FakeChats {
 /// post arrives every [arrivalEvery], an archived channel, Saved Messages, posts of every
 /// kind, a discussion thread, and media served from [mediaDirectory]. The files there are
 /// the ones under `app/assets/fake/`; a file that is missing is served as absent.
-final class FakeTelegram extends TimelineGateway {
+final class FakeTelegram extends TimelineGateway implements PushGateway {
   FakeTelegram({
     required this.mediaDirectory,
     bool loggedIn = false,
@@ -1649,6 +1649,21 @@ final class FakeTelegram extends TimelineGateway {
       ),
     );
   }
+
+  /// The token Telegram would push this account to.
+  String? pushToken;
+
+  /// Pushes handed in so far.
+  final pushes = <String>[];
+
+  @override
+  Future<void> registerPush(
+    String token, {
+    List<int> otherUserIds = const [],
+  }) async => pushToken = token;
+
+  @override
+  Future<void> processPush(String payload) async => pushes.add(payload);
 
   @override
   Future<void> close() async {

@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Push: each build brings its own Firebase project (ARCHITECTURE 6.5).
+/android/app/google-services.json

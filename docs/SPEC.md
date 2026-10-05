@@ -11,8 +11,8 @@ It does not replace the official Telegram app. Chats, calls, stories and account
 | Topic | Decision |
 |---|---|
 | Name | "Unofficial Telegram Feed" in the app and its notifications, "TG Feed" under the launcher icon: Telegram's API terms allow "Telegram" in an app's title only after "Unofficial". The repository and the package are `telegram-feed`. |
-| Platform | Android 12 or later only. iOS cannot run a persistent background service, so real-time on-device rule notifications are impossible there. No web build. |
-| Telegram access | User account through TDLib (MTProto). The session lives on the device. Up to four accounts per device, each with its own session, feeds and rules. Every logged-in account stays connected, so the rules of each notify; one is in use at a time. |
+| Platform | Android 12 or later only. No iOS and no web build. |
+| Telegram access | User account through TDLib (MTProto). The session lives on the device. Up to four accounts per device, each with its own session, feeds and rules. Every logged-in account gets Telegram's pushes, so the rules of each notify; one is in use at a time. |
 | UI framework | Flutter |
 | Interface language | English and Ukrainian. The app follows the phone's language, English when the phone's is neither; Settings → Language picks one instead. App and brand names stay as they are. |
 | Audience | Public product, open source |
@@ -28,10 +28,10 @@ It does not replace the official Telegram app. Chats, calls, stories and account
 | Rule text | Post text and media captions only. Forward origin, edits and link targets are not matched. |
 | Rule actions | Priority (silent, normal, urgent) and read-aloud |
 | Read aloud | Device text-to-speech with per-post language detection; while it speaks, a banner under the header stops it, and so do volume down and swiping the post's notification away |
-| Pause | One switch, in the home screen's header and on the permanent notification, silences every rule until it is turned off |
-| Background | A persistent foreground service keeps TDLib connected. It can be turned off. |
+| Pause | One switch, in the home screen's header, silences every rule until it is turned off |
+| Background | Telegram's push (Firebase Cloud Messaging) wakes the app while it is closed; there is no permanent service and no permanent notification. A build gets push through its own Firebase project; without it, or without Google Play services, rules notify only while the app is open. |
 | Sync | Feeds, rules and some settings sync through the user's own Google Drive. No backend. |
-| API credentials | `api_id` and `api_hash` are never committed; every build supplies its own |
+| API credentials | `api_id`, `api_hash` and the Firebase project are never committed; every build supplies its own, with the project's FCM credentials uploaded at my.telegram.org for its `api_id` |
 
 ## 3. User stories
 
@@ -150,20 +150,21 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 - A matching post that came while the rules could not look (the phone off or offline, the app not running) notifies as soon as they can again, unless I have read it by then. A rule notifies about posts that come after its channel joined a feed, not about older ones.
 - Rules match post text and media captions. Edited posts are not matched again.
 - I test a rule against the recent posts of its channels to see what it would have matched. The result says how many posts and channels it checked.
-- A bell-with-slash button in the home screen's header pauses every rule: nothing notifies me and nothing is read aloud until I press it again, also after the app or the phone restarts. Pausing stops the post being read and clears the queue. While paused, the button is red and a banner under the header of every screen says so, with "Resume". The permanent notification's Pause and Resume are the same switch.
+- A bell-with-slash button in the home screen's header pauses every rule: nothing notifies me and nothing is read aloud until I press it again, also after the app or the phone restarts. Pausing stops the post being read and clears the queue. While paused, the button is red and a banner under the header of every screen says so, with "Resume".
 - A post deleted in Telegram leaves its channel's notification, and so does a post I read, here or in the official app; the notification goes with its last post. A notification I swiped away or opened starts a new list with the next matching post.
 
-### Background watching
+### While the app is closed
 
-- While the app watches channels for me it keeps a permanent "Watching N channels" notification with a Pause action. That is what lets rules notify me when the app is closed.
-- That notification makes no sound. Whether it has a status-bar icon, and where it sits in the shade, depends on the phone.
-- Notifications and sounds has a row that opens Android's notification settings of the app, where I can turn that notification off. Watching goes on without it.
-- I can turn background watching off. The permanent notification then goes away and rules only notify me while the app is open. The switch applies at once, in both directions, and I stay on the screen I am on; the choice stays on this device. Where Android does not start the background service, the switch goes back and says so.
+- Rules notify me while the app is closed, with no permanent notification: Telegram's push wakes the app, which looks at the new posts, notifies, reads aloud and goes back to sleep. Nothing needs to be turned on.
+- Telegram pushes every post of a channel that is not muted in Telegram, and about every tenth post of a muted one. The posts in between are looked at with the next push, so a muted channel's notifications can come late.
+- Without Google Play services, or in a build without its own Firebase project, there is no push, and rules notify only while the app is open. Notifications and sounds says which of the two holds.
+- The app asks to be let off battery optimisation, on the rules screens and on Notifications and sounds, since Android may hold back what it does while the phone sleeps and some phones put it to sleep altogether.
+- Notifications and sounds has a row that opens Android's notification settings of the app.
 - When Android blocks the app's notifications, Notifications and sounds says so at its top and opens the setting that turns them on.
 
 ### Read aloud
 
-- When a rule with read-aloud fires, the app speaks "New post in <channel>" followed by the post text, also with the screen off. The words the app adds are in the post's language when the app has it (English or Ukrainian), otherwise in the interface language.
+- When a rule with read-aloud fires, the app speaks "New post in <channel>" followed by the post text, also with the screen off. While the app is closed the phone's speech engine speaks it; Android 17 and later mute that, so there a post is read aloud only while the app is open. The words the app adds are in the post's language when the app has it (English or Ukrainian), otherwise in the interface language.
 - Every rule notification carries a "Listen" action, which reads the posts it lists that were not read aloud yet, oldest first, and all of them when every one was. While one of its posts is being read or waits to be read, the action is "Stop" instead, which silences the posts of that notification; a waiting post of another channel is read next. Neither action takes the notification away.
 - Swiping a notification away stops its posts the way its Stop does. "Clear all" in the shade stops every post it clears.
 - Volume down stops the post being read and clears the queue, also with the screen off or locked; that press does not lower the volume. Volume up still raises it. A headset's pause button does the same as volume down. When nothing is read, the keys work as usual.
@@ -186,7 +187,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 
 ### Accounts and security
 
-- I use up to four Telegram accounts. Settings lists the other ones under my profile, each with its photo, name, phone and the number of channels with unread posts. Every account that is logged in stays connected: its rules notify and read aloud while another account is in use, and while several accounts are logged in a notification names its account before the rule. A tap on such a notification switches to its account and opens the post. The number on the app's icon counts every logged-in account, and pausing notifications pauses them all. The sounds, the speech and the app lock are those of the account in use. A tap switches to an account, a long press offers to remove it from the device, and "Add an account" is there while fewer than four exist. An account goes by "Account N" until its profile is known. An account I add and never log in to leaves no row, and neither does one I log out of.
+- I use up to four Telegram accounts. Settings lists the other ones under my profile, each with its photo, name, phone and the number of channels with unread posts. Every account that is logged in notifies: Telegram pushes each of them to the phone, and its rules notify and read aloud while another account is in use, and while several accounts are logged in a notification names its account before the rule. A tap on such a notification switches to its account and opens the post. The number on the app's icon counts every logged-in account, and pausing notifications pauses them all. The sounds, the speech and the app lock are those of the account in use. A tap switches to an account, a long press offers to remove it from the device, and "Add an account" is there while fewer than four exist. An account goes by "Account N" until its profile is known. An account I add and never log in to leaves no row, and neither does one I log out of.
 - The app speaks English or Ukrainian: the phone's language, or the one I pick under Settings → Language. The choice stays on this device.
 - I lock the app with a PIN of four digits or with a password, and with my fingerprint or face where I allow it. The PIN is typed on a keypad and unlocks with its fourth digit; a password is typed in a field and sent. The app asks again after it has rested: at once, after a minute, five minutes, an hour or five hours, an hour until I pick another. While the lock is set, a lock button in the header of the home screen locks the app at once. The lock holds for every account on the phone and stays when I log out. After three wrong PINs in a row the next try has to wait, 5 seconds at first and up to 30, as in the official app. While the lock is set the task switcher shows no content and screenshots are refused, until I allow them. While the lock is set and the app is not on screen and unlocked, a notification says only "New post" under the app's name, with no buttons: neither the channel nor the words nor the rule. The lock's own settings ask for the PIN first, and removing the lock asks again.
 - My settings, feeds and rules sync between my devices through my own Google Drive when I turn it on.
@@ -202,7 +203,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 7. **Comments** of a post: the post on top, comments as bubbles with reply quotes and reactions, a menu on each comment, a field for a comment, an answer or an edit, and a search with a result list and a bar to step through the matches.
 8. **Media viewer**: photos and videos full screen, with the mini player and picture-in-picture.
 9. **Rules list**, every rule under the name of its feed, and **rule editor** (name and an on/off switch; feed and channels; the condition as a visual builder that starts with an "Add a term" button, or as text with its own syntax sheet; the dry run; priority, read-aloud and schedule; an AI description behind an "Also ask the AI" switch). What is missing is marked on the field it belongs to, and leaving with unsaved changes asks first.
-10. **Settings**, laid out like the official app's: the account profile (photo, name, username, phone, bio, Telegram ID), the other accounts and "Add an account", Saved Messages; Chat settings (post text size, theme); Privacy and security (app lock); Notifications and sounds (rule sounds and vibration, badge counting, background watching, a row that opens Android's notification settings); Data and storage (storage usage with its chart, cache clearing by kind, which asks first, and the automatic removal of cached media; automatic downloads per connection, autoplay); Language (System, English, Українська); Read aloud; AI rules; Google Drive sync; About and licenses, with the version at the bottom. Log out is in the menu.
+10. **Settings**, laid out like the official app's: the account profile (photo, name, username, phone, bio, Telegram ID), the other accounts and "Add an account", Saved Messages; Chat settings (post text size, theme); Privacy and security (app lock); Notifications and sounds (rule sounds and vibration, badge counting, whether rules notify while the app is closed, a row that opens Android's notification settings); Data and storage (storage usage with its chart, cache clearing by kind, which asks first, and the automatic removal of cached media; automatic downloads per connection, autoplay); Language (System, English, Українська); Read aloud; AI rules; Google Drive sync; About and licenses, with the version at the bottom. Log out is in the menu.
 
 ## 5. Out of scope
 

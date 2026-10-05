@@ -1,5 +1,5 @@
 import 'package:flutter/services.dart';
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 /// Notification policy access (needed for the urgent channel's DND bypass). Android only;
 /// elsewhere the channel has no handler and access reads as not granted.
@@ -45,8 +45,12 @@ abstract final class NotificationPermissionAsk {
   /// Asks Android for it, and answers whether it is granted afterwards.
   static Future<bool> request() async {
     try {
-      final now = await FlutterForegroundTask.requestNotificationPermission();
-      return now == NotificationPermission.granted;
+      final now = await FlutterLocalNotificationsPlugin()
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.requestNotificationsPermission();
+      return now ?? await granted;
     } on Object {
       return granted;
     }

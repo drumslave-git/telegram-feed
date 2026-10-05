@@ -18,6 +18,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.content.res.Configuration
 import android.os.Environment
+import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.provider.MediaStore
@@ -57,7 +58,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    /** Read-aloud runs in this engine while background watching is off (rule_alerts.dart). */
+    /** Read-aloud runs in this engine, beside the core (rule_alerts.dart). */
     private var readAloudKeys: ReadAloudKeys? = null
 
     /** And so are the notifications made, and the unread posts counted. */
@@ -133,11 +134,23 @@ class MainActivity : FlutterActivity() {
                         )
                         result.success(null)
                     }
+                    // What a push starts is held back by battery optimisation while the
+                    // phone sleeps (core_host.dart).
+                    "isIgnoringBatteryOptimizations" -> result.success(
+                        getSystemService(PowerManager::class.java)
+                            .isIgnoringBatteryOptimizations(packageName),
+                    )
+                    "requestIgnoreBatteryOptimizations" -> {
+                        startActivity(
+                            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                                .setData(Uri.parse("package:$packageName")),
+                        )
+                        result.success(null)
+                    }
                     else -> result.notImplemented()
                 }
             }
-        // A fresh start of the app, for settings that decide where the core runs. Dart has
-        // already stopped the core, so TDLib is closed when RestartActivity ends this process.
+        // The window and the phone: the lock, the screen kept on, files opened, haptics.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "tf/app")
             .setMethodCallHandler { call, result ->
                 when (call.method) {

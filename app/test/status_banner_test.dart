@@ -157,7 +157,5 @@ void main() {
       ),
       'Reading aloud. 1 more post waits.',
     );
-    expect(ReadingNow.decode(news.encode()), news);
-    expect(ReadingNow.decode(null), isNull);
   });
 }

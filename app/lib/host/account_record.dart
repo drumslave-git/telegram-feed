@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
-import '../service/core_service.dart' show appPaths;
+import '../service/core_bootstrap.dart' show appPaths;
 import 'accounts.dart';
 
 /// Stands around the home screen of a logged-in account and keeps the list of accounts

@@ -1,13 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- Core service (ARCHITECTURE 8): specialUse because Android 15 caps dataSync at 6 h/day -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <!-- A voice message or music plays on with the screen off (NowPlaying.kt) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- What a push starts is held back by battery optimisation (core_host.dart) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
-    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- Lists the app under Do Not Disturb access, which urgent rules need to break through -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY"/>
@@ -43,18 +41,6 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Status bar icon of the "Watching N channels" notification (core_service.dart) -->
-        <meta-data
-            android:name="dev.telegramfeed.service.NOTIFICATION_ICON"
-            android:resource="@drawable/ic_stat_feed" />
-        <service
-            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
-            android:foregroundServiceType="specialUse"
-            android:exported="false">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Keeps the Telegram connection open to evaluate keyword rules and notify the user in real time"/>
-        </service>
         <!-- The voice message or music that plays: its notification, the lock screen's
              player and the headset's buttons (NowPlaying.kt) -->
         <service
