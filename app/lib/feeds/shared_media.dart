@@ -10,6 +10,7 @@ import '../host/haptics.dart';
 import '../l10n/l10n.dart';
 import '../media/media_viewer.dart';
 import '../widgets/error_state.dart';
+import '../widgets/finger_gestures.dart';
 import '../widgets/menu_item.dart';
 import 'media_view.dart';
 import 'open_links.dart';
@@ -584,21 +585,31 @@ class _SharedMediaTabState extends State<SharedMediaTab>
           onPointerDown: (_) => _setFingers(_fingers + 1),
           onPointerUp: (_) => _setFingers(_fingers - 1),
           onPointerCancel: (_) => _setFingers(_fingers - 1),
-          child: GestureDetector(
-            onScaleStart: (_) => _pinchFrom = 1,
-            onScaleUpdate: (d) {
-              if (d.pointerCount < 2) return;
-              // Spreading the fingers makes the pictures larger: fewer columns.
-              final ratio = d.scale / _pinchFrom;
-              if (ratio > 1.25 && columns > 2) {
-                mediaGridColumns.value = columns - 1;
-                _pinchFrom = d.scale;
-                Haptics.reaction();
-              } else if (ratio < 0.8 && columns < 9) {
-                mediaGridColumns.value = columns + 1;
-                _pinchFrom = d.scale;
-                Haptics.reaction();
-              }
+          child: RawGestureDetector(
+            gestures: {
+              PinchGestureRecognizer:
+                  GestureRecognizerFactoryWithHandlers<PinchGestureRecognizer>(
+                    () => PinchGestureRecognizer(debugOwner: this),
+                    (pinch) => pinch
+                      ..onStart = (_) {
+                        _pinchFrom = 1;
+                      }
+                      ..onUpdate = (d) {
+                        if (d.pointerCount < 2) return;
+                        // Spreading the fingers makes the pictures larger: fewer
+                        // columns.
+                        final ratio = d.scale / _pinchFrom;
+                        if (ratio > 1.25 && columns > 2) {
+                          mediaGridColumns.value = columns - 1;
+                          _pinchFrom = d.scale;
+                          Haptics.reaction();
+                        } else if (ratio < 0.8 && columns < 9) {
+                          mediaGridColumns.value = columns + 1;
+                          _pinchFrom = d.scale;
+                          Haptics.reaction();
+                        }
+                      },
+                  ),
             },
             child: NotificationListener<ScrollMetricsNotification>(
               onNotification: (n) {

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show DeviceGestureSettings;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/shared_media.dart';
@@ -246,6 +247,64 @@ void main() {
     expect(tileWidth(), lessThan(three));
     mediaGridColumns.value = 3;
   });
+
+  testWidgets(
+    'a quick pinch with the touch slop of a phone changes the columns, '
+    'and does not swipe the tabs',
+    (tester) async {
+      // A file as well: the tabs can be swiped to the next one.
+      final gw = SharedGateway([
+        doc(4, 'a.pdf'),
+        for (var id = 3; id > 0; id--) photo(id),
+      ]);
+      mediaGridColumns.value = 3;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            // Android's touch slop, which a phone hands Flutter: the tabs' swipe takes a
+            // finger after 8 pixels, sooner than the pinch shows as one.
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                gestureSettings: const DeviceGestureSettings(touchSlop: 8),
+              ),
+              child: Scaffold(
+                body: SharedMediaTabs(
+                  gateway: gw,
+                  chatIds: const [-1],
+                  titles: const {-1: 'News'},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await settle(tester);
+      final centre = tester.getCenter(find.byType(GridView));
+      Future<void> pinch(double from, double by) async {
+        final a = await tester.startGesture(centre - Offset(from / 2, 0));
+        final b = await tester.startGesture(centre + Offset(from / 2, 0));
+        await tester.pump();
+        for (var i = 0; i < 6; i++) {
+          await a.moveBy(Offset(-by, 0));
+          await b.moveBy(Offset(by, 0));
+          await tester.pump();
+        }
+        await a.up();
+        await b.up();
+        await step(tester);
+      }
+
+      // Apart: fewer columns.
+      await pinch(60, 24);
+      expect(mediaGridColumns.value, 2);
+      // Together: more.
+      await pinch(340, -24);
+      expect(mediaGridColumns.value, greaterThan(2));
+      // The Media tab stayed.
+      expect(find.byType(GridView), findsOneWidget);
+      mediaGridColumns.value = 3;
+    },
+  );
 
   testWidgets('files are searched by words', (tester) async {
     final gw = SharedGateway([

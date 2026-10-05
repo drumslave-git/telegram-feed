@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/finger_gestures.dart';
+
 /// Lets a full-screen viewer be dragged away, as in the official app: the content follows a
 /// vertical drag of one finger while the black behind it fades, and past a distance or with
 /// a flick the viewer closes. The route has to be non-opaque for the screen below to show.
@@ -56,6 +58,15 @@ class _SwipeToCloseState extends State<SwipeToClose>
     }
   }
 
+  void _onStart(DragStartDetails d) => _settle.stop();
+
+  void _onUpdate(DragUpdateDetails d) => setState(() => _dy += d.delta.dy);
+
+  void _onCancel() {
+    _from = _dy;
+    _settle.forward(from: 0);
+  }
+
   void _onEnd(DragEndDetails d) {
     final v = d.primaryVelocity ?? 0;
     // A flick counts only in the direction the content was dragged.
@@ -76,18 +87,26 @@ class _SwipeToCloseState extends State<SwipeToClose>
       onPointerDown: (_) => _setPointers(_pointers + 1),
       onPointerUp: (_) => _setPointers(_pointers - 1),
       onPointerCancel: (_) => _setPointers(_pointers - 1),
-      child: GestureDetector(
-        onVerticalDragStart: active ? (_) => _settle.stop() : null,
-        onVerticalDragUpdate: active
-            ? (d) => setState(() => _dy += d.delta.dy)
-            : null,
-        onVerticalDragEnd: active ? _onEnd : null,
-        onVerticalDragCancel: active
-            ? () {
-                _from = _dy;
-                _settle.forward(from: 0);
-              }
-            : null,
+      // A second finger takes the drag out of the gesture at once, before the pinch would
+      // lose both fingers to it; the Listener then swings back a drag that had begun.
+      child: RawGestureDetector(
+        gestures: {
+          if (active)
+            OneFingerVerticalDrag:
+                GestureRecognizerFactoryWithHandlers<OneFingerVerticalDrag>(
+                  () => OneFingerVerticalDrag(debugOwner: this),
+                  (drag) {
+                    drag
+                      ..onStart = _onStart
+                      ..onUpdate = _onUpdate
+                      ..onEnd = _onEnd
+                      ..onCancel = _onCancel
+                      ..gestureSettings = MediaQuery.maybeGestureSettingsOf(
+                        context,
+                      );
+                  },
+                ),
+        },
         child: ColoredBox(
           color: Colors.black.withValues(alpha: fade),
           child: Transform.translate(

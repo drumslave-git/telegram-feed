@@ -21,6 +21,7 @@ import 'video_downloads.dart';
 import 'video_sessions.dart';
 import 'video_stage.dart';
 import 'zoom.dart';
+import '../widgets/finger_gestures.dart';
 
 /// The photos and videos on the whole screen, in whatever orientation the device has: swipe
 /// sideways through everything the timeline holds — the post's own album and the pictures of
@@ -597,80 +598,85 @@ class _MediaViewerScreenState extends State<MediaViewerScreen> {
       body: SwipeToClose(
         enabled: !_zoomed,
         onClose: () => Navigator.of(context).maybePop(),
-        child: PageView.builder(
+        // The pages turn with one finger only: two are a pinch on the picture.
+        child: OneFingerPages(
           controller: _pages,
-          reverse: widget.newestFirst,
-          physics: _zoomed ? const NeverScrollableScrollPhysics() : null,
-          itemCount: items.length,
-          onPageChanged: (i) {
-            setState(() {
-              _index = i;
-              _zoomed = false;
-            });
-            _quietAudioFor(i);
-            // One page short of the end: the next ones are on their way.
-            if (i >= items.length - 2) unawaited(_loadOlder());
-          },
-          itemBuilder: (context, i) => switch (items[i]) {
-            final VideoMedia video => _VideoPage(
-              key: ValueKey(video.file.id),
-              video: video,
-              gateway: widget.gateway,
-              active: i == _index,
-              title: title,
-              actions: actions,
-              menu: menu,
-              caption: i < _details.length ? _details[i].caption : '',
-              entities: i < _details.length ? _details[i].entities : const [],
-              onOpenLink: _openLink,
-              onEdgeTap: _edgeTap,
-              onZoomChanged: _onZoom,
-              onPip: _toMiniPlayer,
-              heroTag: i == _index ? _heroTag(i) : null,
-            ),
-            final PhotoMedia photo => Stack(
-              fit: StackFit.expand,
-              children: [
-                // The picture flies out of the row it was tapped in, and back into it.
-                // Only the page in front carries the tag: two heroes of one name on a
-                // route are not allowed, and the neighbours are only there to be swiped
-                // to.
-                if (i == _index ? _heroTag(i) : null case final tag?)
-                  Hero(
-                    tag: tag,
-                    child: ZoomablePhoto(
+          enabled: !_zoomed,
+          child: PageView.builder(
+            controller: _pages,
+            reverse: widget.newestFirst,
+            physics: OneFingerPages.physics,
+            itemCount: items.length,
+            onPageChanged: (i) {
+              setState(() {
+                _index = i;
+                _zoomed = false;
+              });
+              _quietAudioFor(i);
+              // One page short of the end: the next ones are on their way.
+              if (i >= items.length - 2) unawaited(_loadOlder());
+            },
+            itemBuilder: (context, i) => switch (items[i]) {
+              final VideoMedia video => _VideoPage(
+                key: ValueKey(video.file.id),
+                video: video,
+                gateway: widget.gateway,
+                active: i == _index,
+                title: title,
+                actions: actions,
+                menu: menu,
+                caption: i < _details.length ? _details[i].caption : '',
+                entities: i < _details.length ? _details[i].entities : const [],
+                onOpenLink: _openLink,
+                onEdgeTap: _edgeTap,
+                onZoomChanged: _onZoom,
+                onPip: _toMiniPlayer,
+                heroTag: i == _index ? _heroTag(i) : null,
+              ),
+              final PhotoMedia photo => Stack(
+                fit: StackFit.expand,
+                children: [
+                  // The picture flies out of the row it was tapped in, and back into it.
+                  // Only the page in front carries the tag: two heroes of one name on a
+                  // route are not allowed, and the neighbours are only there to be swiped
+                  // to.
+                  if (i == _index ? _heroTag(i) : null case final tag?)
+                    Hero(
+                      tag: tag,
+                      child: ZoomablePhoto(
+                        photo: photo,
+                        gateway: widget.gateway,
+                        onZoomChanged: _onZoom,
+                        onEdgeTap: _edgeTap,
+                        onTap: () => setState(() => _chrome = !_chrome),
+                      ),
+                    )
+                  else
+                    ZoomablePhoto(
                       photo: photo,
                       gateway: widget.gateway,
                       onZoomChanged: _onZoom,
                       onEdgeTap: _edgeTap,
+                      // A tap takes the bar and the words off the picture, as on a video.
                       onTap: () => setState(() => _chrome = !_chrome),
                     ),
-                  )
-                else
-                  ZoomablePhoto(
-                    photo: photo,
-                    gateway: widget.gateway,
-                    onZoomChanged: _onZoom,
-                    onEdgeTap: _edgeTap,
-                    // A tap takes the bar and the words off the picture, as on a video.
-                    onTap: () => setState(() => _chrome = !_chrome),
-                  ),
-                // A gradient under the bar: white letters on a white sky are unreadable.
-                if (_chrome) const _TopScrim(),
-                if (_chrome) ViewerTopBar(title: title, actions: actions),
-                if (_chrome &&
-                    i < _details.length &&
-                    _details[i].caption.isNotEmpty)
-                  ViewerCaption(
-                    text: _details[i].caption,
-                    entities: _details[i].entities,
-                    onOpenLink: _openLink,
-                    gateway: widget.gateway,
-                  ),
-              ],
-            ),
-            _ => const SizedBox.shrink(),
-          },
+                  // A gradient under the bar: white letters on a white sky are unreadable.
+                  if (_chrome) const _TopScrim(),
+                  if (_chrome) ViewerTopBar(title: title, actions: actions),
+                  if (_chrome &&
+                      i < _details.length &&
+                      _details[i].caption.isNotEmpty)
+                    ViewerCaption(
+                      text: _details[i].caption,
+                      entities: _details[i].entities,
+                      onOpenLink: _openLink,
+                      gateway: widget.gateway,
+                    ),
+                ],
+              ),
+              _ => const SizedBox.shrink(),
+            },
+          ),
         ),
       ),
       // The older pages are being fetched: a quiet line at the bottom, so the end of the

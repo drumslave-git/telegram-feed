@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:core/core.dart';
+import 'package:flutter/gestures.dart' show DeviceGestureSettings;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/timeline_screen.dart';
@@ -40,7 +41,17 @@ void main() {
     DownloadGateway gw, {
     required Media older,
     required Media newer,
+    double? touchSlop,
   }) => MaterialApp(
+    // A phone hands Flutter Android's touch slop, which every route gets from here.
+    builder: touchSlop == null
+        ? null
+        : (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              gestureSettings: DeviceGestureSettings(touchSlop: touchSlop),
+            ),
+            child: child!,
+          ),
     home: Scaffold(
       body: SingleChildScrollView(
         child: PostCard(
@@ -87,6 +98,38 @@ void main() {
     await tester.drag(find.byType(PageView), const Offset(500, 0));
     await tester.pumpAndSettle();
     expect(find.text('1 of 2'), findsOneWidget);
+  });
+
+  testWidgets('a quick pinch with the touch slop of a phone zooms the picture '
+      'and does not turn the page', (tester) async {
+    final gw = DownloadGateway(pngPath);
+    await tester.pumpWidget(
+      card(gw, older: photo(1), newer: photo(2), touchSlop: 8),
+    );
+    await tester.pump();
+    await tester.ensureVisible(find.byType(Image).last);
+    await tester.pump();
+    await tester.tap(find.byType(Image).last);
+    await tester.pumpAndSettle();
+    expect(find.text('2 of 2'), findsOneWidget);
+
+    final centre = tester.getCenter(find.byType(PageView));
+    final a = await tester.startGesture(centre - const Offset(30, 0));
+    final b = await tester.startGesture(centre + const Offset(30, 0));
+    await tester.pump();
+    for (var i = 0; i < 6; i++) {
+      await a.moveBy(const Offset(-24, 0));
+      await b.moveBy(const Offset(24, 0));
+      await tester.pump();
+    }
+    await a.up();
+    await b.up();
+    await tester.pumpAndSettle();
+    final zoom = tester
+        .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+        .transformationController!;
+    expect(zoom.value.getMaxScaleOnAxis(), greaterThan(1.5));
+    expect(find.text('2 of 2'), findsOneWidget);
   });
 
   testWidgets('an album pages from a photo to its video and back', (
