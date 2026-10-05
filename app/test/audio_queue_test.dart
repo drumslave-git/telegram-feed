@@ -254,6 +254,7 @@ void main() {
     await tester.pumpWidget(rows());
     expect(find.byTooltip('Play'), findsNWidgets(2));
     expect(find.byType(Slider), findsNothing);
+    final idle = tester.getSize(find.byKey(const ValueKey(1)));
 
     // The first is tapped: it plays, with the queue of its timeline.
     await tester.tap(find.byTooltip('Play').first);
@@ -263,6 +264,8 @@ void main() {
     expect(sessions.hasNext, isTrue);
     expect(find.byTooltip('Pause'), findsOneWidget);
     expect(find.byType(Slider), findsOneWidget);
+    // The row is as high as it was: the posts under it stay where they are.
+    expect(tester.getSize(find.byKey(const ValueKey(1))), idle);
 
     // It ends: the second row is the one with the player now.
     engines.last.finish();

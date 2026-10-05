@@ -1172,7 +1172,7 @@ class _AudioViewState extends State<AudioView> {
           icon: const Icon(Icons.play_arrow),
         ),
         title: Text(label),
-        subtitle: Text(formatDuration(widget.durationSeconds)),
+        subtitle: AudioRowLength(widget.durationSeconds),
       );
     }
     return Downloaded(
@@ -1190,7 +1190,7 @@ class _AudioViewState extends State<AudioView> {
           ),
         ),
         title: Text(label),
-        subtitle: Text(formatDuration(widget.durationSeconds)),
+        subtitle: AudioRowLength(widget.durationSeconds),
       ),
       builder: (context, path) => AudioPlayerWidget(
         path: path,

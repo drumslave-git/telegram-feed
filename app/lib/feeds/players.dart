@@ -9,6 +9,25 @@ import '../media/audio_bar.dart' show AudioSpeedButton;
 import '../media/audio_session.dart';
 import 'media_view.dart' show formatDuration;
 
+/// How high the line under the name of an audio row is, whether the row plays or not:
+/// a post keeps its height when its voice message or music starts.
+const audioRowLineHeight = 32.0;
+
+/// That line of a row that does not play: how long the track is.
+class AudioRowLength extends StatelessWidget {
+  const AudioRowLength(this.seconds, {super.key});
+  final int seconds;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: audioRowLineHeight,
+    child: Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Text(formatDuration(seconds)),
+    ),
+  );
+}
+
 /// A voice message or a music file in a post: play or pause, a bar that can be dragged to
 /// seek, the position and length, and the official app's speed button (1x, 1.5x, 2x). The
 /// sound itself lives in [AudioSessions], so it keeps playing when the post scrolls away.
@@ -104,44 +123,47 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                 icon: Icon(mine && playing ? Icons.pause : Icons.play_arrow),
               ),
               title: Text(widget.label),
-              subtitle: Row(
-                children: [
-                  Expanded(
-                    child: Slider(
-                      value: length.inMilliseconds == 0
-                          ? 0
-                          : (_scrub ?? at.inMilliseconds.toDouble()).clamp(
-                              0,
-                              length.inMilliseconds.toDouble(),
-                            ),
-                      max: length.inMilliseconds == 0
-                          ? 1
-                          : length.inMilliseconds.toDouble(),
-                      // The thumb follows the finger; the player seeks once, when it
-                      // lifts, so the position it reports does not pull the thumb back.
-                      onChanged: length.inMilliseconds == 0
-                          ? null
-                          : (v) => setState(() => _scrub = v),
-                      onChangeEnd: length.inMilliseconds == 0
-                          ? null
-                          : (v) {
-                              setState(() => _scrub = null);
-                              unawaited(
-                                _sessions.seek(
-                                  Duration(milliseconds: v.round()),
-                                ),
-                              );
-                            },
+              subtitle: SizedBox(
+                height: audioRowLineHeight,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Slider(
+                        value: length.inMilliseconds == 0
+                            ? 0
+                            : (_scrub ?? at.inMilliseconds.toDouble()).clamp(
+                                0,
+                                length.inMilliseconds.toDouble(),
+                              ),
+                        max: length.inMilliseconds == 0
+                            ? 1
+                            : length.inMilliseconds.toDouble(),
+                        // The thumb follows the finger; the player seeks once, when it
+                        // lifts, so the position it reports does not pull the thumb back.
+                        onChanged: length.inMilliseconds == 0
+                            ? null
+                            : (v) => setState(() => _scrub = v),
+                        onChangeEnd: length.inMilliseconds == 0
+                            ? null
+                            : (v) {
+                                setState(() => _scrub = null);
+                                unawaited(
+                                  _sessions.seek(
+                                    Duration(milliseconds: v.round()),
+                                  ),
+                                );
+                              },
+                      ),
                     ),
-                  ),
-                  Text(
-                    '${formatDuration(at.inSeconds)} / '
-                    '${formatDuration(length.inSeconds)}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  // The speed of what plays: of this row's kind once it is the one.
-                  AudioSpeedButton(sessions: _sessions),
-                ],
+                    Text(
+                      '${formatDuration(at.inSeconds)} / '
+                      '${formatDuration(length.inSeconds)}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    // The speed of what plays: of this row's kind once it is the one.
+                    AudioSpeedButton(sessions: _sessions),
+                  ],
+                ),
               ),
             );
           },

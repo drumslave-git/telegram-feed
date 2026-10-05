@@ -10,6 +10,7 @@ import 'host/accounts.dart';
 import 'host/app_host.dart';
 import 'feeds/text_scale.dart';
 import 'l10n/l10n.dart';
+import 'media/audio_session.dart';
 import 'media/auto_download.dart';
 import 'media/system_pip.dart';
 import 'notifications/open_post.dart';
@@ -71,6 +72,8 @@ class _TelegramFeedAppState extends State<TelegramFeedApp> {
   /// account with no session of its own lands on the login screen.
   Future<void> _switchAccount() async {
     final old = await _host;
+    // What plays was posted in the account that goes, and its bar leads to that post.
+    await AudioSessions.instance.stop();
     // With its core: the core is the account's TDLib and database, and the next host
     // would attach to it if it were still there.
     await old.standDown();

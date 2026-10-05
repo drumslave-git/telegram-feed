@@ -969,6 +969,7 @@ class TimelineViewState extends State<TimelineView>
   @override
   void initState() {
     super.initState();
+    _shown.add(this);
     _focusChat = widget.focusChatId;
     _focusMessage = widget.focusMessageId;
     _positions.itemPositions.addListener(_onPositions);
@@ -2949,6 +2950,7 @@ class TimelineViewState extends State<TimelineView>
 
   @override
   void dispose() {
+    _shown.remove(this);
     _keepPosition();
     WidgetsBinding.instance.removeObserver(this);
     _positions.itemPositions.removeListener(_onPositions);
@@ -2969,10 +2971,42 @@ class TimelineViewState extends State<TimelineView>
     super.dispose();
   }
 
+  /// The timelines that are open, the topmost last: where the audio bar looks for the
+  /// posts of a voice message whose own timeline was closed.
+  static final _shown = <TimelineViewState>[];
+
   /// The audio bar's way back to the post of the voice message that plays: every screen
-  /// opened over this timeline goes, and the timeline goes to the post.
-  void _showAudioPost(Post post) {
-    if (!mounted) return;
+  /// opened over this timeline goes, and the timeline goes to the post. A timeline that
+  /// was closed meanwhile ([from], on [navigator]) opens again at the post, as the
+  /// official app opens the chat, unless one of the same posts is open already.
+  void _showAudioPost(Post post, TimelineView from, NavigatorState navigator) {
+    if (!mounted) {
+      for (final other in _shown.reversed) {
+        final view = other.widget;
+        if (view.feed?.id == from.feed?.id &&
+            view.channel?.chatId == from.channel?.chatId) {
+          return other._showAudioPost(post, from, navigator);
+        }
+      }
+      if (!navigator.mounted) return;
+      unawaited(
+        navigator.push(
+          MaterialPageRoute<void>(
+            builder: (_) => TimelineScreen(
+              db: from.db,
+              gateway: from.gateway,
+              feed: from.feed,
+              channel: from.channel,
+              focusChatId: post.chatId,
+              focusMessageId: post.messageId,
+              share: from.share,
+              savedMessages: from.savedMessages,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
     final route = ModalRoute.of(context);
     if (route != null) {
       Navigator.of(context).popUntil((r) => r == route || r.isFirst);
@@ -2990,6 +3024,9 @@ class TimelineViewState extends State<TimelineView>
   /// what plays on when one of them ends, as the official app plays on down the chat.
   List<AudioItem> _audioItems({required bool voice}) {
     final l10n = context.l10n;
+    // What the bar needs once this timeline is gone.
+    final view = widget;
+    final navigator = Navigator.of(context);
     final found = <AudioItem>[];
     for (final item in (_timeline?.items ?? const <TimelineItem>[]).reversed) {
       if (_folded(item)) continue; // its row has no player
@@ -3019,7 +3056,7 @@ class TimelineViewState extends State<TimelineView>
             artist: voice || media.performer.isEmpty
                 ? _titles[post.chatId] ?? ''
                 : media.performer,
-            onShow: () => _showAudioPost(post),
+            onShow: () => _showAudioPost(post, view, navigator),
             load: () async {
               final file = media.file.isDownloaded
                   ? media.file

@@ -12,6 +12,7 @@ import 'package:telegram_feed/settings/data_storage_screen.dart';
 import 'package:telegram_feed/feeds/timeline_search.dart';
 import 'package:telegram_feed/home/channel_info_screen.dart';
 import 'package:telegram_feed/home/channel_list.dart';
+import 'package:telegram_feed/media/audio_session.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'fixtures.dart';
@@ -1138,6 +1139,67 @@ void main() {
       find.text('day-45'),
       findsNothing,
     ); // the end of the day is far below
+    await unmount(tester);
+  });
+
+  testWidgets('the way back to a voice message opens its timeline again once '
+      'it was closed, and goes to the one that is open otherwise', (
+    tester,
+  ) async {
+    const file = FileRef(id: 9, remoteId: 'v', size: 1);
+    gw.histories[-1] = [
+      post(-1, 3, 300, 'after'),
+      const Post(
+        chatId: -1,
+        messageId: 2,
+        date: 200,
+        text: 'said',
+        media: AudioMedia(file: file, durationSeconds: 5, isVoice: true),
+      ),
+      post(-1, 1, 100, 'before'),
+    ];
+    await tester.runAsync(() async {
+      feed = await db.createFeed('Mix');
+      await db.addSource(feed.id, -1, title: 'One');
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => TimelineScreen(db: db, gateway: gw, feed: feed),
+              ),
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    final item = AudioQueue.maybeOf(tester.element(find.text('said')))!
+        .items(voice: true)
+        .single;
+
+    // The reader leaves the feed while the voice message plays on.
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(TimelineScreen), findsNothing);
+
+    // The bar's words: the feed opens again, at the post.
+    item.onShow!();
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.byType(TimelineScreen), findsOneWidget);
+    expect(find.text('said'), findsOneWidget);
+
+    // Again, now that it is open: no second copy of the feed over it.
+    item.onShow!();
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.byType(TimelineScreen, skipOffstage: false), findsOneWidget);
     await unmount(tester);
   });
 }

@@ -27,7 +27,7 @@ class AudioBar extends StatelessWidget {
 
   void _open(BuildContext context) {
     if (track.isVoice) {
-      // The post it was said in, where the timeline that holds it is still there.
+      // The post it was said in.
       sessions.currentItem?.onShow?.call();
     } else {
       unawaited(showAudioPlayer(context, sessions));

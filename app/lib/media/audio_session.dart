@@ -105,8 +105,8 @@ class AudioItem {
   final String? title;
   final String artist;
 
-  /// Goes to the post it came with, in the timeline that holds it; does nothing once
-  /// that timeline is gone.
+  /// Goes to the post it came with: in the timeline that holds it, which opens again
+  /// when it was closed.
   final VoidCallback? onShow;
 
   /// Telegram's id of the file.
