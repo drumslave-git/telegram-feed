@@ -412,14 +412,6 @@ final class Notifier {
       ? Importance.defaultImportance
       : Importance.high;
 
-  /// The priority Android 7 goes by, which has no channels.
-  static Priority _priorityOf(String planChannel, String channelId) =>
-      planChannel == channelSilent
-      ? Priority.low
-      : _isInApp(channelId)
-      ? Priority.defaultPriority
-      : Priority.high;
-
   /// The name Android's own settings list a kind of rule notification under.
   static String channelNameOf(
     String planChannelId, {
@@ -541,7 +533,6 @@ final class Notifier {
           // account it matched in while several accounts notify.
           subText: header.isEmpty ? null : header,
           importance: _importanceOf(priority, channelId),
-          priority: _priorityOf(priority, channelId),
           when: newest.when,
           // A launcher that counts by notifications counts the posts, not the channels.
           number: posts.length,
@@ -665,7 +656,7 @@ final class Notifier {
     });
   }
 
-  /// What Android shows of this app; null where it cannot say (below Android 6.0).
+  /// What Android shows of this app; null where it cannot say.
   Future<List<ActiveNotification>?> _active() async {
     try {
       return await _plugin.getActiveNotifications();

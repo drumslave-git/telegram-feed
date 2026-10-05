@@ -160,7 +160,6 @@ void main() {
     final post = shown.single;
     expect(post['channelId'], 'posts_normal_popup');
     expect(post['importance'], Importance.high.value);
-    expect(post['priority'], Priority.high.value);
     expect(post['onlyAlertOnce'], isFalse);
 
     // The app open on another screen: posts pop up as they do outside it.
@@ -179,7 +178,6 @@ void main() {
     final [normal, urgent, silent] = shown;
     expect(normal['channelId'], 'posts_normal_inapp');
     expect(normal['importance'], Importance.defaultImportance.value);
-    expect(normal['priority'], Priority.defaultPriority.value);
     expect(urgent['channelId'], 'posts_urgent_inapp');
     expect(urgent['importance'], Importance.defaultImportance.value);
     // A silent post is added to the notification where it is, without a sound.

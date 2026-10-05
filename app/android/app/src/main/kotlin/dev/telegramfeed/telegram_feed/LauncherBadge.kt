@@ -40,7 +40,7 @@ class LauncherBadge(private val context: Context, messenger: BinaryMessenger) {
                 .putExtra("badge_count", count)
                 .putExtra("badge_count_package_name", context.packageName)
                 .putExtra("badge_count_class_name", launcher.className)
-            // Android 8 delivers no broadcast that names no receiver: each one is named.
+            // Android delivers no broadcast that names no receiver: each one is named.
             for (receiver in context.packageManager.queryBroadcastReceivers(update, 0)) {
                 val info = receiver.activityInfo ?: continue
                 context.sendBroadcast(

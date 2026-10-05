@@ -10,7 +10,6 @@ Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
 Built and covered by tests; what is listed here has not been used on an emulator yet.
 
-- [ ] V-11 Floating player: Android's picture-in-picture button on an image older than Android 12.
 - [ ] V-14 Real Telegram: a second real account notifying while the first is in use (needs a second account logged in on the emulator); a rule notification of a post with a picture, which now stands above the post's words.
 - [ ] V-15 The number on the app's icon on a home screen that shows numbers (Samsung); the emulator's shows none.
 

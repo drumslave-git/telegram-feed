@@ -17,10 +17,8 @@ import android.net.Uri
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.content.res.Configuration
-import android.os.Build
 import android.os.Environment
 import android.os.VibrationEffect
-import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.MediaStore
 import android.provider.Settings
@@ -28,7 +26,6 @@ import android.speech.tts.TextToSpeech
 import java.io.File
 import android.util.Rational
 import android.view.WindowManager
-import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -194,26 +191,17 @@ class MainActivity : FlutterActivity() {
                     // A vibration longer than any haptic constant (haptics.dart).
                     "buzz" -> {
                         val ms = (call.arguments as? Number)?.toLong() ?: 200L
-                        val vibrator = if (Build.VERSION.SDK_INT >= 31) {
+                        val vibrator =
                             getSystemService(VibratorManager::class.java)?.defaultVibrator
-                        } else {
-                            @Suppress("DEPRECATION")
-                            getSystemService(VIBRATOR_SERVICE) as? Vibrator
-                        }
                         if (vibrator == null || !vibrator.hasVibrator()) {
                             result.error("no_vibrator", null, null)
                         } else {
-                            if (Build.VERSION.SDK_INT >= 26) {
-                                vibrator.vibrate(
-                                    VibrationEffect.createOneShot(
-                                        ms,
-                                        VibrationEffect.DEFAULT_AMPLITUDE,
-                                    ),
-                                )
-                            } else {
-                                @Suppress("DEPRECATION")
-                                vibrator.vibrate(ms)
-                            }
+                            vibrator.vibrate(
+                                VibrationEffect.createOneShot(
+                                    ms,
+                                    VibrationEffect.DEFAULT_AMPLITUDE,
+                                ),
+                            )
                             result.success(null)
                         }
                     }
@@ -221,8 +209,7 @@ class MainActivity : FlutterActivity() {
                 }
             }
         // Saving a picture or a video where the gallery looks for it (H-23). MediaStore
-        // needs no permission for what the app itself writes since Android 10, which is the
-        // oldest version this app runs on.
+        // needs no permission for what the app itself writes.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "tf/gallery")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -299,10 +286,10 @@ class MainActivity : FlutterActivity() {
                         pipPlaying = call.argument<Boolean>("playing") == true
                         pipPlayLabel = call.argument<String>("playLabel") ?: pipPlayLabel
                         pipPauseLabel = call.argument<String>("pauseLabel") ?: pipPauseLabel
-                        // From Android 12 the system enters by itself, also on the home
-                        // gesture; before that the parameters still carry the window's
-                        // button, which follows whether the video plays.
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && pipSupported()) {
+                        // The system enters by itself, also on the home gesture; the
+                        // parameters carry the window's button, which follows whether the
+                        // video plays.
+                        if (pipSupported()) {
                             registerPipReceiver()
                             setPictureInPictureParams(pipParams())
                         }
@@ -328,19 +315,14 @@ class MainActivity : FlutterActivity() {
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) && unmetered -> "wifi"
             caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "wifi"
             unmetered -> "wifi"
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) && roaming(cm, caps) ->
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) && roaming(caps) ->
                 "roaming"
             else -> "mobile"
         }
     }
 
-    private fun roaming(cm: ConnectivityManager, caps: NetworkCapabilities): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)
-        } else {
-            @Suppress("DEPRECATION")
-            cm.activeNetworkInfo?.isRoaming == true
-        }
+    private fun roaming(caps: NetworkCapabilities): Boolean =
+        !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)
 
     /**
      * Copies the file to where the phone keeps such files and answers with its uri:
@@ -424,8 +406,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun pipSupported() =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+        packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
 
     /** Android accepts window shapes between 1:2.39 and 2.39:1 only. */
     private fun aspect(width: Int, height: Int): Rational {
@@ -438,17 +419,14 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun pipParams(): PictureInPictureParams {
-        val builder = PictureInPictureParams.Builder()
+    private fun pipParams(): PictureInPictureParams =
+        PictureInPictureParams.Builder()
             .setAspectRatio(pipAspect)
             .setActions(listOf(pipToggleAction()))
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) builder.setAutoEnterEnabled(pipArmed)
-        return builder.build()
-    }
+            .setAutoEnterEnabled(pipArmed)
+            .build()
 
     /** Play or pause in the floating window. */
-    @RequiresApi(Build.VERSION_CODES.O)
     private fun pipToggleAction(): RemoteAction {
         val tap = PendingIntent.getBroadcast(
             this,
@@ -481,15 +459,6 @@ class MainActivity : FlutterActivity() {
             pipReceiverOn = false
         }
         super.onDestroy()
-    }
-
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        if (pipArmed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.S
-        ) {
-            enterPictureInPictureMode(pipParams())
-        }
     }
 
     override fun onPictureInPictureModeChanged(isInPip: Boolean, newConfig: Configuration) {

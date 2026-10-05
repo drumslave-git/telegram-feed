@@ -8,7 +8,7 @@ A Telegram client for Android for reading channels, not chatting. Channels combi
 
 ## Stack
 
-- Flutter, Android only
+- Flutter, Android 12 or later only
 - TDLib through `dart:ffi`
 - Drift (SQLite) for app data
 - Device text-to-speech through `flutter_tts`

@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 /// Copies a file the app has in Telegram's cache to where the phone keeps such files: a
 /// picture or a video into the gallery (`Pictures/TG Feed` or `Movies/TG Feed`), a document
 /// into `Download/TG Feed`, music into `Music/TG Feed`, which is what the official app's
-/// "Save to gallery", "Save to downloads" and "Save to music" do. MediaStore needs no permission for a file the app writes itself
-/// on Android 10 and later, the oldest version this app runs on.
+/// "Save to gallery", "Save to downloads" and "Save to music" do. MediaStore needs no
+/// permission for a file the app writes itself.
 /// Where a file of a post is copied to on the phone.
 enum SaveTo {
   /// `Pictures/TG Feed` or `Movies/TG Feed`, by the kind of file.

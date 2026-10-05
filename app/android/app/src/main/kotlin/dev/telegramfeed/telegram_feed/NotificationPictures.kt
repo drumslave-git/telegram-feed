@@ -71,8 +71,8 @@ class NotificationPictures(private val context: Context, messenger: BinaryMessen
 
     private fun share(path: String): String? = try {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", File(path))
-        // Android hands the shade the pictures of a notification by itself from Android 9;
-        // before that, and on phones whose shade is asked on its own, it is given here.
+        // Android hands the shade the pictures of a notification by itself; a phone whose
+        // shade is asked on its own is given it here.
         context.grantUriPermission(
             "com.android.systemui",
             uri,

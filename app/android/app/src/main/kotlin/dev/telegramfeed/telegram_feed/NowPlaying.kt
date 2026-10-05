@@ -13,7 +13,6 @@ import android.graphics.drawable.Icon
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
-import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
 import android.util.Log
@@ -188,11 +187,7 @@ object NowPlaying {
             starting = true
             try {
                 val intent = Intent(context, PlaybackService::class.java)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
-                }
+                context.startForegroundService(intent)
             } catch (e: IllegalStateException) {
                 // Android refuses a foreground service to an app it counts as in the
                 // background: the sound plays on for as long as the app lives.
@@ -243,10 +238,6 @@ object NowPlaying {
     }
 
     private fun builder(context: Context, channelName: String?): Notification.Builder {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            @Suppress("DEPRECATION")
-            return Notification.Builder(context)
-        }
         val manager = context.getSystemService(NotificationManager::class.java)
         if (channelName != null || manager.getNotificationChannel(NOTIFICATION_CHANNEL) == null) {
             // Made again with the same id, a channel takes the new name and keeps the rest.
@@ -345,15 +336,7 @@ class PlaybackService : Service() {
 
     fun enter(id: Int, notification: Notification) {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(
-                    id,
-                    notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
-                )
-            } else {
-                startForeground(id, notification)
-            }
+            startForeground(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         } catch (e: IllegalStateException) {
             // Refused to an app Android counts as in the background: the notification is
             // shown without the service.
@@ -364,12 +347,7 @@ class PlaybackService : Service() {
 
     /** Out of the foreground and gone; the notification goes with it, or stays behind. */
     fun leave(remove: Boolean) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            stopForeground(if (remove) STOP_FOREGROUND_REMOVE else STOP_FOREGROUND_DETACH)
-        } else {
-            @Suppress("DEPRECATION")
-            stopForeground(remove)
-        }
+        stopForeground(if (remove) STOP_FOREGROUND_REMOVE else STOP_FOREGROUND_DETACH)
         stopSelf()
     }
 

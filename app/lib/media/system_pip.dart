@@ -10,8 +10,7 @@ import 'video_stage.dart';
 
 /// Android's picture-in-picture window. The activity is armed while a video plays in the
 /// viewer or the mini player ([VideoSessions.foreground]); leaving the app then shrinks it to
-/// a floating window instead of stopping it (`MainActivity`: auto-enter from Android 12,
-/// `onUserLeaveHint` before).
+/// a floating window instead of stopping it (`MainActivity` arms Android's auto-enter).
 abstract final class SystemPip {
   static const _channel = MethodChannel('tf/pip');
 
