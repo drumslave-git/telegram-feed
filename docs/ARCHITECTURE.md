@@ -85,7 +85,7 @@ API credentials: `api_id` and `api_hash` come from `--dart-define=TG_API_ID=... 
 
 ## 5. Feeds
 
-### 5.1 Data model (Drift, schema version 7)
+### 5.1 Data model (Drift, schema version 8)
 
 ```
 feeds            (id, name, position, created_at, sync_id, updated_at, filter_json?)
@@ -94,9 +94,10 @@ watched_channels (chat_id, title, username?)
 rules            (see section 6.1)
 settings         (key, value, updated_at?)
 sync_tombstones  (kind, sync_id, deleted_at)                            -- PK (kind, sync_id)
+rule_marks       (chat_id, message_id)                                  -- PK chat_id
 ```
 
-`watched_channels` is the union of all feed sources: every channel the app watches.
+`watched_channels` is the union of all feed sources: every channel the app watches. `rule_marks` holds, per watched channel, the newest post the rules have looked at (section 6.2); it stays on the device and is not synced.
 
 The UI, the background service and the core each open their own connection to the file (`appDatabaseFile`). Every connection sets `busy_timeout` to five seconds, so a write waits for another connection's write instead of failing with "database is locked".
 
@@ -362,7 +363,9 @@ An album is one post. Its parts arrive as messages of their own, so `RuleEngine.
 
 Edited posts are not evaluated again. A deleted post cancels its notification.
 
-The pause stops evaluation: `CoreServer.setPaused` detaches the engine from the gateway's post events, so nothing matches, notifies or is read aloud. The core keeps it in the device-local setting `rules.paused` (`onPaused`) and starts paused when it says so. It is switched from the home screen's header (`PauseButton`), from the banner's Resume and from the Pause and Resume actions of the service notification; the core tells every client (`CoreStream.paused`). On a pause the service host stops read-aloud and clears its queue (`TtsService.stopAll`). While paused, `StatusBannerHost` shows a banner with Resume under the header of every screen; a post read aloud (Listen still reads) takes its place until the queue is empty.
+Every post is evaluated once, also one that came while nothing ran. The engine keeps a mark per watched channel, the newest post it has looked at, and looks at a post only once: a post at or below its channel's mark, or one looked at earlier in the run, is left alone. `CoreServer.catchUp` brings the rules up to date: for every watched channel whose newest post (`readState`) is past its mark it reads the newest 100 posts (`catchUpPosts`) and hands them to `RuleEngine.catchUp`, which evaluates those after the mark that are not read yet, oldest first, an album as one post, each against the schedules at the time it came. A channel without a mark gets one at its newest post, so the rules start there. Until a channel has been caught up in a run, its live posts are evaluated but leave its mark where the catch-up starts. The host asks for the first catch-up once its alerts listen to the matches (`AlertAccount.catchUp`); from then on the server catches up by itself whenever TDLib is logged in and its connection comes back to `ready`. The marks go to `rule_marks` a second after they move (`onMarks`) and when the core shuts down, and `_serve` restores them at the start. A new login starts without marks.
+
+The pause stops matching: `CoreServer.setPaused` makes the engine quiet (`RuleEngine.quiet`), so nothing matches, notifies or is read aloud. A quiet engine still looks at posts and moves its marks, so nothing of the pause comes up after it. The core keeps it in the device-local setting `rules.paused` (`onPaused`) and starts paused when it says so. It is switched from the home screen's header (`PauseButton`), from the banner's Resume and from the Pause and Resume actions of the service notification; the core tells every client (`CoreStream.paused`). On a pause the service host stops read-aloud and clears its queue (`TtsService.stopAll`). While paused, `StatusBannerHost` shows a banner with Resume under the header of every screen; a post read aloud (Listen still reads) takes its place until the queue is empty.
 
 ### 6.3 Notifications
 

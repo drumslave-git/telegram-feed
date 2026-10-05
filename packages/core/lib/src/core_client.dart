@@ -174,6 +174,10 @@ final class CoreClient implements TelegramGateway {
   /// Asks the core to re-read rules and watched channels from the database.
   Future<void> refresh() => _call('refresh');
 
+  /// Has the rules look at the posts that came while nothing evaluated them
+  /// ([CoreServer.catchUp]); completes when they have.
+  Future<void> catchUp() => _call('catchUp');
+
   /// The servers of the other logged-in accounts the core serves, by account id.
   Future<Map<int, SendPort>> otherAccounts() async =>
       ((await _call('accounts')) as Map<Object?, Object?>)

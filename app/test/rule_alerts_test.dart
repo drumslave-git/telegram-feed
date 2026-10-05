@@ -358,6 +358,42 @@ void main() {
     expect(shade.of(chatId).texts, ['third']);
   });
 
+  test('once listening, the alerts have the core of every account catch up on '
+      'what came while nothing ran', () async {
+    final asked = <String>[];
+    final theirDb = AppDatabase(NativeDatabase.memory());
+    addTearDown(theirDb.close);
+    final caught = RuleAlerts(
+      db: db,
+      matches: const Stream.empty(),
+      postEvents: const Stream.empty(),
+      pausedChanges: const Stream.empty(),
+      history: (chatId, {required fromMessageId, required limit}) async => [],
+      onReading: (_) {},
+      speaker: FakeSpeaker(),
+      lockSet: () async => false,
+      notifier: Notifier(null, () => now, MemoryStore()),
+      account: 1,
+      catchUp: () async => asked.add('mine'),
+      others: [
+        AlertAccount(
+          db: theirDb,
+          matches: const Stream.empty(),
+          postEvents: const Stream.empty(),
+          history: (chatId, {required fromMessageId, required limit}) async =>
+              [],
+          id: 2,
+          catchUp: () async => asked.add('theirs'),
+        ),
+      ],
+      log: (_) {},
+    );
+    await caught.start(AppLanguage.englishStrings);
+    addTearDown(caught.dispose);
+    await tick();
+    expect(asked, ['mine', 'theirs']);
+  });
+
   test('every logged-in account notifies: the same channel has a notification '
       'in each account, named by the account, and Listen asks the core of '
       'that account', () async {

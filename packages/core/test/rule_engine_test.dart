@@ -204,6 +204,165 @@ void main() {
     },
   );
 
+  group('marks and catch-up', () {
+    RuleEngine engine() =>
+        RuleEngine()..update(rules: [rule(1, 'hello')], feeds: oneFeed);
+
+    Future<List<int>> matchedIds(
+      RuleEngine e,
+      void Function(StreamController<PostEvent> live) act,
+    ) async {
+      final got = <int>[];
+      final sub = e.matches.listen((m) => got.add(m.post.messageId));
+      final live = StreamController<PostEvent>();
+      final attached = e.attach(live.stream);
+      act(live);
+      await Future<void>.delayed(Duration.zero);
+      await attached.cancel();
+      await sub.cancel();
+      return got;
+    }
+
+    test('a channel without a mark starts at its newest post', () async {
+      final e = engine();
+      final got = await matchedIds(e, (_) {
+        e.catchUp(
+          -1,
+          [post(-1, 5, 'hello'), post(-1, 4, 'hello')],
+          lastReadMessageId: 0,
+          lastMessageId: 5,
+        );
+      });
+      expect(got, isEmpty);
+      expect(e.marks, {-1: 5});
+    });
+
+    test('what came after the mark is evaluated oldest first, each post once, '
+        'read posts left out', () async {
+      final e = engine()..restoreMarks({-1: 10});
+      final got = await matchedIds(e, (live) {
+        // Live before the catch-up: evaluated, but the mark stays where the
+        // catch-up has to start.
+        live.add(PostAdded(post(-1, 12, 'hello live')));
+      });
+      expect(got, [12]);
+      expect(e.marks, {-1: 10});
+
+      final caught = await matchedIds(e, (_) {
+        e.catchUp(
+          -1,
+          [
+            post(-1, 14, 'hello 14'),
+            post(-1, 13, 'hello 13'),
+            post(-1, 12, 'hello live'),
+            post(-1, 11, 'hello read'),
+            post(-1, 10, 'hello old'),
+          ],
+          lastReadMessageId: 11,
+          lastMessageId: 14,
+        );
+      });
+      expect(caught, [13, 14]);
+      expect(e.marks, {-1: 14});
+
+      final after = await matchedIds(e, (live) {
+        live
+          ..add(PostAdded(post(-1, 14, 'hello 14'))) // seen
+          ..add(PostAdded(post(-1, 9, 'hello older'))) // below the mark
+          ..add(PostAdded(post(-1, 15, 'hello 15')));
+      });
+      expect(after, [15]);
+      expect(e.marks, {-1: 15});
+    });
+
+    test('an album that came while nothing ran is one post', () {
+      final e = RuleEngine()
+        ..update(rules: [rule(1, 'quay')], feeds: oneFeed)
+        ..restoreMarks({-1: 1});
+      final got = <RuleMatch>[];
+      e.matches.listen(got.add);
+      Post part(int id, String text) =>
+          Post(chatId: -1, messageId: id, date: 1, text: text, albumId: 7);
+      e.catchUp(
+        -1,
+        [part(4, ''), part(3, 'the quay'), part(2, '')],
+        lastReadMessageId: 0,
+        lastMessageId: 4,
+      );
+      return Future<void>.delayed(Duration.zero, () {
+        expect(got.single.post.messageId, 3);
+      });
+    });
+
+    test('a schedule is judged by when the post came', () async {
+      final e = RuleEngine()
+        ..update(
+          rules: [
+            rule(
+              1,
+              'x',
+              // Mondays, 9:00 to 12:00.
+              schedule: const Schedule(weekdays: {1}, from: 540, to: 720),
+            ),
+          ],
+          feeds: oneFeed,
+        )
+        ..restoreMarks({-1: 1});
+      final got = <int>[];
+      e.matches.listen((m) => got.add(m.post.messageId));
+      int at(DateTime t) => t.millisecondsSinceEpoch ~/ 1000;
+      e.catchUp(
+        -1,
+        [
+          Post(
+            chatId: -1,
+            messageId: 2,
+            date: at(DateTime(2026, 9, 14, 10)),
+            text: 'x',
+          ),
+          Post(
+            chatId: -1,
+            messageId: 3,
+            date: at(DateTime(2026, 9, 14, 13)),
+            text: 'x',
+          ),
+        ],
+        lastReadMessageId: 0,
+        lastMessageId: 3,
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(got, [2]);
+    });
+
+    test('a quiet engine looks without matching, and the pause stays quiet '
+        'afterwards', () async {
+      final e = engine()
+        ..restoreMarks({-1: 1})
+        ..quiet = true;
+      final got = await matchedIds(e, (live) {
+        e.catchUp(
+          -1,
+          [post(-1, 2, 'hello')],
+          lastReadMessageId: 0,
+          lastMessageId: 2,
+        );
+        live.add(PostAdded(post(-1, 3, 'hello')));
+      });
+      expect(got, isEmpty);
+      expect(e.marks, {-1: 3});
+      e.quiet = false;
+      final later = await matchedIds(e, (_) {
+        e.catchUp(
+          -1,
+          [post(-1, 3, 'hello'), post(-1, 2, 'hello')],
+          lastReadMessageId: 0,
+          lastMessageId: 3,
+        );
+      });
+      expect(later, isEmpty);
+    });
+  });
+
   group('albums', () {
     const file = FileRef(id: 1, remoteId: 'r', size: 1);
     Post part(int id, {String text = ''}) => Post(

@@ -228,6 +228,9 @@ final class RuleFeed {
 /// - An album is one post: its parts arrive as messages of their own, so they are held for
 ///   [albumWait] after the last one and evaluated together.
 /// - [PostsDeleted] is forwarded on [cancellations] so a pending notification can be dropped.
+/// - Every post is evaluated once. The engine keeps a mark per channel, the newest post it
+///   has looked at; [catchUp] evaluates what came after it while nothing ran, and a post
+///   that both a live update and a catch-up bring is looked at only the first time.
 final class RuleEngine {
   RuleEngine({
     DateTime Function()? clock,
@@ -248,6 +251,37 @@ final class RuleEngine {
   List<RuleSpec> _rules = const [];
   Map<int, RuleFeed> _feeds = const {};
   Set<int> _watched = const {};
+
+  /// While true the engine looks at posts without matching them: the pause. What comes
+  /// during the pause is looked at all the same, so no catch-up brings it up afterwards.
+  bool quiet = false;
+
+  /// Posts looked at in this run, by chat and message, oldest first.
+  final _lookedAt = <(int, int)>{};
+  static const _lookedAtKept = 4096;
+
+  /// The newest post of each channel that the rules have looked at, every post before it
+  /// included. The host keeps them between runs ([restoreMarks], [marksChanged]).
+  final _marks = <int, int>{};
+
+  /// Channels caught up in this run. A live post moves on only their marks: the mark of
+  /// a channel not caught up yet still says where its catch-up starts.
+  final _caughtUp = <int>{};
+  final _marksChanged = StreamController<void>.broadcast();
+
+  Map<int, int> get marks => Map.unmodifiable(_marks);
+
+  /// Fires whenever a mark moves.
+  Stream<void> get marksChanged => _marksChanged.stream;
+
+  /// The marks of the run before; no channel is caught up yet.
+  void restoreMarks(Map<int, int> marks) {
+    _marks
+      ..clear()
+      ..addAll(marks);
+    _caughtUp.clear();
+    _lookedAt.clear();
+  }
 
   Stream<RuleMatch> get matches => _matches.stream;
   Stream<PostsDeleted> get cancellations => _cancels.stream;
@@ -354,17 +388,92 @@ final class RuleEngine {
   StreamSubscription<PostEvent> attach(Stream<PostEvent> events) =>
       events.listen((e) {
         switch (e) {
-          case PostAdded(:final post) when post.albumId != 0:
-            _holdAlbumPart(post);
           case PostAdded(:final post):
-            final m = evaluate(post);
-            if (m != null) _matches.add(m);
+            if (!_watched.contains(post.chatId) || !_lookAtLive(post)) return;
+            if (quiet) return;
+            if (post.albumId != 0) {
+              _holdAlbumPart(post);
+            } else if (evaluate(post) case final m?) {
+              _matches.add(m);
+            }
           case PostEdited():
             break; // edits never notify (SPEC)
           case PostsDeleted():
             if (_watched.contains(e.chatId)) _cancels.add(e);
         }
       });
+
+  /// False for a post looked at before: in this run, or at or below its channel's mark.
+  bool _lookAtLive(Post post) {
+    final mark = _marks[post.chatId];
+    if (mark != null && post.messageId <= mark) return false;
+    if (!_lookAt(post)) return false;
+    if (mark == null || _caughtUp.contains(post.chatId)) {
+      _marks[post.chatId] = post.messageId;
+      _marksChanged.add(null);
+    }
+    return true;
+  }
+
+  bool _lookAt(Post post) {
+    if (!_lookedAt.add((post.chatId, post.messageId))) return false;
+    if (_lookedAt.length > _lookedAtKept) _lookedAt.remove(_lookedAt.first);
+    return true;
+  }
+
+  /// Evaluates what came to [chatId] after its mark while nothing ran. [posts] are its
+  /// newest posts, in any order; those at or below the mark, those read already (up to
+  /// [lastReadMessageId], here or in the official app) and those this run has looked at
+  /// are left out. The rest are evaluated oldest first, an album as one post, each
+  /// against the rules as they stood when it came. A channel without a mark gets one at
+  /// [lastMessageId] and nothing of it is evaluated: the rules start from there.
+  void catchUp(
+    int chatId,
+    List<Post> posts, {
+    required int lastReadMessageId,
+    required int lastMessageId,
+  }) {
+    final mark = _marks[chatId];
+    var newest = mark ?? lastMessageId;
+    if (mark != null) {
+      final fresh = [
+        for (final p in posts)
+          if (p.chatId == chatId &&
+              p.messageId > mark &&
+              p.messageId > lastReadMessageId &&
+              _lookAt(p))
+            p,
+      ]..sort((a, b) => a.messageId.compareTo(b.messageId));
+      if (!quiet) _evaluateInOrder(fresh);
+      for (final p in fresh) {
+        if (p.messageId > newest) newest = p.messageId;
+      }
+    }
+    if (lastMessageId > newest) newest = lastMessageId;
+    _caughtUp.add(chatId);
+    if (_marks[chatId] != newest) {
+      _marks[chatId] = newest;
+      _marksChanged.add(null);
+    }
+  }
+
+  /// Evaluates [posts], oldest first, the parts of an album together.
+  void _evaluateInOrder(List<Post> posts) {
+    for (var i = 0; i < posts.length;) {
+      final first = posts[i];
+      final when = DateTime.fromMillisecondsSinceEpoch(first.date * 1000);
+      if (first.albumId == 0) {
+        i++;
+        if (evaluate(first, now: when) case final m?) _matches.add(m);
+        continue;
+      }
+      final parts = [
+        for (; i < posts.length && posts[i].albumId == first.albumId; i++)
+          posts[i],
+      ];
+      if (evaluateAlbum(parts, now: when) case final m?) _matches.add(m);
+    }
+  }
 
   /// Keeps a part of an album until no further part has come for [albumWait], then
   /// evaluates the album once.
@@ -390,5 +499,6 @@ final class RuleEngine {
     _albums.clear();
     await _matches.close();
     await _cancels.close();
+    await _marksChanged.close();
   }
 }

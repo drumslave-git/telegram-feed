@@ -30,6 +30,7 @@ final class AlertAccount {
     this.name = '',
     this.pictures,
     this.gate,
+    this.catchUp,
   });
 
   /// The account served by the core at [client].
@@ -51,6 +52,7 @@ final class AlertAccount {
            channels: client.myChannels,
            download: client.download,
          ),
+         catchUp: client.catchUp,
        );
 
   /// `AccountInfo.id`; 0 where the alerts know of one account only (tests).
@@ -77,6 +79,10 @@ final class AlertAccount {
 
   /// The AI check of its semantic rules; made on the first match unless handed in.
   SemanticGate? gate;
+
+  /// Has the core look at the posts that came while nothing evaluated them; asked once
+  /// these alerts listen to [matches].
+  final Future<void> Function()? catchUp;
 
   /// The channels its rules watch, by id.
   Map<int, String> titles = const {};
@@ -112,6 +118,7 @@ final class RuleAlerts {
     Future<bool> Function()? lockSet,
     ReadAloudKeys Function(void Function() onStop)? keys,
     void Function(String)? log,
+    Future<void> Function()? catchUp,
   }) : _notifier = notifier ?? Notifier(),
        _lockSet = lockSet ?? (() => const AppLock().enabled),
        _makeKeys = keys ?? ((onStop) => ReadAloudKeys(onStop: onStop)),
@@ -126,6 +133,7 @@ final class RuleAlerts {
          name: accountName,
          pictures: pictures,
          gate: gate,
+         catchUp: catchUp,
        );
 
   /// Alerts on what the core at [client] matches, for the account in use, and on what
@@ -157,6 +165,7 @@ final class RuleAlerts {
          accountName: accountName,
          others: others,
          log: log,
+         catchUp: client.catchUp,
        );
 
   /// The database of the account in use: the sounds, the speech and the language are
@@ -271,6 +280,14 @@ final class RuleAlerts {
       );
     }
     await reloadTitles();
+    // Listening now: what came while nothing ran can be matched.
+    for (final a in _accounts) {
+      unawaited(
+        a.catchUp?.call().catchError((Object e) {
+          _log('catch-up of account ${a.id}: $e');
+        }),
+      );
+    }
   }
 
   Future<void> _onMatch(AlertAccount a, MatchEvent candidate) async {

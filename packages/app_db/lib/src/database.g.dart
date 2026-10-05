@@ -2336,6 +2336,204 @@ class SyncTombstonesCompanion extends UpdateCompanion<SyncTombstone> {
   }
 }
 
+class $RuleMarksTable extends RuleMarks
+    with TableInfo<$RuleMarksTable, RuleMark> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RuleMarksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _chatIdMeta = const VerificationMeta('chatId');
+  @override
+  late final GeneratedColumn<int> chatId = GeneratedColumn<int>(
+    'chat_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _messageIdMeta = const VerificationMeta(
+    'messageId',
+  );
+  @override
+  late final GeneratedColumn<int> messageId = GeneratedColumn<int>(
+    'message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [chatId, messageId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'rule_marks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RuleMark> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('chat_id')) {
+      context.handle(
+        _chatIdMeta,
+        chatId.isAcceptableOrUnknown(data['chat_id']!, _chatIdMeta),
+      );
+    }
+    if (data.containsKey('message_id')) {
+      context.handle(
+        _messageIdMeta,
+        messageId.isAcceptableOrUnknown(data['message_id']!, _messageIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_messageIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {chatId};
+  @override
+  RuleMark map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RuleMark(
+      chatId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}chat_id'],
+      )!,
+      messageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}message_id'],
+      )!,
+    );
+  }
+
+  @override
+  $RuleMarksTable createAlias(String alias) {
+    return $RuleMarksTable(attachedDatabase, alias);
+  }
+}
+
+class RuleMark extends DataClass implements Insertable<RuleMark> {
+  final int chatId;
+  final int messageId;
+  const RuleMark({required this.chatId, required this.messageId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['chat_id'] = Variable<int>(chatId);
+    map['message_id'] = Variable<int>(messageId);
+    return map;
+  }
+
+  RuleMarksCompanion toCompanion(bool nullToAbsent) {
+    return RuleMarksCompanion(
+      chatId: Value(chatId),
+      messageId: Value(messageId),
+    );
+  }
+
+  factory RuleMark.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RuleMark(
+      chatId: serializer.fromJson<int>(json['chatId']),
+      messageId: serializer.fromJson<int>(json['messageId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'chatId': serializer.toJson<int>(chatId),
+      'messageId': serializer.toJson<int>(messageId),
+    };
+  }
+
+  RuleMark copyWith({int? chatId, int? messageId}) => RuleMark(
+    chatId: chatId ?? this.chatId,
+    messageId: messageId ?? this.messageId,
+  );
+  RuleMark copyWithCompanion(RuleMarksCompanion data) {
+    return RuleMark(
+      chatId: data.chatId.present ? data.chatId.value : this.chatId,
+      messageId: data.messageId.present ? data.messageId.value : this.messageId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RuleMark(')
+          ..write('chatId: $chatId, ')
+          ..write('messageId: $messageId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(chatId, messageId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RuleMark &&
+          other.chatId == this.chatId &&
+          other.messageId == this.messageId);
+}
+
+class RuleMarksCompanion extends UpdateCompanion<RuleMark> {
+  final Value<int> chatId;
+  final Value<int> messageId;
+  const RuleMarksCompanion({
+    this.chatId = const Value.absent(),
+    this.messageId = const Value.absent(),
+  });
+  RuleMarksCompanion.insert({
+    this.chatId = const Value.absent(),
+    required int messageId,
+  }) : messageId = Value(messageId);
+  static Insertable<RuleMark> custom({
+    Expression<int>? chatId,
+    Expression<int>? messageId,
+  }) {
+    return RawValuesInsertable({
+      if (chatId != null) 'chat_id': chatId,
+      if (messageId != null) 'message_id': messageId,
+    });
+  }
+
+  RuleMarksCompanion copyWith({Value<int>? chatId, Value<int>? messageId}) {
+    return RuleMarksCompanion(
+      chatId: chatId ?? this.chatId,
+      messageId: messageId ?? this.messageId,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (chatId.present) {
+      map['chat_id'] = Variable<int>(chatId.value);
+    }
+    if (messageId.present) {
+      map['message_id'] = Variable<int>(messageId.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RuleMarksCompanion(')
+          ..write('chatId: $chatId, ')
+          ..write('messageId: $messageId')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2347,6 +2545,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SettingsTable settings = $SettingsTable(this);
   late final $RulesTable rules = $RulesTable(this);
   late final $SyncTombstonesTable syncTombstones = $SyncTombstonesTable(this);
+  late final $RuleMarksTable ruleMarks = $RuleMarksTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2358,6 +2557,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     settings,
     rules,
     syncTombstones,
+    ruleMarks,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -4068,6 +4268,136 @@ typedef $$SyncTombstonesTableProcessedTableManager =
       SyncTombstone,
       PrefetchHooks Function()
     >;
+typedef $$RuleMarksTableCreateCompanionBuilder = RuleMarksCompanion Function({
+  Value<int> chatId,
+  required int messageId,
+});
+typedef $$RuleMarksTableUpdateCompanionBuilder = RuleMarksCompanion Function({
+  Value<int> chatId,
+  Value<int> messageId,
+});
+
+class $$RuleMarksTableFilterComposer
+    extends Composer<_$AppDatabase, $RuleMarksTable> {
+  $$RuleMarksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get chatId => $composableBuilder(
+    column: $table.chatId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RuleMarksTableOrderingComposer
+    extends Composer<_$AppDatabase, $RuleMarksTable> {
+  $$RuleMarksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get chatId => $composableBuilder(
+    column: $table.chatId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RuleMarksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RuleMarksTable> {
+  $$RuleMarksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get chatId =>
+      $composableBuilder(column: $table.chatId, builder: (column) => column);
+
+  GeneratedColumn<int> get messageId =>
+      $composableBuilder(column: $table.messageId, builder: (column) => column);
+}
+
+class $$RuleMarksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RuleMarksTable,
+          RuleMark,
+          $$RuleMarksTableFilterComposer,
+          $$RuleMarksTableOrderingComposer,
+          $$RuleMarksTableAnnotationComposer,
+          $$RuleMarksTableCreateCompanionBuilder,
+          $$RuleMarksTableUpdateCompanionBuilder,
+          (RuleMark, BaseReferences<_$AppDatabase, $RuleMarksTable, RuleMark>),
+          RuleMark,
+          PrefetchHooks Function()
+        > {
+  $$RuleMarksTableTableManager(_$AppDatabase db, $RuleMarksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RuleMarksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RuleMarksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RuleMarksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> chatId = const Value.absent(),
+            Value<int> messageId = const Value.absent(),
+          }) => RuleMarksCompanion(chatId: chatId, messageId: messageId),
+          createCompanionCallback: ({
+            Value<int> chatId = const Value.absent(),
+            required int messageId,
+          }) => RuleMarksCompanion.insert(chatId: chatId, messageId: messageId),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$RuleMarksTable, RuleMark>(table),
+                  BaseReferences<_$AppDatabase, $RuleMarksTable, RuleMark>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RuleMarksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RuleMarksTable,
+      RuleMark,
+      $$RuleMarksTableFilterComposer,
+      $$RuleMarksTableOrderingComposer,
+      $$RuleMarksTableAnnotationComposer,
+      $$RuleMarksTableCreateCompanionBuilder,
+      $$RuleMarksTableUpdateCompanionBuilder,
+      (RuleMark, BaseReferences<_$AppDatabase, $RuleMarksTable, RuleMark>),
+      RuleMark,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4084,4 +4414,6 @@ class $AppDatabaseManager {
       $$RulesTableTableManager(_db, _db.rules);
   $$SyncTombstonesTableTableManager get syncTombstones =>
       $$SyncTombstonesTableTableManager(_db, _db.syncTombstones);
+  $$RuleMarksTableTableManager get ruleMarks =>
+      $$RuleMarksTableTableManager(_db, _db.ruleMarks);
 }

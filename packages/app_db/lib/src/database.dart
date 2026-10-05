@@ -97,6 +97,17 @@ class Settings extends Table {
   Set<Column> get primaryKey => {key};
 }
 
+/// The newest post of each watched channel that the rules have looked at. Posts that come
+/// while nothing runs are evaluated from there on when the core comes up again. Of this
+/// phone, not synced.
+class RuleMarks extends Table {
+  IntColumn get chatId => integer()();
+  IntColumn get messageId => integer()();
+
+  @override
+  Set<Column> get primaryKey => {chatId};
+}
+
 /// Feeds and rules deleted on this or another device, so a sync does not resurrect them.
 class SyncTombstones extends Table {
   /// 'feed' or 'rule'.
@@ -224,6 +235,7 @@ abstract final class SettingKeys {
     Settings,
     Rules,
     SyncTombstones,
+    RuleMarks,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -234,7 +246,7 @@ class AppDatabase extends _$AppDatabase {
   final DateTime Function() _clock;
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -330,9 +342,26 @@ class AppDatabase extends _$AppDatabase {
       await m.deleteTable('rules');
       await m.createTable(rules);
     }
+    if (from < 8) await m.createTable(ruleMarks);
   }
 
   // ---- rules ----
+
+  /// The newest post of each channel that the rules have looked at ([RuleMarks]).
+  Future<Map<int, int>> loadRuleMarks() async => {
+    for (final r in await select(ruleMarks).get()) r.chatId: r.messageId,
+  };
+
+  /// Replaces the marks with [marks]: channels that left every feed lose theirs.
+  Future<void> saveRuleMarks(Map<int, int> marks) => transaction(() async {
+    await delete(ruleMarks).go();
+    await batch((b) {
+      b.insertAll(ruleMarks, [
+        for (final MapEntry(key: chat, value: id) in marks.entries)
+          RuleMarksCompanion.insert(chatId: Value(chat), messageId: id),
+      ]);
+    });
+  });
 
   Future<List<Rule>> allRules() =>
       (select(rules)..orderBy([(r) => OrderingTerm.asc(r.createdAt)])).get();
@@ -780,6 +809,7 @@ class AppDatabase extends _$AppDatabase {
     await delete(watchedChannels).go();
     await delete(settings).go();
     await delete(syncTombstones).go(); // a logout is not a deletion to sync
+    await delete(ruleMarks).go();
   });
 
   Future<int> _maxPosition<T extends Table>(

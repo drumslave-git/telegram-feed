@@ -23,14 +23,20 @@ final class CoreServer {
     this.onPaused,
     this.accounts,
     this.dropAccount,
+    this.onMarks,
+    this.marksDelay = const Duration(seconds: 1),
   }) : _gateway = gateway {
     _port.listen(_onMessage);
-    _subscribe();
     final e = engine;
+    e?.quiet = _paused;
+    _subscribe();
     if (e != null) {
       _matchSub = e.matches.listen(
         (m) => _broadcast(CoreStream.matches, encodeMatch(m)),
       );
+      _marksSub = e.marksChanged.listen((_) {
+        _marksTimer ??= Timer(marksDelay, () => unawaited(_saveMarks()));
+      });
     }
   }
 
@@ -60,28 +66,108 @@ final class CoreServer {
   /// the service or the phone must not undo it.
   final Future<void> Function(bool paused)? onPaused;
 
+  /// Keeps the engine's marks ([RuleEngine.marks]) for the next run; called [marksDelay]
+  /// after they moved, and once more at [shutdown].
+  final Future<void> Function(Map<int, int> marks)? onMarks;
+  final Duration marksDelay;
+  Timer? _marksTimer;
+
   /// True once the core has handed TDLib back and stopped serving.
   bool get stopped => _stopped;
   StreamSubscription<RuleMatch>? _matchSub;
   StreamSubscription<PostEvent>? _engineSub;
+  StreamSubscription<void>? _marksSub;
   bool _paused;
 
   bool get paused => _paused;
 
-  /// Attaches the engine to the current gateway unless paused.
+  /// Attaches the engine to the current gateway. It stays attached through a pause, in
+  /// which it looks at posts without matching them.
   void _attachEngine() {
     _engineSub?.cancel();
     _engineSub = null;
     final e = engine;
-    if (e != null && !_paused) _engineSub = e.attach(_gateway.postEvents);
+    if (e != null) _engineSub = e.attach(_gateway.postEvents);
   }
 
   void setPaused(bool value) {
     if (_paused == value) return;
     _paused = value;
-    _attachEngine();
+    engine?.quiet = value;
     unawaited(onPaused?.call(value));
     _broadcast(CoreStream.paused, {'paused': value});
+  }
+
+  Future<void> _saveMarks() async {
+    _marksTimer?.cancel();
+    _marksTimer = null;
+    final e = engine;
+    if (e == null) return;
+    try {
+      await onMarks?.call(e.marks);
+    } on Object catch (err) {
+      log?.call('core: rule marks not saved: $err');
+    }
+  }
+
+  /// Brings the rules up to date with the posts that came while nothing evaluated them
+  /// (ARCHITECTURE 6.2): every watched channel whose newest post is past its mark has its
+  /// newest [catchUpPosts] posts looked at. The host asks for the first one once its
+  /// alerts listen, since a match made earlier would reach no one; from then on the core
+  /// also catches up by itself whenever TDLib is logged in and its connection comes back.
+  /// One at a time; an ask in the middle of one runs another after it.
+  Future<void> catchUp() {
+    _catchUpAsked = true;
+    if (_catchingUp case final running?) {
+      _catchUpAgain = true;
+      return running;
+    }
+    final run = _catchUpOnce().whenComplete(() {
+      _catchingUp = null;
+      if (_catchUpAgain && !_stopped) {
+        _catchUpAgain = false;
+        unawaited(catchUp());
+      }
+    });
+    return _catchingUp = run;
+  }
+
+  Future<void>? _catchingUp;
+  bool _catchUpAgain = false;
+  bool _catchUpAsked = false;
+
+  /// How many of a channel's newest posts a catch-up looks at.
+  static const catchUpPosts = 100;
+
+  Future<void> _catchUpOnce() async {
+    final e = engine;
+    if (e == null || _stopped || _auth is! AuthReady) return;
+    final gateway = _gateway;
+    var looked = 0;
+    for (final chatId in e.watched) {
+      if (_stopped || !identical(gateway, _gateway)) return;
+      try {
+        final state = await gateway.readState(chatId);
+        final mark = e.marks[chatId];
+        final behind = mark != null && state.lastMessageId > mark;
+        final posts = behind
+            ? await gateway.history(chatId, limit: catchUpPosts)
+            : const <Post>[];
+        if (_stopped || !identical(gateway, _gateway)) return;
+        e.catchUp(
+          chatId,
+          posts,
+          lastReadMessageId: state.lastReadMessageId,
+          lastMessageId: state.lastMessageId,
+        );
+        if (behind) looked++;
+      } on Object catch (err) {
+        // Left for the next catch-up; the other channels go on.
+        log?.call('core: catch-up of $chatId failed: $err');
+      }
+    }
+    if (looked > 0) log?.call('core: caught up $looked channel(s)');
+    await _saveMarks();
   }
 
   final _port = ReceivePort();
@@ -107,6 +193,8 @@ final class CoreServer {
     _fileSubs.clear();
     final old = _gateway;
     _gateway = next;
+    // A new login starts from the posts it finds.
+    engine?.restoreMarks(const {});
     _auth = const AuthStarting();
     _connection = ConnectionStatus.connecting;
     _broadcast(CoreStream.auth, encodeAuthState(_auth));
@@ -120,6 +208,11 @@ final class CoreServer {
       gateway.authState.listen((s) {
         _auth = s;
         _broadcast(CoreStream.auth, encodeAuthState(s));
+        if (_catchUpAsked &&
+            s is AuthReady &&
+            _connection == ConnectionStatus.ready) {
+          unawaited(catchUp());
+        }
       }),
       gateway.postEvents.listen(
         (e) => _broadcast(CoreStream.posts, encodePostEvent(e)),
@@ -134,8 +227,10 @@ final class CoreServer {
         (g) => _broadcast(CoreStream.commentsGone, encodeCommentsGone(g)),
       ),
       gateway.connection.listen((c) {
+        final back = c == ConnectionStatus.ready && _connection != c;
         _connection = c;
         _broadcast(CoreStream.connection, {'status': c.name});
+        if (back && _catchUpAsked) unawaited(catchUp());
       }),
       gateway.readUpdates.listen(
         (r) => _broadcast(CoreStream.readStates, encodeReadState(r)),
@@ -198,6 +293,8 @@ final class CoreServer {
     _stopped = true;
     await _matchSub?.cancel();
     await _engineSub?.cancel();
+    await _marksSub?.cancel();
+    await _saveMarks();
     for (final s in _subs) {
       await s.cancel();
     }
@@ -326,6 +423,8 @@ final class CoreServer {
         _watchFile(a['fileId'] as int);
       case 'refresh':
         await onRefresh?.call();
+      case 'catchUp':
+        await catchUp();
       case 'accounts':
         return accounts?.call() ?? const <int, SendPort>{};
       case 'dropAccount':
@@ -507,6 +606,8 @@ final class CoreServer {
   Future<void> close() async {
     await _matchSub?.cancel();
     await _engineSub?.cancel();
+    await _marksSub?.cancel();
+    _marksTimer?.cancel();
     for (final s in _subs) {
       await s.cancel();
     }

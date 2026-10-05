@@ -187,6 +187,8 @@ Future<CoreServer> _serve(
       );
     };
     await refresh();
+    // Where the rules left off: what came after is caught up (ARCHITECTURE 6.2).
+    e.restoreMarks(await db.loadRuleMarks());
   }
   final server = CoreServer(
     await _newGateway(b),
@@ -200,6 +202,7 @@ Future<CoreServer> _serve(
     onShutdown: onShutdown,
     accounts: accounts,
     dropAccount: dropAccount,
+    onMarks: appDb?.saveRuleMarks,
   );
   _watchForClose(server, b, closing);
   return server;

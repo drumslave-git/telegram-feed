@@ -13,10 +13,10 @@ void main() {
 
   setUpAll(() => verifier = SchemaVerifier(GeneratedHelper()));
 
-  test('v1 to v7 adds the rules table and keeps data', () async {
+  test('v1 to v8 adds the rules table and keeps data', () async {
     final connection = await verifier.startAt(1);
     final db = AppDatabase(connection);
-    await verifier.migrateAndValidate(db, 7);
+    await verifier.migrateAndValidate(db, 8);
     // The upgraded database is usable.
     final feed = await db.createFeed('kept');
     await db.insertRule(
@@ -33,7 +33,7 @@ void main() {
     await db.close();
   });
 
-  test('v2 to v7 deletes the rules of before and remembers it', () async {
+  test('v2 to v8 deletes the rules of before and remembers it', () async {
     final schema = await verifier.schemaAt(2);
     schema.rawDatabase.execute(
       "INSERT INTO rules (name, enabled, scope_kind, condition_json, priority, "
@@ -41,13 +41,13 @@ void main() {
       "'normal', 0, 0)",
     );
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 7);
+    await verifier.migrateAndValidate(db, 8);
     expect(await db.allRules(), isEmpty);
     expect((await db.allTombstones()).single.kind, 'rule');
     await db.close();
   });
 
-  test('v3 to v7 gives existing feeds sync ids and edit times', () async {
+  test('v3 to v8 gives existing feeds sync ids and edit times', () async {
     final schema = await verifier.schemaAt(3);
     schema.rawDatabase
       ..execute(
@@ -61,7 +61,7 @@ void main() {
         "INSERT INTO settings (key, value) VALUES ('themeMode', 'dark')",
       );
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 7);
+    await verifier.migrateAndValidate(db, 8);
     final feed = (await db.allFeeds()).single;
     expect(feed.syncId, hasLength(32));
     expect(feed.updatedAt, feed.createdAt);
@@ -77,11 +77,11 @@ void main() {
   test('fresh v4 database matches the dump', () async {
     final connection = await verifier.startAt(4);
     final db = AppDatabase(connection);
-    await verifier.migrateAndValidate(db, 7);
+    await verifier.migrateAndValidate(db, 8);
     await db.close();
   });
   test(
-    'v4 to v7 adds feeds.filter_json; existing feeds show everything',
+    'v4 to v8 adds feeds.filter_json; existing feeds show everything',
     () async {
       final schema = await verifier.schemaAt(4);
       schema.rawDatabase.execute(
@@ -89,7 +89,7 @@ void main() {
         "VALUES ('old', 0, 0, 'abc', 0)",
       );
       final db = AppDatabase(schema.newConnection());
-      await verifier.migrateAndValidate(db, 7);
+      await verifier.migrateAndValidate(db, 8);
       final feed = (await db.allFeeds()).single;
       expect(feed.name, 'old');
       expect(feed.filterJson, isNull);
@@ -99,7 +99,7 @@ void main() {
     },
   );
 
-  test('v5 to v7 drops the read marks of feeds and the read sync setting', () async {
+  test('v5 to v8 drops the read marks of feeds and the read sync setting', () async {
     final schema = await verifier.schemaAt(5);
     schema.rawDatabase
       ..execute(
@@ -117,7 +117,7 @@ void main() {
         "INSERT INTO settings (key, value) VALUES ('themeMode', 'dark')",
       );
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 7);
+    await verifier.migrateAndValidate(db, 8);
     expect((await db.allFeeds()).single.name, 'kept');
     expect(await db.setting('syncReadToTelegram'), isNull);
     expect(await db.setting('themeMode'), 'dark');
@@ -132,7 +132,7 @@ void main() {
   });
 
   test(
-    'v6 to v7: rules belong to feeds; the old ones are deleted everywhere',
+    'v6 to v8: rules belong to feeds; the old ones are deleted everywhere',
     () async {
       final schema = await verifier.schemaAt(6);
       schema.rawDatabase
@@ -147,7 +147,7 @@ void main() {
           "('channel', 1, 'channel', -5, '{}', 'urgent', 0, 0, 'rule-2', 0)",
         );
       final db = AppDatabase(schema.newConnection());
-      await verifier.migrateAndValidate(db, 7);
+      await verifier.migrateAndValidate(db, 8);
       expect((await db.allFeeds()).single.name, 'kept');
       expect(await db.allRules(), isEmpty);
       // Tombstones, so a sync deletes them on the other devices too.
@@ -158,4 +158,26 @@ void main() {
       await db.close();
     },
   );
+
+  test('v7 to v8 adds the rule marks, empty, and keeps the rules', () async {
+    final schema = await verifier.schemaAt(7);
+    schema.rawDatabase
+      ..execute(
+        "INSERT INTO feeds (name, position, created_at, sync_id, updated_at) "
+        "VALUES ('kept', 0, 0, 'feed-1', 0)",
+      )
+      ..execute(
+        "INSERT INTO rules (name, enabled, feed_id, condition_json, priority, "
+        "read_aloud, created_at, sync_id, updated_at) "
+        "VALUES ('r', 1, 1, '{}', 'normal', 0, 0, 'rule-1', 0)",
+      );
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 8);
+    expect((await db.allRules()).single.name, 'r');
+    expect(await db.loadRuleMarks(), isEmpty);
+    await db.saveRuleMarks({-1: 10, -2: 20});
+    await db.saveRuleMarks({-2: 25});
+    expect(await db.loadRuleMarks(), {-2: 25});
+    await db.close();
+  });
 }

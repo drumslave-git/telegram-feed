@@ -711,6 +711,52 @@ void main() {
     await engine.close();
   });
 
+  test('once logged in and connected the core catches up on what came while '
+      'nothing ran, and keeps where it got to', () async {
+    final gw = _CatchUpGateway()..auth = const AuthReady();
+    final engine = RuleEngine()
+      ..update(
+        rules: [
+          RuleSpec(
+            id: 1,
+            name: 'hi',
+            condition: RuleParser.parse('hello'),
+            feedId: 1,
+          ),
+        ],
+        feeds: const {
+          1: RuleFeed({-1}),
+        },
+      )
+      ..restoreMarks({-1: 5});
+    final saved = <Map<int, int>>[];
+    final server = CoreServer(
+      gw,
+      engine: engine,
+      onMarks: (m) async => saved.add(m),
+    );
+    final client = await CoreClient.connect(server.sendPort);
+    final got = <int>[];
+    final sub = client.matches.listen((m) => got.add(m.post.messageId));
+    await client.catchUp();
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    // 6 is read already, 7 matches, 8 does not.
+    expect(got, [7]);
+    expect(saved.last, {-1: 8});
+    expect(gw.calls.where((c) => c.startsWith('history:')), hasLength(1));
+
+    // Seen posts are not evaluated again; a new one is.
+    gw.postCtl
+      ..add(PostAdded(Post(chatId: -1, messageId: 7, date: 1, text: 'hello')))
+      ..add(PostAdded(Post(chatId: -1, messageId: 9, date: 1, text: 'hello')));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(got, [7, 9]);
+    await sub.cancel();
+    await client.close();
+    await server.close();
+    await engine.close();
+  });
+
   test('server in another isolate: maps cross the port', () async {
     final reply = ReceivePort();
     final iso = await Isolate.spawn(_serveFake, reply.sendPort);
@@ -728,4 +774,31 @@ void main() {
 void _serveFake(SendPort reply) {
   final server = CoreServer(FakeGateway());
   reply.send(server.sendPort);
+}
+
+/// Channel -1 got posts 6 to 8 while nothing ran; 6 was read in the official app.
+final class _CatchUpGateway extends FakeGateway {
+  @override
+  Future<ReadState> readState(int chatId) async => ReadState(
+    chatId: chatId,
+    lastReadMessageId: 6,
+    unreadCount: 2,
+    lastMessageId: 8,
+  );
+
+  @override
+  Future<List<Post>> history(
+    int chatId, {
+    int fromMessageId = 0,
+    int limit = 30,
+    bool onlyLocal = false,
+  }) async {
+    calls.add('history:$chatId');
+    return [
+      Post(chatId: chatId, messageId: 8, date: 1, text: 'bye'),
+      Post(chatId: chatId, messageId: 7, date: 1, text: 'hello'),
+      Post(chatId: chatId, messageId: 6, date: 1, text: 'hello read'),
+      Post(chatId: chatId, messageId: 5, date: 1, text: 'hello old'),
+    ];
+  }
 }
