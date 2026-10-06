@@ -38,7 +38,7 @@ class ChannelsGateway implements TelegramGateway {
         lastMessageMedia: c.lastMessageMedia,
         lastMessageDate: c.lastMessageDate,
         lastMessageAlbum: c.lastMessageAlbum,
-        isMuted: c.isMuted,
+        isMuted: mutedNow[c.chatId] ?? c.isMuted,
         isVerified: c.isVerified,
         pinnedLists: c.pinnedLists,
         isMarkedUnread: markedUnread[c.chatId] ?? c.isMarkedUnread,
@@ -51,6 +51,13 @@ class ChannelsGateway implements TelegramGateway {
   @override
   Future<void> markChannelUnread(int chatId, {required bool unread}) async =>
       markedUnread[chatId] = unread;
+
+  /// Channels muted or unmuted here, over what [channels] say.
+  final mutedNow = <int, bool>{};
+
+  @override
+  Future<void> setChannelMuted(int chatId, {required bool muted}) async =>
+      mutedNow[chatId] = muted;
   @override
   Stream<PostEvent> get postEvents => posts.stream;
 

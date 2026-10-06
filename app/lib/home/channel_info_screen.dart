@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../feeds/channel_mute.dart';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -28,7 +30,12 @@ class ChannelInfoScreen extends StatefulWidget {
     required this.channel,
     this.share = shareWithSystemSheet,
     this.onShowInChat,
+    this.notifications = true,
   });
+
+  /// Whether the screen has the Notifications switch: Saved Messages is no channel to
+  /// mute.
+  final bool notifications;
 
   /// Goes to a post of the channel: "Show in chat" of a shared media item. The screen
   /// that opened this one knows how; without it the items have no menu.
@@ -358,6 +365,12 @@ class _ChannelInfoScreenState extends State<ChannelInfoScreen> {
                     icon: const Icon(Icons.copy),
                     onPressed: () => unawaited(_copyLink(link)),
                   ),
+                ),
+              // Mute and unmute in Telegram, as the official app's Notifications switch.
+              if (widget.notifications)
+                ChannelNotificationsSwitch(
+                  gateway: widget.gateway,
+                  channel: channel,
                 ),
               if (_similar.isNotEmpty) ...[
                 Padding(

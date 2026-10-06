@@ -208,6 +208,12 @@ abstract interface class TelegramGateway {
   /// or takes the mark off. The mark is a flag of its own: no post becomes unread.
   Future<void> markChannelUnread(int chatId, {required bool unread});
 
+  /// Mutes the channel in Telegram, or unmutes it, as the official app's Mute does: for
+  /// every device of the account. The app notifies through its rules either way; what
+  /// it changes is whether Telegram pushes the channel's posts (ARCHITECTURE 6.5).
+  /// [Channel.isMuted] says how it stands.
+  Future<void> setChannelMuted(int chatId, {required bool muted});
+
   /// Tells Telegram that the comments [messageIds] of [thread] were on the screen, which
   /// moves the thread's read position as the official app does.
   Future<void> markCommentsViewed(Thread thread, List<int> messageIds);

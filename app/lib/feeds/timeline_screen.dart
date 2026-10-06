@@ -1,4 +1,7 @@
 import 'dart:async';
+
+import 'channel_mute.dart';
+
 import 'dart:math' as math;
 
 import 'package:app_db/app_db.dart';
@@ -459,6 +462,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                     builder: (info) => ChannelInfoScreen(
                       gateway: widget.gateway,
                       channel: channel,
+                      notifications: !widget.savedMessages,
                       onShowInChat: (post) {
                         Navigator.of(info).pop();
                         unawaited(
@@ -518,6 +522,8 @@ class _TimelineScreenState extends State<TimelineScreen> {
             (session == null &&
                 _queryCtl.text.trim().isEmpty &&
                 _recent.isNotEmpty));
+    final muteBar =
+        widget.channel != null && !widget.savedMessages && !_searchOpen;
     return PopScope(
       canPop: _selected == 0 && !_searchOpen,
       // Back first leaves the selection, then the search, as in the official app.
@@ -542,7 +548,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
               child: Builder(
                 builder: (context) => MediaQuery.removePadding(
                   context: context,
-                  removeBottom: _searchOpen && session != null,
+                  removeBottom: (_searchOpen && session != null) || muteBar,
                   child: Stack(
                     children: [
                       TimelineView(
@@ -626,6 +632,9 @@ class _TimelineScreenState extends State<TimelineScreen> {
                     ? null
                     : () => unawaited(_openResult(_current - 1)),
               ),
+            // Under a channel's posts, as in the official app.
+            if (muteBar)
+              ChannelMuteBar(gateway: widget.gateway, channel: widget.channel!),
           ],
         ),
       ),

@@ -1009,6 +1009,28 @@ class AppLocalizationsUk extends AppLocalizations {
   String get channelInfoLoadFailed => 'Не вдалося завантажити дані каналу.';
 
   @override
+  String get channelInfoNotifications => 'Сповіщення';
+
+  @override
+  String get channelInfoUnmutedNote =>
+      'Telegram надсилає на телефон push про дописи цього каналу, тож його правила сповіщають і тоді, коли застосунок закрито. Офіційний застосунок теж сповіщає про них.';
+
+  @override
+  String get channelInfoMutedNote =>
+      'Вимкнено в Telegram: його правила сповіщають лише тоді, коли застосунок відкрито.';
+
+  @override
+  String get channelMute => 'НЕ СПОВІЩАТИ';
+
+  @override
+  String get channelUnmute => 'СПОВІЩАТИ';
+
+  @override
+  String channelMuteFailed(String message) {
+    return 'Telegram не прийняв зміну: $message';
+  }
+
+  @override
   String get channelInfoSimilarChannels => 'Схожі канали';
 
   @override
@@ -2434,7 +2456,7 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get notificationSettingsPushOn =>
-      'Push від Telegram будить застосунок, коли зʼявляються нові дописи. Для каналу, вимкненого в Telegram, він приходить приблизно для кожного десятого допису, тож сповіщення цього каналу можуть запізнюватися.';
+      'Push від Telegram будить застосунок, коли зʼявляються нові дописи каналів, сповіщення яких у Telegram не вимкнено; увімкнути чи вимкнути їх можна на екрані каналу та кнопкою під його дописами. Правила вимкнених каналів сповіщають лише тоді, коли застосунок відкрито.';
 
   @override
   String get notificationSettingsPushOff =>

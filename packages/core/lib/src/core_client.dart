@@ -487,6 +487,10 @@ final class CoreClient implements TelegramGateway {
       _call('markChannelUnread', {'chatId': chatId, 'unread': unread});
 
   @override
+  Future<void> setChannelMuted(int chatId, {required bool muted}) =>
+      _call('setChannelMuted', {'chatId': chatId, 'muted': muted});
+
+  @override
   Future<void> markCommentsViewed(Thread thread, List<int> messageIds) => _call(
     'markCommentsViewed',
     {'thread': encodeThread(thread), 'messageIds': messageIds},

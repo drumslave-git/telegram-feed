@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:core/core.dart';
+import 'package:telegram_feed/feeds/channel_mute.dart';
 import 'package:telegram_feed/feeds/feed_editor_screen.dart';
 import 'package:telegram_feed/feeds/shared_media.dart';
 import 'package:telegram_feed/feeds/timeline_screen.dart';
@@ -172,6 +173,65 @@ void main() {
     await settle(tester);
     expect(find.text('Nothing here yet.'), findsOneWidget);
   });
+
+  testWidgets(
+    'a channel is muted and unmuted in Telegram from the bar under '
+    'its posts and from the switch on its info screen, and both show the same',
+    (tester) async {
+      ChannelMutes.changes.value = const {};
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TimelineScreen(db: db, gateway: gw, channel: channel),
+        ),
+      );
+      await settle(tester);
+      expect(find.text('MUTE'), findsOneWidget);
+      await tester.tap(find.text('MUTE'));
+      await settle(tester);
+      expect(gw.mutedNow[-1], isTrue);
+      expect(find.text('UNMUTE'), findsOneWidget);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.text('Alpha News'),
+        ),
+      );
+      await settle(tester);
+      final notifications = find.widgetWithText(
+        SwitchListTile,
+        'Notifications',
+        skipOffstage: false,
+      );
+      await tester.scrollUntilVisible(
+        notifications,
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(tester.widget<SwitchListTile>(notifications).value, isFalse);
+      expect(find.textContaining('Muted in Telegram'), findsOneWidget);
+      await tester.tap(notifications);
+      await settle(tester);
+      expect(gw.mutedNow[-1], isFalse);
+      expect(
+        find.textContaining('Telegram pushes this channel'),
+        findsOneWidget,
+      );
+
+      await tester.pageBack();
+      await settle(tester);
+      expect(find.text('MUTE'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
+      addTearDown(db.close);
+    },
+  );
 
   testWidgets('the channel title in the timeline opens the info screen', (
     tester,

@@ -248,6 +248,8 @@ final class HistoryGateway implements TelegramGateway {
   @override
   Future<void> markChannelUnread(int chatId, {required bool unread}) async {}
   @override
+  Future<void> setChannelMuted(int chatId, {required bool muted}) async {}
+  @override
   Future<Map<HistoryFilter, int>> mediaCounts(int chatId) async => const {};
   @override
   Future<ReportStep> report(

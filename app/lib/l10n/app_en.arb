@@ -786,6 +786,25 @@
     "description": "Under the channel's name when the number of subscribers is unknown."
   },
   "channelInfoLoadFailed": "Could not load the channel details.",
+  "channelInfoNotifications": "Notifications",
+  "@channelInfoNotifications": {
+    "description": "Switch on a channel's info screen: the channel is not muted in Telegram."
+  },
+  "channelInfoUnmutedNote": "Telegram pushes this channel's posts to the phone, so its rules notify while the app is closed. The official app notifies for them as well.",
+  "channelInfoMutedNote": "Muted in Telegram: its rules notify only while the app is open.",
+  "channelMute": "MUTE",
+  "@channelMute": {
+    "description": "The bar under a channel's timeline, as the official app's: mutes the channel in Telegram."
+  },
+  "channelUnmute": "UNMUTE",
+  "channelMuteFailed": "Telegram did not take the change: {message}",
+  "@channelMuteFailed": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
   "channelInfoSimilarChannels": "Similar channels",
   "homeTabFeeds": "Feeds",
   "@homeTabFeeds": {
@@ -1868,7 +1887,7 @@
   "@notificationSettingsPush": {
     "description": "Row that says whether Telegram's push reaches the app, so rules notify while it is closed."
   },
-  "notificationSettingsPushOn": "Telegram's push wakes the app for new posts. Of a channel muted in Telegram, it comes for about every tenth post, so that channel's notifications may come late.",
+  "notificationSettingsPushOn": "Telegram's push wakes the app for new posts of the channels that are not muted in Telegram; a channel's info screen and the bar under its posts mute and unmute it. Rules on muted channels notify only while the app is open.",
   "notificationSettingsPushOff": "Telegram does not push to the app on this phone, so rules notify only while the app is open.",
   "notificationSettingsSystemSettings": "System notification settings",
   "notificationSettingsNoSoundPicker": "No sound picker: {message}",

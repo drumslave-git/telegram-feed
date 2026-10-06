@@ -1640,6 +1640,42 @@ abstract class AppLocalizations {
   /// **'Could not load the channel details.'**
   String get channelInfoLoadFailed;
 
+  /// Switch on a channel's info screen: the channel is not muted in Telegram.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get channelInfoNotifications;
+
+  /// No description provided for @channelInfoUnmutedNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram pushes this channel\'s posts to the phone, so its rules notify while the app is closed. The official app notifies for them as well.'**
+  String get channelInfoUnmutedNote;
+
+  /// No description provided for @channelInfoMutedNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Muted in Telegram: its rules notify only while the app is open.'**
+  String get channelInfoMutedNote;
+
+  /// The bar under a channel's timeline, as the official app's: mutes the channel in Telegram.
+  ///
+  /// In en, this message translates to:
+  /// **'MUTE'**
+  String get channelMute;
+
+  /// No description provided for @channelUnmute.
+  ///
+  /// In en, this message translates to:
+  /// **'UNMUTE'**
+  String get channelUnmute;
+
+  /// No description provided for @channelMuteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Telegram did not take the change: {message}'**
+  String channelMuteFailed(String message);
+
   /// No description provided for @channelInfoSimilarChannels.
   ///
   /// In en, this message translates to:
@@ -3755,7 +3791,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationSettingsPushOn.
   ///
   /// In en, this message translates to:
-  /// **'Telegram\'s push wakes the app for new posts. Of a channel muted in Telegram, it comes for about every tenth post, so that channel\'s notifications may come late.'**
+  /// **'Telegram\'s push wakes the app for new posts of the channels that are not muted in Telegram; a channel\'s info screen and the bar under its posts mute and unmute it. Rules on muted channels notify only while the app is open.'**
   String get notificationSettingsPushOn;
 
   /// No description provided for @notificationSettingsPushOff.

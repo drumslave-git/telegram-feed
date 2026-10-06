@@ -544,6 +544,11 @@ final class CoreServer {
           a['chatId'] as int,
           unread: a['unread'] as bool,
         );
+      case 'setChannelMuted':
+        await gateway.setChannelMuted(
+          a['chatId'] as int,
+          muted: a['muted'] as bool,
+        );
       case 'markCommentsViewed':
         await gateway.markCommentsViewed(
           decodeThread(a['thread'] as Map<Object?, Object?>),

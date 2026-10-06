@@ -151,8 +151,8 @@ void main() {
   });
 
   testWidgets('the screen says whether rules notify while the app is closed: '
-      'with push, and how muted channels come late; without it, only while the '
-      'app is open', (tester) async {
+      'with push, for the channels not muted in Telegram; without it, only while '
+      'the app is open', (tester) async {
     Future<void> show(bool push) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -177,7 +177,11 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.textContaining('about every tenth post', skipOffstage: false),
+      find.textContaining(
+        'Rules on muted channels notify only while the app '
+        'is open',
+        skipOffstage: false,
+      ),
       findsOneWidget,
     );
     await show(false);

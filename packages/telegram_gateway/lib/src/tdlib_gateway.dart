@@ -984,6 +984,25 @@ final class TdlibGateway implements TelegramGateway, PushGateway {
       );
 
   @override
+  Future<void> setChannelMuted(int chatId, {required bool muted}) async {
+    final chat = await _client.call(td.GetChat(chatId: chatId));
+    // Every other setting stays as it is; TDLib takes more than 366 days as forever.
+    final settings = td.ChatNotificationSettings.fromJson({
+      ...?chat.notificationSettings?.toJson(),
+      'use_default_mute_for': false,
+      'mute_for': muted ? _mutedForever : 0,
+    });
+    await _client.call(
+      td.SetChatNotificationSettings(
+        chatId: chatId,
+        notificationSettings: settings,
+      ),
+    );
+  }
+
+  static const _mutedForever = 0x7fffffff;
+
+  @override
   Future<void> markCommentsViewed(Thread thread, List<int> messageIds) async {
     if (messageIds.isEmpty) return;
     await _client.call(

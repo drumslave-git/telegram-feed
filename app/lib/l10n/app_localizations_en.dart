@@ -975,6 +975,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get channelInfoLoadFailed => 'Could not load the channel details.';
 
   @override
+  String get channelInfoNotifications => 'Notifications';
+
+  @override
+  String get channelInfoUnmutedNote =>
+      'Telegram pushes this channel\'s posts to the phone, so its rules notify while the app is closed. The official app notifies for them as well.';
+
+  @override
+  String get channelInfoMutedNote =>
+      'Muted in Telegram: its rules notify only while the app is open.';
+
+  @override
+  String get channelMute => 'MUTE';
+
+  @override
+  String get channelUnmute => 'UNMUTE';
+
+  @override
+  String channelMuteFailed(String message) {
+    return 'Telegram did not take the change: $message';
+  }
+
+  @override
   String get channelInfoSimilarChannels => 'Similar channels';
 
   @override
@@ -2330,7 +2352,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationSettingsPushOn =>
-      'Telegram\'s push wakes the app for new posts. Of a channel muted in Telegram, it comes for about every tenth post, so that channel\'s notifications may come late.';
+      'Telegram\'s push wakes the app for new posts of the channels that are not muted in Telegram; a channel\'s info screen and the bar under its posts mute and unmute it. Rules on muted channels notify only while the app is open.';
 
   @override
   String get notificationSettingsPushOff =>
