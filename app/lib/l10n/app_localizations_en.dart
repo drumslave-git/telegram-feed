@@ -2334,7 +2334,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationSettingsPushOff =>
-      'This build or this phone gets no push from Telegram. Rules notify only while the app is open.';
+      'Telegram does not push to the app on this phone, so rules notify only while the app is open.';
 
   @override
   String get notificationSettingsSystemSettings =>

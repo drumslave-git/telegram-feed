@@ -2438,7 +2438,7 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get notificationSettingsPushOff =>
-      'Ця збірка або цей телефон не отримує push від Telegram. Правила сповіщають лише тоді, коли застосунок відкрито.';
+      'Telegram не надсилає push застосунку на цьому телефоні, тож правила сповіщають лише тоді, коли застосунок відкрито.';
 
   @override
   String get notificationSettingsSystemSettings =>

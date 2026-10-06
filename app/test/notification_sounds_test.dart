@@ -183,7 +183,7 @@ void main() {
     await show(false);
     expect(
       find.text(
-        'This build or this phone gets no push from Telegram. Rules notify only '
+        'Telegram does not push to the app on this phone, so rules notify only '
         'while the app is open.',
         skipOffstage: false,
       ),

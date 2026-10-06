@@ -610,7 +610,7 @@
   "notificationSettingsBackground": "Робота у фоні",
   "notificationSettingsPush": "Сповіщати, коли застосунок закрито",
   "notificationSettingsPushOn": "Push від Telegram будить застосунок, коли зʼявляються нові дописи. Для каналу, вимкненого в Telegram, він приходить приблизно для кожного десятого допису, тож сповіщення цього каналу можуть запізнюватися.",
-  "notificationSettingsPushOff": "Ця збірка або цей телефон не отримує push від Telegram. Правила сповіщають лише тоді, коли застосунок відкрито.",
+  "notificationSettingsPushOff": "Telegram не надсилає push застосунку на цьому телефоні, тож правила сповіщають лише тоді, коли застосунок відкрито.",
   "notificationSettingsSystemSettings": "Системні налаштування сповіщень",
   "notificationSettingsNoSoundPicker": "Вибір звуку недоступний: {message}",
   "notificationSettingsNoSoundPickerOnDevice": "На цьому пристрої немає вибору звуку.",

@@ -157,7 +157,7 @@ The primary user follows 20 to 200 Telegram channels (news, niche communities, a
 
 - Rules notify me while the app is closed, with no permanent notification: Telegram's push wakes the app, which looks at the new posts, notifies, reads aloud and goes back to sleep. Nothing needs to be turned on.
 - Telegram pushes every post of a channel that is not muted in Telegram, and about every tenth post of a muted one. The posts in between are looked at with the next push, so a muted channel's notifications can come late.
-- Without Google Play services, or in a build without its own Firebase project, there is no push, and rules notify only while the app is open. Notifications and sounds says which of the two holds.
+- Without Google Play services, in a build without its own Firebase project, or for a login that Telegram refuses push to, there is no push, and rules notify only while the app is open. Notifications and sounds says whether push reaches the app.
 - The app asks to be let off battery optimisation, on the rules screens and on Notifications and sounds, since Android may hold back what it does while the phone sleeps and some phones put it to sleep altogether.
 - Notifications and sounds has a row that opens Android's notification settings of the app.
 - When Android blocks the app's notifications, Notifications and sounds says so at its top and opens the setting that turns them on.

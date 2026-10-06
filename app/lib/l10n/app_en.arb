@@ -1869,7 +1869,7 @@
     "description": "Row that says whether Telegram's push reaches the app, so rules notify while it is closed."
   },
   "notificationSettingsPushOn": "Telegram's push wakes the app for new posts. Of a channel muted in Telegram, it comes for about every tenth post, so that channel's notifications may come late.",
-  "notificationSettingsPushOff": "This build or this phone gets no push from Telegram. Rules notify only while the app is open.",
+  "notificationSettingsPushOff": "Telegram does not push to the app on this phone, so rules notify only while the app is open.",
   "notificationSettingsSystemSettings": "System notification settings",
   "notificationSettingsNoSoundPicker": "No sound picker: {message}",
   "@notificationSettingsNoSoundPicker": {

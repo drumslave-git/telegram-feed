@@ -16,7 +16,8 @@ abstract interface class AppHost {
   TelegramGateway get gateway;
 
   /// Whether Telegram's push reaches this install, so rules notify while the app is
-  /// closed: the build has a Firebase project and the phone Google Play services.
+  /// closed: the build has a Firebase project, the phone Google Play services, and
+  /// Telegram took the token for the account in use.
   Future<bool> get pushAvailable;
 
   /// Google Drive sync of feeds, rules and settings (ARCHITECTURE.md section 5.5).

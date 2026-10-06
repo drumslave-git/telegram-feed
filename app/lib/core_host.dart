@@ -74,8 +74,15 @@ final class CoreHost implements AppHost {
   TelegramGateway get gateway => _client;
   CoreClient get core => _client;
 
+  /// An FCM token, and Telegram took it for the account in use: it refuses one for a
+  /// session that logged in through an app without FCM credentials (section 6.5).
   @override
-  Future<bool> get pushAvailable async => await PushRunner.token() != null;
+  Future<bool> get pushAvailable async {
+    final token = await PushRunner.token();
+    if (token == null) return false;
+    final registered = await db.setting(SettingKeys.pushRegistered);
+    return registered != null && registered.startsWith('$token ');
+  }
 
   /// A run may hold the core in this process: it stands down, so this engine can start
   /// its own.

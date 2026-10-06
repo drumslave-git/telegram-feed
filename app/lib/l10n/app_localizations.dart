@@ -3761,7 +3761,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationSettingsPushOff.
   ///
   /// In en, this message translates to:
-  /// **'This build or this phone gets no push from Telegram. Rules notify only while the app is open.'**
+  /// **'Telegram does not push to the app on this phone, so rules notify only while the app is open.'**
   String get notificationSettingsPushOff;
 
   /// No description provided for @notificationSettingsSystemSettings.
