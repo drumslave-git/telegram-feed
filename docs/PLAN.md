@@ -4,13 +4,7 @@ Open work only. A task leaves this file in the commit that finishes it; `git log
 
 Legend: `[ ]` not started, `[~]` in progress (name the branch).
 
-**Current phase:** Phase 5 — Push. **Next task:** P5-4.
-
-## Phase 5 — Push
-
-Rules notify through Telegram's push (FCM) while the app is closed, and through a connection kept open while a rule is instant.
-
-- [ ] P5-4 Muted channels wake the app: TDLib is built with `no_muted` off, so Telegram sends its silent pushes for muted chats; first proven on the emulator.
+**Current phase:** Hands-on checks. **Next task:** V-14.
 
 ## Hands-on checks
 
