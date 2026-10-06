@@ -1,7 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- A voice message or music plays on with the screen off (NowPlaying.kt) -->
+    <!-- Instant rules keep the connection open in the core service (ARCHITECTURE 8):
+         specialUse because Android 15 caps dataSync at 6 h/day -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <!-- A voice message or music plays on with the screen off (NowPlaying.kt) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- What a push starts is held back by battery optimisation (core_host.dart) -->
@@ -41,6 +44,18 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Status bar icon of the "Watching N channels" notification (core_service.dart) -->
+        <meta-data
+            android:name="dev.telegramfeed.service.NOTIFICATION_ICON"
+            android:resource="@drawable/ic_stat_feed" />
+        <service
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the Telegram connection open so that the user's instant keyword rules notify the moment a post arrives"/>
+        </service>
         <!-- The voice message or music that plays: its notification, the lock screen's
              player and the headset's buttons (NowPlaying.kt) -->
         <service

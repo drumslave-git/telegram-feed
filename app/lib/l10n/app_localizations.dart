@@ -3326,6 +3326,18 @@ abstract class AppLocalizations {
   /// **'Read the post aloud'**
   String get ruleReadAloud;
 
+  /// Rule editor switch: the rule notifies at once, through the connection the app then keeps open.
+  ///
+  /// In en, this message translates to:
+  /// **'Instant'**
+  String get ruleInstant;
+
+  /// No description provided for @ruleInstantInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifies the moment a post comes, also from a channel muted in Telegram. While any rule is instant, the app keeps its connection to Telegram open, with a permanent notification.'**
+  String get ruleInstantInfo;
+
   /// No description provided for @scheduleSwitch.
   ///
   /// In en, this message translates to:
@@ -3505,6 +3517,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'read aloud'**
   String get ruleTileReadAloud;
+
+  /// No description provided for @ruleTileInstant.
+  ///
+  /// In en, this message translates to:
+  /// **'instant'**
+  String get ruleTileInstant;
 
   /// In a rule's summary line: a rule without a condition.
   ///
@@ -5389,6 +5407,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Channel created'**
   String get serviceChannelCreated;
+
+  /// Android notification channel of the permanent notification.
+  ///
+  /// In en, this message translates to:
+  /// **'Watching channels'**
+  String get serviceChannelName;
+
+  /// No description provided for @serviceChannelDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Keeps the Telegram connection open for instant rules'**
+  String get serviceChannelDescription;
+
+  /// No description provided for @serviceStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting…'**
+  String get serviceStarting;
+
+  /// Button on the permanent notification that pauses every rule.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get servicePause;
+
+  /// No description provided for @serviceResume.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get serviceResume;
+
+  /// No description provided for @servicePaused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused: rules are not evaluated'**
+  String get servicePaused;
+
+  /// No description provided for @serviceWatching.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Watching 1 channel} other{Watching {count} channels}}'**
+  String serviceWatching(int count);
 
   /// No description provided for @serviceLiveStarted.
   ///

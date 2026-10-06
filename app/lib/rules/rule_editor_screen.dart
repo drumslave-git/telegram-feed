@@ -78,6 +78,9 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
   int? _scopeChatId;
   String _priority = 'normal';
   bool _readAloud = false;
+
+  /// Notifies at once, through the connection the app then keeps open.
+  bool _instant = false;
   bool _enabled = true;
   String? _nameError;
   String? _feedError;
@@ -105,6 +108,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
       _scopeChatId = r.scopeChatId;
       _priority = r.priority;
       _readAloud = r.readAloud;
+      _instant = r.instant;
       _enabled = r.enabled;
       try {
         final spec = RuleSpec.fromRow(r);
@@ -184,6 +188,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
     _scopeChatId,
     _priority,
     _readAloud,
+    _instant,
     _enabled,
     _useAi ? _prompt.text.trim() : '',
     _cond.snapshot,
@@ -260,6 +265,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
       conditionJson: Value(jsonEncode(cond.toJson())),
       priority: Value(_priority),
       readAloud: Value(_readAloud),
+      instant: Value(_instant),
       scheduleJson: Value(schedule),
       semanticPrompt: Value(_isSemantic ? _prompt.text.trim() : null),
     );
@@ -274,6 +280,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
           conditionJson: jsonEncode(cond.toJson()),
           priority: _priority,
           readAloud: Value(_readAloud),
+          instant: Value(_instant),
           scheduleJson: Value(schedule),
           semanticPrompt: Value(_isSemantic ? _prompt.text.trim() : null),
           createdAt: DateTime.now(),
@@ -705,6 +712,13 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
               title: Text(l10n.ruleReadAloud),
               value: _readAloud,
               onChanged: (v) => setState(() => _readAloud = v),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(l10n.ruleInstant),
+              subtitle: Text(l10n.ruleInstantInfo),
+              value: _instant,
+              onChanged: (v) => setState(() => _instant = v),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,

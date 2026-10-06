@@ -13,6 +13,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import '../l10n/l10n.dart';
 import 'account_watch.dart';
 import 'core_bootstrap.dart';
+import 'core_lock.dart';
 import 'launcher_badge.dart';
 import 'notification_plan.dart';
 import 'push_registration.dart';
@@ -122,7 +123,28 @@ final class PushRun {
   }
 
   /// Nothing runs the core in this process: the run does, until nothing is left to do.
+  /// Another engine may be starting one (the app, the service): the push goes to that
+  /// one once it is registered; a holder of the lock that registers none in time is
+  /// taken as gone ([CoreLock]).
   Future<void> _host() async {
+    if (CoreLock.held) {
+      final end = DateTime.now().add(const Duration(seconds: 20));
+      while (DateTime.now().isBefore(end)) {
+        final port = IsolateNameServer.lookupPortByName(corePortName);
+        if (port != null && await _forwardTo(port)) return;
+        if (!CoreLock.held) break;
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
+    }
+    final lock = await CoreLock.take(force: true, standDownHolder: false);
+    try {
+      await _hostCore();
+    } finally {
+      CoreLock.release(lock);
+    }
+  }
+
+  Future<void> _hostCore() async {
     final paths = await appPaths();
     final db = AppDatabase(appDatabaseFile(File(paths.db)));
     final strings = AppLanguage.strings(await db.setting(SettingKeys.language));

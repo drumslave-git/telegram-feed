@@ -2172,6 +2172,13 @@ class AppLocalizationsUk extends AppLocalizations {
   String get ruleReadAloud => 'Читати допис вголос';
 
   @override
+  String get ruleInstant => 'Миттєво';
+
+  @override
+  String get ruleInstantInfo =>
+      'Сповіщає, щойно зʼявляється допис, навіть з каналу, сповіщення якого вимкнено в Telegram. Поки бодай одне правило миттєве, застосунок тримає зʼєднання з Telegram відкритим, і є постійне сповіщення.';
+
+  @override
   String get scheduleSwitch => 'Лише в певний час';
 
   @override
@@ -2272,6 +2279,9 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get ruleTileReadAloud => 'читання вголос';
+
+  @override
+  String get ruleTileInstant => 'миттєво';
 
   @override
   String get ruleTileEveryPost => 'кожен допис';
@@ -3496,6 +3506,38 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get serviceChannelCreated => 'Канал створено';
+
+  @override
+  String get serviceChannelName => 'Стеження за каналами';
+
+  @override
+  String get serviceChannelDescription =>
+      'Тримає зʼєднання з Telegram для миттєвих правил';
+
+  @override
+  String get serviceStarting => 'Запуск…';
+
+  @override
+  String get servicePause => 'Призупинити';
+
+  @override
+  String get serviceResume => 'Відновити';
+
+  @override
+  String get servicePaused => 'Призупинено: правила не перевіряються';
+
+  @override
+  String serviceWatching(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Стеження за $count каналу',
+      many: 'Стеження за $count каналами',
+      few: 'Стеження за $count каналами',
+      one: 'Стеження за $count каналом',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get serviceLiveStarted => 'Почалася трансляція';

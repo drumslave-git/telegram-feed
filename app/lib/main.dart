@@ -14,6 +14,7 @@ import 'media/audio_session.dart';
 import 'media/auto_download.dart';
 import 'media/system_pip.dart';
 import 'notifications/open_post.dart';
+import 'service/core_service.dart' show initCoreService;
 import 'service/push_run.dart';
 import 'rules/rules_screen.dart';
 import 'settings/app_lock.dart';
@@ -24,6 +25,7 @@ import 'app_name.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  initCoreService();
   runApp(const TelegramFeedApp());
 }
 

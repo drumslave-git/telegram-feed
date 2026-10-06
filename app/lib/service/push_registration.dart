@@ -11,6 +11,14 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 /// them it is for. An account registers again when the token or the other accounts
 /// change ([SettingKeys.pushRegistered]).
 abstract final class PushRegistration {
+  /// What [SettingKeys.pushRegistered] holds for [token] and the other accounts' ids.
+  static String keyOf(String token, List<int> otherIds) =>
+      '$token ${otherIds.join(',')}';
+
+  /// Whether [stored] is a registration of [token].
+  static bool isFor(String? stored, String token) =>
+      stored != null && stored.startsWith('$token ');
+
   /// Registers what is not registered yet: [main] is the account in use, [others] the
   /// other logged-in ones, each with its database. Without a token (no push in this
   /// build or on this phone) nothing happens.
@@ -43,9 +51,10 @@ abstract final class PushRegistration {
         for (var j = 0; j < ids.length; j++)
           if (j != i && ids[j] != null) ids[j]!,
       ]..sort();
-      final key = '$t ${otherIds.join(',')}';
+      final key = keyOf(t, otherIds);
       final a = accounts[i];
-      if (await a.db.setting(SettingKeys.pushRegistered) == key) continue;
+      final stored = await a.db.setting(SettingKeys.pushRegistered);
+      if (stored == key) continue;
       try {
         await a.client.registerPush(t, otherUserIds: otherIds);
         await a.db.setSetting(SettingKeys.pushRegistered, key);

@@ -531,6 +531,57 @@ void main() {
       await other.close();
     });
 
+    test('a client moves to the core that takes over: its streams go on, a '
+        'call made on the way is answered by the new core, and the login that '
+        'core passes through is not told', () async {
+      final gw1 = FakeGateway()..auth = const AuthReady();
+      final moving = await CoreClient.connect(CoreServer(gw1).sendPort);
+      final states = <AuthState>[];
+      final posts = <PostEvent>[];
+      final subs = [
+        moving.authState.listen(states.add),
+        moving.postEvents.listen(posts.add),
+      ];
+      await Future<void>.delayed(Duration.zero);
+      expect(states.single, isA<AuthReady>());
+
+      // The old core goes. What is asked now waits for the next one.
+      moving.hold();
+      await moving.shutdown();
+      final asked = moving.setPhoneNumber('+3');
+      final gw2 = FakeGateway()..auth = const AuthStarting();
+      await moving.rebind(CoreServer(gw2).sendPort);
+      await asked;
+      expect(gw2.calls, ['phone:+3']);
+      expect(gw1.calls, isNot(contains('phone:+3')));
+
+      // TDLib starts and is logged in again: the screens hear nothing of it.
+      gw2.authCtl
+        ..add(const AuthStarting())
+        ..add(const AuthReady());
+      gw2.postCtl.add(
+        const PostAdded(Post(chatId: -1, messageId: 1, date: 1, text: 'x')),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(states, hasLength(1));
+      expect(moving.currentAuthState, isA<AuthReady>());
+      expect(posts, hasLength(1));
+
+      // A core that comes up without its session says so.
+      moving.hold();
+      await moving.shutdown();
+      final gw3 = FakeGateway()..auth = const AuthStarting();
+      await moving.rebind(CoreServer(gw3).sendPort);
+      gw3.authCtl.add(const AuthWaitPhoneNumber());
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(states.last, isA<AuthWaitPhoneNumber>());
+
+      for (final s in subs) {
+        await s.cancel();
+      }
+      await moving.close();
+    });
+
     test('the countries and what a number is made of cross the port', () async {
       final countries = await client.countries(language: 'uk');
       expect(countries.single.name, 'Україна');

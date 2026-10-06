@@ -6,7 +6,7 @@ import 'package:telegram_gateway/telegram_gateway.dart';
 import 'rule_engine.dart' show MatchEvent;
 
 /// UI-side handle to a [CoreServer]. Implements [TelegramGateway] so screens do not care
-/// whether the core runs in the same isolate or a spawned one.
+/// whether the core runs in the same isolate, a spawned isolate, or the foreground service.
 final class CoreClient implements TelegramGateway {
   CoreClient._(this._server) {
     _inbox.listen(_onMessage);
@@ -20,12 +20,49 @@ final class CoreClient implements TelegramGateway {
     return c;
   }
 
-  final SendPort _server;
+  SendPort _server;
   final _inbox = ReceivePort();
-  final _welcome = Completer<void>();
+  var _welcome = Completer<void>();
 
-  /// A login state from the core; [tell] passes it on to the listeners.
+  /// Open from [hold] until [rebind] has the new core's welcome: calls wait for it.
+  Completer<void>? _held;
+
+  /// The core that took over is starting TDLib: what it says of the login on the way
+  /// is not passed on ([_onAuth]).
+  bool _settling = false;
+
+  /// The core is about to go, and another one will take its place ([rebind]): from now
+  /// on calls wait for that one instead of being sent to a core that will not answer.
+  void hold() => _held ??= Completer<void>();
+
+  /// Goes on with the core at [server] in place of the one this client was connected
+  /// to, which has been shut down: the same streams carry the new core's events, so the
+  /// screens that hold this gateway do not notice. Calls the old core never answered
+  /// fail; calls made since [hold] are sent now.
+  Future<void> rebind(SendPort server) async {
+    for (final c in _pending.values) {
+      c.completeError(const TelegramException(-1, 'the core moved'));
+    }
+    _pending.clear();
+    _server = server;
+    _welcome = Completer<void>();
+    _settling = true;
+    _server.send({'type': 'hello', 'port': _inbox.sendPort});
+    await _welcome.future;
+    _held?.complete();
+    _held = null;
+  }
+
+  /// A login state from the core. A core that took over starts TDLib afresh and is
+  /// logged in a moment later; the screens are told nothing of that, so they stay as
+  /// they are. They are told when it ends anywhere else (the session is gone).
   void _onAuth(AuthState state, {required bool tell}) {
+    if (_settling) {
+      if (state is AuthStarting) return;
+      _settling = false;
+      if (state is AuthReady && _auth is AuthReady) return;
+      tell = true;
+    }
     _auth = state;
     if (tell) _authCtl.add(state);
   }
@@ -106,6 +143,9 @@ final class CoreClient implements TelegramGateway {
     String method, [
     Map<String, Object?> args = const {},
   ]) async {
+    // The core is moving: asked of the one that takes over. Its own shutdown is what
+    // the move begins with.
+    if (_held case final held? when method != 'shutdown') await held.future;
     final id = _seq++;
     final c = Completer<Object?>();
     _pending[id] = c;

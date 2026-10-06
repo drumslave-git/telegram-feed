@@ -33,7 +33,21 @@ const actionListen = 'listen';
 const actionStop = 'stop';
 const actionOpenTelegram = 'open_tg';
 
-/// Port name under which whoever runs the alerts, the app or a run (`push_run.dart`),
+/// What the app sends the service host with `FlutterForegroundTask.sendDataToTask` when
+/// its screen comes up or goes away ([Notifier.appOpen]), when its lock screen comes up
+/// or goes ([unlocked]: on screen and not behind the lock), and when another timeline is
+/// in front ([viewing]: the channels it reads, `Viewing`).
+Map<String, Object> appOpenMessage(
+  bool open, {
+  bool unlocked = false,
+  Iterable<int> viewing = const [],
+}) => {
+  'appOpen': open,
+  'unlocked': open && unlocked,
+  'viewing': open ? [...viewing] : const <int>[],
+};
+
+/// Port name under which whoever runs the alerts (the app, the service or a push run)
 /// receives notification actions: the background action isolate has no other way to
 /// reach it.
 const notifierPortName = 'telegram_feed.notifier';

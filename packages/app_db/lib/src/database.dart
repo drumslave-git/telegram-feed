@@ -74,6 +74,10 @@ class Rules extends Table {
   /// 'silent', 'normal' or 'urgent'.
   TextColumn get priority => text()();
   BoolColumn get readAloud => boolean().withDefault(const Constant(false))();
+
+  /// Notifies the moment a post comes, also of a channel muted in Telegram: while any
+  /// rule is instant, the app keeps its connection to Telegram open (section 8).
+  BoolColumn get instant => boolean().withDefault(const Constant(false))();
   TextColumn get scheduleJson => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
 
@@ -244,7 +248,7 @@ class AppDatabase extends _$AppDatabase {
   final DateTime Function() _clock;
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -341,6 +345,8 @@ class AppDatabase extends _$AppDatabase {
       await m.createTable(rules);
     }
     if (from < 8) await m.createTable(ruleMarks);
+    // Below 7 the rules table was made anew above, with every column.
+    if (from >= 7 && from < 9) await m.addColumn(rules, rules.instant);
   }
 
   // ---- rules ----
@@ -363,6 +369,14 @@ class AppDatabase extends _$AppDatabase {
 
   Future<List<Rule>> allRules() =>
       (select(rules)..orderBy([(r) => OrderingTerm.asc(r.createdAt)])).get();
+
+  /// Whether an enabled rule is instant ([Rules.instant]).
+  Future<bool> hasInstantRule() async =>
+      (await (select(rules)
+                ..where((r) => r.instant & r.enabled)
+                ..limit(1))
+              .get())
+          .isNotEmpty;
 
   Stream<List<Rule>> watchRules() =>
       (select(rules)..orderBy([(r) => OrderingTerm.asc(r.createdAt)])).watch();

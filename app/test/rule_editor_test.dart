@@ -116,6 +116,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Read the post aloud'));
       await tester.pump();
+      await tester.ensureVisible(find.text('Instant'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Instant'));
+      await tester.pump();
       await tester.tap(find.text('Save'));
       await settle(tester);
       expect(find.textContaining('needs a word'), findsNothing);
@@ -127,6 +131,7 @@ void main() {
       expect(rule.feedId, feedF);
       expect(rule.scopeChatId, isNull);
       expect(rule.readAloud, isTrue);
+      expect(rule.instant, isTrue);
       expect(rule.priority, 'normal');
       expect(
         jsonDecode(rule.conditionJson),

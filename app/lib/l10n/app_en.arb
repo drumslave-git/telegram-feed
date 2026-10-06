@@ -1652,6 +1652,11 @@
   "rulePriorityNormalInfo": "Pops up, with the sound and vibration set in Notifications and sounds.",
   "rulePriorityUrgentInfo": "Pops up, and breaks through Do Not Disturb where Android allows it.",
   "ruleReadAloud": "Read the post aloud",
+  "ruleInstant": "Instant",
+  "@ruleInstant": {
+    "description": "Rule editor switch: the rule notifies at once, through the connection the app then keeps open."
+  },
+  "ruleInstantInfo": "Notifies the moment a post comes, also from a channel muted in Telegram. While any rule is instant, the app keeps its connection to Telegram open, with a permanent notification.",
   "scheduleSwitch": "Only at certain times",
   "scheduleMon": "Mon",
   "scheduleTue": "Tue",
@@ -1718,6 +1723,7 @@
     "description": "In a rule's summary line: its priority."
   },
   "ruleTileReadAloud": "read aloud",
+  "ruleTileInstant": "instant",
   "@ruleTileReadAloud": {
     "description": "In a rule's summary line: the rule reads the post aloud."
   },
@@ -2674,6 +2680,26 @@
   "servicePhotoChanged": "Channel photo updated",
   "servicePhotoRemoved": "Channel photo removed",
   "serviceChannelCreated": "Channel created",
+  "serviceChannelName": "Watching channels",
+  "@serviceChannelName": {
+    "description": "Android notification channel of the permanent notification."
+  },
+  "serviceChannelDescription": "Keeps the Telegram connection open for instant rules",
+  "serviceStarting": "Starting…",
+  "servicePause": "Pause",
+  "@servicePause": {
+    "description": "Button on the permanent notification that pauses every rule."
+  },
+  "serviceResume": "Resume",
+  "servicePaused": "Paused: rules are not evaluated",
+  "serviceWatching": "{count, plural, =1{Watching 1 channel} other{Watching {count} channels}}",
+  "@serviceWatching": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "serviceLiveStarted": "Live stream started",
   "serviceLiveEnded": "Live stream ended ({length})",
   "@serviceLiveEnded": {

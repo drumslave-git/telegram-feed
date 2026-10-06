@@ -2078,6 +2078,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ruleReadAloud => 'Read the post aloud';
 
   @override
+  String get ruleInstant => 'Instant';
+
+  @override
+  String get ruleInstantInfo =>
+      'Notifies the moment a post comes, also from a channel muted in Telegram. While any rule is instant, the app keeps its connection to Telegram open, with a permanent notification.';
+
+  @override
   String get scheduleSwitch => 'Only at certain times';
 
   @override
@@ -2178,6 +2185,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ruleTileReadAloud => 'read aloud';
+
+  @override
+  String get ruleTileInstant => 'instant';
 
   @override
   String get ruleTileEveryPost => 'every post';
@@ -3381,6 +3391,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get serviceChannelCreated => 'Channel created';
+
+  @override
+  String get serviceChannelName => 'Watching channels';
+
+  @override
+  String get serviceChannelDescription =>
+      'Keeps the Telegram connection open for instant rules';
+
+  @override
+  String get serviceStarting => 'Starting…';
+
+  @override
+  String get servicePause => 'Pause';
+
+  @override
+  String get serviceResume => 'Resume';
+
+  @override
+  String get servicePaused => 'Paused: rules are not evaluated';
+
+  @override
+  String serviceWatching(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Watching $count channels',
+      one: 'Watching 1 channel',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get serviceLiveStarted => 'Live stream started';

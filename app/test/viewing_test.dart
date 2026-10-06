@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telegram_feed/feeds/timeline_screen.dart';
 import 'package:telegram_feed/host/viewing.dart';
+import 'package:telegram_feed/service/notification_plan.dart';
 import 'package:telegram_gateway/telegram_gateway.dart';
 
 import 'fixtures.dart';
@@ -25,6 +26,20 @@ void main() {
     expect(Viewing.chats.value, {-1});
     Viewing.hide(a);
     expect(Viewing.chats.value, isEmpty);
+  });
+
+  test('what the service is told: the timeline in front only while the app '
+      'is open', () {
+    expect(appOpenMessage(true, unlocked: true, viewing: {-1}), {
+      'appOpen': true,
+      'unlocked': true,
+      'viewing': [-1],
+    });
+    expect(appOpenMessage(false, unlocked: true, viewing: {-1}), {
+      'appOpen': false,
+      'unlocked': false,
+      'viewing': <int>[],
+    });
   });
 
   testWidgets('a timeline says its channel is on screen while it is in front, '

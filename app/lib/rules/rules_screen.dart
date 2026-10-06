@@ -314,6 +314,7 @@ class _RuleTile extends StatelessWidget {
           _preview(r, l10n),
           ?priority,
           if (r.readAloud) l10n.ruleTileReadAloud,
+          if (r.instant) l10n.ruleTileInstant,
         ].join(' · '),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,

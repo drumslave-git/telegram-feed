@@ -1396,6 +1396,21 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _instantMeta = const VerificationMeta(
+    'instant',
+  );
+  @override
+  late final GeneratedColumn<bool> instant = GeneratedColumn<bool>(
+    'instant',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("instant" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _scheduleJsonMeta = const VerificationMeta(
     'scheduleJson',
   );
@@ -1460,6 +1475,7 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
     conditionJson,
     priority,
     readAloud,
+    instant,
     scheduleJson,
     createdAt,
     semanticPrompt,
@@ -1535,6 +1551,12 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
       context.handle(
         _readAloudMeta,
         readAloud.isAcceptableOrUnknown(data['read_aloud']!, _readAloudMeta),
+      );
+    }
+    if (data.containsKey('instant')) {
+      context.handle(
+        _instantMeta,
+        instant.isAcceptableOrUnknown(data['instant']!, _instantMeta),
       );
     }
     if (data.containsKey('schedule_json')) {
@@ -1616,6 +1638,10 @@ class $RulesTable extends Rules with TableInfo<$RulesTable, Rule> {
         DriftSqlType.bool,
         data['${effectivePrefix}read_aloud'],
       )!,
+      instant: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}instant'],
+      )!,
       scheduleJson: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}schedule_json'],
@@ -1660,6 +1686,10 @@ class Rule extends DataClass implements Insertable<Rule> {
   /// 'silent', 'normal' or 'urgent'.
   final String priority;
   final bool readAloud;
+
+  /// Notifies the moment a post comes, also of a channel muted in Telegram: while any
+  /// rule is instant, the app keeps its connection to Telegram open (section 8).
+  final bool instant;
   final String? scheduleJson;
   final DateTime createdAt;
 
@@ -1679,6 +1709,7 @@ class Rule extends DataClass implements Insertable<Rule> {
     required this.conditionJson,
     required this.priority,
     required this.readAloud,
+    required this.instant,
     this.scheduleJson,
     required this.createdAt,
     this.semanticPrompt,
@@ -1698,6 +1729,7 @@ class Rule extends DataClass implements Insertable<Rule> {
     map['condition_json'] = Variable<String>(conditionJson);
     map['priority'] = Variable<String>(priority);
     map['read_aloud'] = Variable<bool>(readAloud);
+    map['instant'] = Variable<bool>(instant);
     if (!nullToAbsent || scheduleJson != null) {
       map['schedule_json'] = Variable<String>(scheduleJson);
     }
@@ -1726,6 +1758,7 @@ class Rule extends DataClass implements Insertable<Rule> {
       conditionJson: Value(conditionJson),
       priority: Value(priority),
       readAloud: Value(readAloud),
+      instant: Value(instant),
       scheduleJson: scheduleJson == null && nullToAbsent
           ? const Value.absent()
           : Value(scheduleJson),
@@ -1756,6 +1789,7 @@ class Rule extends DataClass implements Insertable<Rule> {
       conditionJson: serializer.fromJson<String>(json['conditionJson']),
       priority: serializer.fromJson<String>(json['priority']),
       readAloud: serializer.fromJson<bool>(json['readAloud']),
+      instant: serializer.fromJson<bool>(json['instant']),
       scheduleJson: serializer.fromJson<String?>(json['scheduleJson']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       semanticPrompt: serializer.fromJson<String?>(json['semanticPrompt']),
@@ -1775,6 +1809,7 @@ class Rule extends DataClass implements Insertable<Rule> {
       'conditionJson': serializer.toJson<String>(conditionJson),
       'priority': serializer.toJson<String>(priority),
       'readAloud': serializer.toJson<bool>(readAloud),
+      'instant': serializer.toJson<bool>(instant),
       'scheduleJson': serializer.toJson<String?>(scheduleJson),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'semanticPrompt': serializer.toJson<String?>(semanticPrompt),
@@ -1792,6 +1827,7 @@ class Rule extends DataClass implements Insertable<Rule> {
     String? conditionJson,
     String? priority,
     bool? readAloud,
+    bool? instant,
     Value<String?> scheduleJson = const Value.absent(),
     DateTime? createdAt,
     Value<String?> semanticPrompt = const Value.absent(),
@@ -1806,6 +1842,7 @@ class Rule extends DataClass implements Insertable<Rule> {
     conditionJson: conditionJson ?? this.conditionJson,
     priority: priority ?? this.priority,
     readAloud: readAloud ?? this.readAloud,
+    instant: instant ?? this.instant,
     scheduleJson: scheduleJson.present ? scheduleJson.value : this.scheduleJson,
     createdAt: createdAt ?? this.createdAt,
     semanticPrompt: semanticPrompt.present
@@ -1828,6 +1865,7 @@ class Rule extends DataClass implements Insertable<Rule> {
           : this.conditionJson,
       priority: data.priority.present ? data.priority.value : this.priority,
       readAloud: data.readAloud.present ? data.readAloud.value : this.readAloud,
+      instant: data.instant.present ? data.instant.value : this.instant,
       scheduleJson: data.scheduleJson.present
           ? data.scheduleJson.value
           : this.scheduleJson,
@@ -1851,6 +1889,7 @@ class Rule extends DataClass implements Insertable<Rule> {
           ..write('conditionJson: $conditionJson, ')
           ..write('priority: $priority, ')
           ..write('readAloud: $readAloud, ')
+          ..write('instant: $instant, ')
           ..write('scheduleJson: $scheduleJson, ')
           ..write('createdAt: $createdAt, ')
           ..write('semanticPrompt: $semanticPrompt, ')
@@ -1870,6 +1909,7 @@ class Rule extends DataClass implements Insertable<Rule> {
     conditionJson,
     priority,
     readAloud,
+    instant,
     scheduleJson,
     createdAt,
     semanticPrompt,
@@ -1888,6 +1928,7 @@ class Rule extends DataClass implements Insertable<Rule> {
           other.conditionJson == this.conditionJson &&
           other.priority == this.priority &&
           other.readAloud == this.readAloud &&
+          other.instant == this.instant &&
           other.scheduleJson == this.scheduleJson &&
           other.createdAt == this.createdAt &&
           other.semanticPrompt == this.semanticPrompt &&
@@ -1904,6 +1945,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
   final Value<String> conditionJson;
   final Value<String> priority;
   final Value<bool> readAloud;
+  final Value<bool> instant;
   final Value<String?> scheduleJson;
   final Value<DateTime> createdAt;
   final Value<String?> semanticPrompt;
@@ -1918,6 +1960,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     this.conditionJson = const Value.absent(),
     this.priority = const Value.absent(),
     this.readAloud = const Value.absent(),
+    this.instant = const Value.absent(),
     this.scheduleJson = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.semanticPrompt = const Value.absent(),
@@ -1933,6 +1976,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     required String conditionJson,
     required String priority,
     this.readAloud = const Value.absent(),
+    this.instant = const Value.absent(),
     this.scheduleJson = const Value.absent(),
     required DateTime createdAt,
     this.semanticPrompt = const Value.absent(),
@@ -1952,6 +1996,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     Expression<String>? conditionJson,
     Expression<String>? priority,
     Expression<bool>? readAloud,
+    Expression<bool>? instant,
     Expression<String>? scheduleJson,
     Expression<DateTime>? createdAt,
     Expression<String>? semanticPrompt,
@@ -1967,6 +2012,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
       if (conditionJson != null) 'condition_json': conditionJson,
       if (priority != null) 'priority': priority,
       if (readAloud != null) 'read_aloud': readAloud,
+      if (instant != null) 'instant': instant,
       if (scheduleJson != null) 'schedule_json': scheduleJson,
       if (createdAt != null) 'created_at': createdAt,
       if (semanticPrompt != null) 'semantic_prompt': semanticPrompt,
@@ -1984,6 +2030,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     Value<String>? conditionJson,
     Value<String>? priority,
     Value<bool>? readAloud,
+    Value<bool>? instant,
     Value<String?>? scheduleJson,
     Value<DateTime>? createdAt,
     Value<String?>? semanticPrompt,
@@ -1999,6 +2046,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
       conditionJson: conditionJson ?? this.conditionJson,
       priority: priority ?? this.priority,
       readAloud: readAloud ?? this.readAloud,
+      instant: instant ?? this.instant,
       scheduleJson: scheduleJson ?? this.scheduleJson,
       createdAt: createdAt ?? this.createdAt,
       semanticPrompt: semanticPrompt ?? this.semanticPrompt,
@@ -2034,6 +2082,9 @@ class RulesCompanion extends UpdateCompanion<Rule> {
     if (readAloud.present) {
       map['read_aloud'] = Variable<bool>(readAloud.value);
     }
+    if (instant.present) {
+      map['instant'] = Variable<bool>(instant.value);
+    }
     if (scheduleJson.present) {
       map['schedule_json'] = Variable<String>(scheduleJson.value);
     }
@@ -2063,6 +2114,7 @@ class RulesCompanion extends UpdateCompanion<Rule> {
           ..write('conditionJson: $conditionJson, ')
           ..write('priority: $priority, ')
           ..write('readAloud: $readAloud, ')
+          ..write('instant: $instant, ')
           ..write('scheduleJson: $scheduleJson, ')
           ..write('createdAt: $createdAt, ')
           ..write('semanticPrompt: $semanticPrompt, ')
@@ -3637,6 +3689,7 @@ typedef $$RulesTableCreateCompanionBuilder = RulesCompanion Function({
   required String conditionJson,
   required String priority,
   Value<bool> readAloud,
+  Value<bool> instant,
   Value<String?> scheduleJson,
   required DateTime createdAt,
   Value<String?> semanticPrompt,
@@ -3652,6 +3705,7 @@ typedef $$RulesTableUpdateCompanionBuilder = RulesCompanion Function({
   Value<String> conditionJson,
   Value<String> priority,
   Value<bool> readAloud,
+  Value<bool> instant,
   Value<String?> scheduleJson,
   Value<DateTime> createdAt,
   Value<String?> semanticPrompt,
@@ -3721,6 +3775,11 @@ class $$RulesTableFilterComposer extends Composer<_$AppDatabase, $RulesTable> {
 
   ColumnFilters<bool> get readAloud => $composableBuilder(
     column: $table.readAloud,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get instant => $composableBuilder(
+    column: $table.instant,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3817,6 +3876,11 @@ class $$RulesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get instant => $composableBuilder(
+    column: $table.instant,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get scheduleJson => $composableBuilder(
     column: $table.scheduleJson,
     builder: (column) => ColumnOrderings(column),
@@ -3900,6 +3964,9 @@ class $$RulesTableAnnotationComposer
   GeneratedColumn<bool> get readAloud =>
       $composableBuilder(column: $table.readAloud, builder: (column) => column);
 
+  GeneratedColumn<bool> get instant =>
+      $composableBuilder(column: $table.instant, builder: (column) => column);
+
   GeneratedColumn<String> get scheduleJson => $composableBuilder(
     column: $table.scheduleJson,
     builder: (column) => column,
@@ -3979,6 +4046,7 @@ class $$RulesTableTableManager
                 Value<String> conditionJson = const Value.absent(),
                 Value<String> priority = const Value.absent(),
                 Value<bool> readAloud = const Value.absent(),
+                Value<bool> instant = const Value.absent(),
                 Value<String?> scheduleJson = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<String?> semanticPrompt = const Value.absent(),
@@ -3993,6 +4061,7 @@ class $$RulesTableTableManager
                 conditionJson: conditionJson,
                 priority: priority,
                 readAloud: readAloud,
+                instant: instant,
                 scheduleJson: scheduleJson,
                 createdAt: createdAt,
                 semanticPrompt: semanticPrompt,
@@ -4009,6 +4078,7 @@ class $$RulesTableTableManager
                 required String conditionJson,
                 required String priority,
                 Value<bool> readAloud = const Value.absent(),
+                Value<bool> instant = const Value.absent(),
                 Value<String?> scheduleJson = const Value.absent(),
                 required DateTime createdAt,
                 Value<String?> semanticPrompt = const Value.absent(),
@@ -4023,6 +4093,7 @@ class $$RulesTableTableManager
                 conditionJson: conditionJson,
                 priority: priority,
                 readAloud: readAloud,
+                instant: instant,
                 scheduleJson: scheduleJson,
                 createdAt: createdAt,
                 semanticPrompt: semanticPrompt,

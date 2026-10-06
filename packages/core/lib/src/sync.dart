@@ -158,6 +158,7 @@ final class SyncedRule {
       'conditionJson': r.conditionJson,
       'priority': r.priority,
       'readAloud': r.readAloud,
+      'instant': r.instant,
       'scheduleJson': r.scheduleJson,
       'semanticPrompt': r.semanticPrompt,
       'createdAt': _ms(r.createdAt),
@@ -173,6 +174,7 @@ final class SyncedRule {
     conditionJson: fields['conditionJson'] as String,
     priority: fields['priority'] as String,
     readAloud: Value(fields['readAloud'] as bool? ?? false),
+    instant: Value(fields['instant'] as bool? ?? false),
     scheduleJson: Value(fields['scheduleJson'] as String?),
     semanticPrompt: Value(fields['semanticPrompt'] as String?),
     createdAt: DateTime.fromMillisecondsSinceEpoch(
