@@ -9,9 +9,9 @@ name: debug-release
 #
 # Secrets: TG_API_ID, TG_API_HASH, DEBUG_KEYSTORE_BASE64 (a debug.keystore with the usual
 # `android` passwords; a fixed key lets each APK install over the previous one and keeps the
-# SHA-1 registered for Google sign-in valid). Optional: GOOGLE_SERVER_CLIENT_ID, and
-# GOOGLE_SERVICES_JSON_BASE64 (the Firebase project's google-services.json, base64), without
-# which the APKs get no push.
+# SHA-1 registered for Google sign-in valid), GOOGLE_SERVICES_JSON_BASE64 (the Firebase
+# project's google-services.json, base64; push comes through it). Optional:
+# GOOGLE_SERVER_CLIENT_ID.
 on:
   workflow_run:
     workflows: [ci, tdlib]
@@ -59,9 +59,10 @@ jobs:
           TG_API_ID: ${{ secrets.TG_API_ID }}
           TG_API_HASH: ${{ secrets.TG_API_HASH }}
           DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
         run: |
           missing=""
-          for name in TG_API_ID TG_API_HASH DEBUG_KEYSTORE_BASE64; do
+          for name in TG_API_ID TG_API_HASH DEBUG_KEYSTORE_BASE64 GOOGLE_SERVICES_JSON_BASE64; do
             [ -n "${!name}" ] || missing="$missing $name"
           done
           if [ -n "$missing" ]; then
@@ -99,12 +100,7 @@ jobs:
         if: steps.v.outputs.release == 'true'
         env:
           GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
-        run: |
-          if [ -z "$GOOGLE_SERVICES_JSON_BASE64" ]; then
-            echo "::warning::No GOOGLE_SERVICES_JSON_BASE64 secret: these APKs get no push from Telegram."
-          else
-            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > app/android/app/google-services.json
-          fi
+        run: echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > app/android/app/google-services.json
 
       - name: Build APKs (arm64-v8a, x86_64)
         if: steps.v.outputs.release == 'true'
