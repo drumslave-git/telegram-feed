@@ -40,6 +40,15 @@ jobs:
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
+      - name: Firebase project for push
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "::warning::No GOOGLE_SERVICES_JSON_BASE64 secret: these APKs get no push from Telegram."
+          else
+            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > app/android/app/google-services.json
+          fi
       - name: Build release APKs (arm64-v8a, x86_64)
         working-directory: app
         run: |
@@ -54,7 +63,7 @@ jobs:
           ls -la build/app/outputs/flutter-apk/
       - name: Remove signing material
         if: always()
-        run: rm -f app/android/upload.jks app/android/key.properties
+        run: rm -f app/android/upload.jks app/android/key.properties app/android/app/google-services.json
       - uses: actions/upload-artifact@v7
         with:
           name: apk

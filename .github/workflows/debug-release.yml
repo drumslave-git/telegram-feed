@@ -9,7 +9,9 @@ name: debug-release
 #
 # Secrets: TG_API_ID, TG_API_HASH, DEBUG_KEYSTORE_BASE64 (a debug.keystore with the usual
 # `android` passwords; a fixed key lets each APK install over the previous one and keeps the
-# SHA-1 registered for Google sign-in valid). Optional: GOOGLE_SERVER_CLIENT_ID.
+# SHA-1 registered for Google sign-in valid). Optional: GOOGLE_SERVER_CLIENT_ID, and
+# GOOGLE_SERVICES_JSON_BASE64 (the Firebase project's google-services.json, base64), without
+# which the APKs get no push.
 on:
   workflow_run:
     workflows: [ci, tdlib]
@@ -93,6 +95,17 @@ jobs:
           echo "fixed key SHA-1: $sha1"
           echo "DEBUG_KEY_SHA1=$sha1" >> "$GITHUB_ENV"
 
+      - name: Firebase project for push
+        if: steps.v.outputs.release == 'true'
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "::warning::No GOOGLE_SERVICES_JSON_BASE64 secret: these APKs get no push from Telegram."
+          else
+            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > app/android/app/google-services.json
+          fi
+
       - name: Build APKs (arm64-v8a, x86_64)
         if: steps.v.outputs.release == 'true'
         working-directory: app
@@ -123,9 +136,9 @@ jobs:
             fi
           done
 
-      - name: Remove the signing key
+      - name: Remove the signing key and the Firebase project
         if: always()
-        run: rm -f "$RUNNER_TEMP/debug.keystore"
+        run: rm -f "$RUNNER_TEMP/debug.keystore" app/android/app/google-services.json
 
       - name: Release notes
         if: steps.v.outputs.release == 'true'
